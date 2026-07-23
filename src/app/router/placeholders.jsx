@@ -1,56 +1,54 @@
-const Placeholder = ({ title, hint }) => (
+export const SitesPage = () => (
   <div className="card bg-base-100 border border-base-300">
     <div className="card-body gap-2">
-      <h1 className="card-title text-xl">{title}</h1>
-      {hint ? <p className="text-sm text-base-content/70">{hint}</p> : null}
+      <h1 className="card-title text-xl">সাইটসমূহ</h1>
+      <p className="text-sm text-base-content/70">সাইট তালিকা পরে।</p>
     </div>
   </div>
-)
-
-export const HomePage = () => (
-  <Placeholder
-    title="হোম"
-    hint="লেআউট প্রিভিউ — মডিউল পরে যোগ হবে।"
-  />
-)
-
-export const LoginPage = () => (
-  <div className="card bg-base-100 shadow-sm border border-base-300">
-    <div className="card-body gap-3">
-      <h1 className="card-title justify-center text-2xl">লগইন</h1>
-      <p className="text-center text-sm text-base-content/70">
-        AuthLayout প্রিভিউ — ফর্ম পরে।
-      </p>
-      <button type="button" className="btn btn-primary" disabled>
-        লগইন
-      </button>
-    </div>
-  </div>
-)
-
-export const SitesPage = () => (
-  <Placeholder title="সাইটসমূহ" hint="সাইট তালিকা পরে।" />
 )
 
 export const SiteLedgerPage = () => (
-  <Placeholder
-    title="দৈনিক লেজার"
-    hint="SiteScopedLayout — তারিখ ও সাইট সিলেক্টর উপরে।"
-  />
+  <div className="card bg-base-100 border border-base-300">
+    <div className="card-body gap-2">
+      <h1 className="card-title text-xl">দৈনিক লেজার</h1>
+      <p className="text-sm text-base-content/70">
+        SiteScopedLayout — তারিখ ও সাইট সিলেক্টর উপরে।
+      </p>
+    </div>
+  </div>
 )
 
 export const LaboursPage = () => (
-  <Placeholder title="শ্রমিক" hint="শ্রমিক তালিকা পরে।" />
+  <div className="card bg-base-100 border border-base-300">
+    <div className="card-body gap-2">
+      <h1 className="card-title text-xl">শ্রমিক</h1>
+      <p className="text-sm text-base-content/70">শ্রমিক তালিকা পরে।</p>
+    </div>
+  </div>
 )
 
 export const LabourOverviewPage = () => (
-  <Placeholder title="শ্রমিক ওভারভিউ" hint="LabourDetailLayout ট্যাব।" />
+  <div className="card bg-base-100 border border-base-300">
+    <div className="card-body gap-2">
+      <h1 className="card-title text-xl">শ্রমিক ওভারভিউ</h1>
+      <p className="text-sm text-base-content/70">LabourDetailLayout ট্যাব।</p>
+    </div>
+  </div>
 )
 
-export const LabourSectionPage = ({ title }) => <Placeholder title={title} />
+export const LabourSectionPage = ({ title }) => (
+  <div className="card bg-base-100 border border-base-300">
+    <div className="card-body gap-2">
+      <h1 className="card-title text-xl">{title}</h1>
+    </div>
+  </div>
+)
 
 export const UsersPage = () => (
-  <Placeholder title="ইউজার" hint="PermissionGate পরে।" />
+  <div className="card bg-base-100 border border-base-300">
+    <div className="card-body gap-2">
+      <h1 className="card-title text-xl">ইউজার</h1>
+      <p className="text-sm text-base-content/70">ইউজার মডিউল পরে।</p>
+    </div>
+  </div>
 )
-
-export const ProfilePage = () => <Placeholder title="প্রোফাইল" />

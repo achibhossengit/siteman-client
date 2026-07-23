@@ -20,7 +20,7 @@ export const AuthLayout = () => (
     </main>
 
     <footer className="footer footer-center bg-base-100 border-t border-base-300 text-base-content/60 p-4 text-xs">
-      <p>সাইট ম্যানেজার · নির্মাণ সাইট ব্যবস্থাপনা</p>
+      <p>সাইট ম্যান · নির্মাণ সাইট ব্যবস্থাপনা</p>
     </footer>
   </div>
 )
