@@ -15,7 +15,7 @@ src/
 │   ├── profile.js           # profile API calls
 │   └── types/               # live-contract shapes (JSDoc)
 ├── providers/               # AuthProvider, ThemeProvider
-├── layouts/                 # AuthLayout, AppLayout, SiteScopedLayout, LabourDetailLayout
+├── layouts/                 # AuthLayout, AppLayout, SiteScopedLayout, DetailLayout
 ├── router/                  # route table, path constants, guards, placeholders
 ├── pages/
 │   ├── auth/                # login, register, OTP, password reset

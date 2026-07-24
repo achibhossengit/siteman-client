@@ -2,7 +2,8 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthLayout } from '../layouts/AuthLayout.jsx'
 import { AppLayout } from '../layouts/AppLayout.jsx'
 import { SiteScopedLayout } from '../layouts/SiteScopedLayout.jsx'
-import { LabourDetailLayout } from '../layouts/LabourDetailLayout.jsx'
+import { DetailLayout } from '../layouts/DetailLayout.jsx'
+import { LabourDetailTabs } from '../layouts/LabourDetailTabs.jsx'
 import { GuestOnly, RequireAuth } from './guards.jsx'
 import { paths } from './paths.js'
 import {
@@ -29,9 +30,7 @@ const UsersRoute = () => (
   <PermissionGate
     anyOf={[PERMS.viewUser, 'auth.view_user']}
     fallback={
-      <div className="alert alert-warning">
-        ইউজার দেখার অনুমতি নেই।
-      </div>
+      <div className="alert alert-warning">ইউজার দেখার অনুমতি নেই।</div>
     }
   >
     <UsersPage />
@@ -66,27 +65,58 @@ export const AppRouter = () => (
           <Route path={paths.users} element={<UsersRoute />} />
           <Route path={paths.profile} element={<ProfilePage />} />
           <Route path={paths.changePassword} element={<ChangePasswordPage />} />
+        </Route>
 
-          <Route path="/sites/:id" element={<SiteScopedLayout />}>
-            <Route path="daily-ledger" element={<SiteLedgerPage />} />
-            <Route path="daily-report" element={<SiteLedgerPage />} />
-            <Route path="cash" element={<SiteLedgerPage />} />
-            <Route path="private-cash" element={<SiteLedgerPage />} />
-          </Route>
+        {/* Own chrome: brand hide-on-scroll + site/date bar + bottom nav */}
+        <Route element={<SiteScopedLayout />}>
+          <Route
+            path="/sites/:id/daily-ledger"
+            element={<SiteLedgerPage />}
+            handle={{ title: 'দৈনিক খাতা' }}
+          />
+          <Route
+            path="/sites/:id/daily-report"
+            element={<SiteLedgerPage />}
+            handle={{ title: 'দৈনিক রিপোর্ট' }}
+          />
+          <Route
+            path="/sites/:id/cash"
+            element={<SiteLedgerPage />}
+            handle={{ title: 'ক্যাশ' }}
+          />
+          <Route
+            path="/sites/:id/private-cash"
+            element={<SiteLedgerPage />}
+            handle={{ title: 'প্রাইভেট ক্যাশ' }}
+          />
+        </Route>
 
-          <Route path="/labours/:id" element={<LabourDetailLayout />}>
-            <Route index element={<LabourOverviewPage />} />
+        {/* Back + title only — maximize content */}
+        <Route element={<DetailLayout />}>
+          <Route
+            path="/labours/:id"
+            element={<LabourDetailTabs />}
+            handle={{ title: 'শ্রমিক বিবরণ' }}
+          >
+            <Route
+              index
+              element={<LabourOverviewPage />}
+              handle={{ title: 'শ্রমিক · ওভারভিউ' }}
+            />
             <Route
               path="attendances"
               element={<LabourSectionPage title="হাজিরা" />}
+              handle={{ title: 'শ্রমিক · হাজিরা' }}
             />
             <Route
               path="payments"
               element={<LabourSectionPage title="পেমেন্ট" />}
+              handle={{ title: 'শ্রমিক · পেমেন্ট' }}
             />
             <Route
               path="sessions"
               element={<LabourSectionPage title="সেশন" />}
+              handle={{ title: 'শ্রমিক · সেশন' }}
             />
           </Route>
         </Route>

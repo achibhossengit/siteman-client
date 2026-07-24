@@ -3,13 +3,15 @@ import { NavLink, Outlet, useParams } from 'react-router-dom'
 const tabClass = ({ isActive }) =>
   [
     'tab',
-    isActive ? 'tab-active [--tab-bg:var(--color-primary)] text-primary-content' : '',
+    isActive
+      ? 'tab-active [--tab-bg:var(--color-primary)] text-primary-content'
+      : '',
   ].join(' ')
 
 /**
- * Nested under AppLayout. Page-local tabs for labour detail.
+ * Labour detail section tabs — nested under DetailLayout.
  */
-export const LabourDetailLayout = () => {
+export const LabourDetailTabs = () => {
   const { id } = useParams()
   const base = `/labours/${id}`
 
@@ -22,7 +24,10 @@ export const LabourDetailLayout = () => {
 
   return (
     <div className="flex flex-col gap-3">
-      <div role="tablist" className="tabs tabs-box bg-base-100 border border-base-300">
+      <div
+        role="tablist"
+        className="tabs tabs-box bg-base-100 border border-base-300"
+      >
         {tabs.map(({ to, label, end }) => (
           <NavLink key={to} to={to} end={end} role="tab" className={tabClass}>
             {label}
