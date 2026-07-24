@@ -1,88 +1,88 @@
-import { useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { passwordResetConfirm, passwordResetResendOtp } from '../api.js'
-import { parseApiError } from '../../../api/errors.js'
-import { ApiErrorAlert } from '../../../shared/components/ApiErrorAlert.jsx'
-import { OtpForm } from '../components/OtpForm.jsx'
-import { paths } from '../../../app/router/paths.js'
+import { useState } from "react";
+import { Link, Navigate, useNavigate } from "react-router-dom";
+import { passwordResetConfirm, passwordResetResendOtp } from "../api.js";
+import { parseApiError } from "../../../api/errors.js";
+import { ApiErrorAlert } from "../../../shared/components/ApiErrorAlert.jsx";
+import { OtpForm } from "../components/OtpForm.jsx";
+import { paths } from "../../../app/router/paths.js";
 import {
   OTP_STORAGE,
   clearOtpSession,
   getOtpDeadlines,
   readOtpSession,
   saveOtpSession,
-} from '../otpSession.js'
+} from "../otpSession.js";
 
 export const PasswordResetConfirmPage = () => {
-  const navigate = useNavigate()
-  const session = readOtpSession(OTP_STORAGE.passwordReset)
-  const initialDeadlines = getOtpDeadlines(session)
-  const [otp, setOtp] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [otpError, setOtpError] = useState(null)
-  const [passwordError, setPasswordError] = useState(null)
-  const [apiError, setApiError] = useState(null)
-  const [submitting, setSubmitting] = useState(false)
-  const [resending, setResending] = useState(false)
-  const [expiresAt, setExpiresAt] = useState(initialDeadlines.expiresAt)
-  const [resendAt, setResendAt] = useState(initialDeadlines.resendAt)
+  const navigate = useNavigate();
+  const session = readOtpSession(OTP_STORAGE.passwordReset);
+  const initialDeadlines = getOtpDeadlines(session);
+  const [otp, setOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [otpError, setOtpError] = useState(null);
+  const [passwordError, setPasswordError] = useState(null);
+  const [apiError, setApiError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [expiresAt, setExpiresAt] = useState(initialDeadlines.expiresAt);
+  const [resendAt, setResendAt] = useState(initialDeadlines.resendAt);
 
   if (!session?.ticket) {
-    return <Navigate to={paths.passwordReset} replace />
+    return <Navigate to={paths.passwordReset} replace />;
   }
 
   const onSubmit = async () => {
-    setApiError(null)
-    setOtpError(null)
-    setPasswordError(null)
+    setApiError(null);
+    setOtpError(null);
+    setPasswordError(null);
 
     if (newPassword.length < 6) {
-      setPasswordError('কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড')
-      return
+      setPasswordError("কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড");
+      return;
     }
 
-    setSubmitting(true)
+    setSubmitting(true);
     try {
       await passwordResetConfirm({
         ticket: session.ticket,
         otp,
         new_password: newPassword,
-      })
-      clearOtpSession(OTP_STORAGE.passwordReset)
-      navigate(paths.login, { replace: true, state: { passwordReset: true } })
+      });
+      clearOtpSession(OTP_STORAGE.passwordReset);
+      navigate(paths.login, { replace: true, state: { passwordReset: true } });
     } catch (err) {
-      const parsed = parseApiError(err)
-      setApiError(parsed)
-      if (parsed.fieldErrors?.otp) setOtpError(parsed.fieldErrors.otp[0])
+      const parsed = parseApiError(err);
+      setApiError(parsed);
+      if (parsed.fieldErrors?.otp) setOtpError(parsed.fieldErrors.otp[0]);
       if (parsed.fieldErrors?.new_password) {
-        setPasswordError(parsed.fieldErrors.new_password[0])
+        setPasswordError(parsed.fieldErrors.new_password[0]);
       }
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   const onResend = async () => {
-    setApiError(null)
-    setResending(true)
+    setApiError(null);
+    setResending(true);
     try {
-      const { data } = await passwordResetResendOtp({ ticket: session.ticket })
+      const { data } = await passwordResetResendOtp({ ticket: session.ticket });
       const saved = saveOtpSession(OTP_STORAGE.passwordReset, {
         ...session,
         ticket: data.ticket || session.ticket,
         otp_expires_in: data.otp_expires_in ?? 300,
         resend_cooldown: data.resend_cooldown ?? 60,
-      })
-      const next = getOtpDeadlines(saved)
-      setExpiresAt(next.expiresAt)
-      setResendAt(next.resendAt)
-      setOtp('')
+      });
+      const next = getOtpDeadlines(saved);
+      setExpiresAt(next.expiresAt);
+      setResendAt(next.resendAt);
+      setOtp("");
     } catch (err) {
-      setApiError(parseApiError(err))
+      setApiError(parseApiError(err));
     } finally {
-      setResending(false)
+      setResending(false);
     }
-  }
+  };
 
   return (
     <div className="card bg-base-100 shadow-sm border border-base-300">
@@ -111,7 +111,7 @@ export const PasswordResetConfirmPage = () => {
             <input
               type="password"
               autoComplete="new-password"
-              className={`input input-bordered w-full ${passwordError ? 'input-error' : ''}`}
+              className={`input input-bordered w-full ${passwordError ? "input-error" : ""}`}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
             />
@@ -124,11 +124,15 @@ export const PasswordResetConfirmPage = () => {
         </OtpForm>
 
         <p className="text-center text-sm">
-          <Link to={paths.passwordReset} className="link link-hover">
-            ফিরে যান
+          <Link
+            to={paths.passwordReset}
+            className="link link-hover"
+            onClick={() => clearOtpSession(OTP_STORAGE.passwordReset)}
+          >
+            বাতিল / ফিরে যান
           </Link>
         </p>
       </div>
     </div>
-  )
-}
+  );
+};

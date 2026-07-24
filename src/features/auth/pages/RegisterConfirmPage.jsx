@@ -102,8 +102,12 @@ export const RegisterConfirmPage = () => {
         />
 
         <p className="text-center text-sm">
-          <Link to={paths.register} className="link link-hover">
-            ফিরে যান
+          <Link
+            to={paths.register}
+            className="link link-hover"
+            onClick={() => clearOtpSession(OTP_STORAGE.register)}
+          >
+            বাতিল / ফিরে যান
           </Link>
         </p>
       </div>
