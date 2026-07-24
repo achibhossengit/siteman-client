@@ -3,7 +3,7 @@ import { AppHeader } from '../components/AppHeader.jsx'
 
 export const AuthLayout = () => (
   <div className="min-h-dvh bg-base-200 flex flex-col">
-    <AppHeader sticky brandTo="/login" />
+    <AppHeader sticky />
 
     <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-md">

@@ -7,26 +7,17 @@ import { paths } from "../router/paths.js";
 /**
  * Shared top chrome: brand + theme + auth actions (login/register or profile).
  */
-export const AppHeader = ({ className = "", brandTo, sticky = false }) => {
+export const AppHeader = ({ className = "", sticky = false }) => {
   const { isAuthenticated, profile } = useAuth();
-
-  const resolvedBrandTo =
-    brandTo ?? (isAuthenticated ? paths.home : paths.login);
 
   return (
     <header
-      className={[
-        "navbar bg-base-100 border-b border-base-300 px-3 sm:px-4 min-h-14 h-14",
-        sticky ? "sticky top-0 z-30" : "",
-        className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      className={`navbar bg-base-100 border-b border-base-300 px-3 sm:px-4 min-h-14 h-14 flex justify-between items-center ${sticky ? "sticky top-0 z-30" : ""}`}
     >
-      <div className="flex-1">
-        <BrandLogo to={resolvedBrandTo} compact />
+      <div>
+        <BrandLogo />
       </div>
-      <div className="flex-none flex items-center gap-1 sm:gap-2">
+      <div className="flex items-center gap-1 sm:gap-2">
         {isAuthenticated ? (
           <>
             <ThemeToggle />

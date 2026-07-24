@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
-import { paths } from '../../router/paths.js'
-import { getPendingOtpKind } from '../../utils/otpSession.js'
+import { paths } from './paths.js'
+import { getPendingOtpKind } from '../utils/otpSession.js'
 
 /**
  * If an OTP ticket is pending, force the confirm page until cancelled or completed.
