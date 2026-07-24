@@ -1,5 +1,9 @@
 export const paths = {
   home: '/',
+  balance: '/balance',
+  hajira: '/hajira',
+  cash: '/cash',
+  others: '/others',
   login: '/login',
   register: '/register',
   registerConfirm: '/register/confirm',

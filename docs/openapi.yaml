@@ -5557,7 +5557,7 @@ paths:
     get:
       operationId: sites_daily_reports_retrieve
       description: Day summary for this site. Query param ``date`` (YYYY-MM-DD) is
-        required.
+        optional; defaults to today.
       parameters:
       - in: path
         name: id

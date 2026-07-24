@@ -4,14 +4,10 @@ import { AppBottomNav } from "../components/AppBottomNav.jsx";
 
 export const AppLayout = () => (
   <div className="min-h-dvh bg-base-200 flex flex-col pb-20">
-    <header>
-      <AppHeader sticky />
-    </header>
-    <main className="flex-1 w-full max-w-5xl mx-auto p-3 sm:p-4">
+    <AppHeader />
+    <main className="flex-1 w-full max-w-5xl mx-auto">
       <Outlet />
     </main>
-    <nav>
-      <AppBottomNav />
-    </nav>
+    <AppBottomNav />
   </div>
 );

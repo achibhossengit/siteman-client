@@ -1,80 +1,99 @@
-import { useState } from 'react'
-import { Outlet, useParams, useSearchParams } from 'react-router-dom'
-import { AppHeader } from '../components/AppHeader.jsx'
-import { AppBottomNav } from '../components/AppBottomNav.jsx'
-import { DateSelector } from '../components/DateSelector.jsx'
-import { SiteSelector } from '../components/SiteSelector.jsx'
-import { useHideOnScroll } from '../hooks/useHideOnScroll.js'
+import { useEffect, useMemo, useState } from "react";
+import { Outlet, useParams, useSearchParams } from "react-router-dom";
+import { DateSelector } from "../components/DateSelector.jsx";
+import { SiteSelector } from "../components/SiteSelector.jsx";
+import { useHideOnScroll } from "../hooks/useHideOnScroll.js";
+import { useAuth } from "../providers/AuthProvider.jsx";
+import {
+  readSelectedDate,
+  readSelectedSite,
+  todayIso,
+  writeSelectedDate,
+  writeSelectedSite,
+} from "../utils/sessionSelection.js";
 
 /** Brand header height (h-14) — used to tuck it away on scroll-down. */
-const BRAND_HEADER_H = '3.5rem'
+const BRAND_HEADER_H = "3.5rem";
+
+const selectableSites = (profile) => {
+  const list = Array.isArray(profile?.sites) ? profile.sites : [];
+  return list.filter((s) => s && s.id != null && s.is_active !== false);
+};
 
 /**
  * Full app chrome + sticky site/date bar.
  * Scroll down: brand header hides; site bar + bottom nav stay.
  * Scroll up: brand header returns.
+ * Site/date persist in sessionStorage as selectedSite / selectedDate.
  */
 export const SiteScopedLayout = () => {
-  const brandHidden = useHideOnScroll()
-  const { id: routeSiteId } = useParams()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const brandHidden = useHideOnScroll();
+  const { profile } = useAuth();
+  const { id: routeSiteId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sites = useMemo(() => selectableSites(profile), [profile]);
+
   const [siteId, setSiteId] = useState(
-    () => routeSiteId || searchParams.get('site') || '',
-  )
+    () => routeSiteId || searchParams.get("site") || readSelectedSite() || "",
+  );
+  const [date, setDate] = useState(
+    () => searchParams.get("date") || readSelectedDate() || todayIso(),
+  );
 
-  const date =
-    searchParams.get('date') || new Date().toISOString().slice(0, 10)
+  // Prefer first available site when nothing valid is selected.
+  useEffect(() => {
+    if (!sites.length) return;
+    const valid = sites.some((s) => String(s.id) === String(siteId));
+    if (!siteId || !valid) {
+      const next = String(sites[0].id);
+      setSiteId(next);
+      writeSelectedSite(next);
+    }
+  }, [sites, siteId]);
 
-  const setDate = (next) => {
-    const params = new URLSearchParams(searchParams)
-    params.set('date', next)
-    setSearchParams(params, { replace: true })
-  }
+  // Keep URL + session in sync with current selection.
+  useEffect(() => {
+    if (siteId) writeSelectedSite(siteId);
+    if (date) writeSelectedDate(date);
+
+    const params = new URLSearchParams(searchParams);
+    let changed = false;
+    if (siteId && params.get("site") !== String(siteId)) {
+      params.set("site", String(siteId));
+      changed = true;
+    }
+    if (date && params.get("date") !== date) {
+      params.set("date", date);
+      changed = true;
+    }
+    if (changed) setSearchParams(params, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only sync when site/date change
+  }, [siteId, date]);
 
   const onSiteChange = (next) => {
-    setSiteId(next)
-    const params = new URLSearchParams(searchParams)
-    if (next) params.set('site', next)
-    else params.delete('site')
-    setSearchParams(params, { replace: true })
-  }
+    setSiteId(next);
+    writeSelectedSite(next);
+  };
+
+  const onDateChange = (next) => {
+    setDate(next);
+    writeSelectedDate(next);
+  };
 
   return (
-    <div className="min-h-dvh bg-base-200 flex flex-col pb-20">
-      <div className="sticky top-0 z-30">
-        <div
-          className={[
-            'transition-transform duration-200 ease-out will-change-transform',
-            brandHidden ? '-translate-y-full' : 'translate-y-0',
-          ].join(' ')}
-          style={
-            brandHidden ? { marginBottom: `-${BRAND_HEADER_H}` } : undefined
-          }
-        >
-          <AppHeader />
+    <div>
+      <header
+        className={`bg-base-100 border-b border-base-300 w-full sticky top-0 z-30`}
+      >
+        <div className="max-w-5xl mx-auto w-full flex justify-between gap-2 items-stretch px-2 py-1.5">
+          <DateSelector value={date} onChange={onDateChange} />
+          <SiteSelector sites={sites} value={siteId} onChange={onSiteChange} />
         </div>
+      </header>
 
-        <div className="bg-base-100 border-b border-base-300 px-3 sm:px-4 py-2">
-          <div className="max-w-5xl mx-auto flex flex-wrap gap-2 sm:gap-3 items-end">
-            <SiteSelector
-              className="flex-1"
-              value={siteId}
-              onChange={onSiteChange}
-            />
-            <DateSelector
-              className="flex-1 "
-              value={date}
-              onChange={setDate}
-            />
-          </div>
-        </div>
-      </div>
-
-      <main className="flex-1 w-full max-w-5xl mx-auto p-3 sm:p-4">
-        <Outlet context={{ date, siteId }} />
+      <main className="flex-1 w-full max-w-5xl mx-auto px-3 py-2">
+        <Outlet context={{ date, siteId, sites }} />
       </main>
-
-      <AppBottomNav />
     </div>
-  )
-}
+  );
+};
