@@ -3,7 +3,17 @@ export const OTP_STORAGE = {
   passwordReset: 'siteman.passwordReset.otp',
 }
 
+const otherOtpKey = (key) => {
+  if (key === OTP_STORAGE.register) return OTP_STORAGE.passwordReset
+  if (key === OTP_STORAGE.passwordReset) return OTP_STORAGE.register
+  return null
+}
+
+/** Only one OTP flow may exist at a time — saving one clears the other. */
 export const saveOtpSession = (key, payload) => {
+  const other = otherOtpKey(key)
+  if (other) sessionStorage.removeItem(other)
+
   const savedAt = Date.now()
   const next = {
     ...payload,
@@ -17,7 +27,9 @@ export const readOtpSession = (key) => {
   try {
     const raw = sessionStorage.getItem(key)
     if (!raw) return null
-    return JSON.parse(raw)
+    const parsed = JSON.parse(raw)
+    if (!parsed?.ticket) return null
+    return parsed
   } catch {
     return null
   }
@@ -27,11 +39,25 @@ export const clearOtpSession = (key) => {
   sessionStorage.removeItem(key)
 }
 
-/** Seconds left until savedAt + durationSec. */
-export const remainingSeconds = (savedAt, durationSec) => {
-  if (!savedAt || durationSec == null) return 0
-  const endsAt = Number(savedAt) + Number(durationSec) * 1000
-  return Math.max(0, Math.floor((endsAt - Date.now()) / 1000))
+/**
+ * Ensure only one OTP session exists. Prefer the newer savedAt.
+ * @returns {'register' | 'passwordReset' | null}
+ */
+export const getPendingOtpKind = () => {
+  const register = readOtpSession(OTP_STORAGE.register)
+  const passwordReset = readOtpSession(OTP_STORAGE.passwordReset)
+
+  if (register && passwordReset) {
+    if ((register.savedAt ?? 0) >= (passwordReset.savedAt ?? 0)) {
+      clearOtpSession(OTP_STORAGE.passwordReset)
+      return 'register'
+    }
+    clearOtpSession(OTP_STORAGE.register)
+    return 'passwordReset'
+  }
+  if (register) return 'register'
+  if (passwordReset) return 'passwordReset'
+  return null
 }
 
 /** Absolute deadlines (ms) from session row. */

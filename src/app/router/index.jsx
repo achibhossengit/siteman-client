@@ -23,6 +23,7 @@ import { ProfilePage } from '../../features/profile/pages/ProfilePage.jsx'
 import { ChangePasswordPage } from '../../features/profile/pages/ChangePasswordPage.jsx'
 import { PermissionGate } from '../../shared/components/PermissionGate.jsx'
 import { PERMS } from '../../shared/constants/permissions.js'
+import { PendingOtpRedirect } from '../../features/auth/components/PendingOtpRedirect.jsx'
 
 const UsersRoute = () => (
   <PermissionGate
@@ -39,53 +40,59 @@ const UsersRoute = () => (
 
 export const AppRouter = () => (
   <Routes>
-    <Route element={<GuestOnly />}>
+    <Route element={<PendingOtpRedirect />}>
+      {/* OTP confirm must stay reachable even if logged in */}
       <Route element={<AuthLayout />}>
-        <Route path={paths.login} element={<LoginPage />} />
-        <Route path={paths.register} element={<RegisterPage />} />
         <Route path={paths.registerConfirm} element={<RegisterConfirmPage />} />
-        <Route path={paths.passwordReset} element={<PasswordResetPage />} />
         <Route
           path={paths.passwordResetConfirm}
           element={<PasswordResetConfirmPage />}
         />
       </Route>
-    </Route>
 
-    <Route element={<RequireAuth />}>
-      <Route element={<AppLayout />}>
-        <Route index element={<HomePage />} />
-        <Route path={paths.sites} element={<SitesPage />} />
-        <Route path={paths.labours} element={<LaboursPage />} />
-        <Route path={paths.users} element={<UsersRoute />} />
-        <Route path={paths.profile} element={<ProfilePage />} />
-        <Route path={paths.changePassword} element={<ChangePasswordPage />} />
-
-        <Route path="/sites/:id" element={<SiteScopedLayout />}>
-          <Route path="daily-ledger" element={<SiteLedgerPage />} />
-          <Route path="daily-report" element={<SiteLedgerPage />} />
-          <Route path="cash" element={<SiteLedgerPage />} />
-          <Route path="private-cash" element={<SiteLedgerPage />} />
-        </Route>
-
-        <Route path="/labours/:id" element={<LabourDetailLayout />}>
-          <Route index element={<LabourOverviewPage />} />
-          <Route
-            path="attendances"
-            element={<LabourSectionPage title="হাজিরা" />}
-          />
-          <Route
-            path="payments"
-            element={<LabourSectionPage title="পেমেন্ট" />}
-          />
-          <Route
-            path="sessions"
-            element={<LabourSectionPage title="সেশন" />}
-          />
+      <Route element={<GuestOnly />}>
+        <Route element={<AuthLayout />}>
+          <Route path={paths.login} element={<LoginPage />} />
+          <Route path={paths.register} element={<RegisterPage />} />
+          <Route path={paths.passwordReset} element={<PasswordResetPage />} />
         </Route>
       </Route>
-    </Route>
 
-    <Route path="*" element={<Navigate to={paths.home} replace />} />
+      <Route element={<RequireAuth />}>
+        <Route element={<AppLayout />}>
+          <Route index element={<HomePage />} />
+          <Route path={paths.sites} element={<SitesPage />} />
+          <Route path={paths.labours} element={<LaboursPage />} />
+          <Route path={paths.users} element={<UsersRoute />} />
+          <Route path={paths.profile} element={<ProfilePage />} />
+          <Route path={paths.changePassword} element={<ChangePasswordPage />} />
+
+          <Route path="/sites/:id" element={<SiteScopedLayout />}>
+            <Route path="daily-ledger" element={<SiteLedgerPage />} />
+            <Route path="daily-report" element={<SiteLedgerPage />} />
+            <Route path="cash" element={<SiteLedgerPage />} />
+            <Route path="private-cash" element={<SiteLedgerPage />} />
+          </Route>
+
+          <Route path="/labours/:id" element={<LabourDetailLayout />}>
+            <Route index element={<LabourOverviewPage />} />
+            <Route
+              path="attendances"
+              element={<LabourSectionPage title="হাজিরা" />}
+            />
+            <Route
+              path="payments"
+              element={<LabourSectionPage title="পেমেন্ট" />}
+            />
+            <Route
+              path="sessions"
+              element={<LabourSectionPage title="সেশন" />}
+            />
+          </Route>
+        </Route>
+      </Route>
+
+      <Route path="*" element={<Navigate to={paths.home} replace />} />
+    </Route>
   </Routes>
 )
