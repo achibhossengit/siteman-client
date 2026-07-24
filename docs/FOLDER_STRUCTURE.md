@@ -1,53 +1,35 @@
 # SiteMan `src/` folder structure
 
-Aligned with `docs/inital_plan.md`. Empty dirs use `.gitkeep` until modules are filled. UI theming comes next (DaisyUI).
+Flat / pages-first layout. Domain subfolders under `pages/` and `components/` only when files exist.
 
 ```
 src/
-├── main.jsx                 # QueryClient + BrowserRouter bootstrap
-├── App.jsx                  # Root shell (routes wired later)
-├── index.css                # Tailwind + DaisyUI (+ theme tokens later)
-├── assets/
-├── app/
-│   ├── providers/           # AuthProvider, QueryProvider helpers
-│   ├── router/              # route table, path constants, guards
-│   └── layouts/             # AuthLayout, AppLayout, SiteScopedLayout, LabourDetailLayout
+├── main.jsx                 # QueryClient + providers + BrowserRouter bootstrap
+├── App.jsx                  # Root shell → AppRouter
+├── index.css                # Tailwind + DaisyUI
 ├── api/
-│   └── types/               # Live-contract shapes (JS modules / JSDoc)
-│   # client.js, errors.js, endpoints.js — added when api-client-auth starts
-├── features/
+│   ├── client.js            # axios instance, auth interceptors
+│   ├── endpoints.js
+│   ├── errors.js
+│   ├── auth.js              # auth API calls
+│   ├── profile.js           # profile API calls
+│   └── types/               # live-contract shapes (JSDoc)
+├── providers/               # AuthProvider, ThemeProvider
+├── layouts/                 # AuthLayout, AppLayout, SiteScopedLayout, LabourDetailLayout
+├── router/                  # route table, path constants, guards, placeholders
+├── pages/
 │   ├── auth/                # login, register, OTP, password reset
-│   │   ├── components/      # OtpForm, …
-│   │   └── pages/
-│   ├── profile/             # GET/PATCH profile, change password
-│   │   └── pages/
-│   ├── users/               # users + groups + user↔site
-│   │   ├── components/      # UserGroupPicker, SiteAssignPicker
-│   │   └── pages/
-│   ├── sites/               # sites, billing, report, ledger, cash, site users
-│   │   ├── components/      # BulkDayGrid, LedgerTable/Form, UserAssignPicker
-│   │   └── pages/
-│   ├── labours/             # labours, attendances, payments, sessions
-│   │   ├── components/      # SessionSummaryCard
-│   │   └── pages/
-│   └── home/
-│       └── pages/
-└── shared/
-    ├── components/          # DateSelector, SiteSelector, DataTable, PermissionGate, …
-    ├── hooks/               # usePermissions, useSiteScope
-    ├── lib/                 # dates, money, permissions helpers
-    └── constants/           # roles, errorCodes
+│   ├── profile/             # profile, change password
+│   ├── home/
+│   ├── users/               # add when implementing
+│   ├── sites/
+│   └── labours/
+├── components/
+│   ├── auth/                # OtpForm, PendingOtpRedirect
+│   ├── users/               # add when implementing
+│   ├── sites/
+│   ├── labours/
+│   └── …                    # shared UI (BrandLogo, ThemeToggle, PermissionGate, …)
+├── hooks/                   # usePermissions, …
+└── utils/                   # theme, permissions (+ PERMS), otpSession, …
 ```
-
-## Route → feature map
-
-| Routes | Folder |
-| --- | --- |
-| `/login`, `/register`, `/password/*` | `features/auth` |
-| `/profile` | `features/profile` |
-| `/users` | `features/users` |
-| `/sites` | `features/sites` |
-| `/labours` | `features/labours` |
-| `/` | `features/home` |
-
-Each feature will later get `api.js` + `hooks.js` at the feature root (vertical slice).
