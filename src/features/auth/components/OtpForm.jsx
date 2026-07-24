@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { secondsUntil } from '../otpSession.js'
 
 const pad = (n) => String(Math.max(0, n)).padStart(2, '0')
 
@@ -8,6 +9,11 @@ const formatSeconds = (total) => {
   return `${pad(m)}:${pad(s)}`
 }
 
+/**
+ * Countdown from absolute deadlines so refresh does not restart the timer.
+ * @param {number} expiresAt - unix ms when OTP expires
+ * @param {number} resendAt - unix ms when resend is allowed
+ */
 export const OtpForm = ({
   otp,
   onOtpChange,
@@ -15,32 +21,27 @@ export const OtpForm = ({
   onResend,
   submitting = false,
   resending = false,
-  otpExpiresIn = 0,
-  resendCooldown = 0,
+  expiresAt = 0,
+  resendAt = 0,
   error = null,
   submitLabel = 'নিশ্চিত করুন',
   children = null,
 }) => {
-  const [expiresLeft, setExpiresLeft] = useState(otpExpiresIn)
-  const [resendLeft, setResendLeft] = useState(resendCooldown)
+  const [expiresLeft, setExpiresLeft] = useState(() => secondsUntil(expiresAt))
+  const [resendLeft, setResendLeft] = useState(() => secondsUntil(resendAt))
 
   useEffect(() => {
-    setExpiresLeft(otpExpiresIn)
-    if (otpExpiresIn <= 0) return undefined
-    const id = window.setInterval(() => {
-      setExpiresLeft((v) => (v <= 1 ? 0 : v - 1))
-    }, 1000)
-    return () => window.clearInterval(id)
-  }, [otpExpiresIn])
+    setExpiresLeft(secondsUntil(expiresAt))
+    setResendLeft(secondsUntil(resendAt))
+  }, [expiresAt, resendAt])
 
   useEffect(() => {
-    setResendLeft(resendCooldown)
-    if (resendCooldown <= 0) return undefined
     const id = window.setInterval(() => {
-      setResendLeft((v) => (v <= 1 ? 0 : v - 1))
+      setExpiresLeft(secondsUntil(expiresAt))
+      setResendLeft(secondsUntil(resendAt))
     }, 1000)
     return () => window.clearInterval(id)
-  }, [resendCooldown])
+  }, [expiresAt, resendAt])
 
   const canResend = useMemo(
     () => resendLeft <= 0 && !resending && !submitting,

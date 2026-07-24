@@ -8,6 +8,7 @@ import { paths } from '../../../app/router/paths.js'
 import {
   OTP_STORAGE,
   clearOtpSession,
+  getOtpDeadlines,
   readOtpSession,
   saveOtpSession,
 } from '../otpSession.js'
@@ -15,13 +16,14 @@ import {
 export const RegisterConfirmPage = () => {
   const navigate = useNavigate()
   const session = readOtpSession(OTP_STORAGE.register)
+  const initialDeadlines = getOtpDeadlines(session)
   const [otp, setOtp] = useState('')
   const [otpError, setOtpError] = useState(null)
   const [apiError, setApiError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [resending, setResending] = useState(false)
-  const [expiresIn, setExpiresIn] = useState(session?.otp_expires_in ?? 300)
-  const [cooldown, setCooldown] = useState(session?.resend_cooldown ?? 60)
+  const [expiresAt, setExpiresAt] = useState(initialDeadlines.expiresAt)
+  const [resendAt, setResendAt] = useState(initialDeadlines.resendAt)
 
   if (!session?.ticket) {
     return <Navigate to={paths.register} replace />
@@ -43,7 +45,9 @@ export const RegisterConfirmPage = () => {
       } else if (parsed.fieldErrors?.otp) {
         setOtpError(parsed.fieldErrors.otp[0])
       } else if (parsed.errors?.[0]?.code) {
-        setOtpError(messageForCode(parsed.errors[0].code, parsed.errors[0].detail))
+        setOtpError(
+          messageForCode(parsed.errors[0].code, parsed.errors[0].detail),
+        )
       }
     } finally {
       setSubmitting(false)
@@ -55,15 +59,15 @@ export const RegisterConfirmPage = () => {
     setResending(true)
     try {
       const { data } = await registerResendOtp({ ticket: session.ticket })
-      const next = {
+      const saved = saveOtpSession(OTP_STORAGE.register, {
         ...session,
         ticket: data.ticket || session.ticket,
         otp_expires_in: data.otp_expires_in ?? 300,
         resend_cooldown: data.resend_cooldown ?? 60,
-      }
-      saveOtpSession(OTP_STORAGE.register, next)
-      setExpiresIn(next.otp_expires_in)
-      setCooldown(next.resend_cooldown)
+      })
+      const next = getOtpDeadlines(saved)
+      setExpiresAt(next.expiresAt)
+      setResendAt(next.resendAt)
       setOtp('')
     } catch (err) {
       setApiError(parseApiError(err))
@@ -91,8 +95,8 @@ export const RegisterConfirmPage = () => {
           onResend={onResend}
           submitting={submitting}
           resending={resending}
-          otpExpiresIn={expiresIn}
-          resendCooldown={cooldown}
+          expiresAt={expiresAt}
+          resendAt={resendAt}
           error={otpError}
           submitLabel="নিবন্ধন সম্পন্ন"
         />
