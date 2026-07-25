@@ -1,14 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { fetchSiteCash } from '../../api/sites.js'
 import { normalizeSiteCashList } from '../../api/types/siteCash.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
-import { CashCreateModal } from '../../components/cash/CashCreateModal.jsx'
-import { CashDetailModal } from '../../components/cash/CashDetailModal.jsx'
 import { formatBnNumber, formatBnSigned } from '../../utils/format.js'
+import { paths } from '../../router/paths.js'
 
 /** deposit = credit (+); withdrawal / cost = debit (−). Distinct color per type. */
 const AMOUNT_BY_TYPE = {
@@ -36,9 +34,7 @@ const formatCashAmount = (type, amount) => {
 
 export const CashPage = () => {
   const { date, siteId } = useOutletContext()
-  const createRef = useRef(null)
-  const detailRef = useRef(null)
-  const [selectedCashId, setSelectedCashId] = useState(null)
+  const navigate = useNavigate()
 
   const cashQuery = useQuery({
     queryKey: ['sites', siteId, 'cash', { date }],
@@ -48,19 +44,6 @@ export const CashPage = () => {
     },
     enabled: Boolean(siteId && date),
   })
-
-  const openCreate = () => {
-    createRef.current?.showModal()
-  }
-
-  const openDetail = (id) => setSelectedCashId(id)
-
-  const clearSelected = () => setSelectedCashId(null)
-
-  useEffect(() => {
-    if (selectedCashId == null) return
-    detailRef.current?.showModal()
-  }, [selectedCashId])
 
   if (!siteId) {
     return (
@@ -90,7 +73,6 @@ export const CashPage = () => {
 
   return (
     <section className="flex-1 min-h-0 flex flex-col relative">
-      {/* Header — always top */}
       <div className="shrink-0 bg-base-100 border-b border-base-300">
         <table className="table table-fixed table-sm sm:table-md w-full">
           <colgroup>
@@ -108,7 +90,6 @@ export const CashPage = () => {
         </table>
       </div>
 
-      {/* Body — only this scrolls */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         <table className="table table-fixed table-sm sm:table-md w-full">
           <colgroup>
@@ -136,7 +117,7 @@ export const CashPage = () => {
                   <tr
                     key={row.id}
                     className="border-b border-base-300/70 cursor-pointer hover:bg-base-200/60"
-                    onClick={() => openDetail(row.id)}
+                    onClick={() => navigate(paths.cashDetail(row.id))}
                   >
                     <td className="tabular-nums text-base-content/60">
                       {formatBnNumber(index + 1)}
@@ -159,20 +140,11 @@ export const CashPage = () => {
         type="button"
         className="btn btn-primary btn-circle btn-lg fixed bottom-16 right-4 z-40 shadow-lg"
         aria-label="নতুন ক্যাশ"
-        onClick={openCreate}
+        onClick={() => navigate(paths.cashNew)}
         disabled={!date}
       >
         <Plus className="size-7" strokeWidth={2} />
       </button>
-
-      <CashCreateModal dialogRef={createRef} siteId={siteId} date={date} />
-
-      <CashDetailModal
-        dialogRef={detailRef}
-        siteId={siteId}
-        cashId={selectedCashId}
-        onClose={clearSelected}
-      />
     </section>
   )
 }

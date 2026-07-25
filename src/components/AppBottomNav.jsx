@@ -14,7 +14,7 @@ export const AppBottomNav = () => {
   const items = [
     { to: paths.balance, label: 'ব্যালেন্স', icon: Banknote, end: true },
     { to: paths.hajira, label: 'হাজিরা', icon: CalendarCheck },
-    { to: paths.cash, label: 'ক্যাশ', icon: Wallet },
+    { to: paths.cash, label: 'ক্যাশ', icon: Wallet, end: true },
     { to: paths.others, label: 'আরও', icon: Menu },
   ]
 

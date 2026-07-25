@@ -2,11 +2,14 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthLayout } from "../layouts/AuthLayout.jsx";
 import { AppLayout } from "../layouts/AppLayout.jsx";
 import { SiteScopedLayout } from "../layouts/SiteScopedLayout.jsx";
+import { DetailLayout } from "../layouts/DetailLayout.jsx";
 import { GuestOnly, RequireAuth } from "./guards.jsx";
 import { paths } from "./paths.js";
 import { BalancePage } from "../pages/sites/BalancePage.jsx";
 import { HajiraPage } from "../pages/sites/HajiraPage.jsx";
 import { CashPage } from "../pages/sites/CashPage.jsx";
+import { CashNewPage } from "../pages/sites/CashNewPage.jsx";
+import { CashDetailPage } from "../pages/sites/CashDetailPage.jsx";
 import { LoginPage } from "../pages/auth/LoginPage.jsx";
 import { RegisterPage } from "../pages/auth/RegisterPage.jsx";
 import { RegisterConfirmPage } from "../pages/auth/RegisterConfirmPage.jsx";
@@ -39,8 +42,6 @@ export const AppRouter = () => (
 
       <Route element={<RequireAuth />}>
         <Route element={<AppLayout />}>
-
-          {/* Site scoped routes */}
           <Route element={<SiteScopedLayout />}>
             <Route path={paths.balance} element={<BalancePage />} />
             <Route path={paths.hajira} element={<HajiraPage />} />
@@ -53,6 +54,11 @@ export const AppRouter = () => (
             path={paths.changePassword}
             element={<ChangePasswordPage />}
           />
+        </Route>
+
+        <Route element={<DetailLayout />}>
+          <Route path={paths.cashNew} element={<CashNewPage />} />
+          <Route path="/cash/:cashId" element={<CashDetailPage />} />
         </Route>
       </Route>
 
