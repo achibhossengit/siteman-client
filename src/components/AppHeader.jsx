@@ -12,7 +12,7 @@ export const AppHeader = () => {
 
   return (
     <header
-      className={`bg-base-100 border-b border-base-300 w-full sticky top-0 z-30`}
+      className={`bg-base-100 border-b border-base-300 w-full sticky top-0 z-30 h-14`}
     >
       <div className="max-w-5xl mx-auto w-full flex justify-between items-stretch px-2 py-1.5">
         <div>
