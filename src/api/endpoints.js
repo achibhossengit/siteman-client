@@ -18,5 +18,8 @@ export const endpoints = {
     list: '/api/v1/sites',
     detail: (id) => `/api/v1/sites/${id}`,
     dailyReports: (id) => `/api/v1/sites/${id}/daily-reports`,
+    cash: (id) => `/api/v1/sites/${id}/cash`,
+    cashDetail: (siteId, cashId) => `/api/v1/sites/${siteId}/cash/${cashId}`,
+    billingCategories: (id) => `/api/v1/sites/${id}/billing-categories`,
   },
 }
