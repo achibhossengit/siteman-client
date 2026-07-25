@@ -40,3 +40,38 @@ export const updateSiteCash = (siteId, cashId, payload) =>
 /** Billing categories for a site (used as cash `billing` options). */
 export const fetchBillingCategories = (siteId, params = {}) =>
   api.get(endpoints.sites.billingCategories(siteId), { params })
+
+/**
+ * Site labour attendances list.
+ * GET /sites/{site_pk}/labour-attendances — filters: date, labour, billing, is_sealed.
+ */
+export const fetchLabourAttendances = (
+  siteId,
+  { date, labour, billing, is_sealed } = {},
+) =>
+  api.get(endpoints.sites.labourAttendances(siteId), {
+    params: {
+      ...(date ? { date } : {}),
+      ...(labour != null && labour !== '' ? { labour } : {}),
+      ...(billing != null && billing !== '' ? { billing } : {}),
+      ...(typeof is_sealed === 'boolean' ? { is_sealed } : {}),
+    },
+  })
+
+/**
+ * Site labour payments list.
+ * GET /sites/{site_pk}/labour-payments — filters: date, labour, type, category, is_sealed.
+ */
+export const fetchLabourPayments = (
+  siteId,
+  { date, labour, type, category, is_sealed } = {},
+) =>
+  api.get(endpoints.sites.labourPayments(siteId), {
+    params: {
+      ...(date ? { date } : {}),
+      ...(labour != null && labour !== '' ? { labour } : {}),
+      ...(type ? { type } : {}),
+      ...(category ? { category } : {}),
+      ...(typeof is_sealed === 'boolean' ? { is_sealed } : {}),
+    },
+  })
