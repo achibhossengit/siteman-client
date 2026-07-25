@@ -60,7 +60,7 @@ export const BalancePage = () => {
 
   if (!siteId) {
     return (
-      <div className="flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center">
         হিসাব দেখতে একটি সাইট নির্বাচন করুন।
       </div>
     )
@@ -68,21 +68,27 @@ export const BalancePage = () => {
 
   if (query.isLoading) {
     return (
-      <div className="flex justify-center py-16">
+      <div className="flex-1 flex justify-center items-center">
         <span className="loading loading-spinner loading-lg text-primary" />
       </div>
     )
   }
 
   if (query.isError) {
-    return <ApiErrorAlert error={parseApiError(query.error)} />
+    return (
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <ApiErrorAlert error={parseApiError(query.error)} />
+      </div>
+    )
   }
 
   const report = query.data
   if (!report) {
     return (
-      <div className="alert bg-base-100 border border-base-300 text-sm">
-        এই তারিখে কোনো হিসাব পাওয়া যায়নি।
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="alert bg-base-100 border border-base-300 text-sm">
+          এই তারিখে কোনো হিসাব পাওয়া যায়নি।
+        </div>
       </div>
     )
   }
@@ -104,7 +110,7 @@ export const BalancePage = () => {
   } = report
 
   return (
-    <section>
+    <section className="flex-1 min-h-0 overflow-y-auto p-2">
       <Row
         icon={User}
         label={`লেবার ${formatBnNumber(labourSessionCount)} জন`}

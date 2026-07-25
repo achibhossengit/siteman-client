@@ -52,15 +52,15 @@ export const SiteScopedLayout = () => {
   }, [siteId, date])
 
   return (
-    <div>
-      <header className="bg-base-100 border-b border-base-300 w-full sticky top-14 z-30">
+    <div className="flex-1 min-h-0 flex flex-col">
+      <header className="bg-base-100 border-b border-base-300 w-full shrink-0 z-30">
         <div className="max-w-5xl mx-auto w-full flex justify-between gap-2 items-stretch px-2 py-1.5">
           <DateSelector value={date} onChange={setDate} />
           <SiteSelector sites={sites} value={siteId} onChange={setSiteId} />
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-5xl mx-auto px-3 py-2">
+      <main className="flex-1 min-h-0 overflow-hidden w-full max-w-5xl mx-auto flex flex-col">
         <Outlet context={{ date, siteId, sites }} />
       </main>
     </div>
