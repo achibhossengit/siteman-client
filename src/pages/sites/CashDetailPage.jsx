@@ -19,6 +19,8 @@ import {
 import { parseApiError, applyFieldErrors } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { useAuth } from "../../providers/AuthProvider.jsx";
+import { usePermissions } from "../../hooks/usePermissions.js";
+import { PERMS } from "../../utils/permissions.js";
 import { paths } from "../../router/paths.js";
 import { readSelectedSite } from "../../utils/sessionSelection.js";
 
@@ -45,11 +47,16 @@ export const CashDetailPage = () => {
   const navigate = useNavigate();
   const { setTitle } = useOutletContext();
   const { profile } = useAuth();
+  const { can } = usePermissions();
   const siteId = readSelectedSite();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [confirmReady, setConfirmReady] = useState(false);
   const [apiError, setApiError] = useState(null);
+
+  const canViewCash = can(PERMS.viewSiteCash);
+  const canChangeCash = can(PERMS.changeSiteCash);
+  const canDeleteCash = can(PERMS.deleteSiteCash);
 
   const site = (profile?.sites ?? []).find(
     (s) => String(s.id) === String(siteId),
@@ -97,7 +104,7 @@ export const CashDetailPage = () => {
       const { data } = await fetchSiteCashDetail(siteId, cashId);
       return normalizeSiteCash(data);
     },
-    enabled: Boolean(siteId && cashId),
+    enabled: Boolean(canViewCash && siteId && cashId),
   });
 
   const billingQuery = useQuery({
@@ -108,7 +115,7 @@ export const CashDetailPage = () => {
       });
       return Array.isArray(data) ? data : [];
     },
-    enabled: Boolean(siteId),
+    enabled: Boolean(canViewCash && siteId),
   });
 
   const mutation = useMutation({
@@ -177,6 +184,14 @@ export const CashDetailPage = () => {
       applyFieldErrors(parsed, setError);
     }
   });
+
+  if (!canViewCash) {
+    return (
+      <div className="text-sm text-error py-8 text-center">
+        এই পেজ দেখার অনুমতি নেই।
+      </div>
+    );
+  }
 
   if (!siteId) {
     return (
@@ -352,26 +367,30 @@ export const CashDetailPage = () => {
             </>
           ) : (
             <>
-              <button
-                type="button"
-                className="btn btn-error btn-outline"
-                onClick={onDelete}
-                disabled={siteInactive || deleteMutation.isPending}
-              >
-                {deleteMutation.isPending ? (
-                  <span className="loading loading-spinner loading-sm" />
-                ) : (
-                  "মুছুন"
-                )}
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={startEdit}
-                disabled={siteInactive}
-              >
-                আপডেট
-              </button>
+              {canDeleteCash ? (
+                <button
+                  type="button"
+                  className="btn btn-error btn-outline"
+                  onClick={onDelete}
+                  disabled={siteInactive || deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending ? (
+                    <span className="loading loading-spinner loading-sm" />
+                  ) : (
+                    "মুছুন"
+                  )}
+                </button>
+              ) : null}
+              {canChangeCash ? (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={startEdit}
+                  disabled={siteInactive}
+                >
+                  আপডেট
+                </button>
+              ) : null}
             </>
           )}
         </div>

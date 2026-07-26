@@ -13,6 +13,8 @@ import {
 import { parseApiError, applyFieldErrors } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { useAuth } from "../../providers/AuthProvider.jsx";
+import { usePermissions } from "../../hooks/usePermissions.js";
+import { PERMS } from "../../utils/permissions.js";
 import { paths } from "../../router/paths.js";
 import {
   readSelectedDate,
@@ -32,9 +34,11 @@ export const CashNewPage = () => {
   const navigate = useNavigate();
   const { setTitle } = useOutletContext();
   const { profile } = useAuth();
+  const { can } = usePermissions();
   const queryClient = useQueryClient();
   const [apiError, setApiError] = useState(null);
 
+  const canAddCash = can(PERMS.addSiteCash);
   const siteId = readSelectedSite();
   const date = readSelectedDate() || todayIso();
   const site = (profile?.sites ?? []).find(
@@ -75,7 +79,7 @@ export const CashNewPage = () => {
       });
       return Array.isArray(data) ? data : [];
     },
-    enabled: Boolean(siteId),
+    enabled: Boolean(canAddCash && siteId),
   });
 
   const mutation = useMutation({
@@ -112,6 +116,14 @@ export const CashNewPage = () => {
   const onSaveAndCreateAnother = handleSubmit((values) =>
     saveCash(values, { createAnother: true }),
   );
+
+  if (!canAddCash) {
+    return (
+      <div className="text-sm text-error py-8 text-center">
+        ক্যাশ যোগ করার অনুমতি নেই।
+      </div>
+    );
+  }
 
   if (!siteId) {
     return (

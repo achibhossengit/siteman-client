@@ -7,6 +7,8 @@ import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { formatBnNumber, formatBnSigned } from '../../utils/format.js'
 import { paths } from '../../router/paths.js'
+import { usePermissions } from '../../hooks/usePermissions.js'
+import { PERMS } from '../../utils/permissions.js'
 
 /** deposit = credit (+); withdrawal / cost = debit (−). Distinct color per type. */
 const AMOUNT_BY_TYPE = {
@@ -35,6 +37,10 @@ const formatCashAmount = (type, amount) => {
 export const CashPage = () => {
   const { date, siteId, sites } = useOutletContext()
   const navigate = useNavigate()
+  const { can } = usePermissions()
+
+  const canViewCash = can(PERMS.viewSiteCash)
+  const canAddCash = can(PERMS.addSiteCash)
 
   const site = (sites ?? []).find((s) => String(s.id) === String(siteId))
   const siteInactive = site?.is_active === false
@@ -45,8 +51,16 @@ export const CashPage = () => {
       const { data } = await fetchSiteCash(siteId, { date })
       return normalizeSiteCashList(data)
     },
-    enabled: Boolean(siteId && date),
+    enabled: Boolean(canViewCash && siteId && date),
   })
+
+  if (!canViewCash) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-sm text-error">
+        এই পেজ দেখার অনুমতি নেই।
+      </div>
+    )
+  }
 
   if (!siteId) {
     return (
@@ -139,15 +153,17 @@ export const CashPage = () => {
         </table>
       </div>
 
-      <button
-        type="button"
-        className="btn btn-primary btn-circle btn-lg fixed bottom-16 right-4 z-40 shadow-lg"
-        aria-label="নতুন ক্যাশ"
-        onClick={() => navigate(paths.cashNew)}
-        disabled={!date || siteInactive}
-      >
-        <Plus className="size-7" strokeWidth={2} />
-      </button>
+      {canAddCash ? (
+        <button
+          type="button"
+          className="btn btn-primary btn-circle btn-lg fixed bottom-16 right-4 z-40 shadow-lg"
+          aria-label="নতুন ক্যাশ"
+          onClick={() => navigate(paths.cashNew)}
+          disabled={!date || siteInactive}
+        >
+          <Plus className="size-7" strokeWidth={2} />
+        </button>
+      ) : null}
     </section>
   )
 }

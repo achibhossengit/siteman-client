@@ -1,6 +1,6 @@
 import { useAuth } from '../providers/AuthProvider.jsx'
 import {
-  canListAllCompanySites,
+  isCompanyAdmin,
   hasAllPermissions,
   hasAnyPermission,
   hasPermission,
@@ -14,7 +14,7 @@ export const usePermissions = () => {
     can: (codename) => hasPermission(profile, codename),
     canAny: (codenames) => hasAnyPermission(profile, codenames),
     canAll: (codenames) => hasAllPermissions(profile, codenames),
-    canListAllCompanySites: () => canListAllCompanySites(profile),
+    isCompanyAdmin: () => isCompanyAdmin(profile),
     isCompanyAdmin: Boolean(profile?.is_companyadmin),
   }
 }
