@@ -183,7 +183,12 @@ export const OthersPage = () => {
         <SectionLabel>ম্যানেজ</SectionLabel>
         <MenuCard>
           {MANAGE_LINKS.map((item) => (
-            <MenuRow key={item.key} {...item} />
+            <MenuRow
+              key={item.key}
+              icon={item.icon}
+              title={item.title}
+              to={item.to}
+            />
           ))}
         </MenuCard>
       </div>
@@ -192,7 +197,12 @@ export const OthersPage = () => {
         <SectionLabel>অন্যান্য</SectionLabel>
         <MenuCard>
           {OTHER_LINKS.map((item) => (
-            <MenuRow key={item.key} {...item} />
+            <MenuRow
+              key={item.key}
+              icon={item.icon}
+              title={item.title}
+              to={item.to}
+            />
           ))}
           <div className="flex w-full items-center gap-3 px-4 py-3.5">
             {isDark ? (

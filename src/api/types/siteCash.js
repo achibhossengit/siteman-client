@@ -18,7 +18,7 @@ export const CASH_TYPES = [
 ]
 
 export const CASH_CATEGORIES = [
-  { value: 'food', label: 'খাবার' },
+  { value: 'food', label: 'খোরাকি' },
   { value: 'equipment', label: 'সরঞ্জাম' },
 ]
 

@@ -8,6 +8,8 @@ import { siteFormSchema, toSitePayload } from '../../api/types/site.js'
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { useAuth } from '../../providers/AuthProvider.jsx'
+import { usePermissions } from '../../hooks/usePermissions.js'
+import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
 
 const emptyValues = {
@@ -20,7 +22,10 @@ export const SiteNewPage = () => {
   const { setTitle } = useOutletContext()
   const queryClient = useQueryClient()
   const { bootstrapProfile } = useAuth()
+  const { can } = usePermissions()
   const [apiError, setApiError] = useState(null)
+
+  const canAddSite = can(PERMS.addSite)
 
   useEffect(() => {
     setTitle?.('নতুন সাইট')
@@ -71,6 +76,14 @@ export const SiteNewPage = () => {
   const onSaveAndCreateAnother = handleSubmit((values) =>
     saveSite(values, { createAnother: true }),
   )
+
+  if (!canAddSite) {
+    return (
+      <div className="text-sm text-error py-8 text-center">
+        সাইট যোগ করার অনুমতি নেই।
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-lg mx-auto">

@@ -39,7 +39,7 @@ const PAYMENT_TYPE_LABEL = {
 
 const PAYMENT_CATEGORY_LABEL = {
   advance: 'অগ্রিম',
-  fooding: 'খাবার',
+  fooding: 'খোরাকি',
 }
 
 const formatDateTime = (iso) => {

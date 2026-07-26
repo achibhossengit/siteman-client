@@ -21,3 +21,6 @@ export const createUser = (payload) => api.post(endpoints.users.list, payload)
 /** PATCH /users/{id} */
 export const updateUser = (userId, payload) =>
   api.patch(endpoints.users.detail(userId), payload)
+
+/** DELETE /users/{id} */
+export const deleteUser = (userId) => api.delete(endpoints.users.detail(userId))

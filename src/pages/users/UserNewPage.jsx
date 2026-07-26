@@ -10,6 +10,8 @@ import {
 } from '../../api/types/user.js'
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
+import { usePermissions } from '../../hooks/usePermissions.js'
+import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
 
 const emptyValues = {
@@ -22,7 +24,10 @@ export const UserNewPage = () => {
   const navigate = useNavigate()
   const { setTitle } = useOutletContext()
   const queryClient = useQueryClient()
+  const { can } = usePermissions()
   const [apiError, setApiError] = useState(null)
+
+  const canAddUser = can(PERMS.addUser)
 
   useEffect(() => {
     setTitle?.('নতুন ইউজার')
@@ -68,6 +73,14 @@ export const UserNewPage = () => {
   const onSaveAndCreateAnother = handleSubmit((values) =>
     saveUser(values, { createAnother: true }),
   )
+
+  if (!canAddUser) {
+    return (
+      <div className="text-sm text-error py-8 text-center">
+        ইউজার যোগ করার অনুমতি নেই।
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-lg mx-auto">

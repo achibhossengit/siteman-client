@@ -10,12 +10,18 @@ import {
 } from '../../api/types/user.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
+import { usePermissions } from '../../hooks/usePermissions.js'
 import { formatBnNumber } from '../../utils/format.js'
+import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
 
 export const UsersPage = () => {
   const navigate = useNavigate()
   const { setTitle } = useOutletContext()
+  const { can } = usePermissions()
+
+  const canViewUser = can(PERMS.viewUser)
+  const canAddUser = can(PERMS.addUser)
 
   useEffect(() => {
     setTitle?.('ইউজার ম্যানেজ')
@@ -28,7 +34,16 @@ export const UsersPage = () => {
       const { data } = await fetchUsers()
       return normalizeUserList(data)
     },
+    enabled: canViewUser,
   })
+
+  if (!canViewUser) {
+    return (
+      <div className="text-sm text-error py-8 text-center">
+        এই পেজ দেখার অনুমতি নেই।
+      </div>
+    )
+  }
 
   if (usersQuery.isLoading) {
     return (
@@ -46,7 +61,7 @@ export const UsersPage = () => {
 
   return (
     <section className="relative min-h-full flex flex-col pb-20">
-      <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100">
+      <div className="overflow-x-auto">
         <table className="table table-sm sm:table-md w-full">
           <thead>
             <tr className="border-b border-base-300">
@@ -99,14 +114,16 @@ export const UsersPage = () => {
         </table>
       </div>
 
-      <button
-        type="button"
-        className="btn btn-primary btn-circle btn-lg fixed bottom-4 right-4 z-40 shadow-lg"
-        aria-label="নতুন ইউজার"
-        onClick={() => navigate(paths.userNew)}
-      >
-        <Plus className="size-7" strokeWidth={2} />
-      </button>
+      {canAddUser ? (
+        <button
+          type="button"
+          className="btn btn-primary btn-circle btn-lg fixed bottom-4 right-4 z-40 shadow-lg"
+          aria-label="নতুন ইউজার"
+          onClick={() => navigate(paths.userNew)}
+        >
+          <Plus className="size-7" strokeWidth={2} />
+        </button>
+      ) : null}
     </section>
   )
 }

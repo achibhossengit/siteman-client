@@ -12,12 +12,18 @@ import {
 import { normalizeSiteList } from '../../api/types/site.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
+import { usePermissions } from '../../hooks/usePermissions.js'
 import { formatBnNumber } from '../../utils/format.js'
+import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
 
 export const LaboursPage = () => {
   const navigate = useNavigate()
   const { setTitle } = useOutletContext()
+  const { can } = usePermissions()
+
+  const canViewLabour = can(PERMS.viewLabour)
+  const canAddLabour = can(PERMS.addLabour)
 
   useEffect(() => {
     setTitle?.('লেবার ম্যানেজ')
@@ -30,6 +36,7 @@ export const LaboursPage = () => {
       const { data } = await fetchLabours()
       return normalizeLabourList(data)
     },
+    enabled: canViewLabour,
   })
 
   const sitesQuery = useQuery({
@@ -38,6 +45,7 @@ export const LaboursPage = () => {
       const { data } = await fetchSites()
       return normalizeSiteList(data)
     },
+    enabled: canViewLabour,
   })
 
   const siteNameById = useMemo(() => {
@@ -51,6 +59,14 @@ export const LaboursPage = () => {
   const siteLabel = (id) => {
     if (id == null) return '—'
     return siteNameById.get(id) ?? `#${id}`
+  }
+
+  if (!canViewLabour) {
+    return (
+      <div className="text-sm text-error py-8 text-center">
+        এই পেজ দেখার অনুমতি নেই।
+      </div>
+    )
   }
 
   if (laboursQuery.isLoading) {
@@ -69,7 +85,7 @@ export const LaboursPage = () => {
 
   return (
     <section className="relative min-h-full flex flex-col pb-20">
-      <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100">
+      <div className="overflow-x-auto">
         <table className="table table-sm sm:table-md w-full">
           <thead>
             <tr className="border-b border-base-300">
@@ -124,14 +140,16 @@ export const LaboursPage = () => {
         </table>
       </div>
 
-      <button
-        type="button"
-        className="btn btn-primary btn-circle btn-lg fixed bottom-4 right-4 z-40 shadow-lg"
-        aria-label="নতুন লেবার"
-        onClick={() => navigate(paths.labourNew)}
-      >
-        <Plus className="size-7" strokeWidth={2} />
-      </button>
+      {canAddLabour ? (
+        <button
+          type="button"
+          className="btn btn-primary btn-circle btn-lg fixed bottom-4 right-4 z-40 shadow-lg"
+          aria-label="নতুন লেবার"
+          onClick={() => navigate(paths.labourNew)}
+        >
+          <Plus className="size-7" strokeWidth={2} />
+        </button>
+      ) : null}
     </section>
   )
 }

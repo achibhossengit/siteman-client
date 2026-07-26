@@ -21,6 +21,9 @@ export const createSite = (payload) => api.post(endpoints.sites.list, payload)
 export const updateSite = (siteId, payload) =>
   api.patch(endpoints.sites.detail(siteId), payload)
 
+/** DELETE /sites/{id} */
+export const deleteSite = (siteId) => api.delete(endpoints.sites.detail(siteId))
+
 /**
  * Day summary for a site.
  * OpenAPI documents 200 as `Site` (incorrect) — live shape is aggregates.

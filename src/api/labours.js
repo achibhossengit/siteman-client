@@ -25,6 +25,10 @@ export const createLabour = (payload) =>
 export const updateLabour = (labourId, payload) =>
   api.patch(endpoints.labours.detail(labourId), payload)
 
+/** DELETE /labours/{id} */
+export const deleteLabour = (labourId) =>
+  api.delete(endpoints.labours.detail(labourId))
+
 /** GET /labours/{labour_pk}/attendances */
 export const fetchLabourAttendancesByLabour = (
   labourId,

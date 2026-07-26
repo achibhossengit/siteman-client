@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useOutletContext, useParams } from 'react-router-dom'
+import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchUserDetail, updateUser } from '../../api/users.js'
+import { deleteUser, fetchUserDetail, updateUser } from '../../api/users.js'
 import {
   normalizeUser,
   toUserUpdatePayload,
@@ -13,6 +13,9 @@ import {
 } from '../../api/types/user.js'
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
+import { usePermissions } from '../../hooks/usePermissions.js'
+import { PERMS } from '../../utils/permissions.js'
+import { paths } from '../../router/paths.js'
 
 const toFormValues = (user) => ({
   name: user?.name ?? '',
@@ -33,10 +36,17 @@ const formatDateTime = (iso) => {
 
 export const UserDetailPage = () => {
   const { userId } = useParams()
+  const navigate = useNavigate()
   const { setTitle } = useOutletContext()
   const queryClient = useQueryClient()
+  const { can } = usePermissions()
   const [editing, setEditing] = useState(false)
+  const [confirmReady, setConfirmReady] = useState(false)
   const [apiError, setApiError] = useState(null)
+
+  const canViewUser = can(PERMS.viewUser)
+  const canChangeUser = can(PERMS.changeUser)
+  const canDeleteUser = can(PERMS.deleteUser)
 
   const {
     register,
@@ -55,7 +65,7 @@ export const UserDetailPage = () => {
       const { data } = await fetchUserDetail(userId)
       return normalizeUser(data)
     },
-    enabled: Boolean(userId),
+    enabled: Boolean(canViewUser && userId),
   })
 
   const user = detailQuery.data
@@ -69,12 +79,39 @@ export const UserDetailPage = () => {
     if (user) reset(toFormValues(user))
   }, [user, reset])
 
+  // Prevent ghost-submit: Update and Confirm share the same spot.
+  // Arm Confirm only after the Update click event has fully settled.
+  useEffect(() => {
+    if (!editing) {
+      setConfirmReady(false)
+      return
+    }
+    let cancelled = false
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!cancelled) setConfirmReady(true)
+      })
+    })
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(id)
+    }
+  }, [editing])
+
   const mutation = useMutation({
     mutationFn: (values) => updateUser(userId, toUserUpdatePayload(values)),
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteUser(userId),
+  })
+
   const startEdit = () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7900/ingest/5c2ebad5-d1cd-4cd7-908c-619d23ef27d4',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bf2ae1'},body:JSON.stringify({sessionId:'bf2ae1',runId:'post-fix2',hypothesisId:'A',location:'UserDetailPage.jsx:startEdit',message:'startEdit clicked',data:{page:'user',editingBefore:editing,confirmReady,ts:Date.now()},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     setApiError(null)
+    setConfirmReady(false)
     setEditing(true)
   }
 
@@ -84,7 +121,23 @@ export const UserDetailPage = () => {
     setEditing(false)
   }
 
+  const onDelete = async () => {
+    const ok = window.confirm('এই ইউজার মুছে ফেলতে চান?')
+    if (!ok) return
+    setApiError(null)
+    try {
+      await deleteMutation.mutateAsync()
+      await queryClient.invalidateQueries({ queryKey: ['users'] })
+      navigate(paths.users, { replace: true })
+    } catch (err) {
+      setApiError(parseApiError(err))
+    }
+  }
+
   const onConfirm = handleSubmit(async (values) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7900/ingest/5c2ebad5-d1cd-4cd7-908c-619d23ef27d4',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bf2ae1'},body:JSON.stringify({sessionId:'bf2ae1',runId:'post-fix2',hypothesisId:'A',location:'UserDetailPage.jsx:onConfirm',message:'onConfirm fired',data:{page:'user',editing,confirmReady,ts:Date.now()},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     setApiError(null)
     try {
       const { data } = await mutation.mutateAsync(values)
@@ -98,6 +151,14 @@ export const UserDetailPage = () => {
       applyFieldErrors(parsed, setError)
     }
   })
+
+  if (!canViewUser) {
+    return (
+      <div className="text-sm text-error py-8 text-center">
+        এই পেজ দেখার অনুমতি নেই।
+      </div>
+    )
+  }
 
   if (detailQuery.isLoading) {
     return (
@@ -140,7 +201,19 @@ export const UserDetailPage = () => {
         ) : null}
       </div>
 
-      <form className="flex flex-col gap-3" onSubmit={onConfirm} noValidate>
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          // #region agent log
+          const submitter = e.nativeEvent?.submitter
+          fetch('http://127.0.0.1:7900/ingest/5c2ebad5-d1cd-4cd7-908c-619d23ef27d4',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bf2ae1'},body:JSON.stringify({sessionId:'bf2ae1',runId:'post-fix2',hypothesisId:'B',location:'UserDetailPage.jsx:form.onSubmit',message:'form submit event',data:{page:'user',editing,confirmReady,submitterType:submitter?.type??null,submitterText:submitter?.textContent?.trim?.()?.slice(0,40)??null,blocked:!confirmReady,ts:Date.now()},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
+          if (!confirmReady) return
+          return onConfirm(e)
+        }}
+        noValidate
+      >
         <label className="form-control w-full">
           <span className="label-text mb-1">নাম</span>
           <input
@@ -227,9 +300,16 @@ export const UserDetailPage = () => {
                 বাতিল
               </button>
               <button
-                type="submit"
+                type="button"
                 className="btn btn-primary"
-                disabled={isSubmitting || mutation.isPending}
+                disabled={!confirmReady || isSubmitting || mutation.isPending}
+                onClick={(e) => {
+                  // #region agent log
+                  fetch('http://127.0.0.1:7900/ingest/5c2ebad5-d1cd-4cd7-908c-619d23ef27d4',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bf2ae1'},body:JSON.stringify({sessionId:'bf2ae1',runId:'post-fix2',hypothesisId:'A',location:'UserDetailPage.jsx:confirmBtn.onClick',message:'confirm button click',data:{page:'user',confirmReady,ts:Date.now()},timestamp:Date.now()})}).catch(()=>{});
+                  // #endregion
+                  if (!confirmReady) return
+                  return onConfirm(e)
+                }}
               >
                 {isSubmitting || mutation.isPending ? (
                   <span className="loading loading-spinner loading-sm" />
@@ -239,9 +319,31 @@ export const UserDetailPage = () => {
               </button>
             </>
           ) : (
-            <button type="button" className="btn btn-primary" onClick={startEdit}>
-              আপডেট
-            </button>
+            <>
+              {canDeleteUser ? (
+                <button
+                  type="button"
+                  className="btn btn-error btn-outline"
+                  onClick={onDelete}
+                  disabled={deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending ? (
+                    <span className="loading loading-spinner loading-sm" />
+                  ) : (
+                    'মুছুন'
+                  )}
+                </button>
+              ) : null}
+              {canChangeUser ? (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={startEdit}
+                >
+                  আপডেট
+                </button>
+              ) : null}
+            </>
           )}
         </div>
       </form>

@@ -10,12 +10,18 @@ import {
 } from '../../api/types/site.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
+import { usePermissions } from '../../hooks/usePermissions.js'
 import { formatBnNumber } from '../../utils/format.js'
+import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
 
 export const SitesPage = () => {
   const navigate = useNavigate()
   const { setTitle } = useOutletContext()
+  const { can } = usePermissions()
+
+  const canViewSite = can(PERMS.viewSite)
+  const canAddSite = can(PERMS.addSite)
 
   useEffect(() => {
     setTitle?.('সাইট ম্যানেজ')
@@ -28,7 +34,16 @@ export const SitesPage = () => {
       const { data } = await fetchSites()
       return normalizeSiteList(data)
     },
+    enabled: canViewSite,
   })
+
+  if (!canViewSite) {
+    return (
+      <div className="text-sm text-error py-8 text-center">
+        এই পেজ দেখার অনুমতি নেই।
+      </div>
+    )
+  }
 
   if (sitesQuery.isLoading) {
     return (
@@ -46,7 +61,7 @@ export const SitesPage = () => {
 
   return (
     <section className="relative min-h-full flex flex-col pb-20">
-      <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100">
+      <div className="overflow-x-auto">
         <table className="table table-sm sm:table-md w-full">
           <thead>
             <tr className="border-b border-base-300">
@@ -92,14 +107,16 @@ export const SitesPage = () => {
         </table>
       </div>
 
-      <button
-        type="button"
-        className="btn btn-primary btn-circle btn-lg fixed bottom-4 right-4 z-40 shadow-lg"
-        aria-label="নতুন সাইট"
-        onClick={() => navigate(paths.siteNew)}
-      >
-        <Plus className="size-7" strokeWidth={2} />
-      </button>
+      {canAddSite ? (
+        <button
+          type="button"
+          className="btn btn-primary btn-circle btn-lg fixed bottom-4 right-4 z-40 shadow-lg"
+          aria-label="নতুন সাইট"
+          onClick={() => navigate(paths.siteNew)}
+        >
+          <Plus className="size-7" strokeWidth={2} />
+        </button>
+      ) : null}
     </section>
   )
 }

@@ -19,9 +19,9 @@ export const labourFormSchema = z.object({
     .int('পূর্ণ সংখ্যা দিন')
     .min(0, 'বেতন ০ বা তার বেশি হতে হবে'),
   default_fooding: z.coerce
-    .number({ message: 'ডিফল্ট খাবার দিন' })
+    .number({ message: 'ডিফল্ট খোরাকি দিন' })
     .int('পূর্ণ সংখ্যা দিন')
-    .min(0, 'খাবার ০ বা তার বেশি হতে হবে'),
+    .min(0, 'খোরাকি ০ বা তার বেশি হতে হবে'),
   is_active: z.boolean(),
 })
 

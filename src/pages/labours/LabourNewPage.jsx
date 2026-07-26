@@ -13,7 +13,9 @@ import {
 import { normalizeSiteList } from '../../api/types/site.js'
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
+import { usePermissions } from '../../hooks/usePermissions.js'
 import { formatBnNumber } from '../../utils/format.js'
+import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
 
 const emptyValues = {
@@ -29,7 +31,10 @@ export const LabourNewPage = () => {
   const navigate = useNavigate()
   const { setTitle } = useOutletContext()
   const queryClient = useQueryClient()
+  const { can } = usePermissions()
   const [apiError, setApiError] = useState(null)
+
+  const canAddLabour = can(PERMS.addLabour)
 
   useEffect(() => {
     setTitle?.('নতুন লেবার')
@@ -53,6 +58,7 @@ export const LabourNewPage = () => {
       const { data } = await fetchSites()
       return normalizeSiteList(data)
     },
+    enabled: canAddLabour,
   })
 
   const mutation = useMutation({
@@ -84,6 +90,14 @@ export const LabourNewPage = () => {
     saveLabour(values, { createAnother: true }),
   )
 
+  if (!canAddLabour) {
+    return (
+      <div className="text-sm text-error py-8 text-center">
+        লেবার যোগ করার অনুমতি নেই।
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-lg mx-auto">
       <ApiErrorAlert error={apiError} className="mb-3" />
@@ -111,7 +125,7 @@ export const LabourNewPage = () => {
             className={`select select-bordered w-full ${errors.current_site ? 'select-error' : ''}`}
             {...register('current_site')}
           >
-            <option value="">অনঅ্যাসাইনড</option>
+            <option value="">-------</option>
             {(sitesQuery.data ?? []).map((s) => (
               <option key={s.id} value={String(s.id)}>
                 {s.name}
@@ -157,7 +171,7 @@ export const LabourNewPage = () => {
         </label>
 
         <label className="form-control w-full">
-          <span className="label-text mb-1">ডিফল্ট খাবার</span>
+          <span className="label-text mb-1">ডিফল্ট খোরাকি</span>
           <input
             type="number"
             inputMode="numeric"

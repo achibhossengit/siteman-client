@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useOutletContext, useParams } from 'react-router-dom'
+import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchSiteDetail, updateSite } from '../../api/sites.js'
+import { deleteSite, fetchSiteDetail, updateSite } from '../../api/sites.js'
 import {
   normalizeSite,
   siteFormSchema,
@@ -14,6 +14,9 @@ import {
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { useAuth } from '../../providers/AuthProvider.jsx'
+import { usePermissions } from '../../hooks/usePermissions.js'
+import { PERMS } from '../../utils/permissions.js'
+import { paths } from '../../router/paths.js'
 
 const toFormValues = (site) => ({
   name: site?.name ?? '',
@@ -32,11 +35,18 @@ const formatDateTime = (iso) => {
 
 export const SiteDetailPage = () => {
   const { siteId } = useParams()
+  const navigate = useNavigate()
   const { setTitle } = useOutletContext()
   const queryClient = useQueryClient()
   const { bootstrapProfile } = useAuth()
+  const { can } = usePermissions()
   const [editing, setEditing] = useState(false)
+  const [confirmReady, setConfirmReady] = useState(false)
   const [apiError, setApiError] = useState(null)
+
+  const canViewSite = can(PERMS.viewSite)
+  const canChangeSite = can(PERMS.changeSite)
+  const canDeleteSite = can(PERMS.deleteSite)
 
   const {
     register,
@@ -55,7 +65,7 @@ export const SiteDetailPage = () => {
       const { data } = await fetchSiteDetail(siteId)
       return normalizeSite(data)
     },
-    enabled: Boolean(siteId),
+    enabled: Boolean(canViewSite && siteId),
   })
 
   const site = detailQuery.data
@@ -69,13 +79,40 @@ export const SiteDetailPage = () => {
     if (site) reset(toFormValues(site))
   }, [site, reset])
 
+  // Prevent ghost-submit: Update and Confirm share the same spot.
+  // Arm Confirm only after the Update click event has fully settled.
+  useEffect(() => {
+    if (!editing) {
+      setConfirmReady(false)
+      return
+    }
+    let cancelled = false
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!cancelled) setConfirmReady(true)
+      })
+    })
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(id)
+    }
+  }, [editing])
+
   const mutation = useMutation({
     mutationFn: (values) => updateSite(siteId, toSitePayload(values)),
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteSite(siteId),
+  })
+
   const startEdit = () => {
     if (site?.isClosed) return
+    // #region agent log
+    fetch('http://127.0.0.1:7900/ingest/5c2ebad5-d1cd-4cd7-908c-619d23ef27d4',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bf2ae1'},body:JSON.stringify({sessionId:'bf2ae1',runId:'post-fix2',hypothesisId:'A',location:'SiteDetailPage.jsx:startEdit',message:'startEdit clicked',data:{page:'site',editingBefore:editing,confirmReady,ts:Date.now()},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     setApiError(null)
+    setConfirmReady(false)
     setEditing(true)
   }
 
@@ -85,7 +122,28 @@ export const SiteDetailPage = () => {
     setEditing(false)
   }
 
+  const onDelete = async () => {
+    const ok = window.confirm('এই সাইট মুছে ফেলতে চান?')
+    if (!ok) return
+    setApiError(null)
+    try {
+      await deleteMutation.mutateAsync()
+      await queryClient.invalidateQueries({ queryKey: ['sites'] })
+      try {
+        await bootstrapProfile()
+      } catch {
+        // ignore
+      }
+      navigate(paths.sites, { replace: true })
+    } catch (err) {
+      setApiError(parseApiError(err))
+    }
+  }
+
   const onConfirm = handleSubmit(async (values) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7900/ingest/5c2ebad5-d1cd-4cd7-908c-619d23ef27d4',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bf2ae1'},body:JSON.stringify({sessionId:'bf2ae1',runId:'post-fix2',hypothesisId:'A',location:'SiteDetailPage.jsx:onConfirm',message:'onConfirm fired',data:{page:'site',editing,confirmReady,ts:Date.now()},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     setApiError(null)
     try {
       const { data } = await mutation.mutateAsync(values)
@@ -104,6 +162,14 @@ export const SiteDetailPage = () => {
       applyFieldErrors(parsed, setError)
     }
   })
+
+  if (!canViewSite) {
+    return (
+      <div className="text-sm text-error py-8 text-center">
+        এই পেজ দেখার অনুমতি নেই।
+      </div>
+    )
+  }
 
   if (detailQuery.isLoading) {
     return (
@@ -149,7 +215,19 @@ export const SiteDetailPage = () => {
         </span>
       </div>
 
-      <form className="flex flex-col gap-3" onSubmit={onConfirm} noValidate>
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          // #region agent log
+          const submitter = e.nativeEvent?.submitter
+          fetch('http://127.0.0.1:7900/ingest/5c2ebad5-d1cd-4cd7-908c-619d23ef27d4',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bf2ae1'},body:JSON.stringify({sessionId:'bf2ae1',runId:'post-fix2',hypothesisId:'B',location:'SiteDetailPage.jsx:form.onSubmit',message:'form submit event',data:{page:'site',editing,confirmReady,submitterType:submitter?.type??null,submitterText:submitter?.textContent?.trim?.()?.slice(0,40)??null,blocked:!confirmReady,ts:Date.now()},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
+          if (!confirmReady) return
+          return onConfirm(e)
+        }}
+        noValidate
+      >
         <label className="form-control w-full">
           <span className="label-text mb-1">সাইটের নাম</span>
           <input
@@ -200,40 +278,66 @@ export const SiteDetailPage = () => {
           ) : null}
         </div>
 
-        {!site.isClosed ? (
+        {!site.isClosed || canDeleteSite ? (
           <div className="flex justify-end gap-2 mt-2">
-            {editing ? (
-              <>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={cancelEdit}
-                  disabled={isSubmitting || mutation.isPending}
-                >
-                  বাতিল
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={isSubmitting || mutation.isPending}
-                >
-                  {isSubmitting || mutation.isPending ? (
-                    <span className="loading loading-spinner loading-sm" />
-                  ) : (
-                    'নিশ্চিত'
-                  )}
-                </button>
-              </>
-            ) : (
+          {editing ? (
+            <>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={cancelEdit}
+                disabled={isSubmitting || mutation.isPending}
+              >
+                বাতিল
+              </button>
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={startEdit}
+                disabled={!confirmReady || isSubmitting || mutation.isPending}
+                onClick={(e) => {
+                  // #region agent log
+                  fetch('http://127.0.0.1:7900/ingest/5c2ebad5-d1cd-4cd7-908c-619d23ef27d4',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bf2ae1'},body:JSON.stringify({sessionId:'bf2ae1',runId:'post-fix2',hypothesisId:'A',location:'SiteDetailPage.jsx:confirmBtn.onClick',message:'confirm button click',data:{page:'site',confirmReady,ts:Date.now()},timestamp:Date.now()})}).catch(()=>{});
+                  // #endregion
+                  if (!confirmReady) return
+                  return onConfirm(e)
+                }}
               >
-                আপডেট
+                {isSubmitting || mutation.isPending ? (
+                  <span className="loading loading-spinner loading-sm" />
+                ) : (
+                  "নিশ্চিত"
+                )}
               </button>
-            )}
-          </div>
+            </>
+          ) : (
+            <>
+              {canDeleteSite ? (
+                <button
+                  type="button"
+                  className="btn btn-error btn-outline"
+                  onClick={onDelete}
+                  disabled={deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending ? (
+                    <span className="loading loading-spinner loading-sm" />
+                  ) : (
+                    "মুছুন"
+                  )}
+                </button>
+              ) : null}
+              {canChangeSite ? (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={startEdit}
+                  disabled={site.isClosed}
+                >
+                  আপডেট
+                </button>
+              ) : null}
+            </>
+          )}
+        </div>
         ) : null}
       </form>
     </div>
