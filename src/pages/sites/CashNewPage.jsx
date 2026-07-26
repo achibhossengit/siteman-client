@@ -12,6 +12,7 @@ import {
 } from "../../api/types/siteCash.js";
 import { parseApiError, applyFieldErrors } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
+import { useAuth } from "../../providers/AuthProvider.jsx";
 import { paths } from "../../router/paths.js";
 import {
   readSelectedDate,
@@ -30,11 +31,16 @@ const emptyValues = {
 export const CashNewPage = () => {
   const navigate = useNavigate();
   const { setTitle } = useOutletContext();
+  const { profile } = useAuth();
   const queryClient = useQueryClient();
   const [apiError, setApiError] = useState(null);
 
   const siteId = readSelectedSite();
   const date = readSelectedDate() || todayIso();
+  const site = (profile?.sites ?? []).find(
+    (s) => String(s.id) === String(siteId),
+  );
+  const siteInactive = site?.is_active === false;
 
   useEffect(() => {
     setTitle?.("নতুন ক্যাশ");
@@ -218,7 +224,7 @@ export const CashNewPage = () => {
           <button
             type="button"
             className="btn btn-outline btn-primary flex-1"
-            disabled={isSubmitting || mutation.isPending}
+            disabled={siteInactive || isSubmitting || mutation.isPending}
             onClick={onSaveAndCreateAnother}
           >
             আরেকটি
@@ -226,7 +232,7 @@ export const CashNewPage = () => {
           <button
             type="submit"
             className="btn btn-primary flex-1"
-            disabled={isSubmitting || mutation.isPending}
+            disabled={siteInactive || isSubmitting || mutation.isPending}
           >
             {isSubmitting || mutation.isPending ? (
               <span className="loading loading-spinner loading-sm" />

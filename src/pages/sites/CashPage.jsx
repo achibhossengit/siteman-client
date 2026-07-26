@@ -33,8 +33,11 @@ const formatCashAmount = (type, amount) => {
 }
 
 export const CashPage = () => {
-  const { date, siteId } = useOutletContext()
+  const { date, siteId, sites } = useOutletContext()
   const navigate = useNavigate()
+
+  const site = (sites ?? []).find((s) => String(s.id) === String(siteId))
+  const siteInactive = site?.is_active === false
 
   const cashQuery = useQuery({
     queryKey: ['sites', siteId, 'cash', { date }],
@@ -141,7 +144,7 @@ export const CashPage = () => {
         className="btn btn-primary btn-circle btn-lg fixed bottom-16 right-4 z-40 shadow-lg"
         aria-label="নতুন ক্যাশ"
         onClick={() => navigate(paths.cashNew)}
-        disabled={!date}
+        disabled={!date || siteInactive}
       >
         <Plus className="size-7" strokeWidth={2} />
       </button>

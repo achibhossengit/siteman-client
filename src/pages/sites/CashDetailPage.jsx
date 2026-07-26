@@ -18,6 +18,7 @@ import {
 } from "../../api/types/siteCash.js";
 import { parseApiError, applyFieldErrors } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
+import { useAuth } from "../../providers/AuthProvider.jsx";
 import { paths } from "../../router/paths.js";
 import { readSelectedSite } from "../../utils/sessionSelection.js";
 
@@ -43,11 +44,17 @@ export const CashDetailPage = () => {
   const { cashId } = useParams();
   const navigate = useNavigate();
   const { setTitle } = useOutletContext();
+  const { profile } = useAuth();
   const siteId = readSelectedSite();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [confirmReady, setConfirmReady] = useState(false);
   const [apiError, setApiError] = useState(null);
+
+  const site = (profile?.sites ?? []).find(
+    (s) => String(s.id) === String(siteId),
+  );
+  const siteInactive = site?.is_active === false;
 
   useEffect(() => {
     setTitle?.("ক্যাশ বিবরণ");
@@ -349,7 +356,7 @@ export const CashDetailPage = () => {
                 type="button"
                 className="btn btn-error btn-outline"
                 onClick={onDelete}
-                disabled={deleteMutation.isPending}
+                disabled={siteInactive || deleteMutation.isPending}
               >
                 {deleteMutation.isPending ? (
                   <span className="loading loading-spinner loading-sm" />
@@ -361,6 +368,7 @@ export const CashDetailPage = () => {
                 type="button"
                 className="btn btn-primary"
                 onClick={startEdit}
+                disabled={siteInactive}
               >
                 আপডেট
               </button>
