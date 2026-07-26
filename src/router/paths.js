@@ -15,6 +15,7 @@ export const paths = {
   labours: '/labours',
   labourNew: '/labours/new',
   labourDetail: (id) => `/labours/${id}`,
+  appInfo: '/app-info',
   login: '/login',
   register: '/register',
   registerConfirm: '/register/confirm',

@@ -42,7 +42,7 @@ const MENU_LINKS = [
     key: 'app-info',
     title: 'অ্যাপ তথ্য',
     icon: Info,
-    to: null,
+    to: paths.appInfo,
   },
 ]
 
