@@ -57,6 +57,10 @@ export const createSiteCash = (siteId, payload) =>
 export const updateSiteCash = (siteId, cashId, payload) =>
   api.patch(endpoints.sites.cashDetail(siteId, cashId), payload)
 
+/** DELETE /sites/{site_pk}/cash/{id} */
+export const deleteSiteCash = (siteId, cashId) =>
+  api.delete(endpoints.sites.cashDetail(siteId, cashId))
+
 /** Billing categories for a site (used as cash `billing` options). */
 export const fetchBillingCategories = (siteId, params = {}) =>
   api.get(endpoints.sites.billingCategories(siteId), { params })

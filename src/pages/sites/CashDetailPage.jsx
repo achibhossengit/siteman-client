@@ -1,54 +1,68 @@
-import { useEffect, useState } from 'react'
-import { useOutletContext, useParams } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from "react";
+import { useNavigate, useOutletContext, useParams } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  deleteSiteCash,
   fetchBillingCategories,
   fetchSiteCashDetail,
   updateSiteCash,
-} from '../../api/sites.js'
+} from "../../api/sites.js";
 import {
   CASH_CATEGORIES,
   CASH_TYPES,
   cashFormSchema,
   normalizeSiteCash,
   toSiteCashPayload,
-} from '../../api/types/siteCash.js'
-import { parseApiError, applyFieldErrors } from '../../api/errors.js'
-import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
-import { readSelectedSite } from '../../utils/sessionSelection.js'
+} from "../../api/types/siteCash.js";
+import { parseApiError, applyFieldErrors } from "../../api/errors.js";
+import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
+import { paths } from "../../router/paths.js";
+import { readSelectedSite } from "../../utils/sessionSelection.js";
 
 const toFormValues = (cash) => ({
-  note: cash?.note ?? '',
-  type: cash?.type ?? 'cost',
-  amount: cash?.amount ?? '',
-  category: cash?.category ?? '',
-  billing: cash?.billing != null ? String(cash.billing) : '',
-})
+  note: cash?.note ?? "",
+  type: cash?.type ?? "cost",
+  amount: cash?.amount ?? "",
+  category: cash?.category ?? "",
+  billing: cash?.billing != null ? String(cash.billing) : "",
+});
 
 const formatDateTime = (iso) => {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
-  return new Intl.DateTimeFormat('bn-BD', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(d)
-}
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("bn-BD", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(d);
+};
 
 export const CashDetailPage = () => {
-  const { cashId } = useParams()
-  const { setTitle } = useOutletContext()
-  const siteId = readSelectedSite()
-  const queryClient = useQueryClient()
-  const [editing, setEditing] = useState(false)
-  const [apiError, setApiError] = useState(null)
+  const { cashId } = useParams();
+  const navigate = useNavigate();
+  const { setTitle } = useOutletContext();
+  const siteId = readSelectedSite();
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [confirmReady, setConfirmReady] = useState(false);
+  const [apiError, setApiError] = useState(null);
 
   useEffect(() => {
-    setTitle?.('ক্যাশ বিবরণ')
-    return () => setTitle?.('')
-  }, [setTitle])
+    setTitle?.("ক্যাশ বিবরণ");
+    return () => setTitle?.("");
+  }, [setTitle]);
+
+  // Prevent ghost-submit: Update and Confirm share the same spot; the same
+  // click must not activate the newly mounted submit button.
+  useEffect(() => {
+    if (!editing) {
+      setConfirmReady(false);
+      return;
+    }
+    setConfirmReady(true);
+  }, [editing]);
 
   const {
     register,
@@ -61,32 +75,34 @@ export const CashDetailPage = () => {
   } = useForm({
     resolver: zodResolver(cashFormSchema),
     defaultValues: toFormValues(null),
-  })
+  });
 
-  const type = watch('type')
-  const categoryEnabled = type === 'cost'
+  const type = watch("type");
+  const categoryEnabled = type === "cost";
 
   useEffect(() => {
-    if (!categoryEnabled) setValue('category', '')
-  }, [categoryEnabled, setValue])
+    if (!categoryEnabled) setValue("category", "");
+  }, [categoryEnabled, setValue]);
 
   const detailQuery = useQuery({
-    queryKey: ['sites', siteId, 'cash', cashId],
+    queryKey: ["sites", siteId, "cash", cashId],
     queryFn: async () => {
-      const { data } = await fetchSiteCashDetail(siteId, cashId)
-      return normalizeSiteCash(data)
+      const { data } = await fetchSiteCashDetail(siteId, cashId);
+      return normalizeSiteCash(data);
     },
     enabled: Boolean(siteId && cashId),
-  })
+  });
 
   const billingQuery = useQuery({
-    queryKey: ['sites', siteId, 'billing-categories'],
+    queryKey: ["sites", siteId, "billing-categories"],
     queryFn: async () => {
-      const { data } = await fetchBillingCategories(siteId, { is_active: true })
-      return Array.isArray(data) ? data : []
+      const { data } = await fetchBillingCategories(siteId, {
+        is_active: true,
+      });
+      return Array.isArray(data) ? data : [];
     },
     enabled: Boolean(siteId),
-  })
+  });
 
   const mutation = useMutation({
     mutationFn: (values) =>
@@ -95,47 +111,72 @@ export const CashDetailPage = () => {
         cashId,
         toSiteCashPayload({ ...values, date: detailQuery.data?.date }),
       ),
-  })
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteSiteCash(siteId, cashId),
+  });
 
   useEffect(() => {
-    if (detailQuery.data) reset(toFormValues(detailQuery.data))
-  }, [detailQuery.data, reset])
+    if (detailQuery.data) reset(toFormValues(detailQuery.data));
+  }, [detailQuery.data, reset]);
 
   const startEdit = () => {
-    setApiError(null)
-    setEditing(true)
-  }
+    setApiError(null);
+    setConfirmReady(false);
+    setEditing(true);
+  };
 
   const cancelEdit = () => {
-    setApiError(null)
-    reset(toFormValues(detailQuery.data))
-    setEditing(false)
-  }
+    setApiError(null);
+    reset(toFormValues(detailQuery.data));
+    setEditing(false);
+  };
+
+  const onDelete = async () => {
+    const ok = window.confirm("এই ক্যাশ এন্ট্রি মুছে ফেলতে চান?");
+    if (!ok) return;
+    setApiError(null);
+    try {
+      await deleteMutation.mutateAsync();
+      await queryClient.invalidateQueries({
+        queryKey: ["sites", siteId, "cash"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["sites", siteId, "daily-reports"],
+      });
+      navigate(paths.cash, { replace: true });
+    } catch (err) {
+      setApiError(parseApiError(err));
+    }
+  };
 
   const onConfirm = handleSubmit(async (values) => {
-    setApiError(null)
+    setApiError(null);
     try {
-      const { data } = await mutation.mutateAsync(values)
-      const normalized = normalizeSiteCash(data)
-      reset(toFormValues(normalized))
-      await queryClient.invalidateQueries({ queryKey: ['sites', siteId, 'cash'] })
+      const { data } = await mutation.mutateAsync(values);
+      const normalized = normalizeSiteCash(data);
+      reset(toFormValues(normalized));
       await queryClient.invalidateQueries({
-        queryKey: ['sites', siteId, 'daily-reports'],
-      })
-      setEditing(false)
+        queryKey: ["sites", siteId, "cash"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["sites", siteId, "daily-reports"],
+      });
+      setEditing(false);
     } catch (err) {
-      const parsed = parseApiError(err)
-      setApiError(parsed)
-      applyFieldErrors(parsed, setError)
+      const parsed = parseApiError(err);
+      setApiError(parsed);
+      applyFieldErrors(parsed, setError);
     }
-  })
+  });
 
   if (!siteId) {
     return (
       <div className="text-sm text-base-content/70 py-8 text-center">
         ক্যাশ দেখতে আগে একটি সাইট নির্বাচন করুন।
       </div>
-    )
+    );
   }
 
   if (detailQuery.isLoading) {
@@ -143,61 +184,51 @@ export const CashDetailPage = () => {
       <div className="flex justify-center py-16">
         <span className="loading loading-spinner loading-lg text-primary" />
       </div>
-    )
+    );
   }
 
   if (detailQuery.isError) {
-    return <ApiErrorAlert error={parseApiError(detailQuery.error)} />
+    return <ApiErrorAlert error={parseApiError(detailQuery.error)} />;
   }
 
-  const cash = detailQuery.data
-  const disabled = !editing
-  const fieldClass = (hasError, kind = 'input') =>
+  const cash = detailQuery.data;
+  const disabled = !editing;
+  const fieldClass = (hasError, kind = "input") =>
     [
-      kind === 'select'
-        ? 'select select-bordered w-full'
-        : 'input input-bordered w-full',
-      hasError ? (kind === 'select' ? 'select-error' : 'input-error') : '',
-      disabled ? 'bg-base-200' : '',
-    ].join(' ')
+      kind === "select"
+        ? "select select-bordered w-full"
+        : "input input-bordered w-full",
+      hasError ? (kind === "select" ? "select-error" : "input-error") : "",
+      disabled ? "bg-base-200" : "",
+    ].join(" ");
 
   return (
     <div className="max-w-lg mx-auto">
       <ApiErrorAlert error={apiError} className="mb-3" />
 
-      <form className="flex flex-col gap-3" onSubmit={onConfirm} noValidate>
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(e) => {
+          if (!confirmReady) {
+            e.preventDefault();
+            return;
+          }
+          return onConfirm(e);
+        }}
+        noValidate
+      >
         <label className="form-control w-full">
-          <span className="label-text mb-1">নোট</span>
+          <span className="label-text mb-1">বিবরণ</span>
           <input
             type="text"
             className={fieldClass(errors.note)}
             maxLength={255}
             disabled={disabled}
-            {...register('note')}
+            {...register("note")}
           />
           {errors.note ? (
             <span className="label-text-alt text-error mt-1">
               {errors.note.message}
-            </span>
-          ) : null}
-        </label>
-
-        <label className="form-control w-full">
-          <span className="label-text mb-1">ধরন</span>
-          <select
-            className={fieldClass(errors.type, 'select')}
-            disabled={disabled}
-            {...register('type')}
-          >
-            {CASH_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-          {errors.type ? (
-            <span className="label-text-alt text-error mt-1">
-              {errors.type.message}
             </span>
           ) : null}
         </label>
@@ -211,7 +242,7 @@ export const CashDetailPage = () => {
             step={1}
             className={fieldClass(errors.amount)}
             disabled={disabled}
-            {...register('amount')}
+            {...register("amount")}
           />
           {errors.amount ? (
             <span className="label-text-alt text-error mt-1">
@@ -220,28 +251,50 @@ export const CashDetailPage = () => {
           ) : null}
         </label>
 
-        <label className="form-control w-full">
-          <span className="label-text mb-1">ক্যাটাগরি</span>
-          <select
-            className={fieldClass(errors.category, 'select')}
-            disabled={disabled || !categoryEnabled}
-            {...register('category')}
-          >
-            <option value="">—</option>
-            {CASH_CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="flex justify-between gap-2">
+          <label className="form-control w-full">
+            <span className="label-text mb-1">ধরন</span>
+            <select
+              className={fieldClass(errors.type, "select")}
+              disabled={disabled}
+              {...register("type")}
+            >
+              {CASH_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+            {errors.type ? (
+              <span className="label-text-alt text-error mt-1">
+                {errors.type.message}
+              </span>
+            ) : null}
+          </label>
+
+          <label className="form-control w-full">
+            <span className="label-text mb-1">ক্যাটাগরি</span>
+            <select
+              className={fieldClass(errors.category, "select")}
+              disabled={disabled || !categoryEnabled}
+              {...register("category")}
+            >
+              <option value="">—</option>
+              {CASH_CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
 
         <label className="form-control w-full">
           <span className="label-text mb-1">বিলিং ক্যাটাগরি</span>
           <select
-            className={fieldClass(errors.billing, 'select')}
+            className={fieldClass(errors.billing, "select")}
             disabled={disabled}
-            {...register('billing')}
+            {...register("billing")}
           >
             <option value="">—</option>
             {(billingQuery.data ?? []).map((b) => (
@@ -254,13 +307,13 @@ export const CashDetailPage = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm pt-1">
           <div>
-            <span className="text-base-content/60">তৈরি:</span>{' '}
+            <span className="text-base-content/60">তৈরি:</span>{" "}
             <span className="tabular-nums">
               {formatDateTime(cash?.createdAt)}
             </span>
           </div>
           <div>
-            <span className="text-base-content/60">হালনাগাদ:</span>{' '}
+            <span className="text-base-content/60">হালনাগাদ:</span>{" "}
             <span className="tabular-nums">
               {formatDateTime(cash?.updatedAt)}
             </span>
@@ -281,26 +334,40 @@ export const CashDetailPage = () => {
               <button
                 type="submit"
                 className="btn btn-primary"
-                disabled={isSubmitting || mutation.isPending}
+                disabled={!confirmReady || isSubmitting || mutation.isPending}
               >
                 {isSubmitting || mutation.isPending ? (
                   <span className="loading loading-spinner loading-sm" />
                 ) : (
-                  'নিশ্চিত'
+                  "নিশ্চিত"
                 )}
               </button>
             </>
           ) : (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={startEdit}
-            >
-              আপডেট
-            </button>
+            <>
+              <button
+                type="button"
+                className="btn btn-error btn-outline"
+                onClick={onDelete}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? (
+                  <span className="loading loading-spinner loading-sm" />
+                ) : (
+                  "মুছুন"
+                )}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={startEdit}
+              >
+                আপডেট
+              </button>
+            </>
           )}
         </div>
       </form>
     </div>
-  )
-}
+  );
+};
