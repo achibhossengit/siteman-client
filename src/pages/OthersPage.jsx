@@ -1,10 +1,87 @@
-export const OthersPage = () => (
-    <div className="card bg-base-100 border border-base-300">
-      <div className="card-body gap-2">
-        <h1 className="card-title text-xl">অন্যান্য</h1>
-        <p className="text-sm text-base-content/70">
-          অন্যান্য Page শীঘ্রই আসছে।
-        </p>
+import {
+  Building2,
+  Info,
+  LandPlot,
+  Moon,
+  Sun,
+  Users,
+  UserRoundCog,
+} from 'lucide-react'
+import { ThemeToggle } from '../components/ThemeToggle.jsx'
+import { useTheme } from '../providers/ThemeProvider.jsx'
+import { THEME_DARK } from '../utils/theme.js'
+
+const PLACEHOLDER_LINKS = [
+  {
+    key: 'company',
+    title: 'কোম্পানি সেটিংস',
+    icon: Building2,
+  },
+  {
+    key: 'sites',
+    title: 'সাইট ম্যানেজ',
+    icon: LandPlot,
+  },
+  {
+    key: 'users',
+    title: 'ইউজার ম্যানেজ',
+    icon: Users,
+  },
+  {
+    key: 'labours',
+    title: 'লেবার ম্যানেজ',
+    icon: UserRoundCog,
+  },
+  {
+    key: 'app-info',
+    title: 'অ্যাপ তথ্য',
+    icon: Info,
+  },
+]
+
+export const OthersPage = () => {
+  const { resolved } = useTheme()
+  const isDark = resolved === THEME_DARK
+
+  return (
+    <div className="flex flex-col gap-3 p-2 sm:p-3">
+      <div className="card bg-base-100 border border-base-300">
+        <div className="card-body p-0">
+          <ul className="menu menu-md w-full gap-0 p-1">
+            {PLACEHOLDER_LINKS.map(({ key, title, icon: Icon }) => (
+              <li key={key}>
+                <a
+                  href="#"
+                  className="rounded-lg"
+                  onClick={(e) => e.preventDefault()}
+                >
+                  <Icon className="size-5 shrink-0 opacity-70" strokeWidth={1.75} />
+                  <span>{title}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <div className="card bg-base-100 border border-base-300">
+        <div className="card-body py-3 px-4 flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            {isDark ? (
+              <Moon className="size-5 shrink-0 opacity-70" strokeWidth={1.75} />
+            ) : (
+              <Sun className="size-5 shrink-0 opacity-70" strokeWidth={1.75} />
+            )}
+            <div className="min-w-0">
+              <div className="font-medium">থিম</div>
+              <div className="text-xs text-base-content/60">
+                {isDark ? 'ডার্ক মোড' : 'লাইট মোড'}
+              </div>
+            </div>
+          </div>
+          <ThemeToggle />
+        </div>
+      </div>
     </div>
-  </div>
-)
+  )
+}

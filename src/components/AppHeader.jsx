@@ -1,11 +1,10 @@
 import { Link, NavLink } from "react-router-dom";
 import { BrandLogo } from "./BrandLogo.jsx";
-import { ThemeToggle } from "./ThemeToggle.jsx";
 import { useAuth } from "../providers/AuthProvider.jsx";
 import { paths } from "../router/paths.js";
 
 /**
- * Shared top chrome: brand + theme + auth actions (login/register or profile).
+ * Shared top chrome: brand + auth actions (login/register or profile).
  */
 export const AppHeader = () => {
   const { isAuthenticated, profile } = useAuth();
@@ -20,19 +19,16 @@ export const AppHeader = () => {
         </div>
         <div className="flex items-center gap-1 sm:gap-2">
           {isAuthenticated ? (
-            <>
-              <ThemeToggle />
-              <Link
-                to={paths.profile}
-                className="avatar placeholder"
-                aria-label="প্রোফাইল"
-                title={profile?.name || "প্রোফাইল"}
-              >
-                <div className="bg-neutral text-neutral-content w-8 rounded-full">
-                  <img src="/user.png" alt="" className="object-cover" />
-                </div>
-              </Link>
-            </>
+            <Link
+              to={paths.profile}
+              className="avatar placeholder"
+              aria-label="প্রোফাইল"
+              title={profile?.name || "প্রোফাইল"}
+            >
+              <div className="bg-neutral text-neutral-content w-8 rounded-full">
+                <img src="/user.png" alt="" className="object-cover" />
+              </div>
+            </Link>
           ) : (
             <div className="flex items-center gap-1.5">
               <NavLink to={paths.register} className="btn btn-outline btn-sm">
