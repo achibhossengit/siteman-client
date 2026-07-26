@@ -10,6 +10,15 @@ import { HajiraPage } from "../pages/sites/HajiraPage.jsx";
 import { CashPage } from "../pages/sites/CashPage.jsx";
 import { CashNewPage } from "../pages/sites/CashNewPage.jsx";
 import { CashDetailPage } from "../pages/sites/CashDetailPage.jsx";
+import { SitesPage } from "../pages/sites/SitesPage.jsx";
+import { SiteNewPage } from "../pages/sites/SiteNewPage.jsx";
+import { SiteDetailPage } from "../pages/sites/SiteDetailPage.jsx";
+import { UsersPage } from "../pages/users/UsersPage.jsx";
+import { UserNewPage } from "../pages/users/UserNewPage.jsx";
+import { UserDetailPage } from "../pages/users/UserDetailPage.jsx";
+import { LaboursPage } from "../pages/labours/LaboursPage.jsx";
+import { LabourNewPage } from "../pages/labours/LabourNewPage.jsx";
+import { LabourDetailPage } from "../pages/labours/LabourDetailPage.jsx";
 import { LoginPage } from "../pages/auth/LoginPage.jsx";
 import { RegisterPage } from "../pages/auth/RegisterPage.jsx";
 import { RegisterConfirmPage } from "../pages/auth/RegisterConfirmPage.jsx";
@@ -59,6 +68,15 @@ export const AppRouter = () => (
         <Route element={<DetailLayout />}>
           <Route path={paths.cashNew} element={<CashNewPage />} />
           <Route path="/cash/:cashId" element={<CashDetailPage />} />
+          <Route path={paths.sites} element={<SitesPage />} />
+          <Route path={paths.siteNew} element={<SiteNewPage />} />
+          <Route path="/sites/:siteId" element={<SiteDetailPage />} />
+          <Route path={paths.users} element={<UsersPage />} />
+          <Route path={paths.userNew} element={<UserNewPage />} />
+          <Route path="/users/:userId" element={<UserDetailPage />} />
+          <Route path={paths.labours} element={<LaboursPage />} />
+          <Route path={paths.labourNew} element={<LabourNewPage />} />
+          <Route path="/labours/:labourId" element={<LabourDetailPage />} />
         </Route>
       </Route>
 

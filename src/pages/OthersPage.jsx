@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import {
   Building2,
   Info,
@@ -10,32 +11,38 @@ import {
 import { ThemeToggle } from '../components/ThemeToggle.jsx'
 import { useTheme } from '../providers/ThemeProvider.jsx'
 import { THEME_DARK } from '../utils/theme.js'
+import { paths } from '../router/paths.js'
 
-const PLACEHOLDER_LINKS = [
+const MENU_LINKS = [
   {
     key: 'company',
     title: 'কোম্পানি সেটিংস',
     icon: Building2,
+    to: null,
   },
   {
     key: 'sites',
     title: 'সাইট ম্যানেজ',
     icon: LandPlot,
+    to: paths.sites,
   },
   {
     key: 'users',
     title: 'ইউজার ম্যানেজ',
     icon: Users,
+    to: paths.users,
   },
   {
     key: 'labours',
     title: 'লেবার ম্যানেজ',
     icon: UserRoundCog,
+    to: paths.labours,
   },
   {
     key: 'app-info',
     title: 'অ্যাপ তথ্য',
     icon: Info,
+    to: null,
   },
 ]
 
@@ -48,16 +55,29 @@ export const OthersPage = () => {
       <div className="card bg-base-100 border border-base-300">
         <div className="card-body p-0">
           <ul className="menu menu-md w-full gap-0 p-1">
-            {PLACEHOLDER_LINKS.map(({ key, title, icon: Icon }) => (
+            {MENU_LINKS.map(({ key, title, icon: Icon, to }) => (
               <li key={key}>
-                <a
-                  href="#"
-                  className="rounded-lg"
-                  onClick={(e) => e.preventDefault()}
-                >
-                  <Icon className="size-5 shrink-0 opacity-70" strokeWidth={1.75} />
-                  <span>{title}</span>
-                </a>
+                {to ? (
+                  <Link to={to} className="rounded-lg">
+                    <Icon
+                      className="size-5 shrink-0 opacity-70"
+                      strokeWidth={1.75}
+                    />
+                    <span>{title}</span>
+                  </Link>
+                ) : (
+                  <a
+                    href="#"
+                    className="rounded-lg"
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    <Icon
+                      className="size-5 shrink-0 opacity-70"
+                      strokeWidth={1.75}
+                    />
+                    <span>{title}</span>
+                  </a>
+                )}
               </li>
             ))}
           </ul>

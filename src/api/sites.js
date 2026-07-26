@@ -1,6 +1,26 @@
 import { api } from './client.js'
 import { endpoints } from './endpoints.js'
 
+/** GET /sites — optional filters: is_active, is_closed. */
+export const fetchSites = ({ is_active, is_closed } = {}) =>
+  api.get(endpoints.sites.list, {
+    params: {
+      ...(typeof is_active === 'boolean' ? { is_active } : {}),
+      ...(typeof is_closed === 'boolean' ? { is_closed } : {}),
+    },
+  })
+
+/** GET /sites/{id} */
+export const fetchSiteDetail = (siteId) =>
+  api.get(endpoints.sites.detail(siteId))
+
+/** POST /sites */
+export const createSite = (payload) => api.post(endpoints.sites.list, payload)
+
+/** PATCH /sites/{id} */
+export const updateSite = (siteId, payload) =>
+  api.patch(endpoints.sites.detail(siteId), payload)
+
 /**
  * Day summary for a site.
  * OpenAPI documents 200 as `Site` (incorrect) — live shape is aggregates.

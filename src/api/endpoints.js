@@ -24,4 +24,18 @@ export const endpoints = {
     labourAttendances: (id) => `/api/v1/sites/${id}/labour-attendances`,
     labourPayments: (id) => `/api/v1/sites/${id}/labour-payments`,
   },
+  users: {
+    list: '/api/v1/users',
+    detail: (id) => `/api/v1/users/${id}`,
+  },
+  labours: {
+    list: '/api/v1/labours',
+    detail: (id) => `/api/v1/labours/${id}`,
+    attendances: (labourId) => `/api/v1/labours/${labourId}/attendances`,
+    attendanceDetail: (labourId, id) =>
+      `/api/v1/labours/${labourId}/attendances/${id}`,
+    payments: (labourId) => `/api/v1/labours/${labourId}/payments`,
+    paymentDetail: (labourId, id) =>
+      `/api/v1/labours/${labourId}/payments/${id}`,
+  },
 }

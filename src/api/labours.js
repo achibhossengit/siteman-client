@@ -1,6 +1,30 @@
 import { api } from './client.js'
 import { endpoints } from './endpoints.js'
 
+/** GET /labours — filters: current_site, is_active, search. */
+export const fetchLabours = ({ current_site, is_active, search } = {}) =>
+  api.get(endpoints.labours.list, {
+    params: {
+      ...(current_site != null && current_site !== ''
+        ? { current_site }
+        : {}),
+      ...(typeof is_active === 'boolean' ? { is_active } : {}),
+      ...(search ? { search } : {}),
+    },
+  })
+
+/** GET /labours/{id} */
+export const fetchLabourDetail = (labourId) =>
+  api.get(endpoints.labours.detail(labourId))
+
+/** POST /labours */
+export const createLabour = (payload) =>
+  api.post(endpoints.labours.list, payload)
+
+/** PATCH /labours/{id} */
+export const updateLabour = (labourId, payload) =>
+  api.patch(endpoints.labours.detail(labourId), payload)
+
 /** GET /labours/{labour_pk}/attendances */
 export const fetchLabourAttendancesByLabour = (
   labourId,
