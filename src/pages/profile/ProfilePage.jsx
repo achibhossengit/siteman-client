@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { LogOut, KeyRound } from 'lucide-react'
+import { KeyRound } from 'lucide-react'
 import { useAuth } from '../../providers/AuthProvider.jsx'
 import { updateProfile } from '../../api/profile.js'
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
@@ -21,11 +21,9 @@ const schema = z.object({
 })
 
 export const ProfilePage = () => {
-  const { profile, setProfile, logout, bootstrapProfile } = useAuth()
-  const navigate = useNavigate()
+  const { profile, setProfile, bootstrapProfile } = useAuth()
   const [apiError, setApiError] = useState(null)
   const [saved, setSaved] = useState(false)
-  const [loggingOut, setLoggingOut] = useState(false)
 
   const {
     register,
@@ -64,40 +62,15 @@ export const ProfilePage = () => {
     }
   })
 
-  const onLogout = async () => {
-    setLoggingOut(true)
-    try {
-      await logout()
-      navigate(paths.login, { replace: true })
-    } finally {
-      setLoggingOut(false)
-    }
-  }
-
   return (
     <div className="flex flex-col gap-3">
       <div className="card bg-base-100 border border-base-300">
         <div className="card-body gap-3">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <h1 className="card-title text-xl">প্রোফাইল</h1>
-              <p className="text-sm text-base-content/70">
-                {profile?.company?.name || 'কোম্পানি'}
-              </p>
-            </div>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={onLogout}
-              disabled={loggingOut}
-            >
-              {loggingOut ? (
-                <span className="loading loading-spinner loading-sm" />
-              ) : (
-                <LogOut className="size-4" />
-              )}
-              লগআউট
-            </button>
+          <div>
+            <h1 className="card-title text-xl">প্রোফাইল</h1>
+            <p className="text-sm text-base-content/70">
+              {profile?.company?.name || 'কোম্পানি'}
+            </p>
           </div>
 
           {profile?.groups?.length ? (

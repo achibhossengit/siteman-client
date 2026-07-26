@@ -59,7 +59,6 @@ export const AppRouter = () => (
           </Route>
 
           <Route path={paths.others} element={<OthersPage />} />
-          <Route path={paths.profile} element={<ProfilePage />} />
           <Route
             path={paths.changePassword}
             element={<ChangePasswordPage />}
@@ -67,6 +66,7 @@ export const AppRouter = () => (
         </Route>
 
         <Route element={<DetailLayout />}>
+          <Route path={paths.profile} element={<ProfilePage />} />
           <Route path={paths.cashNew} element={<CashNewPage />} />
           <Route path="/cash/:cashId" element={<CashDetailPage />} />
           <Route path={paths.sites} element={<SitesPage />} />
