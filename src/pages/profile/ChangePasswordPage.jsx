@@ -117,11 +117,11 @@ export const ChangePasswordPage = () => {
             {isSubmitting ? (
               <span className="loading loading-spinner loading-sm" />
             ) : (
-              'আপডেট'
+              'আপডেট করুন'
             )}
           </button>
           <Link to={paths.profile} className="btn btn-ghost">
-            বাতিল
+            বাতিল করুন
           </Link>
         </div>
       </form>

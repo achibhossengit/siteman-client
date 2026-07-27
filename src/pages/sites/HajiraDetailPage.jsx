@@ -246,7 +246,7 @@ export const HajiraDetailPage = () => {
               disabled={deleteAttendanceMutation.isPending}
             >
               <Trash2 className="size-4" strokeWidth={1.75} />
-              মুছুন
+              ডিলিট করুন
             </button>
           </li>
         </ul>
@@ -489,7 +489,7 @@ export const HajiraDetailPage = () => {
               </span>
             </div>
             <div>
-              <span className="text-base-content/60">হালনাগাদ:</span>{' '}
+              <span className="text-base-content/60">আপডেট:</span>{' '}
               <span className="tabular-nums">
                 {formatDateTime(attendance.updatedAt)}
               </span>
@@ -526,7 +526,7 @@ export const HajiraDetailPage = () => {
                   className="btn btn-primary"
                   onClick={startEdit}
                 >
-                  আপডেট
+                  আপডেট করুন
                 </button>
               )}
             </div>
@@ -594,7 +594,7 @@ export const HajiraDetailPage = () => {
                           className="btn btn-ghost btn-xs text-error"
                           onClick={() => onDeletePayment(p.id)}
                           disabled={deletingPaymentId === p.id}
-                          aria-label="পেমেন্ট মুছুন"
+                          aria-label="পেমেন্ট ডিলিট করুন"
                         >
                           {deletingPaymentId === p.id ? (
                             <span className="loading loading-spinner loading-xs" />

@@ -335,7 +335,7 @@ export const CashDetailPage = () => {
             </span>
           </div>
           <div>
-            <span className="text-base-content/60">হালনাগাদ:</span>{" "}
+            <span className="text-base-content/60">আপডেট:</span>{" "}
             <span className="tabular-nums">
               {formatDateTime(cash?.updatedAt)}
             </span>
@@ -377,7 +377,7 @@ export const CashDetailPage = () => {
                   {deleteMutation.isPending ? (
                     <span className="loading loading-spinner loading-sm" />
                   ) : (
-                    "মুছুন"
+                    "ডিলিট করুন"
                   )}
                 </button>
               ) : null}
@@ -388,7 +388,7 @@ export const CashDetailPage = () => {
                   onClick={startEdit}
                   disabled={siteInactive}
                 >
-                  আপডেট
+                  আপডেট করুন
                 </button>
               ) : null}
             </>
