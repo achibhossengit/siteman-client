@@ -3103,10 +3103,6 @@ paths:
             type: integer
           required: true
         - in: query
-          name: site
-          schema:
-            type: integer
-        - in: query
           name: start_date
           schema:
             type: string
@@ -3247,7 +3243,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/LabourSession"
+                  $ref: "#/components/schemas/LabourSessionList"
           description: ""
     post:
       operationId: labours_sessions_create
@@ -3722,326 +3718,6 @@ paths:
           description: ""
         "204":
           description: No response body
-  /api/v1/labours/{labour_pk}/sessions/{session_pk}/details:
-    get:
-      operationId: labours_sessions_details_list
-      description: |-
-        Nested under ``/labours/<labour_pk>/sessions/<session_pk>/details``.
-
-        Read-only: details are written when a work session is created.
-      parameters:
-        - in: path
-          name: labour_pk
-          schema:
-            type: string
-          required: true
-        - in: path
-          name: session_pk
-          schema:
-            type: integer
-          required: true
-        - in: query
-          name: site
-          schema:
-            type: integer
-      tags:
-        - labours
-      security:
-        - jwtAuth: []
-      responses:
-        "400":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LaboursSessionsDetailsListErrorResponse400"
-          description: ""
-        "401":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse401"
-              examples:
-                AuthenticationFailed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: authentication_failed
-                        detail: Incorrect authentication credentials.
-                        attr: null
-                NotAuthenticated:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_authenticated
-                        detail: Authentication credentials were not provided.
-                        attr: null
-          description: ""
-        "403":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse403"
-              examples:
-                PermissionDenied:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: permission_denied
-                        detail: You do not have permission to perform this action.
-                        attr: null
-          description: ""
-        "404":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse404"
-              examples:
-                NotFound:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_found
-                        detail: Not found.
-                        attr: null
-          description: ""
-        "405":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse405"
-              examples:
-                MethodNotAllowed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: method_not_allowed
-                        detail: Method "get" not allowed.
-                        attr: null
-          description: ""
-        "406":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse406"
-              examples:
-                NotAcceptable:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_acceptable
-                        detail: Could not satisfy the request Accept header.
-                        attr: null
-          description: ""
-        "415":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse415"
-              examples:
-                UnsupportedMediaType:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: unsupported_media_type
-                        detail: Unsupported media type "application/json" in request.
-                        attr: null
-          description: ""
-        "429":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse429"
-              examples:
-                Throttled:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: throttled
-                        detail: Request was throttled.
-                        attr: null
-          description: ""
-        "500":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse500"
-              examples:
-                APIException:
-                  value:
-                    type: server_error
-                    errors:
-                      - code: error
-                        detail: A server error occurred.
-                        attr: null
-          description: ""
-        "200":
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/LabourSessionDetail"
-          description: ""
-  /api/v1/labours/{labour_pk}/sessions/{session_pk}/details/{id}:
-    get:
-      operationId: labours_sessions_details_retrieve
-      description: |-
-        Nested under ``/labours/<labour_pk>/sessions/<session_pk>/details``.
-
-        Read-only: details are written when a work session is created.
-      parameters:
-        - in: path
-          name: id
-          schema:
-            type: integer
-          description: A unique integer value identifying this labour session detail.
-          required: true
-        - in: path
-          name: labour_pk
-          schema:
-            type: string
-          required: true
-        - in: path
-          name: session_pk
-          schema:
-            type: integer
-          required: true
-      tags:
-        - labours
-      security:
-        - jwtAuth: []
-      responses:
-        "400":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LaboursSessionsDetailsRetrieveErrorResponse400"
-          description: ""
-        "401":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse401"
-              examples:
-                AuthenticationFailed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: authentication_failed
-                        detail: Incorrect authentication credentials.
-                        attr: null
-                NotAuthenticated:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_authenticated
-                        detail: Authentication credentials were not provided.
-                        attr: null
-          description: ""
-        "403":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse403"
-              examples:
-                PermissionDenied:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: permission_denied
-                        detail: You do not have permission to perform this action.
-                        attr: null
-          description: ""
-        "404":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse404"
-              examples:
-                NotFound:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_found
-                        detail: Not found.
-                        attr: null
-          description: ""
-        "405":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse405"
-              examples:
-                MethodNotAllowed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: method_not_allowed
-                        detail: Method "get" not allowed.
-                        attr: null
-          description: ""
-        "406":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse406"
-              examples:
-                NotAcceptable:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_acceptable
-                        detail: Could not satisfy the request Accept header.
-                        attr: null
-          description: ""
-        "415":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse415"
-              examples:
-                UnsupportedMediaType:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: unsupported_media_type
-                        detail: Unsupported media type "application/json" in request.
-                        attr: null
-          description: ""
-        "429":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse429"
-              examples:
-                Throttled:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: throttled
-                        detail: Request was throttled.
-                        attr: null
-          description: ""
-        "500":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse500"
-              examples:
-                APIException:
-                  value:
-                    type: server_error
-                    errors:
-                      - code: error
-                        detail: A server error occurred.
-                        attr: null
-          description: ""
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LabourSessionDetail"
-          description: ""
   /api/v1/labours/{labour_pk}/sessions/running_session:
     get:
       operationId: labours_sessions_running_session_retrieve
@@ -12761,10 +12437,6 @@ components:
         labour:
           type: integer
           readOnly: true
-        site:
-          type: integer
-          readOnly: true
-          nullable: true
         start_date:
           type: string
           format: date
@@ -12796,11 +12468,31 @@ components:
         total_return:
           type: integer
           readOnly: true
+        affected_attendance_rows:
+          type: integer
+          readOnly: true
+          description: Attendance rows sealed into this session.
+        affected_payment_rows:
+          type: integer
+          readOnly: true
+          description: Payment rows sealed into this session.
+        previous_payable:
+          type: integer
+          readOnly: true
         total_earnings:
           type: integer
           readOnly: true
         payable:
           type: integer
+          readOnly: true
+        cumulative_payable:
+          type: integer
+          readOnly: true
+        is_modified:
+          type: boolean
+          readOnly: true
+        is_latest:
+          type: boolean
           readOnly: true
         company:
           type: integer
@@ -12818,96 +12510,56 @@ components:
           format: date-time
           readOnly: true
       required:
+        - affected_attendance_rows
+        - affected_payment_rows
         - company
         - created_at
         - created_by
         - created_date
+        - cumulative_payable
         - end_date
         - extra_earnings
         - id
+        - is_latest
+        - is_modified
         - labour
         - payable
         - present_days
+        - previous_payable
         - salary_earnings
-        - site
         - start_date
         - total_earnings
         - total_payment
         - total_return
         - updated_at
-    LabourSessionDetail:
+    LabourSessionList:
       type: object
       properties:
         id:
           type: integer
           readOnly: true
-        session:
-          type: integer
-          readOnly: true
-        site:
-          type: integer
-          readOnly: true
-          nullable: true
-        site_name:
+        start_date:
           type: string
+          format: date
           readOnly: true
-        present_days:
+          description: First record date after the previous session ended.
+        end_date:
           type: string
-          format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          format: date
           readOnly: true
-        salary_earnings:
-          type: integer
-          readOnly: true
-        extra_earnings:
-          type: integer
-          readOnly: true
-        total_payment:
-          type: integer
-          readOnly: true
-        total_return:
-          type: integer
-          readOnly: true
-        total_earnings:
-          type: integer
-          readOnly: true
+          description: Last sealed record date.
         payable:
           type: integer
           readOnly: true
-        payment_details:
-          readOnly: true
-        company:
+        cumulative_payable:
           type: integer
-          readOnly: true
-        created_by:
-          type: integer
-          readOnly: true
-          nullable: true
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
           readOnly: true
       required:
-        - company
-        - created_at
-        - created_by
-        - extra_earnings
+        - cumulative_payable
+        - end_date
         - id
         - payable
-        - payment_details
-        - present_days
-        - salary_earnings
-        - session
-        - site
-        - site_name
-        - total_earnings
-        - total_payment
-        - total_return
-        - updated_at
+        - start_date
     LaboursAttendancesCreateBillingErrorComponent:
       type: object
       properties:
@@ -14484,60 +14136,6 @@ components:
         propertyName: type
         mapping:
           client_error: "#/components/schemas/ParseErrorResponse"
-    LaboursSessionsDetailsListError:
-      oneOf:
-        - $ref: "#/components/schemas/LaboursSessionsDetailsListSiteErrorComponent"
-      discriminator:
-        propertyName: attr
-        mapping:
-          site: "#/components/schemas/LaboursSessionsDetailsListSiteErrorComponent"
-    LaboursSessionsDetailsListErrorResponse400:
-      oneOf:
-        - $ref: "#/components/schemas/LaboursSessionsDetailsListValidationError"
-        - $ref: "#/components/schemas/ParseErrorResponse"
-      discriminator:
-        propertyName: type
-        mapping:
-          validation_error: "#/components/schemas/LaboursSessionsDetailsListValidationError"
-          client_error: "#/components/schemas/ParseErrorResponse"
-    LaboursSessionsDetailsListSiteErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - site
-          type: string
-          description: "* `site` - site"
-        code:
-          enum:
-            - invalid_choice
-          type: string
-          description: "* `invalid_choice` - invalid_choice"
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
-    LaboursSessionsDetailsListValidationError:
-      type: object
-      properties:
-        type:
-          $ref: "#/components/schemas/ValidationErrorEnum"
-        errors:
-          type: array
-          items:
-            $ref: "#/components/schemas/LaboursSessionsDetailsListError"
-      required:
-        - errors
-        - type
-    LaboursSessionsDetailsRetrieveErrorResponse400:
-      oneOf:
-        - $ref: "#/components/schemas/ParseErrorResponse"
-      discriminator:
-        propertyName: type
-        mapping:
-          client_error: "#/components/schemas/ParseErrorResponse"
     LaboursSessionsListCreatedDateErrorComponent:
       type: object
       properties:
@@ -14581,14 +14179,12 @@ components:
         - $ref: "#/components/schemas/LaboursSessionsListCreatedDateErrorComponent"
         - $ref: "#/components/schemas/LaboursSessionsListStartDateErrorComponent"
         - $ref: "#/components/schemas/LaboursSessionsListEndDateErrorComponent"
-        - $ref: "#/components/schemas/LaboursSessionsListSiteErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
           created_date: "#/components/schemas/LaboursSessionsListCreatedDateErrorComponent"
           start_date: "#/components/schemas/LaboursSessionsListStartDateErrorComponent"
           end_date: "#/components/schemas/LaboursSessionsListEndDateErrorComponent"
-          site: "#/components/schemas/LaboursSessionsListSiteErrorComponent"
     LaboursSessionsListErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/LaboursSessionsListValidationError"
@@ -14598,25 +14194,6 @@ components:
         mapping:
           validation_error: "#/components/schemas/LaboursSessionsListValidationError"
           client_error: "#/components/schemas/ParseErrorResponse"
-    LaboursSessionsListSiteErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - site
-          type: string
-          description: "* `site` - site"
-        code:
-          enum:
-            - invalid_choice
-          type: string
-          description: "* `invalid_choice` - invalid_choice"
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
     LaboursSessionsListStartDateErrorComponent:
       type: object
       properties:
@@ -15708,8 +15285,12 @@ components:
         id:
           type: integer
           readOnly: true
-        labour:
+        labour_id:
           type: integer
+          readOnly: true
+        labour_name:
+          type: string
+          readOnly: true
         date:
           type: string
           format: date
@@ -15756,7 +15337,8 @@ components:
       required:
         - created_at
         - id
-        - labour
+        - labour_id
+        - labour_name
         - updated_at
     SiteLabourPayment:
       type: object
@@ -15835,15 +15417,18 @@ components:
         id:
           type: integer
           readOnly: true
-        labour:
+        labour_id:
           type: integer
+          readOnly: true
+        labour_name:
+          type: string
+          readOnly: true
         date:
           type: string
           format: date
         type:
           allOf:
             - $ref: "#/components/schemas/TypeEe4Enum"
-          default: payment
           description: |-
             Payment or Return
 
@@ -15878,7 +15463,8 @@ components:
         - amount
         - created_at
         - id
-        - labour
+        - labour_id
+        - labour_name
         - updated_at
     SiteList:
       type: object
