@@ -102,3 +102,16 @@ export const fetchLabourRunningSession = async (labourId) => {
     throw err
   }
 }
+
+/**
+ * GET /labours/{labour_pk}/sessions/latest_session
+ * Returns null when no sealed session exists (404).
+ */
+export const fetchLabourLatestSession = async (labourId) => {
+  try {
+    return await api.get(endpoints.labours.latestSession(labourId))
+  } catch (err) {
+    if (err?.response?.status === 404) return { data: null }
+    throw err
+  }
+}

@@ -42,5 +42,7 @@ export const endpoints = {
       `/api/v1/labours/${labourId}/sessions/${sessionId}`,
     runningSession: (labourId) =>
       `/api/v1/labours/${labourId}/sessions/running_session`,
+    latestSession: (labourId) =>
+      `/api/v1/labours/${labourId}/sessions/latest_session`,
   },
 }

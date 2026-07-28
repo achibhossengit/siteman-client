@@ -102,9 +102,9 @@ export const LabourDetailPage = () => {
           <li>
             <button
               type="button"
-              onClick={() => navigate(paths.labourRunningSession(labourId))}
+              onClick={() => navigate(paths.labourLatestSession(labourId))}
             >
-              চলমান সেশন
+              সর্বশেষ সেশন
             </button>
           </li>
         </ul>

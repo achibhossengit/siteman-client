@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp, Lock, Trash2, X } from 'lucide-react'
 import {
   fetchLabourAttendancesByLabour,
   fetchLabourDetail,
+  fetchLabourLatestSession,
   fetchLabourPaymentsByLabour,
   fetchLabourRunningSession,
   fetchLabourSession,
@@ -85,7 +86,8 @@ export const LabourSessionDetailPage = () => {
   const [showDetails, setShowDetails] = useState(false)
   const [selectedSiteId, setSelectedSiteId] = useState('')
   const isRunningRoute = sessionId === 'running'
-  const canView = can(PERMS.viewLabour)
+  const isLatestRoute = sessionId === 'latest'
+  const canView = can(PERMS.viewLabourSession)
 
   const labourQuery = useQuery({
     queryKey: ['labours', labourId],
@@ -102,6 +104,10 @@ export const LabourSessionDetailPage = () => {
       if (isRunningRoute) {
         const { data } = await fetchLabourRunningSession(labourId)
         return data ? { ...data, is_running: true } : null
+      }
+      if (isLatestRoute) {
+        const { data } = await fetchLabourLatestSession(labourId)
+        return data
       }
       const { data } = await fetchLabourSession(labourId, sessionId)
       return data
@@ -213,9 +219,15 @@ export const LabourSessionDetailPage = () => {
     (showDetails && (attendanceQuery.isLoading || paymentQuery.isLoading))
 
   useEffect(() => {
-    setTitle?.(isRunningRoute ? 'চলমান সেশন' : 'লেবার সেশন')
+    setTitle?.(
+      isRunningRoute
+        ? 'চলমান সেশন'
+        : isLatestRoute
+          ? 'সর্বশেষ সেশন'
+          : 'লেবার সেশন',
+    )
     return () => setTitle?.('')
-  }, [setTitle, isRunningRoute])
+  }, [setTitle, isRunningRoute, isLatestRoute])
 
   useEffect(() => {
     setHeaderMenu?.(
