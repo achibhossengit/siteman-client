@@ -19,6 +19,8 @@ import { UserDetailPage } from "../pages/users/UserDetailPage.jsx";
 import { LaboursPage } from "../pages/labours/LaboursPage.jsx";
 import { LabourNewPage } from "../pages/labours/LabourNewPage.jsx";
 import { LabourDetailPage } from "../pages/labours/LabourDetailPage.jsx";
+import { LabourSessionsPage } from "../pages/labours/LabourSessionsPage.jsx";
+import { LabourSessionDetailPage } from "../pages/labours/LabourSessionDetailPage.jsx";
 import { AppInfoPage } from "../pages/AppInfoPage.jsx";
 import { LoginPage } from "../pages/auth/LoginPage.jsx";
 import { RegisterPage } from "../pages/auth/RegisterPage.jsx";
@@ -77,6 +79,14 @@ export const AppRouter = () => (
           <Route path="/users/:userId" element={<UserDetailPage />} />
           <Route path={paths.labours} element={<LaboursPage />} />
           <Route path={paths.labourNew} element={<LabourNewPage />} />
+          <Route
+            path="/labours/:labourId/sessions/:sessionId"
+            element={<LabourSessionDetailPage />}
+          />
+          <Route
+            path="/labours/:labourId/sessions"
+            element={<LabourSessionsPage />}
+          />
           <Route path="/labours/:labourId" element={<LabourDetailPage />} />
           <Route path={paths.appInfo} element={<AppInfoPage />} />
         </Route>

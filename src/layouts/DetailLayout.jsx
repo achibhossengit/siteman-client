@@ -33,7 +33,7 @@ export const DetailLayout = () => {
             {title}
           </h1>
 
-          <div className="w-10 flex items-center justify-center shrink-0">
+          <div className="shrink-0 max-w-[45%] flex items-center justify-end min-w-10">
             {headerMenu}
           </div>
         </div>

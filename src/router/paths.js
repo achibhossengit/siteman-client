@@ -15,6 +15,10 @@ export const paths = {
   labours: '/labours',
   labourNew: '/labours/new',
   labourDetail: (id) => `/labours/${id}`,
+  labourSessions: (labourId) => `/labours/${labourId}/sessions`,
+  labourSessionDetail: (labourId, sessionId) =>
+    `/labours/${labourId}/sessions/${sessionId}`,
+  labourRunningSession: (labourId) => `/labours/${labourId}/sessions/running`,
   appInfo: '/app-info',
   login: '/login',
   register: '/register',

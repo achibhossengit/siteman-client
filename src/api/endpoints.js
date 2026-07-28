@@ -37,5 +37,10 @@ export const endpoints = {
     payments: (labourId) => `/api/v1/labours/${labourId}/payments`,
     paymentDetail: (labourId, id) =>
       `/api/v1/labours/${labourId}/payments/${id}`,
+    sessions: (labourId) => `/api/v1/labours/${labourId}/sessions`,
+    session: (labourId, sessionId) =>
+      `/api/v1/labours/${labourId}/sessions/${sessionId}`,
+    runningSession: (labourId) =>
+      `/api/v1/labours/${labourId}/sessions/running_session`,
   },
 }

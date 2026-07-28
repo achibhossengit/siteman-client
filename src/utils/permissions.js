@@ -64,12 +64,6 @@ export const PERMS = {
   addLabourSession: 'labours.add_laboursession',
   changeLabourSession: 'labours.change_laboursession',
   deleteLabourSession: 'labours.delete_laboursession',
-
-  // labours.LabourSessionDetail
-  viewLabourSessionDetail: 'labours.view_laboursessiondetail',
-  addLabourSessionDetail: 'labours.add_laboursessiondetail',
-  changeLabourSessionDetail: 'labours.change_laboursessiondetail',
-  deleteLabourSessionDetail: 'labours.delete_laboursessiondetail',
 }
 
 export const ROLE_NAMES = {

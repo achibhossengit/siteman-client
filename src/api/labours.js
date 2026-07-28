@@ -77,3 +77,24 @@ export const updateLabourPayment = (labourId, paymentId, payload) =>
 /** DELETE /labours/{labour_pk}/payments/{id} */
 export const deleteLabourPayment = (labourId, paymentId) =>
   api.delete(endpoints.labours.paymentDetail(labourId, paymentId))
+
+/** GET /labours/{labour_pk}/sessions */
+export const fetchLabourSessions = (labourId, params = {}) =>
+  api.get(endpoints.labours.sessions(labourId), { params })
+
+/** GET /labours/{labour_pk}/sessions/{id} */
+export const fetchLabourSession = (labourId, sessionId) =>
+  api.get(endpoints.labours.session(labourId, sessionId))
+
+/**
+ * GET /labours/{labour_pk}/sessions/running_session
+ * Returns null when there is no open period (404).
+ */
+export const fetchLabourRunningSession = async (labourId) => {
+  try {
+    return await api.get(endpoints.labours.runningSession(labourId))
+  } catch (err) {
+    if (err?.response?.status === 404) return { data: null }
+    throw err
+  }
+}
