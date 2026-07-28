@@ -13,10 +13,8 @@ import { fetchSites } from '../../api/sites.js'
 import {
   DEFAULT_ATTENDANCE_OPTIONS,
   labourFormSchema,
-  normalizeLabour,
   toLabourPayload,
 } from '../../api/types/labour.js'
-import { normalizeSiteList } from '../../api/types/site.js'
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { DetailMenuButton } from '../../layouts/DetailLayout.jsx'
@@ -27,11 +25,11 @@ import { paths } from '../../router/paths.js'
 
 const toFormValues = (labour) => ({
   name: labour?.name ?? '',
-  current_site: labour?.currentSite != null ? String(labour.currentSite) : '',
-  default_attendance: labour?.defaultAttendance ?? 1,
-  default_salary: labour?.defaultSalary ?? 0,
-  default_fooding: labour?.defaultFooding ?? 0,
-  is_active: labour?.isActive ?? true,
+  current_site: labour?.current_site != null ? String(labour.current_site) : '',
+  default_attendance: labour?.default_attendance ?? 1,
+  default_salary: labour?.default_salary ?? 0,
+  default_fooding: labour?.default_fooding ?? 0,
+  is_active: labour?.is_active ?? true,
 })
 
 export const LabourDetailPage = () => {
@@ -65,7 +63,7 @@ export const LabourDetailPage = () => {
     queryKey: ['labours', labourId],
     queryFn: async () => {
       const { data } = await fetchLabourDetail(labourId)
-      return normalizeLabour(data)
+      return data
     },
     enabled: Boolean(canViewLabour && labourId),
   })
@@ -74,7 +72,7 @@ export const LabourDetailPage = () => {
     queryKey: ['sites'],
     queryFn: async () => {
       const { data } = await fetchSites()
-      return normalizeSiteList(data)
+      return Array.isArray(data) ? data : []
     },
     enabled: canViewLabour,
   })
@@ -174,8 +172,7 @@ export const LabourDetailPage = () => {
     setApiError(null)
     try {
       const { data } = await mutation.mutateAsync(values)
-      const normalized = normalizeLabour(data)
-      reset(toFormValues(normalized))
+      reset(toFormValues(data))
       await queryClient.invalidateQueries({ queryKey: ['labours'] })
       setEditing(false)
     } catch (err) {

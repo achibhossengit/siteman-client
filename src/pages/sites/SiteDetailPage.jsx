@@ -6,7 +6,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Pencil, Trash2, X } from "lucide-react";
 import { deleteSite, fetchSiteDetail, updateSite } from "../../api/sites.js";
 import {
-  normalizeSite,
   siteFormSchema,
   toSitePayload,
 } from "../../api/types/site.js";
@@ -19,7 +18,7 @@ import { paths } from "../../router/paths.js";
 
 const toFormValues = (site) => ({
   name: site?.name ?? "",
-  is_active: site?.isActive ?? true,
+  is_active: site?.is_active ?? true,
 });
 
 const formatMetaDate = (iso) => {
@@ -35,8 +34,8 @@ const formatMetaDate = (iso) => {
 };
 
 const accentClass = (site) => {
-  if (site?.isClosed) return "bg-error";
-  if (site?.isActive) return "bg-success";
+  if (site?.is_closed) return "bg-error";
+  if (site?.is_active) return "bg-success";
   return "bg-base-content/25";
 };
 
@@ -71,7 +70,7 @@ export const SiteDetailPage = () => {
     queryKey: ["sites", siteId],
     queryFn: async () => {
       const { data } = await fetchSiteDetail(siteId);
-      return normalizeSite(data);
+      return data;
     },
     enabled: Boolean(canViewSite && siteId),
   });
@@ -116,7 +115,7 @@ export const SiteDetailPage = () => {
   });
 
   const startEdit = () => {
-    if (site?.isClosed) return;
+    if (site?.is_closed) return;
     setApiError(null);
     setConfirmReady(false);
     setEditing(true);
@@ -150,8 +149,7 @@ export const SiteDetailPage = () => {
     setApiError(null);
     try {
       const { data } = await mutation.mutateAsync(values);
-      const normalized = normalizeSite(data);
-      reset(toFormValues(normalized));
+      reset(toFormValues(data));
       await queryClient.invalidateQueries({ queryKey: ["sites"] });
       try {
         await bootstrapProfile();
@@ -194,15 +192,15 @@ export const SiteDetailPage = () => {
     );
   }
 
-  const disabled = !editing || site.isClosed;
+  const disabled = !editing || site.is_closed;
   const busy = isSubmitting || mutation.isPending;
-  const showActions = !site.isClosed || canDeleteSite;
+  const showActions = !site.is_closed || canDeleteSite;
 
   return (
     <div className="max-w-lg mx-auto space-y-3 border-b border-base-300 pb-3">
       <ApiErrorAlert error={apiError} />
 
-      {site.isClosed ? (
+      {site.is_closed ? (
         <div className="alert alert-warning text-sm py-2">
           এই সাইট বন্ধ — পরিবর্তন করা যাবে না।
         </div>
@@ -293,7 +291,7 @@ export const SiteDetailPage = () => {
                       )}
                     </button>
                   ) : null}
-                  {canChangeSite && !site.isClosed ? (
+                  {canChangeSite && !site.is_closed ? (
                     <button
                       type="button"
                       className="btn btn-square btn-sm btn-ghost border border-base-300"
@@ -314,13 +312,13 @@ export const SiteDetailPage = () => {
         ) : null}
 
         <p className="text-xs text-base-content/55 mt-2.5 px-0.5 tabular-nums">
-          তৈরি {formatMetaDate(site.createdAt)}
+          তৈরি {formatMetaDate(site.created_at)}
           <span className="mx-1.5 opacity-60">·</span>
-          আপডেট {formatMetaDate(site.updatedAt)}
-          {site.closedAt ? (
+          আপডেট {formatMetaDate(site.updated_at)}
+          {site.closed_at ? (
             <>
               <span className="mx-1.5 opacity-60">·</span>
-              বন্ধ {formatMetaDate(site.closedAt)}
+              বন্ধ {formatMetaDate(site.closed_at)}
             </>
           ) : null}
         </p>

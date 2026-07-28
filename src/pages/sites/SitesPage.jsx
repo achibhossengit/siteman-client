@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { fetchSites } from '../../api/sites.js'
 import {
-  normalizeSiteList,
   siteStatusClass,
   siteStatusLabel,
 } from '../../api/types/site.js'
@@ -32,7 +31,7 @@ export const SitesPage = () => {
     queryKey: ['sites'],
     queryFn: async () => {
       const { data } = await fetchSites()
-      return normalizeSiteList(data)
+      return Array.isArray(data) ? data : []
     },
     enabled: canViewSite,
   })

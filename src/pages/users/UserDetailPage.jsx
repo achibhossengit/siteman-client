@@ -6,7 +6,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Mail, Pencil, Phone, Trash2, User, X } from 'lucide-react'
 import { deleteUser, fetchUserDetail, updateUser } from '../../api/users.js'
 import {
-  normalizeUser,
   toUserUpdatePayload,
   userUpdateSchema,
 } from '../../api/types/user.js'
@@ -18,9 +17,9 @@ import { paths } from '../../router/paths.js'
 
 const toFormValues = (user) => ({
   name: user?.name ?? '',
-  phone_number: user?.phoneNumber ?? '',
+  phone_number: user?.phone_number ?? '',
   email: user?.email ?? '',
-  is_active: user?.isActive ?? true,
+  is_active: user?.is_active ?? true,
 })
 
 const formatMetaDate = (iso) => {
@@ -65,7 +64,7 @@ export const UserDetailPage = () => {
     queryKey: ['users', userId],
     queryFn: async () => {
       const { data } = await fetchUserDetail(userId)
-      return normalizeUser(data)
+      return data
     },
     enabled: Boolean(canViewUser && userId),
   })
@@ -140,8 +139,7 @@ export const UserDetailPage = () => {
     setApiError(null)
     try {
       const { data } = await mutation.mutateAsync(values)
-      const normalized = normalizeUser(data)
-      reset(toFormValues(normalized))
+      reset(toFormValues(data))
       await queryClient.invalidateQueries({ queryKey: ['users'] })
       setEditing(false)
     } catch (err) {
@@ -232,7 +230,7 @@ export const UserDetailPage = () => {
                     {nameValue || user.name}
                   </h2>
                 )}
-                {user.isCompanyAdmin ? (
+                {user.is_companyadmin ? (
                   <span className="badge badge-sm shrink-0 border-0 bg-secondary text-secondary-content">
                     অ্যাডমিন
                   </span>
@@ -242,9 +240,9 @@ export const UserDetailPage = () => {
                 <p className="text-error text-xs mt-1">{errors.name.message}</p>
               ) : null}
               <p className="text-xs text-base-content/55 mt-1 tabular-nums">
-                তৈরি {formatMetaDate(user.createdAt)}
+                তৈরি {formatMetaDate(user.created_at)}
                 <span className="mx-1.5 opacity-60">·</span>
-                হালনাগাদ {formatMetaDate(user.updatedAt)}
+                হালনাগাদ {formatMetaDate(user.updated_at)}
               </p>
             </div>
 

@@ -10,7 +10,6 @@ import {
   labourFormSchema,
   toLabourPayload,
 } from '../../api/types/labour.js'
-import { normalizeSiteList } from '../../api/types/site.js'
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
@@ -56,7 +55,7 @@ export const LabourNewPage = () => {
     queryKey: ['sites'],
     queryFn: async () => {
       const { data } = await fetchSites()
-      return normalizeSiteList(data)
+      return Array.isArray(data) ? data : []
     },
     enabled: canAddLabour,
   })

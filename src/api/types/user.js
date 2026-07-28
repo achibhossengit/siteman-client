@@ -50,36 +50,16 @@ export const toUserUpdatePayload = ({
   is_active: Boolean(is_active),
 })
 
-export const normalizeUser = (raw) => {
-  if (!raw || typeof raw !== 'object') return null
-  return {
-    id: raw.id,
-    name: raw.name ?? '',
-    phoneNumber: raw.phone_number ?? '',
-    email: raw.email ?? null,
-    isActive: Boolean(raw.is_active),
-    isCompanyAdmin: Boolean(raw.is_companyadmin),
-    company: raw.company ?? null,
-    createdAt: raw.created_at ?? null,
-    updatedAt: raw.updated_at ?? null,
-  }
-}
-
-export const normalizeUserList = (raw) => {
-  if (!Array.isArray(raw)) return []
-  return raw.map(normalizeUser).filter(Boolean)
-}
-
 export const userStatusLabel = (user) => {
   if (!user) return '—'
-  if (!user.isActive) return 'নিষ্ক্রিয়'
-  if (user.isCompanyAdmin) return 'অ্যাডমিন'
+  if (!user.is_active) return 'নিষ্ক্রিয়'
+  if (user.is_companyadmin) return 'অ্যাডমিন'
   return 'সক্রিয়'
 }
 
 export const userStatusClass = (user) => {
   if (!user) return ''
-  if (!user.isActive) return 'badge-ghost'
-  if (user.isCompanyAdmin) return 'badge-info'
+  if (!user.is_active) return 'badge-ghost'
+  if (user.is_companyadmin) return 'badge-info'
   return 'badge-success'
 }

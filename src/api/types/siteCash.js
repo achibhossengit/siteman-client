@@ -5,12 +5,6 @@
 
 import { z } from 'zod'
 
-const num = (v) => {
-  if (v == null || v === '') return 0
-  const n = Number(v)
-  return Number.isFinite(n) ? n : 0
-}
-
 export const CASH_TYPES = [
   { value: 'deposit', label: 'জমা' },
   { value: 'withdrawal', label: 'উত্তোলন' },
@@ -64,23 +58,3 @@ export const toSiteCashPayload = ({
   category: type === 'cost' && category ? category : null,
   billing: billing === '' || billing == null ? null : Number(billing),
 })
-
-export const normalizeSiteCash = (raw) => {
-  if (!raw || typeof raw !== 'object') return null
-  return {
-    id: raw.id,
-    date: raw.date ?? null,
-    type: raw.type ?? null,
-    category: raw.category ?? null,
-    amount: num(raw.amount),
-    note: raw.note ?? null,
-    billing: raw.billing ?? null,
-    createdAt: raw.created_at ?? null,
-    updatedAt: raw.updated_at ?? null,
-  }
-}
-
-export const normalizeSiteCashList = (raw) => {
-  if (!Array.isArray(raw)) return []
-  return raw.map(normalizeSiteCash).filter(Boolean)
-}

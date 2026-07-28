@@ -14,7 +14,6 @@ import {
   CircleDollarSign,
 } from 'lucide-react'
 import { fetchDailyReport } from '../../api/sites.js'
-import { normalizeDailyReport } from '../../api/types/dailyReport.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { formatBnNumber, formatBnSigned } from '../../utils/format.js'
@@ -53,7 +52,7 @@ export const BalancePage = () => {
     queryKey: ['sites', siteId, 'daily-reports', date],
     queryFn: async () => {
       const { data } = await fetchDailyReport(siteId, date)
-      return normalizeDailyReport(data)
+      return data
     },
     enabled: Boolean(siteId && date),
   })
@@ -94,17 +93,17 @@ export const BalancePage = () => {
   }
 
   const {
-    labourSessionCount,
-    presentCount,
-    previousBalance,
+    labour_session_count,
+    present_count,
+    previous_balance,
     deposit,
-    siteCost,
+    site_cost,
     withdrawal,
-    labourPayment,
-    labourReturn,
-    totalSalary,
-    extraEarnings,
-    totalCost,
+    labour_payment,
+    labour_return,
+    total_salary,
+    extra_earnings,
+    total_cost,
     remaining,
     balance,
   } = report
@@ -113,26 +112,26 @@ export const BalancePage = () => {
     <section className="flex-1 min-h-0 overflow-y-auto p-2">
       <Row
         icon={User}
-        label={`লেবার ${formatBnNumber(labourSessionCount)} জন`}
-        value={`${formatBnNumber(presentCount, { maximumFractionDigits: 2 })} রোজ`}
+        label={`লেবার ${formatBnNumber(labour_session_count)} জন`}
+        value={`${formatBnNumber(present_count, { maximumFractionDigits: 2 })} রোজ`}
       />
 
       <Row
         icon={Coins}
         label="মোট বেতন"
-        value={formatBnNumber(totalSalary)}
+        value={formatBnNumber(total_salary)}
         dashed
       />
       <Row
         icon={PlusCircle}
         label="অতিরিক্ত"
-        value={formatBnNumber(extraEarnings)}
+        value={formatBnNumber(extra_earnings)}
       />
 
       <Row
         icon={Banknote}
         label="আগের ব্যালেন্স"
-        value={formatBnNumber(previousBalance)}
+        value={formatBnNumber(previous_balance)}
         valueClassName="font-semibold tabular-nums text-success"
         />
 
@@ -152,26 +151,26 @@ export const BalancePage = () => {
       <Row
         icon={Hammer}
         label="সাইট খরচ"
-        value={formatBnNumber(siteCost)}
+        value={formatBnNumber(site_cost)}
         dashed
       />
       <Row
         icon={Wallet}
         label="লেবার পেমেন্ট"
-        value={formatBnNumber(labourPayment)}
+        value={formatBnNumber(labour_payment)}
         dashed
       />
       <Row
         icon={Undo2}
         label="লেবার রিটার্ন"
-        value={formatBnNumber(labourReturn)}
+        value={formatBnNumber(labour_return)}
         valueClassName="font-semibold tabular-nums text-success"
       />
 
       <Row
         icon={Calculator}
         label="মোট খরচ"
-        value={formatBnSigned(-Math.abs(totalCost), { showPlus: false })}
+        value={formatBnSigned(-Math.abs(total_cost), { showPlus: false })}
         valueClassName="font-semibold tabular-nums"
       />
 

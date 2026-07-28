@@ -7,9 +7,7 @@ import { fetchSites } from '../../api/sites.js'
 import {
   labourStatusClass,
   labourStatusLabel,
-  normalizeLabourList,
 } from '../../api/types/labour.js'
-import { normalizeSiteList } from '../../api/types/site.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
@@ -34,7 +32,7 @@ export const LaboursPage = () => {
     queryKey: ['labours'],
     queryFn: async () => {
       const { data } = await fetchLabours()
-      return normalizeLabourList(data)
+      return Array.isArray(data) ? data : []
     },
     enabled: canViewLabour,
   })
@@ -43,7 +41,7 @@ export const LaboursPage = () => {
     queryKey: ['sites'],
     queryFn: async () => {
       const { data } = await fetchSites()
-      return normalizeSiteList(data)
+      return Array.isArray(data) ? data : []
     },
     enabled: canViewLabour,
   })
@@ -120,11 +118,11 @@ export const LaboursPage = () => {
                       {row.name}
                     </div>
                     <div className="sm:hidden text-xs text-base-content/60 truncate">
-                      {siteLabel(row.currentSite)}
+                      {siteLabel(row.current_site)}
                     </div>
                   </td>
                   <td className="hidden sm:table-cell truncate text-sm text-base-content/80 max-w-40">
-                    {siteLabel(row.currentSite)}
+                    {siteLabel(row.current_site)}
                   </td>
                   <td className="text-right">
                     <span

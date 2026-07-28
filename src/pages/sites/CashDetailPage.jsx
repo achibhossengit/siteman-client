@@ -13,7 +13,6 @@ import {
   CASH_CATEGORIES,
   CASH_TYPES,
   cashFormSchema,
-  normalizeSiteCash,
   toSiteCashPayload,
 } from "../../api/types/siteCash.js";
 import { parseApiError, applyFieldErrors } from "../../api/errors.js";
@@ -102,7 +101,7 @@ export const CashDetailPage = () => {
     queryKey: ["sites", siteId, "cash", cashId],
     queryFn: async () => {
       const { data } = await fetchSiteCashDetail(siteId, cashId);
-      return normalizeSiteCash(data);
+      return data;
     },
     enabled: Boolean(canViewCash && siteId && cashId),
   });
@@ -169,8 +168,7 @@ export const CashDetailPage = () => {
     setApiError(null);
     try {
       const { data } = await mutation.mutateAsync(values);
-      const normalized = normalizeSiteCash(data);
-      reset(toFormValues(normalized));
+      reset(toFormValues(data));
       await queryClient.invalidateQueries({
         queryKey: ["sites", siteId, "cash"],
       });
@@ -331,13 +329,13 @@ export const CashDetailPage = () => {
           <div>
             <span className="text-base-content/60">তৈরি:</span>{" "}
             <span className="tabular-nums">
-              {formatDateTime(cash?.createdAt)}
+              {formatDateTime(cash?.created_at)}
             </span>
           </div>
           <div>
             <span className="text-base-content/60">আপডেট:</span>{" "}
             <span className="tabular-nums">
-              {formatDateTime(cash?.updatedAt)}
+              {formatDateTime(cash?.updated_at)}
             </span>
           </div>
         </div>

@@ -12,12 +12,6 @@ import {
 import { fetchSites } from '../../api/sites.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
-import {
-  normalizeLabourAttendanceList,
-} from '../../api/types/labourAttendance.js'
-import { normalizeLabour } from '../../api/types/labour.js'
-import { normalizeLabourPaymentList } from '../../api/types/labourPayment.js'
-import { normalizeSiteList } from '../../api/types/site.js'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { formatBnNumber, formatBnSigned } from '../../utils/format.js'
 import { PERMS } from '../../utils/permissions.js'
@@ -42,27 +36,6 @@ const formatPeriod = (session) => {
   const start = formatPeriodDate(session?.start_date)
   if (session?.is_running) return `${start} – চলমান`
   return `${start} – ${formatPeriodDate(session?.end_date)}`
-}
-
-const normalizeSession = (raw, { isRunning = false } = {}) => {
-  if (!raw || typeof raw !== 'object') return null
-  return {
-    ...raw,
-    present_days: num(raw.present_days),
-    salary_earnings: num(raw.salary_earnings),
-    extra_earnings: num(raw.extra_earnings),
-    total_payment: num(raw.total_payment),
-    total_return: num(raw.total_return),
-    affected_attendance_rows: num(raw.affected_attendance_rows),
-    affected_payment_rows: num(raw.affected_payment_rows),
-    previous_payable: num(raw.previous_payable),
-    total_earnings: num(raw.total_earnings),
-    payable: num(raw.payable),
-    cumulative_payable: num(raw.cumulative_payable),
-    is_modified: Boolean(raw.is_modified),
-    is_latest: Boolean(raw.is_latest),
-    is_running: Boolean(isRunning),
-  }
 }
 
 const groupPaymentsByDate = (payments) => {
@@ -118,7 +91,7 @@ export const LabourSessionDetailPage = () => {
     queryKey: ['labours', labourId],
     queryFn: async () => {
       const { data } = await fetchLabourDetail(labourId)
-      return normalizeLabour(data)
+      return data
     },
     enabled: Boolean(canView && labourId),
   })
@@ -128,10 +101,10 @@ export const LabourSessionDetailPage = () => {
     queryFn: async () => {
       if (isRunningRoute) {
         const { data } = await fetchLabourRunningSession(labourId)
-        return data ? normalizeSession(data, { isRunning: true }) : null
+        return data ? { ...data, is_running: true } : null
       }
       const { data } = await fetchLabourSession(labourId, sessionId)
-      return normalizeSession(data)
+      return data
     },
     enabled: Boolean(canView && labourId && sessionId),
   })
@@ -140,7 +113,7 @@ export const LabourSessionDetailPage = () => {
     queryKey: ['sites'],
     queryFn: async () => {
       const { data } = await fetchSites()
-      return normalizeSiteList(data)
+      return Array.isArray(data) ? data : []
     },
     enabled: Boolean(canView && showDetails),
   })
@@ -165,7 +138,7 @@ export const LabourSessionDetailPage = () => {
         date_gte: session?.start_date,
         ...(selectedSiteId ? { site: selectedSiteId } : {}),
       })
-      return normalizeLabourAttendanceList(data)
+      return Array.isArray(data) ? data : []
     },
     enabled: detailsEnabled,
   })
@@ -184,7 +157,7 @@ export const LabourSessionDetailPage = () => {
         date_gte: session?.start_date,
         ...(selectedSiteId ? { site: selectedSiteId } : {}),
       })
-      return normalizeLabourPaymentList(data)
+      return Array.isArray(data) ? data : []
     },
     enabled: detailsEnabled,
   })

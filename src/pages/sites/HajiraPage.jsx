@@ -8,8 +8,6 @@ import {
 } from "../../api/sites.js";
 import {
   mergeHajiraRows,
-  normalizeLabourAttendanceList,
-  normalizeLabourPaymentList,
   summarizeHajiraRows,
 } from "../../api/types/hajira.js";
 import { parseApiError } from "../../api/errors.js";
@@ -33,7 +31,7 @@ export const HajiraPage = () => {
     queryKey: ["sites", siteId, "labour-attendances", { date }],
     queryFn: async () => {
       const { data } = await fetchLabourAttendances(siteId, { date });
-      return normalizeLabourAttendanceList(data);
+      return Array.isArray(data) ? data : [];
     },
     enabled: Boolean(siteId && date),
   });
@@ -42,7 +40,7 @@ export const HajiraPage = () => {
     queryKey: ["sites", siteId, "labour-payments", { date }],
     queryFn: async () => {
       const { data } = await fetchLabourPayments(siteId, { date });
-      return normalizeLabourPaymentList(data);
+      return Array.isArray(data) ? data : [];
     },
     enabled: Boolean(siteId && date),
   });
@@ -144,7 +142,7 @@ export const HajiraPage = () => {
                   <td className="tabular-nums text-base-content/60">
                     {formatBnNumber(index + 1)}
                   </td>
-                  <td className="truncate font-medium">{row.labourName}</td>
+                  <td className="truncate font-medium">{row.labour_name}</td>
                   <td className="text-right tabular-nums">
                     <p>
                       {formatBnNumber(row.present)}

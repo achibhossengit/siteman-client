@@ -6,7 +6,6 @@ import {
   fetchLabourRunningSession,
   fetchLabourSessions,
 } from '../../api/labours.js'
-import { normalizeLabour } from '../../api/types/labour.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
@@ -41,7 +40,7 @@ export const LabourSessionsPage = () => {
     queryKey: ['labours', labourId],
     queryFn: async () => {
       const { data } = await fetchLabourDetail(labourId)
-      return normalizeLabour(data)
+      return data
     },
     enabled: Boolean(canView && labourId),
   })

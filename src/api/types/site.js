@@ -20,37 +20,17 @@ export const toSitePayload = ({ name, is_active }) => ({
   is_active: Boolean(is_active),
 })
 
-export const normalizeSite = (raw) => {
-  if (!raw || typeof raw !== 'object') return null
-  return {
-    id: raw.id,
-    name: raw.name ?? '',
-    isActive: Boolean(raw.is_active),
-    isClosed: Boolean(raw.is_closed),
-    closedAt: raw.closed_at ?? null,
-    company: raw.company ?? null,
-    createdBy: raw.created_by ?? null,
-    createdAt: raw.created_at ?? null,
-    updatedAt: raw.updated_at ?? null,
-  }
-}
-
-export const normalizeSiteList = (raw) => {
-  if (!Array.isArray(raw)) return []
-  return raw.map(normalizeSite).filter(Boolean)
-}
-
 /** Badge label for list/detail status. */
 export const siteStatusLabel = (site) => {
   if (!site) return '—'
-  if (site.isClosed) return 'বন্ধ'
-  if (!site.isActive) return 'নিষ্ক্রিয়'
+  if (site.is_closed) return 'বন্ধ'
+  if (!site.is_active) return 'নিষ্ক্রিয়'
   return 'সক্রিয়'
 }
 
 export const siteStatusClass = (site) => {
   if (!site) return ''
-  if (site.isClosed) return 'badge-error'
-  if (!site.isActive) return 'badge-ghost'
+  if (site.is_closed) return 'badge-error'
+  if (!site.is_active) return 'badge-ghost'
   return 'badge-success'
 }

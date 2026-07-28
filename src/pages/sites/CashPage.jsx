@@ -2,7 +2,6 @@ import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { fetchSiteCash } from '../../api/sites.js'
-import { normalizeSiteCashList } from '../../api/types/siteCash.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { formatBnNumber, formatBnSigned } from '../../utils/format.js'
@@ -49,7 +48,7 @@ export const CashPage = () => {
     queryKey: ['sites', siteId, 'cash', { date }],
     queryFn: async () => {
       const { data } = await fetchSiteCash(siteId, { date })
-      return normalizeSiteCashList(data)
+      return Array.isArray(data) ? data : []
     },
     enabled: Boolean(canViewCash && siteId && date),
   })

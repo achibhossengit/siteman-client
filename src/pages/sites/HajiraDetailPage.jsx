@@ -16,9 +16,6 @@ import {
 import {
   PRESENT_OPTIONS,
   attendanceFormSchema,
-  normalizeLabourAttendance,
-  normalizeLabourAttendanceList,
-  normalizeLabourPaymentList,
   toAttendancePayload,
 } from '../../api/types/hajira.js'
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
@@ -68,31 +65,6 @@ export const HajiraDetailPage = () => {
   const date = readSelectedDate() || todayIso()
   const queryClient = useQueryClient()
 
-  // #region agent log
-  fetch('http://127.0.0.1:7900/ingest/5c2ebad5-d1cd-4cd7-908c-619d23ef27d4', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Debug-Session-Id': '64a1fe',
-    },
-    body: JSON.stringify({
-      sessionId: '64a1fe',
-      runId: 'pre-fix',
-      hypothesisId: 'D',
-      location: 'HajiraDetailPage.jsx:mount',
-      message: 'detail page rendered',
-      data: {
-        labourId,
-        attendanceIdParam,
-        siteId,
-        date,
-        href: typeof window !== 'undefined' ? window.location.pathname : null,
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
-
   const [editing, setEditing] = useState(false)
   const [apiError, setApiError] = useState(null)
   const [deletingPaymentId, setDeletingPaymentId] = useState(null)
@@ -116,7 +88,7 @@ export const HajiraDetailPage = () => {
         date,
         site: siteId,
       })
-      return normalizeLabourAttendanceList(data)
+      return Array.isArray(data) ? data : []
     },
     enabled: Boolean(labourId && date && !attendanceIdParam),
   })
@@ -130,7 +102,7 @@ export const HajiraDetailPage = () => {
     queryKey: ['labours', labourId, 'attendances', attendanceId],
     queryFn: async () => {
       const { data } = await fetchLabourAttendanceDetail(labourId, attendanceId)
-      return normalizeLabourAttendance(data)
+      return data
     },
     enabled: Boolean(labourId && attendanceId),
   })
@@ -142,7 +114,7 @@ export const HajiraDetailPage = () => {
         date,
         site: siteId,
       })
-      return normalizeLabourPaymentList(data)
+      return Array.isArray(data) ? data : []
     },
     enabled: Boolean(labourId && date),
   })
@@ -158,12 +130,12 @@ export const HajiraDetailPage = () => {
 
   const attendance = detailQuery.data
   const payments = paymentQuery.data ?? []
-  const sealed = Boolean(attendance?.isSealed)
+  const sealed = Boolean(attendance?.is_sealed)
 
   const labourName =
-    attendance?.labourName ||
-    listQuery.data?.[0]?.labourName ||
-    payments[0]?.labourName ||
+    attendance?.labour_name ||
+    listQuery.data?.[0]?.labour_name ||
+    payments[0]?.labour_name ||
     (labourId ? `#${labourId}` : '—')
 
   useEffect(() => {
@@ -277,8 +249,7 @@ export const HajiraDetailPage = () => {
     setApiError(null)
     try {
       const { data } = await updateMutation.mutateAsync(values)
-      const normalized = normalizeLabourAttendance(data)
-      reset(toFormValues(normalized))
+      reset(toFormValues(data))
       await invalidateHajira()
       setEditing(false)
     } catch (err) {
@@ -485,13 +456,13 @@ export const HajiraDetailPage = () => {
             <div>
               <span className="text-base-content/60">তৈরি:</span>{' '}
               <span className="tabular-nums">
-                {formatDateTime(attendance.createdAt)}
+                {formatDateTime(attendance.created_at)}
               </span>
             </div>
             <div>
               <span className="text-base-content/60">আপডেট:</span>{' '}
               <span className="tabular-nums">
-                {formatDateTime(attendance.updatedAt)}
+                {formatDateTime(attendance.updated_at)}
               </span>
             </div>
           </div>
@@ -573,8 +544,8 @@ export const HajiraDetailPage = () => {
                         </p>
                       ) : null}
                       <div className="text-xs text-base-content/50 tabular-nums mt-1">
-                        {formatDateTime(p.createdAt)}
-                        {p.isSealed ? ' · সিলড' : ''}
+                        {formatDateTime(p.created_at)}
+                        {p.is_sealed ? ' · সিলড' : ''}
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-2 shrink-0">
@@ -588,7 +559,7 @@ export const HajiraDetailPage = () => {
                           ? formatBnSigned(signed, { showPlus: false })
                           : formatBnNumber(signed)}
                       </span>
-                      {!p.isSealed ? (
+                      {!p.is_sealed ? (
                         <button
                           type="button"
                           className="btn btn-ghost btn-xs text-error"

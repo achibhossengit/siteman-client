@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { fetchUsers } from '../../api/users.js'
 import {
-  normalizeUserList,
   userStatusClass,
   userStatusLabel,
 } from '../../api/types/user.js'
@@ -32,7 +31,7 @@ export const UsersPage = () => {
     queryKey: ['users'],
     queryFn: async () => {
       const { data } = await fetchUsers()
-      return normalizeUserList(data)
+      return Array.isArray(data) ? data : []
     },
     enabled: canViewUser,
   })
@@ -96,11 +95,11 @@ export const UsersPage = () => {
                       {row.name}
                     </div>
                     <div className="sm:hidden text-xs text-base-content/60 tabular-nums truncate">
-                      {row.phoneNumber || '—'}
+                      {row.phone_number || '—'}
                     </div>
                   </td>
                   <td className="hidden sm:table-cell tabular-nums text-sm text-base-content/80">
-                    {row.phoneNumber || '—'}
+                    {row.phone_number || '—'}
                   </td>
                   <td className="text-right">
                     <span className={`badge badge-sm ${userStatusClass(row)}`}>
