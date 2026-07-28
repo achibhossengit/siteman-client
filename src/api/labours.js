@@ -32,11 +32,13 @@ export const deleteLabour = (labourId) =>
 /** GET /labours/{labour_pk}/attendances */
 export const fetchLabourAttendancesByLabour = (
   labourId,
-  { date, site, billing, is_sealed } = {},
+  { date, date_gte, date_lte, site, billing, is_sealed } = {},
 ) =>
   api.get(endpoints.labours.attendances(labourId), {
     params: {
       ...(date ? { date } : {}),
+      ...(date_gte ? { date_gte } : {}),
+      ...(date_lte ? { date_lte } : {}),
       ...(site != null && site !== '' ? { site } : {}),
       ...(billing != null && billing !== '' ? { billing } : {}),
       ...(typeof is_sealed === 'boolean' ? { is_sealed } : {}),
@@ -58,11 +60,13 @@ export const deleteLabourAttendance = (labourId, attendanceId) =>
 /** GET /labours/{labour_pk}/payments */
 export const fetchLabourPaymentsByLabour = (
   labourId,
-  { date, site, type, category, is_sealed } = {},
+  { date, date_gte, date_lte, site, type, category, is_sealed } = {},
 ) =>
   api.get(endpoints.labours.payments(labourId), {
     params: {
       ...(date ? { date } : {}),
+      ...(date_gte ? { date_gte } : {}),
+      ...(date_lte ? { date_lte } : {}),
       ...(site != null && site !== '' ? { site } : {}),
       ...(type ? { type } : {}),
       ...(category ? { category } : {}),

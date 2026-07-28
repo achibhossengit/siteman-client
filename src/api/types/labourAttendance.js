@@ -20,6 +20,7 @@ export const normalizeLabourAttendance = (raw) => {
   return {
     id: raw.id,
     labourName: raw.labour_name ?? '',
+    site: raw.site ?? null,
     date: raw.date ?? null,
     present: nullableNum(raw.present) ?? 0,
     salary: nullableNum(raw.salary),

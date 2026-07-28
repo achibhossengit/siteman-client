@@ -22,6 +22,7 @@ export const normalizeLabourPayment = (raw) => {
   return {
     id: raw.id,
     labourName: raw.labour_name ?? '',
+    site: raw.site ?? null,
     date: raw.date ?? null,
     type: raw.type ?? 'payment',
     category: raw.category || null,
