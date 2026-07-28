@@ -3273,6 +3273,7 @@ paths:
           multipart/form-data:
             schema:
               $ref: "#/components/schemas/LabourSession"
+        required: true
       security:
         - jwtAuth: []
       responses:
@@ -3718,6 +3719,158 @@ paths:
           description: ""
         "204":
           description: No response body
+  /api/v1/labours/{labour_pk}/sessions/latest_session:
+    get:
+      operationId: labours_sessions_latest_session_retrieve
+      description: |-
+        Nested under ``/labours/<labour_pk>/sessions``.
+
+        POST takes no payload: it closes the labour's open period (all
+        records after ``last_session_date``) into a new session and seals
+        the affected records. DELETE only removes the most recent session,
+        and only when current records still match its stored snapshot.
+      parameters:
+        - in: path
+          name: labour_pk
+          schema:
+            type: integer
+          required: true
+      tags:
+        - labours
+      security:
+        - jwtAuth: []
+      responses:
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LaboursSessionsLatestSessionRetrieveErrorResponse400"
+          description: ""
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse401"
+              examples:
+                AuthenticationFailed:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: authentication_failed
+                        detail: Incorrect authentication credentials.
+                        attr: null
+                NotAuthenticated:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_authenticated
+                        detail: Authentication credentials were not provided.
+                        attr: null
+          description: ""
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse403"
+              examples:
+                PermissionDenied:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: permission_denied
+                        detail: You do not have permission to perform this action.
+                        attr: null
+          description: ""
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse404"
+              examples:
+                NotFound:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_found
+                        detail: Not found.
+                        attr: null
+          description: ""
+        "405":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse405"
+              examples:
+                MethodNotAllowed:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: method_not_allowed
+                        detail: Method "get" not allowed.
+                        attr: null
+          description: ""
+        "406":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse406"
+              examples:
+                NotAcceptable:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_acceptable
+                        detail: Could not satisfy the request Accept header.
+                        attr: null
+          description: ""
+        "415":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse415"
+              examples:
+                UnsupportedMediaType:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: unsupported_media_type
+                        detail: Unsupported media type "application/json" in request.
+                        attr: null
+          description: ""
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse429"
+              examples:
+                Throttled:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: throttled
+                        detail: Request was throttled.
+                        attr: null
+          description: ""
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse500"
+              examples:
+                APIException:
+                  value:
+                    type: server_error
+                    errors:
+                      - code: error
+                        detail: A server error occurred.
+                        attr: null
+          description: ""
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LabourSession"
+          description: ""
   /api/v1/labours/{labour_pk}/sessions/running_session:
     get:
       operationId: labours_sessions_running_session_retrieve
@@ -12434,51 +12587,45 @@ components:
         id:
           type: integer
           readOnly: true
-        labour:
-          type: integer
-          readOnly: true
         start_date:
           type: string
           format: date
-          readOnly: true
           description: First record date after the previous session ended.
         end_date:
           type: string
           format: date
-          readOnly: true
           description: Last sealed record date.
         created_date:
           type: string
           format: date
-          readOnly: true
         present_days:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-          readOnly: true
         salary_earnings:
           type: integer
-          readOnly: true
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
         extra_earnings:
           type: integer
-          readOnly: true
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
         total_payment:
           type: integer
-          readOnly: true
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
         total_return:
           type: integer
-          readOnly: true
-        affected_attendance_rows:
-          type: integer
-          readOnly: true
-          description: Attendance rows sealed into this session.
-        affected_payment_rows:
-          type: integer
-          readOnly: true
-          description: Payment rows sealed into this session.
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
         previous_payable:
           type: integer
-          readOnly: true
+          maximum: 2147483647
+          minimum: -2147483648
         total_earnings:
           type: integer
           readOnly: true
@@ -12494,12 +12641,8 @@ components:
         is_latest:
           type: boolean
           readOnly: true
-        company:
-          type: integer
-          readOnly: true
         created_by:
           type: integer
-          readOnly: true
           nullable: true
         created_at:
           type: string
@@ -12510,19 +12653,13 @@ components:
           format: date-time
           readOnly: true
       required:
-        - affected_attendance_rows
-        - affected_payment_rows
-        - company
         - created_at
-        - created_by
-        - created_date
         - cumulative_payable
         - end_date
         - extra_earnings
         - id
         - is_latest
         - is_modified
-        - labour
         - payable
         - present_days
         - previous_payable
@@ -12542,12 +12679,10 @@ components:
           type: string
           format: date
           readOnly: true
-          description: First record date after the previous session ended.
         end_date:
           type: string
           format: date
           readOnly: true
-          description: Last sealed record date.
         payable:
           type: integer
           readOnly: true
@@ -14079,13 +14214,105 @@ components:
         propertyName: type
         mapping:
           client_error: "#/components/schemas/ParseErrorResponse"
+    LaboursSessionsCreateCreatedByErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - created_by
+          type: string
+          description: "* `created_by` - created_by"
+        code:
+          enum:
+            - does_not_exist
+            - incorrect_type
+          type: string
+          description: |-
+            * `does_not_exist` - does_not_exist
+            * `incorrect_type` - incorrect_type
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    LaboursSessionsCreateCreatedDateErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - created_date
+          type: string
+          description: "* `created_date` - created_date"
+        code:
+          enum:
+            - datetime
+            - invalid
+            - "null"
+          type: string
+          description: |-
+            * `datetime` - datetime
+            * `invalid` - invalid
+            * `null` - null
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    LaboursSessionsCreateEndDateErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - end_date
+          type: string
+          description: "* `end_date` - end_date"
+        code:
+          enum:
+            - datetime
+            - invalid
+            - "null"
+            - required
+          type: string
+          description: |-
+            * `datetime` - datetime
+            * `invalid` - invalid
+            * `null` - null
+            * `required` - required
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
     LaboursSessionsCreateError:
       oneOf:
         - $ref: "#/components/schemas/LaboursSessionsCreateNonFieldErrorsErrorComponent"
+        - $ref: "#/components/schemas/LaboursSessionsCreateStartDateErrorComponent"
+        - $ref: "#/components/schemas/LaboursSessionsCreateEndDateErrorComponent"
+        - $ref: "#/components/schemas/LaboursSessionsCreateCreatedDateErrorComponent"
+        - $ref: "#/components/schemas/LaboursSessionsCreatePresentDaysErrorComponent"
+        - $ref: "#/components/schemas/LaboursSessionsCreateSalaryEarningsErrorComponent"
+        - $ref: "#/components/schemas/LaboursSessionsCreateExtraEarningsErrorComponent"
+        - $ref: "#/components/schemas/LaboursSessionsCreateTotalPaymentErrorComponent"
+        - $ref: "#/components/schemas/LaboursSessionsCreateTotalReturnErrorComponent"
+        - $ref: "#/components/schemas/LaboursSessionsCreatePreviousPayableErrorComponent"
+        - $ref: "#/components/schemas/LaboursSessionsCreateCreatedByErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
           non_field_errors: "#/components/schemas/LaboursSessionsCreateNonFieldErrorsErrorComponent"
+          start_date: "#/components/schemas/LaboursSessionsCreateStartDateErrorComponent"
+          end_date: "#/components/schemas/LaboursSessionsCreateEndDateErrorComponent"
+          created_date: "#/components/schemas/LaboursSessionsCreateCreatedDateErrorComponent"
+          present_days: "#/components/schemas/LaboursSessionsCreatePresentDaysErrorComponent"
+          salary_earnings: "#/components/schemas/LaboursSessionsCreateSalaryEarningsErrorComponent"
+          extra_earnings: "#/components/schemas/LaboursSessionsCreateExtraEarningsErrorComponent"
+          total_payment: "#/components/schemas/LaboursSessionsCreateTotalPaymentErrorComponent"
+          total_return: "#/components/schemas/LaboursSessionsCreateTotalReturnErrorComponent"
+          previous_payable: "#/components/schemas/LaboursSessionsCreatePreviousPayableErrorComponent"
+          created_by: "#/components/schemas/LaboursSessionsCreateCreatedByErrorComponent"
     LaboursSessionsCreateErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/LaboursSessionsCreateValidationError"
@@ -14095,6 +14322,36 @@ components:
         mapping:
           validation_error: "#/components/schemas/LaboursSessionsCreateValidationError"
           client_error: "#/components/schemas/ParseErrorResponse"
+    LaboursSessionsCreateExtraEarningsErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - extra_earnings
+          type: string
+          description: "* `extra_earnings` - extra_earnings"
+        code:
+          enum:
+            - invalid
+            - max_string_length
+            - max_value
+            - min_value
+            - "null"
+            - required
+          type: string
+          description: |-
+            * `invalid` - invalid
+            * `max_string_length` - max_string_length
+            * `max_value` - max_value
+            * `min_value` - min_value
+            * `null` - null
+            * `required` - required
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
     LaboursSessionsCreateNonFieldErrorsErrorComponent:
       type: object
       properties:
@@ -14117,6 +14374,186 @@ components:
         - attr
         - code
         - detail
+    LaboursSessionsCreatePresentDaysErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - present_days
+          type: string
+          description: "* `present_days` - present_days"
+        code:
+          enum:
+            - invalid
+            - max_decimal_places
+            - max_digits
+            - max_string_length
+            - max_whole_digits
+            - min_value
+            - "null"
+            - required
+          type: string
+          description: |-
+            * `invalid` - invalid
+            * `max_decimal_places` - max_decimal_places
+            * `max_digits` - max_digits
+            * `max_string_length` - max_string_length
+            * `max_whole_digits` - max_whole_digits
+            * `min_value` - min_value
+            * `null` - null
+            * `required` - required
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    LaboursSessionsCreatePreviousPayableErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - previous_payable
+          type: string
+          description: "* `previous_payable` - previous_payable"
+        code:
+          enum:
+            - invalid
+            - max_string_length
+            - max_value
+            - min_value
+            - "null"
+            - required
+          type: string
+          description: |-
+            * `invalid` - invalid
+            * `max_string_length` - max_string_length
+            * `max_value` - max_value
+            * `min_value` - min_value
+            * `null` - null
+            * `required` - required
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    LaboursSessionsCreateSalaryEarningsErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - salary_earnings
+          type: string
+          description: "* `salary_earnings` - salary_earnings"
+        code:
+          enum:
+            - invalid
+            - max_string_length
+            - max_value
+            - min_value
+            - "null"
+            - required
+          type: string
+          description: |-
+            * `invalid` - invalid
+            * `max_string_length` - max_string_length
+            * `max_value` - max_value
+            * `min_value` - min_value
+            * `null` - null
+            * `required` - required
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    LaboursSessionsCreateStartDateErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - start_date
+          type: string
+          description: "* `start_date` - start_date"
+        code:
+          enum:
+            - datetime
+            - invalid
+            - "null"
+            - required
+          type: string
+          description: |-
+            * `datetime` - datetime
+            * `invalid` - invalid
+            * `null` - null
+            * `required` - required
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    LaboursSessionsCreateTotalPaymentErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - total_payment
+          type: string
+          description: "* `total_payment` - total_payment"
+        code:
+          enum:
+            - invalid
+            - max_string_length
+            - max_value
+            - min_value
+            - "null"
+            - required
+          type: string
+          description: |-
+            * `invalid` - invalid
+            * `max_string_length` - max_string_length
+            * `max_value` - max_value
+            * `min_value` - min_value
+            * `null` - null
+            * `required` - required
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    LaboursSessionsCreateTotalReturnErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - total_return
+          type: string
+          description: "* `total_return` - total_return"
+        code:
+          enum:
+            - invalid
+            - max_string_length
+            - max_value
+            - min_value
+            - "null"
+            - required
+          type: string
+          description: |-
+            * `invalid` - invalid
+            * `max_string_length` - max_string_length
+            * `max_value` - max_value
+            * `min_value` - min_value
+            * `null` - null
+            * `required` - required
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
     LaboursSessionsCreateValidationError:
       type: object
       properties:
@@ -14130,6 +14567,13 @@ components:
         - errors
         - type
     LaboursSessionsDestroyErrorResponse400:
+      oneOf:
+        - $ref: "#/components/schemas/ParseErrorResponse"
+      discriminator:
+        propertyName: type
+        mapping:
+          client_error: "#/components/schemas/ParseErrorResponse"
+    LaboursSessionsLatestSessionRetrieveErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/ParseErrorResponse"
       discriminator:

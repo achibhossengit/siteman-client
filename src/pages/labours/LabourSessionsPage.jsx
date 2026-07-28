@@ -1,11 +1,7 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect } from 'react'
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import {
-  fetchLabourDetail,
-  fetchLabourRunningSession,
-  fetchLabourSessions,
-} from '../../api/labours.js'
+import { fetchLabourDetail, fetchLabourSessions } from '../../api/labours.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
@@ -23,9 +19,9 @@ const formatPeriodDate = (iso) => {
   }).format(d)
 }
 
-const formatPeriod = (session) => {
+const formatPeriod = (session, isRunning) => {
   const start = formatPeriodDate(session.start_date)
-  if (session.is_running) return `${start} – চলমান`
+  if (isRunning) return `${start} – চলমান`
   return `${start} – ${formatPeriodDate(session.end_date)}`
 }
 
@@ -34,7 +30,7 @@ export const LabourSessionsPage = () => {
   const navigate = useNavigate()
   const { setTitle, setHeaderMenu } = useOutletContext()
   const { can } = usePermissions()
-  const canView = can(PERMS.viewLabour)
+  const canView = can(PERMS.viewLabourSession)
 
   const labourQuery = useQuery({
     queryKey: ['labours', labourId],
@@ -54,25 +50,9 @@ export const LabourSessionsPage = () => {
     enabled: Boolean(canView && labourId),
   })
 
-  const runningQuery = useQuery({
-    queryKey: ['labours', labourId, 'sessions', 'running'],
-    queryFn: async () => {
-      const { data } = await fetchLabourRunningSession(labourId)
-      return data ?? null
-    },
-    enabled: Boolean(canView && labourId),
-  })
-
-  const sessions = useMemo(() => {
-    const sealed = sessionsQuery.data ?? []
-    const running = runningQuery.data
-    if (!running?.start_date) return sealed
-    return [{ ...running, is_running: true }, ...sealed]
-  }, [sessionsQuery.data, runningQuery.data])
-
+  const sessions = sessionsQuery.data ?? []
   const labourName = labourQuery.data?.name
-  const loading =
-    labourQuery.isLoading || sessionsQuery.isLoading || runningQuery.isLoading
+  const loading = labourQuery.isLoading || sessionsQuery.isLoading
 
   useEffect(() => {
     setTitle?.('লেবার সেশন')
@@ -110,12 +90,8 @@ export const LabourSessionsPage = () => {
     return <ApiErrorAlert error={parseApiError(labourQuery.error)} />
   }
 
-  if (sessionsQuery.isError || runningQuery.isError) {
-    return (
-      <ApiErrorAlert
-        error={parseApiError(sessionsQuery.error || runningQuery.error)}
-      />
-    )
+  if (sessionsQuery.isError) {
+    return <ApiErrorAlert error={parseApiError(sessionsQuery.error)} />
   }
 
   return (
@@ -140,41 +116,44 @@ export const LabourSessionsPage = () => {
               </td>
             </tr>
           ) : (
-            sessions.map((session, index) => (
-              <tr
-                key={
-                  session.is_running
-                    ? `running-${session.start_date}`
-                    : String(session.id)
-                }
-                className={[
-                  'border-b border-base-300/70 cursor-pointer',
-                  session.is_running
-                    ? 'bg-primary/10 hover:bg-primary/15'
-                    : 'hover:bg-base-200/60',
-                ].join(' ')}
-                onClick={() => {
-                  navigate(
-                    session.is_running || session.id == null
-                      ? paths.labourRunningSession(labourId)
-                      : paths.labourSessionDetail(labourId, session.id),
-                  )
-                }}
-              >
-                <td className="tabular-nums text-base-content/60">
-                  {formatBnNumber(index + 1)}
-                </td>
-                <td className="font-medium text-sm whitespace-nowrap">
-                  {formatPeriod(session)}
-                </td>
-                <td className="text-right tabular-nums">
-                  {formatBnNumber(session.payable)}
-                </td>
-                <td className="text-right tabular-nums font-medium">
-                  {formatBnNumber(session.cumulative_payable)}
-                </td>
-              </tr>
-            ))
+            sessions.map((session, index) => {
+              const isRunning = session.id == null
+              return (
+                <tr
+                  key={
+                    isRunning
+                      ? `running-${session.start_date}`
+                      : String(session.id)
+                  }
+                  className={[
+                    'border-b border-base-300/70 cursor-pointer',
+                    isRunning
+                      ? 'bg-primary/10 hover:bg-primary/15'
+                      : 'hover:bg-base-200/60',
+                  ].join(' ')}
+                  onClick={() => {
+                    navigate(
+                      isRunning
+                        ? paths.labourRunningSession(labourId)
+                        : paths.labourSessionDetail(labourId, session.id),
+                    )
+                  }}
+                >
+                  <td className="tabular-nums text-base-content/60">
+                    {formatBnNumber(index + 1)}
+                  </td>
+                  <td className="font-medium text-sm whitespace-nowrap">
+                    {formatPeriod(session, isRunning)}
+                  </td>
+                  <td className="text-right tabular-nums">
+                    {formatBnNumber(session.payable)}
+                  </td>
+                  <td className="text-right tabular-nums font-medium">
+                    {formatBnNumber(session.cumulative_payable)}
+                  </td>
+                </tr>
+              )
+            })
           )}
         </tbody>
       </table>
