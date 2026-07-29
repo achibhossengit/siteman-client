@@ -39,9 +39,26 @@ const formatPeriod = (session) => {
   return `${start} – ${formatPeriodDate(session?.end_date)}`;
 };
 
-const groupPaymentsByDate = (payments) => {
+const matchesPaymentFilter = (payment, filter) => {
+  if (!filter || filter === "payment") return true;
+  if (filter === "khoraki") {
+    return payment.type === "payment" && payment.category === "fooding";
+  }
+  if (filter === "advance") {
+    return payment.type === "payment" && payment.category === "advance";
+  }
+  if (filter === "return") {
+    return (
+      payment.type === "return"
+    );
+  }
+  return true;
+};
+
+const groupPaymentsByDate = (payments, paymentFilter = "payment") => {
   const map = new Map();
   for (const payment of payments) {
+    if (!matchesPaymentFilter(payment, paymentFilter)) continue;
     const key = payment.date ?? "";
     const entry = map.get(key) ?? { pay: 0, return: 0 };
     if (payment.type === "return") entry.return += num(payment.amount);
@@ -51,11 +68,23 @@ const groupPaymentsByDate = (payments) => {
   return map;
 };
 
-const buildDetailRows = (attendances, payments) => {
+const calcDayEarnings = (attendance, earningsFilter = "all") => {
+  const hajira = num(attendance?.present) * num(attendance?.salary);
+  const extra = num(attendance?.extra);
+  if (earningsFilter === "hajira") return hajira;
+  if (earningsFilter === "extra") return extra;
+  return hajira + extra;
+};
+
+const buildDetailRows = (
+  attendances,
+  payments,
+  { paymentFilter = "payment", earningsFilter = "all" } = {},
+) => {
   const attendanceByDate = new Map(
     attendances.map((row) => [row.date ?? "", row]),
   );
-  const paymentByDate = groupPaymentsByDate(payments);
+  const paymentByDate = groupPaymentsByDate(payments, paymentFilter);
   const dates = new Set([...attendanceByDate.keys(), ...paymentByDate.keys()]);
 
   return [...dates]
@@ -69,9 +98,7 @@ const buildDetailRows = (attendances, payments) => {
         attendance,
         pay: payment.pay,
         return: payment.return,
-        dayEarnings:
-          num(attendance?.present) * num(attendance?.salary) +
-          num(attendance?.extra),
+        dayEarnings: calcDayEarnings(attendance, earningsFilter),
       };
     });
 };
@@ -82,6 +109,8 @@ export const LabourSessionDetailPage = () => {
   const { can } = usePermissions();
   const [showDetails, setShowDetails] = useState(false);
   const [selectedSiteId, setSelectedSiteId] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("payment");
+  const [earningsFilter, setEarningsFilter] = useState("all");
   const isRunningRoute = sessionId === "running";
   const isLatestRoute = sessionId === "latest";
   const canView = can(PERMS.viewLabourSession);
@@ -168,8 +197,12 @@ export const LabourSessionDetailPage = () => {
   const labourName = labourQuery.data?.name;
 
   const detailRows = useMemo(
-    () => buildDetailRows(attendanceQuery.data ?? [], paymentQuery.data ?? []),
-    [attendanceQuery.data, paymentQuery.data],
+    () =>
+      buildDetailRows(attendanceQuery.data ?? [], paymentQuery.data ?? [], {
+        paymentFilter,
+        earningsFilter,
+      }),
+    [attendanceQuery.data, paymentQuery.data, paymentFilter, earningsFilter],
   );
 
   const siteOptions = useMemo(() => {
@@ -406,14 +439,37 @@ export const LabourSessionDetailPage = () => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="table table-sm table-zebra">
+              <table className="table table-xs sm:table-sm table-zebra">
                 <thead>
-                  <tr className="border-b border-base-300">
-                    <th className="">নং</th>
-                    <th className="">তারিখ</th>
+                  <tr className="border-b border-base-300 text-xs sm:text-sm">
+                    <th>নং</th>
+                    <th>তারিখ</th>
                     <th>হাজিরা</th>
-                    <th className="text-right">আয়</th>
-                    <th className="text-right">পেমেন্ট</th>
+                    <th className="text-right">
+                      <select
+                        className="select border-none select-xs font-normal min-w-28"
+                        value={earningsFilter}
+                        onChange={(e) => setEarningsFilter(e.target.value)}
+                        aria-label="আয় ফিল্টার"
+                      >
+                        <option value="all">আয়</option>
+                        <option value="hajira">হাজিরা আয়</option>
+                        <option value="extra">অতিরিক্ত আয়</option>
+                      </select>
+                    </th>
+                    <th className="text-right">
+                      <select
+                        className="select border-none select-xs font-normal min-w-28"
+                        value={paymentFilter}
+                        onChange={(e) => setPaymentFilter(e.target.value)}
+                        aria-label="পেমেন্ট ফিল্টার"
+                      >
+                        <option value="payment">পেমেন্ট</option>
+                        <option value="khoraki">খোরাকি</option>
+                        <option value="advance">অগ্রিম</option>
+                        <option value="return">রিটার্ন</option>
+                      </select>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -428,9 +484,7 @@ export const LabourSessionDetailPage = () => {
                     </tr>
                   ) : (
                     detailRows.map((row, index) => (
-                      <tr
-                        key={row.date}
-                      >
+                      <tr key={row.date}>
                         <td className="tabular-nums">
                           {formatBnNumber(index + 1)}
                         </td>
@@ -483,7 +537,7 @@ export const LabourSessionDetailPage = () => {
 
                   {detailRows.length > 0 ? (
                     <tr className="font-semibold bg-base-200/40">
-                      <td colSpan={2}>মোট</td>
+                      <td colSpan={2} className="text-end">মোট</td>
                       <td className="tabular-nums">
                         {formatBnNumber(detailTotals.present)}
                       </td>
