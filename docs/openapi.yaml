@@ -1507,6 +1507,16 @@ paths:
             type: string
             format: date
         - in: query
+          name: date__gte
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: date__lte
+          schema:
+            type: string
+            format: date
+        - in: query
           name: is_sealed
           schema:
             type: boolean
@@ -2292,6 +2302,16 @@ paths:
             * `fooding` - Fooding
         - in: query
           name: date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: date__gte
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: date__lte
           schema:
             type: string
             format: date
@@ -12952,15 +12972,57 @@ components:
         - attr
         - code
         - detail
+    LaboursAttendancesListDate_gteErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - date__gte
+          type: string
+          description: "* `date__gte` - date__gte"
+        code:
+          enum:
+            - invalid
+          type: string
+          description: "* `invalid` - invalid"
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    LaboursAttendancesListDate_lteErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - date__lte
+          type: string
+          description: "* `date__lte` - date__lte"
+        code:
+          enum:
+            - invalid
+          type: string
+          description: "* `invalid` - invalid"
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
     LaboursAttendancesListError:
       oneOf:
         - $ref: "#/components/schemas/LaboursAttendancesListDateErrorComponent"
+        - $ref: "#/components/schemas/LaboursAttendancesListDate_gteErrorComponent"
+        - $ref: "#/components/schemas/LaboursAttendancesListDate_lteErrorComponent"
         - $ref: "#/components/schemas/LaboursAttendancesListBillingErrorComponent"
         - $ref: "#/components/schemas/LaboursAttendancesListSiteErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
           date: "#/components/schemas/LaboursAttendancesListDateErrorComponent"
+          date__gte: "#/components/schemas/LaboursAttendancesListDate_gteErrorComponent"
+          date__lte: "#/components/schemas/LaboursAttendancesListDate_lteErrorComponent"
           billing: "#/components/schemas/LaboursAttendancesListBillingErrorComponent"
           site: "#/components/schemas/LaboursAttendancesListSiteErrorComponent"
     LaboursAttendancesListErrorResponse400:
@@ -13947,11 +14009,51 @@ components:
         - attr
         - code
         - detail
+    LaboursPaymentsListDate_gteErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - date__gte
+          type: string
+          description: "* `date__gte` - date__gte"
+        code:
+          enum:
+            - invalid
+          type: string
+          description: "* `invalid` - invalid"
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    LaboursPaymentsListDate_lteErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - date__lte
+          type: string
+          description: "* `date__lte` - date__lte"
+        code:
+          enum:
+            - invalid
+          type: string
+          description: "* `invalid` - invalid"
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
     LaboursPaymentsListError:
       oneOf:
         - $ref: "#/components/schemas/LaboursPaymentsListTypeErrorComponent"
         - $ref: "#/components/schemas/LaboursPaymentsListCategoryErrorComponent"
         - $ref: "#/components/schemas/LaboursPaymentsListDateErrorComponent"
+        - $ref: "#/components/schemas/LaboursPaymentsListDate_gteErrorComponent"
+        - $ref: "#/components/schemas/LaboursPaymentsListDate_lteErrorComponent"
         - $ref: "#/components/schemas/LaboursPaymentsListSiteErrorComponent"
       discriminator:
         propertyName: attr
@@ -13959,6 +14061,8 @@ components:
           type: "#/components/schemas/LaboursPaymentsListTypeErrorComponent"
           category: "#/components/schemas/LaboursPaymentsListCategoryErrorComponent"
           date: "#/components/schemas/LaboursPaymentsListDateErrorComponent"
+          date__gte: "#/components/schemas/LaboursPaymentsListDate_gteErrorComponent"
+          date__lte: "#/components/schemas/LaboursPaymentsListDate_lteErrorComponent"
           site: "#/components/schemas/LaboursPaymentsListSiteErrorComponent"
     LaboursPaymentsListErrorResponse400:
       oneOf:
