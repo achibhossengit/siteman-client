@@ -85,6 +85,10 @@ export const fetchLabourAttendances = (
     },
   })
 
+/** POST /sites/{site_pk}/labour-attendances — bulk create (array body). */
+export const createLabourAttendances = (siteId, payload) =>
+  api.post(endpoints.sites.labourAttendances(siteId), payload)
+
 /**
  * Site labour payments list.
  * GET /sites/{site_pk}/labour-payments — filters: date, labour, type, category, is_sealed.
@@ -102,3 +106,7 @@ export const fetchLabourPayments = (
       ...(typeof is_sealed === 'boolean' ? { is_sealed } : {}),
     },
   })
+
+/** POST /sites/{site_pk}/labour-payments — bulk create (array body). */
+export const createLabourPayments = (siteId, payload) =>
+  api.post(endpoints.sites.labourPayments(siteId), payload)

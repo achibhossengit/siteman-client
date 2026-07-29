@@ -128,3 +128,93 @@ export const summarizeHajiraRows = (rows) =>
     },
     { present: 0, extra: 0, payment: 0 },
   )
+
+const pickPayment = (payments, labourId, matcher) => {
+  for (const p of payments) {
+    const id = labourIdOf(p)
+    if (id == null || Number(id) !== Number(labourId)) continue
+    if (matcher(p)) return p
+  }
+  return null
+}
+
+const blankAmount = (value) => {
+  if (value == null || value === '') return ''
+  const n = Number(value)
+  return Number.isFinite(n) ? n : ''
+}
+
+/**
+ * One editable row per active labour. Attendance/payment rows whose labour
+ * is not in `labours` are ignored.
+ */
+export const buildHajiraEditRows = (labours, attendances, payments) => {
+  const labourIds = new Set(labours.map((l) => Number(l.id)))
+
+  const attendanceByLabour = new Map()
+  for (const a of attendances) {
+    const labourId = labourIdOf(a)
+    if (labourId == null || !labourIds.has(Number(labourId))) continue
+    if (!attendanceByLabour.has(Number(labourId))) {
+      attendanceByLabour.set(Number(labourId), a)
+    }
+  }
+
+  return labours.map((labour) => {
+    const labourId = Number(labour.id)
+    const attendance = attendanceByLabour.get(labourId) ?? null
+    const fooding = pickPayment(
+      payments,
+      labourId,
+      (p) => p.type === 'payment' && p.category === 'fooding',
+    )
+    const advance = pickPayment(
+      payments,
+      labourId,
+      (p) => p.type === 'payment' && p.category === 'advance',
+    )
+    const ret = pickPayment(
+      payments,
+      labourId,
+      (p) =>
+        p.type === 'return' &&
+        (p.category == null || p.category === ''),
+    )
+
+    return {
+      labourId,
+      labourName: labour.name ?? `#${labourId}`,
+      defaultAttendance: Number(labour.default_attendance) || 0,
+      defaultSalary: Number(labour.default_salary) || 0,
+      defaultFooding: Number(labour.default_fooding) || 0,
+      attendanceId: attendance?.id ?? null,
+      attendanceSealed: Boolean(attendance?.is_sealed),
+      present:
+        attendance?.present == null || attendance?.present === ''
+          ? ''
+          : Number(attendance.present),
+      salary:
+        attendance?.salary == null || attendance?.salary === ''
+          ? ''
+          : Number(attendance.salary),
+      extra: Number(attendance?.extra) || 0,
+      extraNote: attendance?.note ?? '',
+      billing:
+        attendance?.billing != null && attendance?.billing !== ''
+          ? String(attendance.billing)
+          : '',
+      foodingId: fooding?.id ?? null,
+      foodingSealed: Boolean(fooding?.is_sealed),
+      fooding: blankAmount(fooding?.amount),
+      foodingNote: fooding?.note ?? '',
+      advanceId: advance?.id ?? null,
+      advanceSealed: Boolean(advance?.is_sealed),
+      advance: blankAmount(advance?.amount),
+      advanceNote: advance?.note ?? '',
+      returnId: ret?.id ?? null,
+      returnSealed: Boolean(ret?.is_sealed),
+      return: blankAmount(ret?.amount),
+      returnNote: ret?.note ?? '',
+    }
+  })
+}

@@ -2,6 +2,7 @@ export const paths = {
   home: '/',
   balance: '/balance',
   hajira: '/hajira',
+  hajiraNew: '/hajira/new',
   cash: '/cash',
   cashNew: '/cash/new',
   cashDetail: (id) => `/cash/${id}`,

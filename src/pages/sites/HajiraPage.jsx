@@ -1,6 +1,7 @@
 import { useMemo } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 import {
   fetchBillingCategories,
   fetchLabourAttendances,
@@ -13,6 +14,9 @@ import {
 import { parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { formatBnNumber, formatBnSigned } from "../../utils/format.js";
+import { usePermissions } from "../../hooks/usePermissions.js";
+import { PERMS } from "../../utils/permissions.js";
+import { paths } from "../../router/paths.js";
 
 const colgroup = (
   <colgroup>
@@ -25,7 +29,13 @@ const colgroup = (
 );
 
 export const HajiraPage = () => {
-  const { date, siteId } = useOutletContext();
+  const { date, siteId, sites } = useOutletContext();
+  const navigate = useNavigate();
+  const { can } = usePermissions();
+
+  const canAddAttendance = can(PERMS.addAttendance);
+  const site = (sites ?? []).find((s) => String(s.id) === String(siteId));
+  const siteInactive = site?.is_active === false;
 
   const attendanceQuery = useQuery({
     queryKey: ["sites", siteId, "labour-attendances", { date }],
@@ -144,9 +154,7 @@ export const HajiraPage = () => {
                   </td>
                   <td className="truncate font-medium">{row.labour_name}</td>
                   <td className="text-right tabular-nums">
-                    <p>
-                      {formatBnNumber(row.present)}
-                    </p>
+                    <p>{formatBnNumber(row.present)}</p>
                     <p>{formatBnNumber(row.extra)}</p>
                   </td>
                   <td className="truncate text-sm text-base-content/70">
@@ -172,9 +180,7 @@ export const HajiraPage = () => {
               <td />
               <td className="font-semibold">মোট</td>
               <td className="text-right tabular-nums font-semibold">
-                <p>
-                  {formatBnNumber(totalPresent)}
-                </p>
+                <p>{formatBnNumber(totalPresent)}</p>
                 <p>{formatBnNumber(totalExtra)}</p>
               </td>
               <td />
@@ -187,6 +193,18 @@ export const HajiraPage = () => {
           </tfoot>
         </table>
       </div>
+
+      {canAddAttendance ? (
+        <button
+          type="button"
+          className="btn btn-primary btn-circle btn-lg fixed bottom-16 right-4 z-40 shadow-lg"
+          aria-label="নতুন হাজিরা"
+          onClick={() => navigate(paths.hajiraNew)}
+          disabled={!date || siteInactive}
+        >
+          <Plus className="size-7" strokeWidth={2} />
+        </button>
+      ) : null}
     </section>
   );
 };
