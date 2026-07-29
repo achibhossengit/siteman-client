@@ -7,7 +7,6 @@ import { GuestOnly, RequireAuth } from "./guards.jsx";
 import { paths } from "./paths.js";
 import { BalancePage } from "../pages/sites/BalancePage.jsx";
 import { HajiraPage } from "../pages/sites/HajiraPage.jsx";
-import { HajiraNewPage } from "../pages/sites/HajiraNewPage.jsx";
 import { CashPage } from "../pages/sites/CashPage.jsx";
 import { CashNewPage } from "../pages/sites/CashNewPage.jsx";
 import { CashDetailPage } from "../pages/sites/CashDetailPage.jsx";
@@ -71,7 +70,6 @@ export const AppRouter = () => (
         <Route element={<DetailLayout />}>
           <Route path={paths.profile} element={<ProfilePage />} />
           <Route path={paths.cashNew} element={<CashNewPage />} />
-          <Route path={paths.hajiraNew} element={<HajiraNewPage />} />
           <Route path="/cash/:cashId" element={<CashDetailPage />} />
           <Route path={paths.sites} element={<SitesPage />} />
           <Route path={paths.siteNew} element={<SiteNewPage />} />
