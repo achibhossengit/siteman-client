@@ -2290,17 +2290,6 @@ paths:
       description: Nested under ``/labours/<labour_pk>/payments``.
       parameters:
         - in: query
-          name: category
-          schema:
-            type: string
-            nullable: true
-            enum:
-              - advance
-              - fooding
-          description: |-
-            * `advance` - Advance
-            * `fooding` - Fooding
-        - in: query
           name: date
           schema:
             type: string
@@ -7490,17 +7479,6 @@ paths:
         each carrying its own ``labour``.
       parameters:
         - in: query
-          name: category
-          schema:
-            type: string
-            nullable: true
-            enum:
-              - advance
-              - fooding
-          description: |-
-            * `advance` - Advance
-            * `fooding` - Fooding
-        - in: query
           name: date
           schema:
             type: string
@@ -7676,17 +7654,6 @@ paths:
         Only list and bulk create; the create payload is a list of payments,
         each carrying its own ``labour``.
       parameters:
-        - in: query
-          name: category
-          schema:
-            type: string
-            nullable: true
-            enum:
-              - advance
-              - fooding
-          description: |-
-            * `advance` - Advance
-            * `fooding` - Fooding
         - in: query
           name: date
           schema:
@@ -12080,15 +12047,7 @@ components:
     BlankEnum:
       enum:
         - ""
-    Category83eEnum:
-      enum:
-        - advance
-        - fooding
-      type: string
-      description: |-
-        * `advance` - Advance
-        * `fooding` - Fooding
-    CategoryB86Enum:
+    CategoryEnum:
       enum:
         - food
         - equipment
@@ -12508,12 +12467,6 @@ components:
 
             * `payment` - Payment
             * `return` - Return
-        category:
-          nullable: true
-          oneOf:
-            - $ref: "#/components/schemas/Category83eEnum"
-            - $ref: "#/components/schemas/BlankEnum"
-            - $ref: "#/components/schemas/NullEnum"
         amount:
           type: integer
           maximum: 2147483647
@@ -12568,12 +12521,6 @@ components:
 
             * `payment` - Payment
             * `return` - Return
-        category:
-          nullable: true
-          oneOf:
-            - $ref: "#/components/schemas/Category83eEnum"
-            - $ref: "#/components/schemas/BlankEnum"
-            - $ref: "#/components/schemas/NullEnum"
         amount:
           type: integer
           maximum: 2147483647
@@ -13813,25 +13760,6 @@ components:
         - attr
         - code
         - detail
-    LaboursPaymentsCreateCategoryErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - category
-          type: string
-          description: "* `category` - category"
-        code:
-          enum:
-            - invalid_choice
-          type: string
-          description: "* `invalid_choice` - invalid_choice"
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
     LaboursPaymentsCreateDateErrorComponent:
       type: object
       properties:
@@ -13861,7 +13789,6 @@ components:
         - $ref: "#/components/schemas/LaboursPaymentsCreateNonFieldErrorsErrorComponent"
         - $ref: "#/components/schemas/LaboursPaymentsCreateDateErrorComponent"
         - $ref: "#/components/schemas/LaboursPaymentsCreateTypeErrorComponent"
-        - $ref: "#/components/schemas/LaboursPaymentsCreateCategoryErrorComponent"
         - $ref: "#/components/schemas/LaboursPaymentsCreateAmountErrorComponent"
         - $ref: "#/components/schemas/LaboursPaymentsCreateNoteErrorComponent"
       discriminator:
@@ -13870,7 +13797,6 @@ components:
           non_field_errors: "#/components/schemas/LaboursPaymentsCreateNonFieldErrorsErrorComponent"
           date: "#/components/schemas/LaboursPaymentsCreateDateErrorComponent"
           type: "#/components/schemas/LaboursPaymentsCreateTypeErrorComponent"
-          category: "#/components/schemas/LaboursPaymentsCreateCategoryErrorComponent"
           amount: "#/components/schemas/LaboursPaymentsCreateAmountErrorComponent"
           note: "#/components/schemas/LaboursPaymentsCreateNoteErrorComponent"
     LaboursPaymentsCreateErrorResponse400:
@@ -13971,25 +13897,6 @@ components:
         propertyName: type
         mapping:
           client_error: "#/components/schemas/ParseErrorResponse"
-    LaboursPaymentsListCategoryErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - category
-          type: string
-          description: "* `category` - category"
-        code:
-          enum:
-            - invalid_choice
-          type: string
-          description: "* `invalid_choice` - invalid_choice"
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
     LaboursPaymentsListDateErrorComponent:
       type: object
       properties:
@@ -14050,7 +13957,6 @@ components:
     LaboursPaymentsListError:
       oneOf:
         - $ref: "#/components/schemas/LaboursPaymentsListTypeErrorComponent"
-        - $ref: "#/components/schemas/LaboursPaymentsListCategoryErrorComponent"
         - $ref: "#/components/schemas/LaboursPaymentsListDateErrorComponent"
         - $ref: "#/components/schemas/LaboursPaymentsListDate_gteErrorComponent"
         - $ref: "#/components/schemas/LaboursPaymentsListDate_lteErrorComponent"
@@ -14059,7 +13965,6 @@ components:
         propertyName: attr
         mapping:
           type: "#/components/schemas/LaboursPaymentsListTypeErrorComponent"
-          category: "#/components/schemas/LaboursPaymentsListCategoryErrorComponent"
           date: "#/components/schemas/LaboursPaymentsListDateErrorComponent"
           date__gte: "#/components/schemas/LaboursPaymentsListDate_gteErrorComponent"
           date__lte: "#/components/schemas/LaboursPaymentsListDate_lteErrorComponent"
@@ -14153,25 +14058,6 @@ components:
         - attr
         - code
         - detail
-    LaboursPaymentsPartialUpdateCategoryErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - category
-          type: string
-          description: "* `category` - category"
-        code:
-          enum:
-            - invalid_choice
-          type: string
-          description: "* `invalid_choice` - invalid_choice"
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
     LaboursPaymentsPartialUpdateDateErrorComponent:
       type: object
       properties:
@@ -14201,7 +14087,6 @@ components:
         - $ref: "#/components/schemas/LaboursPaymentsPartialUpdateNonFieldErrorsErrorComponent"
         - $ref: "#/components/schemas/LaboursPaymentsPartialUpdateDateErrorComponent"
         - $ref: "#/components/schemas/LaboursPaymentsPartialUpdateTypeErrorComponent"
-        - $ref: "#/components/schemas/LaboursPaymentsPartialUpdateCategoryErrorComponent"
         - $ref: "#/components/schemas/LaboursPaymentsPartialUpdateAmountErrorComponent"
         - $ref: "#/components/schemas/LaboursPaymentsPartialUpdateNoteErrorComponent"
       discriminator:
@@ -14210,7 +14095,6 @@ components:
           non_field_errors: "#/components/schemas/LaboursPaymentsPartialUpdateNonFieldErrorsErrorComponent"
           date: "#/components/schemas/LaboursPaymentsPartialUpdateDateErrorComponent"
           type: "#/components/schemas/LaboursPaymentsPartialUpdateTypeErrorComponent"
-          category: "#/components/schemas/LaboursPaymentsPartialUpdateCategoryErrorComponent"
           amount: "#/components/schemas/LaboursPaymentsPartialUpdateAmountErrorComponent"
           note: "#/components/schemas/LaboursPaymentsPartialUpdateNoteErrorComponent"
     LaboursPaymentsPartialUpdateErrorResponse400:
@@ -15035,12 +14919,6 @@ components:
 
             * `payment` - Payment
             * `return` - Return
-        category:
-          nullable: true
-          oneOf:
-            - $ref: "#/components/schemas/Category83eEnum"
-            - $ref: "#/components/schemas/BlankEnum"
-            - $ref: "#/components/schemas/NullEnum"
         amount:
           type: integer
           maximum: 2147483647
@@ -15168,7 +15046,7 @@ components:
             * `food` - Food
             * `equipment` - Equipment
           oneOf:
-            - $ref: "#/components/schemas/CategoryB86Enum"
+            - $ref: "#/components/schemas/CategoryEnum"
             - $ref: "#/components/schemas/BlankEnum"
             - $ref: "#/components/schemas/NullEnum"
         date:
@@ -15665,7 +15543,7 @@ components:
             * `food` - Food
             * `equipment` - Equipment
           oneOf:
-            - $ref: "#/components/schemas/CategoryB86Enum"
+            - $ref: "#/components/schemas/CategoryEnum"
             - $ref: "#/components/schemas/BlankEnum"
             - $ref: "#/components/schemas/NullEnum"
         date:
@@ -15722,7 +15600,7 @@ components:
             * `food` - Food
             * `equipment` - Equipment
           oneOf:
-            - $ref: "#/components/schemas/CategoryB86Enum"
+            - $ref: "#/components/schemas/CategoryEnum"
             - $ref: "#/components/schemas/BlankEnum"
             - $ref: "#/components/schemas/NullEnum"
         amount:
@@ -15916,12 +15794,6 @@ components:
 
             * `payment` - Payment
             * `return` - Return
-        category:
-          nullable: true
-          oneOf:
-            - $ref: "#/components/schemas/Category83eEnum"
-            - $ref: "#/components/schemas/BlankEnum"
-            - $ref: "#/components/schemas/NullEnum"
         amount:
           type: integer
           maximum: 2147483647
@@ -15982,12 +15854,6 @@ components:
 
             * `payment` - Payment
             * `return` - Return
-        category:
-          nullable: true
-          oneOf:
-            - $ref: "#/components/schemas/Category83eEnum"
-            - $ref: "#/components/schemas/BlankEnum"
-            - $ref: "#/components/schemas/NullEnum"
         amount:
           type: integer
           maximum: 2147483647
@@ -17446,7 +17312,6 @@ components:
         - $ref: "#/components/schemas/SitesLabourPaymentsCreateINDEXLabourErrorComponent"
         - $ref: "#/components/schemas/SitesLabourPaymentsCreateINDEXDateErrorComponent"
         - $ref: "#/components/schemas/SitesLabourPaymentsCreateINDEXTypeErrorComponent"
-        - $ref: "#/components/schemas/SitesLabourPaymentsCreateINDEXCategoryErrorComponent"
         - $ref: "#/components/schemas/SitesLabourPaymentsCreateINDEXAmountErrorComponent"
         - $ref: "#/components/schemas/SitesLabourPaymentsCreateINDEXNoteErrorComponent"
       discriminator:
@@ -17457,7 +17322,6 @@ components:
           INDEX.labour: "#/components/schemas/SitesLabourPaymentsCreateINDEXLabourErrorComponent"
           INDEX.date: "#/components/schemas/SitesLabourPaymentsCreateINDEXDateErrorComponent"
           INDEX.type: "#/components/schemas/SitesLabourPaymentsCreateINDEXTypeErrorComponent"
-          INDEX.category: "#/components/schemas/SitesLabourPaymentsCreateINDEXCategoryErrorComponent"
           INDEX.amount: "#/components/schemas/SitesLabourPaymentsCreateINDEXAmountErrorComponent"
           INDEX.note: "#/components/schemas/SitesLabourPaymentsCreateINDEXNoteErrorComponent"
     SitesLabourPaymentsCreateErrorResponse400:
@@ -17493,25 +17357,6 @@ components:
             * `min_value` - min_value
             * `null` - null
             * `required` - required
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
-    SitesLabourPaymentsCreateINDEXCategoryErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - INDEX.category
-          type: string
-          description: "* `INDEX.category` - INDEX.category"
-        code:
-          enum:
-            - invalid_choice
-          type: string
-          description: "* `invalid_choice` - invalid_choice"
         detail:
           type: string
       required:
@@ -17680,25 +17525,6 @@ components:
       required:
         - errors
         - type
-    SitesLabourPaymentsListCategoryErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - category
-          type: string
-          description: "* `category` - category"
-        code:
-          enum:
-            - invalid_choice
-          type: string
-          description: "* `invalid_choice` - invalid_choice"
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
     SitesLabourPaymentsListDateErrorComponent:
       type: object
       properties:
@@ -17721,14 +17547,12 @@ components:
     SitesLabourPaymentsListError:
       oneOf:
         - $ref: "#/components/schemas/SitesLabourPaymentsListTypeErrorComponent"
-        - $ref: "#/components/schemas/SitesLabourPaymentsListCategoryErrorComponent"
         - $ref: "#/components/schemas/SitesLabourPaymentsListDateErrorComponent"
         - $ref: "#/components/schemas/SitesLabourPaymentsListLabourErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
           type: "#/components/schemas/SitesLabourPaymentsListTypeErrorComponent"
-          category: "#/components/schemas/SitesLabourPaymentsListCategoryErrorComponent"
           date: "#/components/schemas/SitesLabourPaymentsListDateErrorComponent"
           labour: "#/components/schemas/SitesLabourPaymentsListLabourErrorComponent"
     SitesLabourPaymentsListErrorResponse400:
