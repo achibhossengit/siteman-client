@@ -97,22 +97,12 @@ const PAYMENT_MODAL_ID = "hajira_payment_modal";
 
 const PAYMENT_SPECS = [
   {
-    key: "fooding",
-    noteKey: "foodingNote",
-    idKey: "foodingId",
-    sealedKey: "foodingSealed",
+    key: "payment",
+    noteKey: "paymentNote",
+    idKey: "paymentId",
+    sealedKey: "paymentSealed",
     type: "payment",
-    category: "fooding",
-    label: "খোরাকি",
-  },
-  {
-    key: "advance",
-    noteKey: "advanceNote",
-    idKey: "advanceId",
-    sealedKey: "advanceSealed",
-    type: "payment",
-    category: "advance",
-    label: "অগ্রিম",
+    label: "পেমেন্ট",
   },
   {
     key: "return",
@@ -120,7 +110,6 @@ const PAYMENT_SPECS = [
     idKey: "returnId",
     sealedKey: "returnSealed",
     type: "return",
-    category: null,
     label: "রিটার্ন",
   },
 ];
@@ -140,8 +129,7 @@ const paymentLineTone = (row, initial, keys, idKey, typeClass) => {
 };
 
 const hasPaymentDisplay = (row) =>
-  (row.fooding !== "" && Number(row.fooding) !== 0) ||
-  (row.advance !== "" && Number(row.advance) !== 0) ||
+  (row.payment !== "" && Number(row.payment) !== 0) ||
   (row.return !== "" && Number(row.return) !== 0);
 
 export const HajiraPage = () => {
@@ -348,14 +336,10 @@ export const HajiraPage = () => {
     setPaymentModal({
       labourId: row.labourId,
       labourName: row.labourName,
-      fooding: row.fooding,
-      foodingNote: row.foodingNote ?? "",
-      foodingSealed: row.foodingSealed,
-      foodingId: row.foodingId,
-      advance: row.advance,
-      advanceNote: row.advanceNote ?? "",
-      advanceSealed: row.advanceSealed,
-      advanceId: row.advanceId,
+      payment: row.payment,
+      paymentNote: row.paymentNote ?? "",
+      paymentSealed: row.paymentSealed,
+      paymentId: row.paymentId,
       return: row.return,
       returnNote: row.returnNote ?? "",
       returnSealed: row.returnSealed,
@@ -396,11 +380,11 @@ export const HajiraPage = () => {
 
   const onUseDefaults = () => {
     const isBlank = (value) => value === "" || value == null;
-    const foodingSpec = PAYMENT_SPECS[0];
+    const paymentSpec = PAYMENT_SPECS[0];
     setRows((prev) =>
       prev.map((row) => {
         const skipAttendance = attendanceLocked(row);
-        const skipFooding = paymentSlotLocked(row, foodingSpec);
+        const skipPayment = paymentSlotLocked(row, paymentSpec);
         return {
           ...row,
           present:
@@ -411,10 +395,10 @@ export const HajiraPage = () => {
             !skipAttendance && isBlank(row.salary)
               ? row.defaultSalary
               : row.salary,
-          fooding:
-            !skipFooding && isBlank(row.fooding)
+          payment:
+            !skipPayment && isBlank(row.payment)
               ? row.defaultFooding
-              : row.fooding,
+              : row.payment,
         };
       }),
     );
@@ -495,7 +479,6 @@ export const HajiraPage = () => {
               labour: row.labourId,
               date,
               type: spec.type,
-              category: spec.category,
               amount,
               note,
             });
@@ -690,40 +673,22 @@ export const HajiraPage = () => {
                       >
                         {hasPaymentDisplay(row) ? (
                           <span className="block tabular-nums space-y-0.5">
-                            {row.fooding !== "" &&
-                            Number(row.fooding) !== 0 ? (
+                            {row.payment !== "" &&
+                            Number(row.payment) !== 0 ? (
                               <span
                                 className={`block ${
                                   editing
                                     ? paymentLineTone(
                                         row,
                                         initial,
-                                        ["fooding", "foodingNote"],
-                                        "foodingId",
+                                        ["payment", "paymentNote"],
+                                        "paymentId",
                                         "text-error",
                                       )
                                     : "text-error"
                                 }`}
                               >
-                                {formatBnNumber(row.fooding)}
-                              </span>
-                            ) : null}
-                            {row.advance !== "" &&
-                            Number(row.advance) !== 0 ? (
-                              <span
-                                className={`block ${
-                                  editing
-                                    ? paymentLineTone(
-                                        row,
-                                        initial,
-                                        ["advance", "advanceNote"],
-                                        "advanceId",
-                                        "text-error",
-                                      )
-                                    : "text-error"
-                                }`}
-                              >
-                                {formatBnNumber(row.advance)}
+                                {formatBnNumber(row.payment)}
                               </span>
                             ) : null}
                             {row.return !== "" &&

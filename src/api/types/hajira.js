@@ -163,22 +163,15 @@ export const buildHajiraEditRows = (labours, attendances, payments) => {
   return labours.map((labour) => {
     const labourId = Number(labour.id)
     const attendance = attendanceByLabour.get(labourId) ?? null
-    const fooding = pickPayment(
+    const payment = pickPayment(
       payments,
       labourId,
-      (p) => p.type === 'payment' && p.category === 'fooding',
-    )
-    const advance = pickPayment(
-      payments,
-      labourId,
-      (p) => p.type === 'payment' && p.category === 'advance',
+      (p) => p.type === 'payment',
     )
     const ret = pickPayment(
       payments,
       labourId,
-      (p) =>
-        p.type === 'return' &&
-        (p.category == null || p.category === ''),
+      (p) => p.type === 'return',
     )
 
     return {
@@ -203,14 +196,10 @@ export const buildHajiraEditRows = (labours, attendances, payments) => {
         attendance?.billing != null && attendance?.billing !== ''
           ? String(attendance.billing)
           : '',
-      foodingId: fooding?.id ?? null,
-      foodingSealed: Boolean(fooding?.is_sealed),
-      fooding: blankAmount(fooding?.amount),
-      foodingNote: fooding?.note ?? '',
-      advanceId: advance?.id ?? null,
-      advanceSealed: Boolean(advance?.is_sealed),
-      advance: blankAmount(advance?.amount),
-      advanceNote: advance?.note ?? '',
+      paymentId: payment?.id ?? null,
+      paymentSealed: Boolean(payment?.is_sealed),
+      payment: blankAmount(payment?.amount),
+      paymentNote: payment?.note ?? '',
       returnId: ret?.id ?? null,
       returnSealed: Boolean(ret?.is_sealed),
       return: blankAmount(ret?.amount),

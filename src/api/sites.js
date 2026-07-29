@@ -91,18 +91,17 @@ export const createLabourAttendances = (siteId, payload) =>
 
 /**
  * Site labour payments list.
- * GET /sites/{site_pk}/labour-payments — filters: date, labour, type, category, is_sealed.
+ * GET /sites/{site_pk}/labour-payments — filters: date, labour, type, is_sealed.
  */
 export const fetchLabourPayments = (
   siteId,
-  { date, labour, type, category, is_sealed } = {},
+  { date, labour, type, is_sealed } = {},
 ) =>
   api.get(endpoints.sites.labourPayments(siteId), {
     params: {
       ...(date ? { date } : {}),
       ...(labour != null && labour !== '' ? { labour } : {}),
       ...(type ? { type } : {}),
-      ...(category ? { category } : {}),
       ...(typeof is_sealed === 'boolean' ? { is_sealed } : {}),
     },
   })

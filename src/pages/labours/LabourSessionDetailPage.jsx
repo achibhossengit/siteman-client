@@ -43,22 +43,11 @@ const formatPeriod = (session) => {
 };
 
 const matchesPaymentFilter = (payment, filter) => {
-  if (!filter || filter === "payment") return true;
-  if (filter === "khoraki") {
-    return payment.type === "payment" && payment.category === "fooding";
-  }
-  if (filter === "advance") {
-    return payment.type === "payment" && payment.category === "advance";
-  }
-  if (filter === "return") {
-    return (
-      payment.type === "return"
-    );
-  }
-  return true;
+  if (!filter || filter === "all") return true;
+  return payment.type === filter;
 };
 
-const groupPaymentsByDate = (payments, paymentFilter = "payment") => {
+const groupPaymentsByDate = (payments, paymentFilter = "all") => {
   const map = new Map();
   for (const payment of payments) {
     if (!matchesPaymentFilter(payment, paymentFilter)) continue;
@@ -82,7 +71,7 @@ const calcDayEarnings = (attendance, earningsFilter = "all") => {
 const buildDetailRows = (
   attendances,
   payments,
-  { paymentFilter = "payment", earningsFilter = "all" } = {},
+  { paymentFilter = "all", earningsFilter = "all" } = {},
 ) => {
   const attendanceByDate = new Map(
     attendances.map((row) => [row.date ?? "", row]),
@@ -114,7 +103,7 @@ export const LabourSessionDetailPage = () => {
   const { can } = usePermissions();
   const [showDetails, setShowDetails] = useState(false);
   const [selectedSiteId, setSelectedSiteId] = useState("");
-  const [paymentFilter, setPaymentFilter] = useState("payment");
+  const [paymentFilter, setPaymentFilter] = useState("all");
   const [earningsFilter, setEarningsFilter] = useState("all");
   const [apiError, setApiError] = useState(null);
   const isRunningRoute = sessionId === "running";
@@ -538,9 +527,8 @@ export const LabourSessionDetailPage = () => {
                         onChange={(e) => setPaymentFilter(e.target.value)}
                         aria-label="পেমেন্ট ফিল্টার"
                       >
+                        <option value="all">সব পেমেন্ট</option>
                         <option value="payment">পেমেন্ট</option>
-                        <option value="khoraki">খোরাকি</option>
-                        <option value="advance">অগ্রিম</option>
                         <option value="return">রিটার্ন</option>
                       </select>
                     </th>

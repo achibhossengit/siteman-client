@@ -60,7 +60,7 @@ export const deleteLabourAttendance = (labourId, attendanceId) =>
 /** GET /labours/{labour_pk}/payments */
 export const fetchLabourPaymentsByLabour = (
   labourId,
-  { date, date__gte, date__lte, site, type, category, is_sealed } = {},
+  { date, date__gte, date__lte, site, type, is_sealed } = {},
 ) =>
   api.get(endpoints.labours.payments(labourId), {
     params: {
@@ -69,7 +69,6 @@ export const fetchLabourPaymentsByLabour = (
       ...(date__lte ? { date__lte } : {}),
       ...(site != null && site !== '' ? { site } : {}),
       ...(type ? { type } : {}),
-      ...(category ? { category } : {}),
       ...(typeof is_sealed === 'boolean' ? { is_sealed } : {}),
     },
   })
