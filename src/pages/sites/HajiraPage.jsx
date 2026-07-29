@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useOutletContext } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchLabours,
@@ -16,13 +16,12 @@ import {
 import {
   PRESENT_OPTIONS,
   buildHajiraEditRows,
+  buildHajiraViewRows,
 } from "../../api/types/hajira.js";
-import { parseApiError } from "../../api/errors.js";
+import { messageForCode, parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
-import { useAuth } from "../../providers/AuthProvider.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { PERMS } from "../../utils/permissions.js";
-import { paths } from "../../router/paths.js";
 import { formatBnNumber } from "../../utils/format.js";
 import {
   readSelectedDate,
@@ -44,7 +43,8 @@ const hasExtra = (row) => Number(row.extra) > 0;
 
 const dayEarnings = (row) => {
   const present = hasPresent(row) ? Number(row.present) : 0;
-  const salary = row.salary === "" || row.salary == null ? 0 : Number(row.salary);
+  const salary =
+    row.salary === "" || row.salary == null ? 0 : Number(row.salary);
   return present * salary + (Number(row.extra) || 0);
 };
 
@@ -55,7 +55,8 @@ const attendancePayload = (row, date) => ({
   salary: row.salary === "" || row.salary == null ? null : Number(row.salary),
   extra: Number(row.extra) || 0,
   note: row.extraNote?.trim() ? row.extraNote.trim() : null,
-  billing: row.billing === "" || row.billing == null ? null : Number(row.billing),
+  billing:
+    row.billing === "" || row.billing == null ? null : Number(row.billing),
 });
 
 const attendancePatchPayload = (row) => ({
@@ -63,7 +64,8 @@ const attendancePatchPayload = (row) => ({
   salary: row.salary === "" || row.salary == null ? null : Number(row.salary),
   extra: Number(row.extra) || 0,
   note: row.extraNote?.trim() ? row.extraNote.trim() : null,
-  billing: row.billing === "" || row.billing == null ? null : Number(row.billing),
+  billing:
+    row.billing === "" || row.billing == null ? null : Number(row.billing),
 });
 
 const isAttendanceDirty = (row, initial) =>
@@ -88,17 +90,6 @@ const paymentAmount = (row, key) => {
   if (v === "" || v == null) return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
-};
-
-const formatTitleDate = (iso) => {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return new Intl.DateTimeFormat("bn-BD", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(d);
 };
 
 const HAJIRA_MODAL_ID = "hajira_attendance_modal";
@@ -143,7 +134,6 @@ const fieldTone = (row, initial, keys, idKey) => {
   return row[idKey] ? "text-amber-500" : "text-success";
 };
 
-/** Unchanged payments keep type color (error/success); dirty uses create/update tone. */
 const paymentLineTone = (row, initial, keys, idKey, typeClass) => {
   const tone = fieldTone(row, initial, keys, idKey);
   return tone === "text-base-content/60" ? typeClass : tone;
@@ -155,15 +145,8 @@ const hasPaymentDisplay = (row) =>
   (row.return !== "" && Number(row.return) !== 0);
 
 export const HajiraPage = () => {
-  const navigate = useNavigate();
-  const {
-    date: selectedDate,
-    siteId: selectedSiteId,
-    sites: selectedSites,
-    setTitle,
-    setHeaderMenu,
-  } = useOutletContext();
-  const { profile } = useAuth();
+  const { date: selectedDate, siteId: selectedSiteId, sites } =
+    useOutletContext();
   const { can } = usePermissions();
   const queryClient = useQueryClient();
 
@@ -171,50 +154,20 @@ export const HajiraPage = () => {
   const canChangeAttendance = can(PERMS.changeAttendance);
   const canAddPayment = can(PERMS.addLabourPayment);
   const canChangePayment = can(PERMS.changeLabourPayment);
-  const canEdit = canAddAttendance || canChangeAttendance;
 
   const siteId = selectedSiteId || readSelectedSite();
   const date = selectedDate || readSelectedDate() || todayIso();
-  const site = (selectedSites ?? profile?.sites ?? []).find(
-    (s) => String(s.id) === String(siteId),
-  );
+  const site = (sites ?? []).find((s) => String(s.id) === String(siteId));
+  const siteInactive = site?.is_active === false;
 
+  const [editing, setEditing] = useState(false);
   const [rows, setRows] = useState([]);
   const [initialRows, setInitialRows] = useState([]);
-  const [rowsReady, setRowsReady] = useState(false);
   const [apiError, setApiError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [hajiraModal, setHajiraModal] = useState(null);
   const [paymentModal, setPaymentModal] = useState(null);
   const [paymentTab, setPaymentTab] = useState(PAYMENT_SPECS[0].key);
-
-  useEffect(() => {
-    setTitle?.(date ? `হাজিরা (${formatTitleDate(date)})` : "হাজিরা");
-    return () => setTitle?.("");
-  }, [setTitle, date]);
-
-  useEffect(() => {
-    setHeaderMenu?.(
-      site?.name ? (
-        <span className="text-sm font-medium text-base-content/80 truncate px-1">
-          {site.name}
-        </span>
-      ) : null,
-    );
-    return () => setHeaderMenu?.(null);
-  }, [site?.name, setHeaderMenu]);
-
-  const laboursQuery = useQuery({
-    queryKey: ["labours", { current_site: siteId, is_active: true }],
-    queryFn: async () => {
-      const { data } = await fetchLabours({
-        current_site: siteId,
-        is_active: true,
-      });
-      return Array.isArray(data) ? data : [];
-    },
-    enabled: Boolean(canEdit && siteId),
-  });
 
   const attendanceQuery = useQuery({
     queryKey: ["sites", siteId, "labour-attendances", { date }],
@@ -222,7 +175,7 @@ export const HajiraPage = () => {
       const { data } = await fetchLabourAttendances(siteId, { date });
       return Array.isArray(data) ? data : [];
     },
-    enabled: Boolean(canEdit && siteId && date),
+    enabled: Boolean(siteId && date),
   });
 
   const paymentQuery = useQuery({
@@ -231,7 +184,7 @@ export const HajiraPage = () => {
       const { data } = await fetchLabourPayments(siteId, { date });
       return Array.isArray(data) ? data : [];
     },
-    enabled: Boolean(canEdit && siteId && date),
+    enabled: Boolean(siteId && date),
   });
 
   const billingQuery = useQuery({
@@ -242,33 +195,64 @@ export const HajiraPage = () => {
       });
       return Array.isArray(data) ? data : [];
     },
-    enabled: Boolean(canEdit && siteId),
+    enabled: Boolean(siteId),
   });
 
-  const dataFingerprint = useMemo(() => {
-    if (
-      !laboursQuery.isSuccess ||
-      !attendanceQuery.isSuccess ||
-      !paymentQuery.isSuccess
-    ) {
-      return null;
-    }
-    return JSON.stringify({
-      labours: laboursQuery.data,
-      attendances: attendanceQuery.data,
-      payments: paymentQuery.data,
-    });
+  const laboursQuery = useQuery({
+    queryKey: ["labours", { current_site: siteId, is_active: true }],
+    queryFn: async () => {
+      const { data } = await fetchLabours({
+        current_site: siteId,
+        is_active: true,
+      });
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: Boolean(editing && siteId),
+  });
+
+  const billingOptions = billingQuery.data ?? [];
+
+  const billingLabelById = useMemo(() => {
+    const map = new Map();
+    for (const b of billingOptions) map.set(String(b.id), b.name);
+    return map;
+  }, [billingOptions]);
+
+  const billingLabel = (id) => {
+    if (id == null || id === "") return "—";
+    return billingLabelById.get(String(id)) ?? `#${id}`;
+  };
+
+  // Exit edit mode when site/date changes.
+  useEffect(() => {
+    setEditing(false);
+    setApiError(null);
+    setHajiraModal(null);
+    setPaymentModal(null);
+  }, [siteId, date]);
+
+  // View mode: map records by labour from attendance/payment only.
+  useEffect(() => {
+    if (editing) return;
+    if (!attendanceQuery.isSuccess || !paymentQuery.isSuccess) return;
+    const next = buildHajiraViewRows(
+      attendanceQuery.data ?? [],
+      paymentQuery.data ?? [],
+    );
+    setRows(cloneRows(next));
+    setInitialRows(cloneRows(next));
   }, [
-    laboursQuery.isSuccess,
+    editing,
     attendanceQuery.isSuccess,
     paymentQuery.isSuccess,
-    laboursQuery.data,
     attendanceQuery.data,
     paymentQuery.data,
   ]);
 
+  // Edit mode: remap already-loaded records onto this site's labours.
   useEffect(() => {
-    if (!dataFingerprint) return;
+    if (!editing) return;
+    if (!laboursQuery.isSuccess) return;
     const next = buildHajiraEditRows(
       laboursQuery.data ?? [],
       attendanceQuery.data ?? [],
@@ -276,8 +260,13 @@ export const HajiraPage = () => {
     );
     setRows(cloneRows(next));
     setInitialRows(cloneRows(next));
-    setRowsReady(true);
-  }, [dataFingerprint, laboursQuery.data, attendanceQuery.data, paymentQuery.data]);
+  }, [
+    editing,
+    laboursQuery.isSuccess,
+    laboursQuery.data,
+    attendanceQuery.data,
+    paymentQuery.data,
+  ]);
 
   const updateRow = (labourId, patch) => {
     setRows((prev) =>
@@ -298,8 +287,18 @@ export const HajiraPage = () => {
     [rows, initialRows],
   );
 
+  const modalEditable = editing;
+
+  const attendanceLocked = (row) =>
+    Boolean(row?.attendanceSealed) ||
+    (row?.attendanceId ? !canChangeAttendance : !canAddAttendance);
+
+  /** Each payment slot is its own record, so create/change rights differ per slot. */
+  const paymentSlotLocked = (row, spec) =>
+    Boolean(row?.[spec.sealedKey]) ||
+    (row?.[spec.idKey] ? !canChangePayment : !canAddPayment);
+
   const openHajiraModal = (row) => {
-    if (row.attendanceSealed) return;
     setHajiraModal({
       labourId: row.labourId,
       labourName: row.labourName,
@@ -307,12 +306,14 @@ export const HajiraPage = () => {
       salary: row.salary,
       extra: row.extra || "",
       note: row.extraNote ?? "",
+      attendanceSealed: row.attendanceSealed,
+      attendanceId: row.attendanceId,
     });
     document.getElementById(HAJIRA_MODAL_ID)?.showModal();
   };
 
   const saveHajiraModal = () => {
-    if (!hajiraModal) return;
+    if (!hajiraModal || !modalEditable || attendanceLocked(hajiraModal)) return;
     updateRow(hajiraModal.labourId, {
       present:
         hajiraModal.present === "" ? "" : Number(hajiraModal.present),
@@ -340,9 +341,9 @@ export const HajiraPage = () => {
   };
 
   const openPaymentModal = (row) => {
-    if (row.foodingSealed && row.advanceSealed && row.returnSealed) return;
     const firstOpen =
-      PAYMENT_SPECS.find((spec) => !row[spec.sealedKey]) ?? PAYMENT_SPECS[0];
+      PAYMENT_SPECS.find((spec) => !paymentSlotLocked(row, spec)) ??
+      PAYMENT_SPECS[0];
     setPaymentTab(firstOpen.key);
     setPaymentModal({
       labourId: row.labourId,
@@ -350,30 +351,31 @@ export const HajiraPage = () => {
       fooding: row.fooding,
       foodingNote: row.foodingNote ?? "",
       foodingSealed: row.foodingSealed,
+      foodingId: row.foodingId,
       advance: row.advance,
       advanceNote: row.advanceNote ?? "",
       advanceSealed: row.advanceSealed,
+      advanceId: row.advanceId,
       return: row.return,
       returnNote: row.returnNote ?? "",
       returnSealed: row.returnSealed,
+      returnId: row.returnId,
     });
     document.getElementById(PAYMENT_MODAL_ID)?.showModal();
   };
 
   const savePaymentModal = () => {
-    if (!paymentModal) return;
-    updateRow(paymentModal.labourId, {
-      fooding: numOrEmpty(paymentModal.fooding),
-      foodingNote: paymentModal.foodingNote ?? "",
-      advance: numOrEmpty(paymentModal.advance),
-      advanceNote: paymentModal.advanceNote ?? "",
-      return: numOrEmpty(paymentModal.return),
-      returnNote: paymentModal.returnNote ?? "",
-    });
+    if (!paymentModal || !modalEditable) return;
+    const patch = {};
+    for (const spec of PAYMENT_SPECS) {
+      if (paymentSlotLocked(paymentModal, spec)) continue;
+      patch[spec.key] = numOrEmpty(paymentModal[spec.key]);
+      patch[spec.noteKey] = paymentModal[spec.noteKey] ?? "";
+    }
+    updateRow(paymentModal.labourId, patch);
     document.getElementById(PAYMENT_MODAL_ID)?.close();
   };
 
-  /** Resets only the active section — each section is its own payment object. */
   const resetPaymentModal = () => {
     if (!paymentModal) return;
     const initial = initialByLabour.get(paymentModal.labourId);
@@ -387,29 +389,46 @@ export const HajiraPage = () => {
     });
   };
 
+  const onAddHajira = () => {
+    setApiError(null);
+    setEditing(true);
+  };
+
   const onUseDefaults = () => {
+    const isBlank = (value) => value === "" || value == null;
+    const foodingSpec = PAYMENT_SPECS[0];
     setRows((prev) =>
-      prev.map((row) => ({
-        ...row,
-        present:
-          row.present === "" || row.present == null
-            ? row.defaultAttendance
-            : row.present,
-        salary:
-          row.salary === "" || row.salary == null
-            ? row.defaultSalary
-            : row.salary,
-        fooding:
-          row.fooding === "" || row.fooding == null
-            ? row.defaultFooding
-            : row.fooding,
-      })),
+      prev.map((row) => {
+        const skipAttendance = attendanceLocked(row);
+        const skipFooding = paymentSlotLocked(row, foodingSpec);
+        return {
+          ...row,
+          present:
+            !skipAttendance && isBlank(row.present)
+              ? row.defaultAttendance
+              : row.present,
+          salary:
+            !skipAttendance && isBlank(row.salary)
+              ? row.defaultSalary
+              : row.salary,
+          fooding:
+            !skipFooding && isBlank(row.fooding)
+              ? row.defaultFooding
+              : row.fooding,
+        };
+      }),
     );
   };
 
-  const onReset = () => {
-    setRows(cloneRows(initialRows));
+  const onCancel = () => {
+    setEditing(false);
     setApiError(null);
+    const next = buildHajiraViewRows(
+      attendanceQuery.data ?? [],
+      paymentQuery.data ?? [],
+    );
+    setRows(cloneRows(next));
+    setInitialRows(cloneRows(next));
   };
 
   const saveMutation = useMutation({
@@ -418,6 +437,7 @@ export const HajiraPage = () => {
       const attendanceUpdates = [];
       const paymentCreates = [];
       const paymentUpdates = [];
+      let blocked = 0;
 
       for (const row of rows) {
         const initial =
@@ -435,9 +455,15 @@ export const HajiraPage = () => {
                 id: row.attendanceId,
                 payload: attendancePatchPayload(row),
               });
+            } else {
+              blocked += 1;
             }
-          } else if (canAddAttendance && hasAttendanceData(row)) {
-            attendanceCreates.push(attendancePayload(row, date));
+          } else if (hasAttendanceData(row)) {
+            if (canAddAttendance) {
+              attendanceCreates.push(attendancePayload(row, date));
+            } else {
+              blocked += 1;
+            }
           }
         }
 
@@ -451,17 +477,20 @@ export const HajiraPage = () => {
           const id = row[spec.idKey];
 
           if (id) {
-            if (!canChangePayment) continue;
+            if (!canChangePayment) {
+              blocked += 1;
+              continue;
+            }
             paymentUpdates.push({
               labourId: row.labourId,
               id,
-              payload: {
-                amount: amount ?? 0,
-                note,
-              },
+              payload: { amount: amount ?? 0, note },
             });
           } else if (amount != null && amount > 0) {
-            if (!canAddPayment) continue;
+            if (!canAddPayment) {
+              blocked += 1;
+              continue;
+            }
             paymentCreates.push({
               labour: row.labourId,
               date,
@@ -495,6 +524,7 @@ export const HajiraPage = () => {
         attendanceUpdates: attendanceUpdates.length,
         paymentCreates: paymentCreates.length,
         paymentUpdates: paymentUpdates.length,
+        blocked,
       };
     },
   });
@@ -510,7 +540,11 @@ export const HajiraPage = () => {
         result.paymentCreates +
         result.paymentUpdates;
       if (total === 0) {
-        setApiError("সেভ করার মতো কোনো পরিবর্তন নেই।");
+        setApiError(
+          result.blocked > 0
+            ? messageForCode("permission_denied")
+            : "সেভ করার মতো কোনো পরিবর্তন নেই।",
+        );
         return;
       }
       await queryClient.invalidateQueries({
@@ -522,7 +556,7 @@ export const HajiraPage = () => {
       await queryClient.invalidateQueries({
         queryKey: ["sites", siteId, "daily-reports"],
       });
-      navigate(paths.hajira, { replace: true });
+      setEditing(false);
     } catch (err) {
       setApiError(parseApiError(err));
     } finally {
@@ -530,43 +564,45 @@ export const HajiraPage = () => {
     }
   };
 
-  if (!canEdit) {
-    return (
-      <div className="text-sm text-error py-8 text-center">
-        এই পেজ দেখার অনুমতি নেই।
-      </div>
-    );
-  }
-
   if (!siteId) {
     return (
-      <div className="text-sm text-base-content/70 py-8 text-center">
-        হাজিরা এন্ট্রির জন্য একটি সাইট নির্বাচন করুন।
+      <div className="flex-1 flex items-center justify-center text-sm text-base-content/70">
+        হাজিরা দেখতে একটি সাইট নির্বাচন করুন।
       </div>
     );
   }
 
   const loading =
-    laboursQuery.isLoading ||
     attendanceQuery.isLoading ||
     paymentQuery.isLoading ||
-    !rowsReady;
+    (editing && laboursQuery.isLoading);
 
   if (loading) {
     return (
-      <div className="flex justify-center py-16">
+      <div className="flex-1 flex justify-center items-center">
         <span className="loading loading-spinner loading-lg text-primary" />
       </div>
     );
   }
 
   const loadError =
-    laboursQuery.error || attendanceQuery.error || paymentQuery.error;
+    attendanceQuery.error ||
+    paymentQuery.error ||
+    (editing ? laboursQuery.error : null);
   if (loadError) {
-    return <ApiErrorAlert error={parseApiError(loadError)} />;
+    return (
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
+        <ApiErrorAlert error={parseApiError(loadError)} />
+      </div>
+    );
   }
 
-  const billingOptions = billingQuery.data ?? [];
+  const emptyMessage = editing
+    ? "এই সাইটে কোনো সক্রিয় লেবার নেই।"
+    : "এই তারিখে কোনো হাজিরা নেই।";
+
+  const hajiraModalLocked =
+    !modalEditable || !hajiraModal || attendanceLocked(hajiraModal);
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto space-y-3 px-3 py-3">
@@ -591,18 +627,20 @@ export const HajiraPage = () => {
                   colSpan={6}
                   className="text-center text-sm text-base-content/60 py-10"
                 >
-                  এই সাইটে কোনো সক্রিয় লেবার নেই।
+                  {emptyMessage}
                 </td>
               </tr>
             ) : (
               rows.map((row, index) => {
                 const initial = initialByLabour.get(row.labourId) ?? {};
-                const hajiraTone = fieldTone(
-                  row,
-                  initial,
-                  ["present", "salary", "extra", "extraNote"],
-                  "attendanceId",
-                );
+                const hajiraTone = editing
+                  ? fieldTone(
+                      row,
+                      initial,
+                      ["present", "salary", "extra", "extraNote"],
+                      "attendanceId",
+                    )
+                  : "text-base-content/60";
                 const earn = dayEarnings(row);
 
                 return (
@@ -620,7 +658,6 @@ export const HajiraPage = () => {
                       <button
                         type="button"
                         className={`btn btn-ghost btn-xs h-auto min-h-0 px-1 py-0.5 font-normal text-left leading-tight ${hajiraTone}`}
-                        disabled={row.attendanceSealed}
                         onClick={() => openHajiraModal(row)}
                       >
                         {hasPresent(row) || hasExtra(row) ? (
@@ -642,20 +679,13 @@ export const HajiraPage = () => {
                         )}
                       </button>
                     </td>
-                    <td
-                      className={`text-right tabular-nums ${hajiraTone}`}
-                    >
+                    <td className={`text-right tabular-nums ${hajiraTone}`}>
                       {earn ? formatBnNumber(earn) : "—"}
                     </td>
                     <td className="text-right">
                       <button
                         type="button"
                         className="btn btn-ghost btn-xs h-auto min-h-0 px-1 py-0.5 font-normal text-right leading-tight w-full"
-                        disabled={
-                          row.foodingSealed &&
-                          row.advanceSealed &&
-                          row.returnSealed
-                        }
                         onClick={() => openPaymentModal(row)}
                       >
                         {hasPaymentDisplay(row) ? (
@@ -663,7 +693,17 @@ export const HajiraPage = () => {
                             {row.fooding !== "" &&
                             Number(row.fooding) !== 0 ? (
                               <span
-                                className={`block ${paymentLineTone(row, initial, ["fooding", "foodingNote"], "foodingId", "text-error")}`}
+                                className={`block ${
+                                  editing
+                                    ? paymentLineTone(
+                                        row,
+                                        initial,
+                                        ["fooding", "foodingNote"],
+                                        "foodingId",
+                                        "text-error",
+                                      )
+                                    : "text-error"
+                                }`}
                               >
                                 {formatBnNumber(row.fooding)}
                               </span>
@@ -671,7 +711,17 @@ export const HajiraPage = () => {
                             {row.advance !== "" &&
                             Number(row.advance) !== 0 ? (
                               <span
-                                className={`block ${paymentLineTone(row, initial, ["advance", "advanceNote"], "advanceId", "text-error")}`}
+                                className={`block ${
+                                  editing
+                                    ? paymentLineTone(
+                                        row,
+                                        initial,
+                                        ["advance", "advanceNote"],
+                                        "advanceId",
+                                        "text-error",
+                                      )
+                                    : "text-error"
+                                }`}
                               >
                                 {formatBnNumber(row.advance)}
                               </span>
@@ -679,7 +729,17 @@ export const HajiraPage = () => {
                             {row.return !== "" &&
                             Number(row.return) !== 0 ? (
                               <span
-                                className={`block ${paymentLineTone(row, initial, ["return", "returnNote"], "returnId", "text-success")}`}
+                                className={`block ${
+                                  editing
+                                    ? paymentLineTone(
+                                        row,
+                                        initial,
+                                        ["return", "returnNote"],
+                                        "returnId",
+                                        "text-success",
+                                      )
+                                    : "text-success"
+                                }`}
                               >
                                 {formatBnNumber(row.return)}
                               </span>
@@ -691,24 +751,30 @@ export const HajiraPage = () => {
                       </button>
                     </td>
                     <td>
-                      <select
-                        className={`select select-bordered select-xs w-24 sm:w-28 ${fieldTone(row, initial, "billing", "attendanceId")}`}
-                        value={row.billing}
-                        disabled={row.attendanceSealed}
-                        onChange={(e) =>
-                          updateRow(row.labourId, {
-                            billing: e.target.value,
-                          })
-                        }
-                        aria-label={`${row.labourName} বিলিং`}
-                      >
-                        <option value="">—</option>
-                        {billingOptions.map((b) => (
-                          <option key={b.id} value={String(b.id)}>
-                            {b.name}
-                          </option>
-                        ))}
-                      </select>
+                      {editing ? (
+                        <select
+                          className={`select select-bordered select-xs w-24 sm:w-28 ${fieldTone(row, initial, "billing", "attendanceId")}`}
+                          value={row.billing}
+                          disabled={attendanceLocked(row)}
+                          onChange={(e) =>
+                            updateRow(row.labourId, {
+                              billing: e.target.value,
+                            })
+                          }
+                          aria-label={`${row.labourName} বিলিং`}
+                        >
+                          <option value="">—</option>
+                          {billingOptions.map((b) => (
+                            <option key={b.id} value={String(b.id)}>
+                              {b.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-sm text-base-content/70 truncate">
+                          {billingLabel(row.billing)}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 );
@@ -719,38 +785,50 @@ export const HajiraPage = () => {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 pt-1">
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm"
-          onClick={onUseDefaults}
-          disabled={saving || rows.length === 0}
-        >
-          Use Defaults
-        </button>
-        <div className="ml-auto flex gap-2">
+        {editing ? (
+          <>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={onUseDefaults}
+              disabled={saving || rows.length === 0}
+            >
+              Use Defaults
+            </button>
+            <div className="ml-auto flex gap-2">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={onCancel}
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={onSave}
+                disabled={saving || !isDirty || rows.length === 0}
+              >
+                {saving ? (
+                  <span className="loading loading-spinner loading-sm" />
+                ) : null}
+                Save
+              </button>
+            </div>
+          </>
+        ) : canAddAttendance ? (
           <button
             type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={onReset}
-            disabled={saving || !isDirty}
+            className="btn btn-primary btn-sm ml-auto"
+            onClick={onAddHajira}
+            disabled={!date || siteInactive}
           >
-            Reset
+            Add Hajira
           </button>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={onSave}
-            disabled={saving || !isDirty || rows.length === 0}
-          >
-            {saving ? (
-              <span className="loading loading-spinner loading-sm" />
-            ) : null}
-            Save
-          </button>
-        </div>
+        ) : null}
       </div>
 
-      {/* Hajira modal: present + salary + extra + note */}
       <dialog
         id={HAJIRA_MODAL_ID}
         className="modal"
@@ -779,6 +857,7 @@ export const HajiraPage = () => {
                 <select
                   className="select select-bordered select-sm w-full"
                   value={hajiraModal.present}
+                  disabled={hajiraModalLocked}
                   onChange={(e) =>
                     setHajiraModal((m) => ({
                       ...m,
@@ -802,6 +881,7 @@ export const HajiraPage = () => {
                   min={0}
                   className="input input-bordered input-sm w-full tabular-nums"
                   value={hajiraModal.salary}
+                  disabled={hajiraModalLocked}
                   onChange={(e) =>
                     setHajiraModal((m) => ({
                       ...m,
@@ -818,6 +898,7 @@ export const HajiraPage = () => {
                   min={0}
                   className="input input-bordered input-sm w-full tabular-nums"
                   value={hajiraModal.extra}
+                  disabled={hajiraModalLocked}
                   onChange={(e) =>
                     setHajiraModal((m) => ({
                       ...m,
@@ -833,6 +914,7 @@ export const HajiraPage = () => {
                   type="text"
                   className="input input-bordered input-sm w-full"
                   value={hajiraModal.note}
+                  disabled={hajiraModalLocked}
                   onChange={(e) =>
                     setHajiraModal((m) => ({
                       ...m,
@@ -843,28 +925,29 @@ export const HajiraPage = () => {
                 />
               </label>
 
-              <div className="modal-action pt-1">
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={resetHajiraModal}
-                >
-                  Reset
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={saveHajiraModal}
-                >
-                  Save
-                </button>
-              </div>
+              {!hajiraModalLocked ? (
+                <div className="modal-action pt-1">
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={resetHajiraModal}
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={saveHajiraModal}
+                  >
+                    Save
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
       </dialog>
 
-      {/* Payment modal: fooding / advance / return each = one payment object */}
       <dialog
         id={PAYMENT_MODAL_ID}
         className="modal"
@@ -895,7 +978,6 @@ export const HajiraPage = () => {
                     type="button"
                     role="tab"
                     className={`tab ${paymentTab === spec.key ? "tab-active" : ""}`}
-                    disabled={paymentModal[spec.sealedKey]}
                     onClick={() => setPaymentTab(spec.key)}
                   >
                     {spec.label}
@@ -904,60 +986,71 @@ export const HajiraPage = () => {
               </div>
 
               {PAYMENT_SPECS.filter((spec) => spec.key === paymentTab).map(
-                (spec) => (
-                  <div key={spec.key} className="space-y-3">
-                    <label className="form-control w-full">
-                      <span className="label-text text-sm">নোট</span>
-                      <input
-                        type="text"
-                        className="input input-bordered input-sm w-full"
-                        value={paymentModal[spec.noteKey]}
-                        disabled={paymentModal[spec.sealedKey]}
-                        onChange={(e) =>
-                          setPaymentModal((m) => ({
-                            ...m,
-                            [spec.noteKey]: e.target.value,
-                          }))
-                        }
-                        maxLength={255}
-                      />
-                    </label>
-                    <label className="form-control w-full">
-                      <span className="label-text text-sm">পরিমাণ</span>
-                      <input
-                        type="number"
-                        min={0}
-                        className="input input-bordered input-sm w-full tabular-nums"
-                        value={paymentModal[spec.key]}
-                        disabled={paymentModal[spec.sealedKey]}
-                        onChange={(e) =>
-                          setPaymentModal((m) => ({
-                            ...m,
-                            [spec.key]: numOrEmpty(e.target.value),
-                          }))
-                        }
-                      />
-                    </label>
-                  </div>
-                ),
+                (spec) => {
+                  const fieldLocked =
+                    !modalEditable || paymentSlotLocked(paymentModal, spec);
+                  return (
+                    <div key={spec.key} className="space-y-3">
+                      <label className="form-control w-full">
+                        <span className="label-text text-sm">নোট</span>
+                        <input
+                          type="text"
+                          className="input input-bordered input-sm w-full"
+                          value={paymentModal[spec.noteKey]}
+                          disabled={fieldLocked}
+                          onChange={(e) =>
+                            setPaymentModal((m) => ({
+                              ...m,
+                              [spec.noteKey]: e.target.value,
+                            }))
+                          }
+                          maxLength={255}
+                        />
+                      </label>
+                      <label className="form-control w-full">
+                        <span className="label-text text-sm">পরিমাণ</span>
+                        <input
+                          type="number"
+                          min={0}
+                          className="input input-bordered input-sm w-full tabular-nums"
+                          value={paymentModal[spec.key]}
+                          disabled={fieldLocked}
+                          onChange={(e) =>
+                            setPaymentModal((m) => ({
+                              ...m,
+                              [spec.key]: numOrEmpty(e.target.value),
+                            }))
+                          }
+                        />
+                      </label>
+                    </div>
+                  );
+                },
               )}
 
-              <div className="modal-action pt-1 justify-between">
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={resetPaymentModal}
-                >
-                  Reset
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={savePaymentModal}
-                >
-                  Save
-                </button>
-              </div>
+              {modalEditable ? (
+                <div className="modal-action pt-1 justify-between">
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={resetPaymentModal}
+                    disabled={PAYMENT_SPECS.some(
+                      (spec) =>
+                        spec.key === paymentTab &&
+                        paymentSlotLocked(paymentModal, spec),
+                    )}
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={savePaymentModal}
+                  >
+                    Save
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>

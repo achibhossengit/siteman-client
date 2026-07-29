@@ -218,3 +218,44 @@ export const buildHajiraEditRows = (labours, attendances, payments) => {
     }
   })
 }
+
+/**
+ * View rows from attendance/payment records only — one row per labour that
+ * appears in the records, regardless of labour.current_site.
+ */
+export const buildHajiraViewRows = (attendances, payments) => {
+  const labourMap = new Map()
+
+  const ensureLabour = (row) => {
+    const labourId = labourIdOf(row)
+    if (labourId == null) return
+    const id = Number(labourId)
+    const name = labourNameOf(row, labourId)
+    const existing = labourMap.get(id)
+    if (!existing) {
+      labourMap.set(id, {
+        id,
+        name,
+        default_attendance: 0,
+        default_salary: 0,
+        default_fooding: 0,
+      })
+      return
+    }
+    if (
+      name &&
+      name !== '—' &&
+      (!existing.name || String(existing.name).startsWith('#'))
+    ) {
+      existing.name = name
+    }
+  }
+
+  for (const a of attendances) ensureLabour(a)
+  for (const p of payments) ensureLabour(p)
+
+  const labours = [...labourMap.values()].sort((a, b) =>
+    String(a.name).localeCompare(String(b.name), 'bn'),
+  )
+  return buildHajiraEditRows(labours, attendances, payments)
+}
