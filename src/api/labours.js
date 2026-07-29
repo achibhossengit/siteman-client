@@ -86,9 +86,17 @@ export const deleteLabourPayment = (labourId, paymentId) =>
 export const fetchLabourSessions = (labourId, params = {}) =>
   api.get(endpoints.labours.sessions(labourId), { params })
 
+/** POST /labours/{labour_pk}/sessions — close the open period (no payload). */
+export const closeLabourSession = (labourId) =>
+  api.post(endpoints.labours.sessions(labourId))
+
 /** GET /labours/{labour_pk}/sessions/{id} */
 export const fetchLabourSession = (labourId, sessionId) =>
   api.get(endpoints.labours.session(labourId, sessionId))
+
+/** DELETE /labours/{labour_pk}/sessions/{id} — latest session only. */
+export const deleteLabourSession = (labourId, sessionId) =>
+  api.delete(endpoints.labours.session(labourId, sessionId))
 
 /**
  * GET /labours/{labour_pk}/sessions/running_session

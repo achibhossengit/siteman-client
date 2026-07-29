@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { useOutletContext, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp, Lock, Trash2, X } from "lucide-react";
+import { useNavigate, useOutletContext, useParams } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronDown, ChevronUp, Lock } from "lucide-react";
 import {
+  closeLabourSession,
+  deleteLabourSession,
   fetchLabourAttendancesByLabour,
   fetchLabourDetail,
   fetchLabourLatestSession,
@@ -14,6 +16,7 @@ import { fetchSites } from "../../api/sites.js";
 import { parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
+import { paths } from "../../router/paths.js";
 import { formatBnNumber, formatBnSigned } from "../../utils/format.js";
 import { PERMS } from "../../utils/permissions.js";
 
@@ -105,15 +108,20 @@ const buildDetailRows = (
 
 export const LabourSessionDetailPage = () => {
   const { labourId, sessionId } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { setTitle, setHeaderMenu } = useOutletContext();
   const { can } = usePermissions();
   const [showDetails, setShowDetails] = useState(false);
   const [selectedSiteId, setSelectedSiteId] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("payment");
   const [earningsFilter, setEarningsFilter] = useState("all");
+  const [apiError, setApiError] = useState(null);
   const isRunningRoute = sessionId === "running";
   const isLatestRoute = sessionId === "latest";
   const canView = can(PERMS.viewLabourSession);
+  const canClose = can(PERMS.addLabourSession);
+  const canDelete = can(PERMS.deleteLabourSession);
 
   const labourQuery = useQuery({
     queryKey: ["labours", labourId],
@@ -243,6 +251,53 @@ export const LabourSessionDetailPage = () => {
   );
 
   const detailsLocked = !isRunningRoute && Boolean(session?.is_modified);
+  const resolvedSessionId = session?.id ?? (!isRunningRoute && !isLatestRoute ? sessionId : null);
+
+  const invalidateSessionQueries = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["labours", labourId] });
+  };
+
+  const closeMutation = useMutation({
+    mutationFn: () => closeLabourSession(labourId),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => deleteLabourSession(labourId, id),
+  });
+
+  const onCloseSession = async () => {
+    const ok = window.confirm(
+      "চলমান সেশন ক্লোজ করতে চান? হাজিরা ও পেমেন্ট সিল হয়ে যাবে।",
+    );
+    if (!ok) return;
+    setApiError(null);
+    try {
+      const { data } = await closeMutation.mutateAsync();
+      await invalidateSessionQueries();
+      if (data?.id != null) {
+        navigate(paths.labourSessionDetail(labourId, data.id), { replace: true });
+      } else {
+        navigate(paths.labourSessions(labourId), { replace: true });
+      }
+    } catch (err) {
+      setApiError(parseApiError(err));
+    }
+  };
+
+  const onDeleteSession = async () => {
+    if (resolvedSessionId == null) return;
+    const ok = window.confirm("এই সেশন মুছে ফেলতে চান?");
+    if (!ok) return;
+    setApiError(null);
+    try {
+      await deleteMutation.mutateAsync(resolvedSessionId);
+      await invalidateSessionQueries();
+      navigate(paths.labourSessions(labourId), { replace: true });
+    } catch (err) {
+      setApiError(parseApiError(err));
+    }
+  };
+
   const loading =
     labourQuery.isLoading ||
     sessionQuery.isLoading ||
@@ -304,6 +359,7 @@ export const LabourSessionDetailPage = () => {
 
   return (
     <div className="space-y-3">
+      {apiError ? <ApiErrorAlert error={apiError} /> : null}
       {attendanceQuery.isError || paymentQuery.isError ? (
         <ApiErrorAlert
           error={parseApiError(attendanceQuery.error || paymentQuery.error)}
@@ -417,18 +473,36 @@ export const LabourSessionDetailPage = () => {
 
           <div className="p-3 border-t border-base-300 flex justify-end">
             {isRunningRoute ? (
-              <button type="button" className="btn btn-primary ">
-                ক্লোজ সেশন
-              </button>
-            ) : (
+              canClose ? (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={onCloseSession}
+                  disabled={closeMutation.isPending}
+                >
+                  {closeMutation.isPending ? (
+                    <span className="loading loading-spinner loading-sm" />
+                  ) : null}
+                  ক্লোজ সেশন
+                </button>
+              ) : null
+            ) : canDelete ? (
               <button
                 type="button"
                 className="btn btn-error"
-                disabled={detailsLocked}
+                onClick={onDeleteSession}
+                disabled={
+                  detailsLocked ||
+                  resolvedSessionId == null ||
+                  deleteMutation.isPending
+                }
               >
+                {deleteMutation.isPending ? (
+                  <span className="loading loading-spinner loading-sm" />
+                ) : null}
                 ডিলিট সেশন
               </button>
-            )}
+            ) : null}
           </div>
         </section>
       ) : (
