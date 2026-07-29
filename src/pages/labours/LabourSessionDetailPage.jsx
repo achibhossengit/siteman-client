@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useOutletContext, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { ChevronDown, ChevronUp, Lock, Trash2, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from "react";
+import { useOutletContext, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronDown, ChevronUp, Lock, Trash2, X } from "lucide-react";
 import {
   fetchLabourAttendancesByLabour,
   fetchLabourDetail,
@@ -9,64 +9,61 @@ import {
   fetchLabourPaymentsByLabour,
   fetchLabourRunningSession,
   fetchLabourSession,
-} from '../../api/labours.js'
-import { fetchSites } from '../../api/sites.js'
-import { parseApiError } from '../../api/errors.js'
-import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
-import { usePermissions } from '../../hooks/usePermissions.js'
-import { formatBnNumber, formatBnSigned } from '../../utils/format.js'
-import { PERMS } from '../../utils/permissions.js'
+} from "../../api/labours.js";
+import { fetchSites } from "../../api/sites.js";
+import { parseApiError } from "../../api/errors.js";
+import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
+import { usePermissions } from "../../hooks/usePermissions.js";
+import { formatBnNumber, formatBnSigned } from "../../utils/format.js";
+import { PERMS } from "../../utils/permissions.js";
 
 const num = (v, fallback = 0) => {
-  if (v == null || v === '') return fallback
-  const n = Number(v)
-  return Number.isFinite(n) ? n : fallback
-}
+  if (v == null || v === "") return fallback;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
 
 const formatPeriodDate = (iso) => {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
-  return new Intl.DateTimeFormat('bn-BD', {
-    day: 'numeric',
-    month: 'short',
-  }).format(d)
-}
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("bn-BD", {
+    day: "numeric",
+    month: "short",
+  }).format(d);
+};
 
 const formatPeriod = (session) => {
-  const start = formatPeriodDate(session?.start_date)
-  if (session?.is_running) return `${start} – চলমান`
-  return `${start} – ${formatPeriodDate(session?.end_date)}`
-}
+  const start = formatPeriodDate(session?.start_date);
+  if (session?.is_running) return `${start} – চলমান`;
+  return `${start} – ${formatPeriodDate(session?.end_date)}`;
+};
 
 const groupPaymentsByDate = (payments) => {
-  const map = new Map()
+  const map = new Map();
   for (const payment of payments) {
-    const key = payment.date ?? ''
-    const entry = map.get(key) ?? { pay: 0, return: 0 }
-    if (payment.type === 'return') entry.return += num(payment.amount)
-    else entry.pay += num(payment.amount)
-    map.set(key, entry)
+    const key = payment.date ?? "";
+    const entry = map.get(key) ?? { pay: 0, return: 0 };
+    if (payment.type === "return") entry.return += num(payment.amount);
+    else entry.pay += num(payment.amount);
+    map.set(key, entry);
   }
-  return map
-}
+  return map;
+};
 
 const buildDetailRows = (attendances, payments) => {
   const attendanceByDate = new Map(
-    attendances.map((row) => [row.date ?? '', row]),
-  )
-  const paymentByDate = groupPaymentsByDate(payments)
-  const dates = new Set([
-    ...attendanceByDate.keys(),
-    ...paymentByDate.keys(),
-  ])
+    attendances.map((row) => [row.date ?? "", row]),
+  );
+  const paymentByDate = groupPaymentsByDate(payments);
+  const dates = new Set([...attendanceByDate.keys(), ...paymentByDate.keys()]);
 
   return [...dates]
     .filter(Boolean)
     .sort((a, b) => String(a).localeCompare(String(b)))
     .map((date) => {
-      const attendance = attendanceByDate.get(date) ?? null
-      const payment = paymentByDate.get(date) ?? { pay: 0, return: 0 }
+      const attendance = attendanceByDate.get(date) ?? null;
+      const payment = paymentByDate.get(date) ?? { pay: 0, return: 0 };
       return {
         date,
         attendance,
@@ -75,159 +72,159 @@ const buildDetailRows = (attendances, payments) => {
         dayEarnings:
           num(attendance?.present) * num(attendance?.salary) +
           num(attendance?.extra),
-      }
-    })
-}
+      };
+    });
+};
 
 export const LabourSessionDetailPage = () => {
-  const { labourId, sessionId } = useParams()
-  const { setTitle, setHeaderMenu } = useOutletContext()
-  const { can } = usePermissions()
-  const [showDetails, setShowDetails] = useState(false)
-  const [selectedSiteId, setSelectedSiteId] = useState('')
-  const isRunningRoute = sessionId === 'running'
-  const isLatestRoute = sessionId === 'latest'
-  const canView = can(PERMS.viewLabourSession)
+  const { labourId, sessionId } = useParams();
+  const { setTitle, setHeaderMenu } = useOutletContext();
+  const { can } = usePermissions();
+  const [showDetails, setShowDetails] = useState(false);
+  const [selectedSiteId, setSelectedSiteId] = useState("");
+  const isRunningRoute = sessionId === "running";
+  const isLatestRoute = sessionId === "latest";
+  const canView = can(PERMS.viewLabourSession);
 
   const labourQuery = useQuery({
-    queryKey: ['labours', labourId],
+    queryKey: ["labours", labourId],
     queryFn: async () => {
-      const { data } = await fetchLabourDetail(labourId)
-      return data
+      const { data } = await fetchLabourDetail(labourId);
+      return data;
     },
     enabled: Boolean(canView && labourId),
-  })
+  });
 
   const sessionQuery = useQuery({
-    queryKey: ['labours', labourId, 'session-detail', sessionId],
+    queryKey: ["labours", labourId, "session-detail", sessionId],
     queryFn: async () => {
       if (isRunningRoute) {
-        const { data } = await fetchLabourRunningSession(labourId)
-        return data ? { ...data, is_running: true } : null
+        const { data } = await fetchLabourRunningSession(labourId);
+        return data ? { ...data, is_running: true } : null;
       }
       if (isLatestRoute) {
-        const { data } = await fetchLabourLatestSession(labourId)
-        return data
+        const { data } = await fetchLabourLatestSession(labourId);
+        return data;
       }
-      const { data } = await fetchLabourSession(labourId, sessionId)
-      return data
+      const { data } = await fetchLabourSession(labourId, sessionId);
+      return data;
     },
     enabled: Boolean(canView && labourId && sessionId),
-  })
+  });
 
   const sitesQuery = useQuery({
-    queryKey: ['sites'],
+    queryKey: ["sites"],
     queryFn: async () => {
-      const { data } = await fetchSites()
-      return Array.isArray(data) ? data : []
+      const { data } = await fetchSites();
+      return Array.isArray(data) ? data : [];
     },
     enabled: Boolean(canView && showDetails),
-  })
+  });
 
-  const session = sessionQuery.data
+  const session = sessionQuery.data;
 
   const detailsEnabled = Boolean(
     showDetails && labourId && session?.start_date,
-  )
+  );
 
   const attendanceQuery = useQuery({
     queryKey: [
-      'labours',
+      "labours",
       labourId,
-      'session-detail',
+      "session-detail",
       sessionId,
-      'attendances',
+      "attendances",
       { site: selectedSiteId, start: session?.start_date },
     ],
     queryFn: async () => {
       const { data } = await fetchLabourAttendancesByLabour(labourId, {
-        date_gte: session?.start_date,
+        date__gte: session?.start_date,
         ...(selectedSiteId ? { site: selectedSiteId } : {}),
-      })
-      return Array.isArray(data) ? data : []
+      });
+      return Array.isArray(data) ? data : [];
     },
     enabled: detailsEnabled,
-  })
+  });
 
   const paymentQuery = useQuery({
     queryKey: [
-      'labours',
+      "labours",
       labourId,
-      'session-detail',
+      "session-detail",
       sessionId,
-      'payments',
+      "payments",
       { site: selectedSiteId, start: session?.start_date },
     ],
     queryFn: async () => {
       const { data } = await fetchLabourPaymentsByLabour(labourId, {
-        date_gte: session?.start_date,
+        date__gte: session?.start_date,
         ...(selectedSiteId ? { site: selectedSiteId } : {}),
-      })
-      return Array.isArray(data) ? data : []
+      });
+      return Array.isArray(data) ? data : [];
     },
     enabled: detailsEnabled,
-  })
+  });
 
-  const labourName = labourQuery.data?.name
+  const labourName = labourQuery.data?.name;
 
   const detailRows = useMemo(
     () => buildDetailRows(attendanceQuery.data ?? [], paymentQuery.data ?? []),
     [attendanceQuery.data, paymentQuery.data],
-  )
+  );
 
   const siteOptions = useMemo(() => {
-    const usedSiteIds = new Set()
+    const usedSiteIds = new Set();
 
     for (const row of attendanceQuery.data ?? []) {
-      if (row.site != null) usedSiteIds.add(String(row.site))
+      if (row.site != null) usedSiteIds.add(String(row.site));
     }
     for (const row of paymentQuery.data ?? []) {
-      if (row.site != null) usedSiteIds.add(String(row.site))
+      if (row.site != null) usedSiteIds.add(String(row.site));
     }
 
     const siteNameById = new Map(
       (sitesQuery.data ?? []).map((site) => [String(site.id), site.name]),
-    )
+    );
 
     return [...usedSiteIds]
       .sort((a, b) => Number(a) - Number(b))
       .map((siteId) => ({
         id: siteId,
         name: siteNameById.get(siteId) ?? `#${siteId}`,
-      }))
-  }, [attendanceQuery.data, paymentQuery.data, sitesQuery.data])
+      }));
+  }, [attendanceQuery.data, paymentQuery.data, sitesQuery.data]);
 
   const detailTotals = useMemo(
     () =>
       detailRows.reduce(
         (acc, row) => {
-          acc.present += num(row.attendance?.present)
-          acc.dayEarnings += row.dayEarnings
-          acc.pay += row.pay
-          acc.return += row.return
-          return acc
+          acc.present += num(row.attendance?.present);
+          acc.dayEarnings += row.dayEarnings;
+          acc.pay += row.pay;
+          acc.return += row.return;
+          return acc;
         },
         { present: 0, dayEarnings: 0, pay: 0, return: 0 },
       ),
     [detailRows],
-  )
+  );
 
-  const detailsLocked = !isRunningRoute && Boolean(session?.is_modified)
+  const detailsLocked = !isRunningRoute && Boolean(session?.is_modified);
   const loading =
     labourQuery.isLoading ||
     sessionQuery.isLoading ||
-    (showDetails && (attendanceQuery.isLoading || paymentQuery.isLoading))
+    (showDetails && (attendanceQuery.isLoading || paymentQuery.isLoading));
 
   useEffect(() => {
     setTitle?.(
       isRunningRoute
-        ? 'চলমান সেশন'
+        ? "চলমান সেশন"
         : isLatestRoute
-          ? 'সর্বশেষ সেশন'
-          : 'লেবার সেশন',
-    )
-    return () => setTitle?.('')
-  }, [setTitle, isRunningRoute, isLatestRoute])
+          ? "সর্বশেষ সেশন"
+          : "লেবার সেশন",
+    );
+    return () => setTitle?.("");
+  }, [setTitle, isRunningRoute, isLatestRoute]);
 
   useEffect(() => {
     setHeaderMenu?.(
@@ -236,24 +233,24 @@ export const LabourSessionDetailPage = () => {
           {labourName}
         </span>
       ) : null,
-    )
-    return () => setHeaderMenu?.(null)
-  }, [labourName, setHeaderMenu])
+    );
+    return () => setHeaderMenu?.(null);
+  }, [labourName, setHeaderMenu]);
 
   if (!canView) {
     return (
       <div className="text-sm text-error py-8 text-center">
         এই পেজ দেখার অনুমতি নেই।
       </div>
-    )
+    );
   }
 
   if (labourQuery.isError) {
-    return <ApiErrorAlert error={parseApiError(labourQuery.error)} />
+    return <ApiErrorAlert error={parseApiError(labourQuery.error)} />;
   }
 
   if (sessionQuery.isError) {
-    return <ApiErrorAlert error={parseApiError(sessionQuery.error)} />
+    return <ApiErrorAlert error={parseApiError(sessionQuery.error)} />;
   }
 
   if (loading && !session) {
@@ -261,7 +258,7 @@ export const LabourSessionDetailPage = () => {
       <div className="flex justify-center py-16">
         <span className="loading loading-spinner loading-lg text-primary" />
       </div>
-    )
+    );
   }
 
   if (!session) {
@@ -269,20 +266,64 @@ export const LabourSessionDetailPage = () => {
       <div className="text-sm text-base-content/70 py-8 text-center">
         সেশন পাওয়া যায়নি।
       </div>
-    )
+    );
   }
 
   return (
-    <div className="max-w-lg mx-auto space-y-4">
+    <div className="space-y-3">
       {attendanceQuery.isError || paymentQuery.isError ? (
         <ApiErrorAlert
           error={parseApiError(attendanceQuery.error || paymentQuery.error)}
         />
       ) : null}
 
-      <section className="rounded-xl border border-base-300 bg-base-100 overflow-hidden">
-        <div className="grid grid-cols-[1fr_auto] border-b border-base-300">
-          <div className="p-3 space-y-2 text-sm">
+      {session.is_modified && !isRunningRoute ? (
+        <div className="alert alert-warning py-2 px-3 text-sm">
+          <Lock className="size-4" strokeWidth={1.75} />
+          সেশনটি পরিবর্তিত হয়েছে। ডিটেইলস ও ডিলিট বন্ধ।
+        </div>
+      ) : null}
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="btn btn-outline btn-sm"
+          onClick={() => setShowDetails((v) => !v)}
+          disabled={detailsLocked}
+        >
+          {showDetails ? (
+            <>
+              ডিটেইলস বন্ধ
+              <ChevronUp className="size-4" strokeWidth={1.75} />
+            </>
+          ) : (
+            <>
+              ডিটেইলস
+              <ChevronDown className="size-4" strokeWidth={1.75} />
+            </>
+          )}
+        </button>
+
+        {showDetails ? (
+          <select
+            className="select select-bordered select-sm ml-auto max-w-48"
+            value={selectedSiteId}
+            onChange={(e) => setSelectedSiteId(e.target.value)}
+            aria-label="সাইট"
+          >
+            <option value="">All sites</option>
+            {siteOptions.map((site) => (
+              <option key={site.id} value={String(site.id)}>
+                {site.name}
+              </option>
+            ))}
+          </select>
+        ) : null}
+      </div>
+
+      {!showDetails ? (
+        <section className="overflow-hidden">
+          <div className="space-y-2 text-sm">
             <div className="flex justify-between gap-3">
               <span className="text-base-content/70">সময়কাল</span>
               <span className="font-medium whitespace-nowrap">
@@ -340,83 +381,36 @@ export const LabourSessionDetailPage = () => {
               </span>
             </div>
           </div>
-        </div>
 
-        {session.is_modified && !isRunningRoute ? (
-          <div className="alert rounded-none border-0 border-t border-base-300 py-2 px-3 text-sm">
-            <Lock className="size-4" strokeWidth={1.75} />
-            সেশনটি পরিবর্তিত হয়েছে। ডিটেইলস ও ডিলিট বন্ধ।
-          </div>
-        ) : null}
-
-        <div className="grid grid-cols-3 gap-2 p-3 border-t border-base-300">
-          <button
-            type="button"
-            className="btn btn-outline btn-sm"
-            onClick={() => setShowDetails((v) => !v)}
-            disabled={detailsLocked}
-          >
-            {showDetails ? (
-              <ChevronUp className="size-4" strokeWidth={1.75} />
+          <div className="p-3 border-t border-base-300 flex justify-end">
+            {isRunningRoute ? (
+              <button type="button" className="btn btn-primary ">
+                ক্লোজ সেশন
+              </button>
             ) : (
-              <ChevronDown className="size-4" strokeWidth={1.75} />
-            )}
-            ডিটেইলস
-          </button>
-
-          {isRunningRoute ? (
-            <button type="button" className="btn btn-outline btn-sm">
-              <X className="size-4" strokeWidth={1.75} />
-              ক্লোজ
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="btn btn-outline btn-error btn-sm"
-              disabled={detailsLocked}
-            >
-              <Trash2 className="size-4" strokeWidth={1.75} />
-              ডিলিট
-            </button>
-          )}
-
-          <button type="button" className="btn btn-outline btn-sm">
-            বেতন আপডেট
-          </button>
-        </div>
-      </section>
-
-      {showDetails ? (
-        <section className="space-y-3">
-          <div className="flex justify-end">
-            <label className="form-control w-full max-w-48">
-              <span className="label-text text-xs mb-1">সাইট</span>
-              <select
-                className="select select-bordered select-sm w-full"
-                value={selectedSiteId}
-                onChange={(e) => setSelectedSiteId(e.target.value)}
+              <button
+                type="button"
+                className="btn btn-error"
+                disabled={detailsLocked}
               >
-                <option value="">All sites</option>
-                {siteOptions.map((site) => (
-                  <option key={site.id} value={String(site.id)}>
-                    {site.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                ডিলিট সেশন
+              </button>
+            )}
           </div>
-
+        </section>
+      ) : (
+        <section className="space-y-3">
           {attendanceQuery.isLoading || paymentQuery.isLoading ? (
-            <div className="flex justify-center py-12">
+            <div className="flex justify-center">
               <span className="loading loading-spinner loading-lg text-primary" />
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-base-300 bg-base-100">
-              <table className="table table-sm w-full">
+            <div className="overflow-x-auto">
+              <table className="table table-sm table-zebra">
                 <thead>
                   <tr className="border-b border-base-300">
-                    <th className="w-10">নং</th>
-                    <th className="w-24">তারিখ</th>
+                    <th className="">নং</th>
+                    <th className="">তারিখ</th>
                     <th>হাজিরা</th>
                     <th className="text-right">আয়</th>
                     <th className="text-right">পেমেন্ট</th>
@@ -434,8 +428,10 @@ export const LabourSessionDetailPage = () => {
                     </tr>
                   ) : (
                     detailRows.map((row, index) => (
-                      <tr key={row.date} className="border-b border-base-300/70">
-                        <td className="tabular-nums text-base-content/60">
+                      <tr
+                        key={row.date}
+                      >
+                        <td className="tabular-nums">
                           {formatBnNumber(index + 1)}
                         </td>
                         <td className="whitespace-nowrap">
@@ -445,12 +441,12 @@ export const LabourSessionDetailPage = () => {
                           {row.attendance ? (
                             <div className="leading-tight space-y-0.5">
                               <div className="tabular-nums">
-                                {formatBnNumber(row.attendance.present)} x{' '}
+                                {formatBnNumber(row.attendance.present)}x
                                 {formatBnNumber(row.attendance.salary ?? 0)}
                               </div>
                               {num(row.attendance.extra) ? (
-                                <div className="text-xs text-base-content/70 tabular-nums">
-                                  extra {formatBnNumber(row.attendance.extra)}
+                                <div className="tabular-nums">
+                                  {formatBnNumber(row.attendance.extra)}
                                 </div>
                               ) : null}
                             </div>
@@ -459,7 +455,9 @@ export const LabourSessionDetailPage = () => {
                           )}
                         </td>
                         <td className="text-right tabular-nums">
-                          {row.dayEarnings ? formatBnNumber(row.dayEarnings) : '—'}
+                          {row.dayEarnings
+                            ? formatBnNumber(row.dayEarnings)
+                            : "—"}
                         </td>
                         <td className="text-right">
                           {row.pay || row.return ? (
@@ -508,8 +506,14 @@ export const LabourSessionDetailPage = () => {
               </table>
             </div>
           )}
+
+          <div className="flex justify-end">
+            <button type="button" className="btn btn-primary">
+              বেতন আপডেট
+            </button>
+          </div>
         </section>
-      ) : null}
+      )}
     </div>
-  )
-}
+  );
+};
