@@ -73,3 +73,46 @@
   --depth: 1;
   --noise: 1;
 }
+
+/* Toast host lives in the top layer so toasts clear open <dialog> modals. */
+.toast-layer {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.toast-layer:popover-open {
+  display: block;
+}
+
+/* SweetAlert is mounted into the open dialog, so anchor it to that dialog. */
+dialog .swal2-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+}
+
+/* SweetAlert ships unlayered CSS, which outranks daisyUI's layered rules, so
+   the confirm dialog has to be sized with plain declarations here. */
+.swal2-popup.swal-confirm .swal2-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.swal2-popup.swal-confirm .swal2-html-container {
+  font-size: 0.875rem;
+}
+
+.swal2-popup.swal-confirm .swal2-styled {
+  font-size: 0.875rem;
+  border-radius: var(--radius-field);
+}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useAuth } from '../../providers/AuthProvider.jsx'
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
+import { toastSuccess } from '../../utils/feedback.js'
 import { paths } from '../../router/paths.js'
 
 const schema = z.object({
@@ -25,6 +26,11 @@ export const LoginPage = () => {
       ? 'পাসওয়ার্ড আপডেট হয়েছে — এখন লগইন করুন'
       : null
 
+  useEffect(() => {
+    if (!successBanner) return
+    toastSuccess(successBanner, { id: `login-success:${successBanner}` })
+  }, [successBanner])
+
   const {
     register,
     handleSubmit,
@@ -39,6 +45,7 @@ export const LoginPage = () => {
     setApiError(null)
     try {
       await login(values)
+      toastSuccess('লগইন সফল হয়েছে')
       navigate(paths.home, { replace: true })
     } catch (err) {
       const parsed = parseApiError(err)
@@ -54,12 +61,6 @@ export const LoginPage = () => {
         <p className="text-center text-sm text-base-content/70 -mt-1">
           ফোন নম্বর ও পাসওয়ার্ড দিয়ে প্রবেশ করুন
         </p>
-
-        {successBanner ? (
-          <div role="status" className="alert alert-success text-sm py-2">
-            {successBanner}
-          </div>
-        ) : null}
 
         <ApiErrorAlert error={apiError} />
 

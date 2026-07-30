@@ -22,6 +22,7 @@ import { parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { concatBillingName, formatBnNumber } from "../../utils/format.js";
+import { toastInfo, toastSuccess } from "../../utils/feedback.js";
 import { PERMS } from "../../utils/permissions.js";
 
 const ATTENDANCE_MODAL_ID = "session_record_attendance_modal";
@@ -653,13 +654,14 @@ export const LabourSessionRecordsPage = () => {
     try {
       const updated = await saveMutation.mutateAsync();
       if (!updated) {
-        setApiError("সেভ করার মতো কোনো পরিবর্তন নেই।");
+        toastInfo("সেভ করার মতো কোনো পরিবর্তন নেই।");
         return;
       }
       await queryClient.invalidateQueries({
         queryKey: ["labours", labourId],
       });
       setEditing(false);
+      toastSuccess("রেকর্ড আপডেট হয়েছে");
     } catch (error) {
       setApiError(parseApiError(error));
     } finally {

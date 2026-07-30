@@ -7,6 +7,7 @@ import { passwordReset } from '../../api/auth.js'
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { paths } from '../../router/paths.js'
+import { toastSuccess } from '../../utils/feedback.js'
 import { OTP_STORAGE, saveOtpSession } from '../../utils/otpSession.js'
 
 const schema = z.object({
@@ -40,6 +41,7 @@ export const PasswordResetPage = () => {
         phone_number: values.phone_number,
         name: values.name,
       })
+      toastSuccess('OTP পাঠানো হয়েছে')
       navigate(paths.passwordResetConfirm)
     } catch (err) {
       const parsed = parseApiError(err)

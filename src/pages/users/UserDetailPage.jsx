@@ -18,6 +18,7 @@ import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { DetailMenuButton } from "../../layouts/DetailLayout.jsx";
 import { useAuth } from "../../providers/AuthProvider.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
+import { toastSuccess } from "../../utils/feedback.js";
 import { PERMS } from "../../utils/permissions.js";
 
 const toFormValues = (user) => ({
@@ -149,6 +150,7 @@ export const UserDetailPage = () => {
       reset(toFormValues(data));
       await queryClient.invalidateQueries({ queryKey: ["users"] });
       setEditing(false);
+      toastSuccess("ইউজার আপডেট হয়েছে");
     } catch (err) {
       const parsed = parseApiError(err);
       setApiError(parsed);

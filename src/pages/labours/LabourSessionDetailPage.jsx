@@ -14,6 +14,7 @@ import { parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { paths } from "../../router/paths.js";
+import { confirmAction, toastSuccess } from "../../utils/feedback.js";
 import { formatBnNumber, formatBnSigned } from "../../utils/format.js";
 import { PERMS } from "../../utils/permissions.js";
 
@@ -102,14 +103,17 @@ export const LabourSessionDetailPage = () => {
   };
 
   const onCloseSession = async () => {
-    const confirmed = window.confirm(
-      "চলমান সেশন ক্লোজ করতে চান? হাজিরা ও পেমেন্ট সিল হয়ে যাবে।",
-    );
+    const confirmed = await confirmAction({
+      title: "চলমান সেশন ক্লোজ করবেন?",
+      text: "হাজিরা ও পেমেন্ট সিল হয়ে যাবে।",
+      confirmText: "ক্লোজ করুন",
+    });
     if (!confirmed) return;
     setApiError(null);
     try {
       const { data } = await closeMutation.mutateAsync();
       await invalidateSessionQueries();
+      toastSuccess("সেশন ক্লোজ হয়েছে");
       if (data?.id != null) {
         navigate(paths.labourSessionDetail(labourId, data.id), {
           replace: true,
@@ -124,12 +128,18 @@ export const LabourSessionDetailPage = () => {
 
   const onDeleteSession = async () => {
     if (resolvedSessionId == null) return;
-    const confirmed = window.confirm("এই সেশন মুছে ফেলতে চান?");
+    const confirmed = await confirmAction({
+      title: "সেশন মুছে ফেলবেন?",
+      text: "এই কাজটি ফিরিয়ে আনা যাবে না।",
+      confirmText: "ডিলিট করুন",
+      danger: true,
+    });
     if (!confirmed) return;
     setApiError(null);
     try {
       await deleteMutation.mutateAsync(resolvedSessionId);
       await invalidateSessionQueries();
+      toastSuccess("সেশন ডিলিট হয়েছে");
       navigate(paths.labourSessions(labourId), { replace: true });
     } catch (error) {
       setApiError(parseApiError(error));

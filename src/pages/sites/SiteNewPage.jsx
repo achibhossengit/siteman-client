@@ -9,6 +9,7 @@ import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { useAuth } from '../../providers/AuthProvider.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
+import { toastSuccess } from '../../utils/feedback.js'
 import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
 
@@ -57,6 +58,7 @@ export const SiteNewPage = () => {
       } catch {
         // list still refreshed; selector may lag until next profile fetch
       }
+      toastSuccess('সাইট তৈরি হয়েছে')
       if (createAnother) {
         reset(emptyValues)
       } else {

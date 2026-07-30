@@ -5,6 +5,7 @@ import { parseApiError, messageForCode } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { OtpForm } from '../../components/auth/OtpForm.jsx'
 import { paths } from '../../router/paths.js'
+import { toastSuccess } from '../../utils/feedback.js'
 import {
   OTP_STORAGE,
   clearOtpSession,
@@ -69,6 +70,7 @@ export const RegisterConfirmPage = () => {
       setExpiresAt(next.expiresAt)
       setResendAt(next.resendAt)
       setOtp('')
+      toastSuccess('নতুন OTP পাঠানো হয়েছে')
     } catch (err) {
       setApiError(parseApiError(err))
     } finally {

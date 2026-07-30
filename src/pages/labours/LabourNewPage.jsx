@@ -14,6 +14,7 @@ import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { formatBnNumber } from '../../utils/format.js'
+import { toastSuccess } from '../../utils/feedback.js'
 import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
 
@@ -69,6 +70,7 @@ export const LabourNewPage = () => {
     try {
       await mutation.mutateAsync(values)
       await queryClient.invalidateQueries({ queryKey: ['labours'] })
+      toastSuccess('লেবার তৈরি হয়েছে')
       if (createAnother) {
         reset(emptyValues)
       } else {

@@ -23,6 +23,7 @@ import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { PERMS } from "../../utils/permissions.js";
 import { concatBillingName, formatBnNumber } from "../../utils/format.js";
+import { toastInfo, toastSuccess } from "../../utils/feedback.js";
 import {
   readSelectedDate,
   readSelectedSite,
@@ -682,7 +683,7 @@ export const HajiraPage = () => {
         result.paymentCreates +
         result.paymentUpdates;
       if (total === 0) {
-        setApiError(
+        toastInfo(
           result.blocked > 0
             ? messageForCode("permission_denied")
             : "সেভ করার মতো কোনো পরিবর্তন নেই।",
@@ -699,6 +700,7 @@ export const HajiraPage = () => {
         queryKey: ["sites", siteId, "daily-reports"],
       });
       setEditing(false);
+      toastSuccess("হাজিরা ও পেমেন্ট সেভ হয়েছে");
     } catch (err) {
       setApiError(parseApiError(err));
     } finally {

@@ -20,6 +20,7 @@ import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { DetailMenuButton } from '../../layouts/DetailLayout.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { formatBnNumber } from '../../utils/format.js'
+import { confirmAction, toastSuccess } from '../../utils/feedback.js'
 import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
 
@@ -156,12 +157,18 @@ export const LabourDetailPage = () => {
   }
 
   const onDelete = async () => {
-    const ok = window.confirm('এই লেবার মুছে ফেলতে চান?')
+    const ok = await confirmAction({
+      title: 'লেবার মুছে ফেলবেন?',
+      text: 'এই কাজটি ফিরিয়ে আনা যাবে না।',
+      confirmText: 'ডিলিট করুন',
+      danger: true,
+    })
     if (!ok) return
     setApiError(null)
     try {
       await deleteMutation.mutateAsync()
       await queryClient.invalidateQueries({ queryKey: ['labours'] })
+      toastSuccess('লেবার ডিলিট হয়েছে')
       navigate(paths.labours, { replace: true })
     } catch (err) {
       setApiError(parseApiError(err))
@@ -175,6 +182,7 @@ export const LabourDetailPage = () => {
       reset(toFormValues(data))
       await queryClient.invalidateQueries({ queryKey: ['labours'] })
       setEditing(false)
+      toastSuccess('লেবার আপডেট হয়েছে')
     } catch (err) {
       const parsed = parseApiError(err)
       setApiError(parsed)

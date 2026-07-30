@@ -12,6 +12,7 @@ import {
 } from "../../api/types/user.js";
 import { parseApiError, applyFieldErrors } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
+import { toastSuccess } from "../../utils/feedback.js";
 
 const PASSWORD_MODAL_ID = "profile_change_password_modal";
 
@@ -47,7 +48,6 @@ export const ProfilePage = () => {
   const [confirmReady, setConfirmReady] = useState(false);
   const [apiError, setApiError] = useState(null);
   const [passwordError, setPasswordError] = useState(null);
-  const [passwordSaved, setPasswordSaved] = useState(false);
 
   const {
     register,
@@ -105,7 +105,6 @@ export const ProfilePage = () => {
 
   const startEdit = () => {
     setApiError(null);
-    setPasswordSaved(false);
     setConfirmReady(false);
     setEditing(true);
   };
@@ -123,6 +122,7 @@ export const ProfilePage = () => {
       setProfile(data);
       reset(toFormValues(data));
       setEditing(false);
+      toastSuccess("প্রোফাইল আপডেট হয়েছে");
     } catch (err) {
       const parsed = parseApiError(err);
       setApiError(parsed);
@@ -137,7 +137,6 @@ export const ProfilePage = () => {
 
   const openPasswordModal = () => {
     setPasswordError(null);
-    setPasswordSaved(false);
     resetPassword(emptyPasswordValues);
     passwordDialogRef.current?.showModal();
   };
@@ -159,7 +158,7 @@ export const ProfilePage = () => {
         new_password: values.new_password,
       });
       closePasswordModal();
-      setPasswordSaved(true);
+      toastSuccess("পাসওয়ার্ড আপডেট হয়েছে");
     } catch (err) {
       const parsed = parseApiError(err);
       setPasswordError(parsed);
@@ -194,11 +193,6 @@ export const ProfilePage = () => {
   return (
     <div className="max-w-lg mx-auto">
       <ApiErrorAlert error={apiError} className="mb-3" />
-      {passwordSaved ? (
-        <div className="alert alert-success text-sm py-2 mb-3">
-          পাসওয়ার্ড আপডেট হয়েছে
-        </div>
-      ) : null}
 
       <form
         className="flex flex-col gap-3"

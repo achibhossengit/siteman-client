@@ -1,16 +1,10 @@
+import { useEffect } from 'react'
+import toast from 'react-hot-toast'
 import { humanizeApiError } from '../api/errors.js'
 
-export const ApiErrorAlert = ({ error, className = '' }) => {
-  if (!error) return null
-
-  if (typeof error === 'string') {
-    return (
-      <div role="alert" className={`alert alert-error text-sm ${className}`}>
-        <span>{error}</span>
-      </div>
-    )
-  }
-
+const errorMessage = (error) => {
+  if (!error) return ''
+  if (typeof error === 'string') return error
   const messages = []
   if (Array.isArray(error.errors) && error.errors.length) {
     for (const item of error.errors) {
@@ -19,18 +13,16 @@ export const ApiErrorAlert = ({ error, className = '' }) => {
     }
   }
   if (!messages.length) messages.push(humanizeApiError(error))
+  return messages.join(' ')
+}
 
-  return (
-    <div role="alert" className={`alert alert-error text-sm ${className}`}>
-      {messages.length === 1 ? (
-        <span>{messages[0]}</span>
-      ) : (
-        <ul className="list-disc list-inside text-left">
-          {messages.map((msg) => (
-            <li key={msg}>{msg}</li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
+export const ApiErrorAlert = ({ error }) => {
+  const message = errorMessage(error)
+
+  useEffect(() => {
+    if (!message) return
+    toast.error(message, { id: `api-error:${message}` })
+  }, [message])
+
+  return null
 }

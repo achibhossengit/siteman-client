@@ -21,6 +21,7 @@ import { useAuth } from "../../providers/AuthProvider.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { PERMS } from "../../utils/permissions.js";
 import { paths } from "../../router/paths.js";
+import { confirmAction, toastSuccess } from "../../utils/feedback.js";
 import { readSelectedSite } from "../../utils/sessionSelection.js";
 
 const toFormValues = (cash) => ({
@@ -147,7 +148,12 @@ export const CashDetailPage = () => {
   };
 
   const onDelete = async () => {
-    const ok = window.confirm("এই ক্যাশ এন্ট্রি মুছে ফেলতে চান?");
+    const ok = await confirmAction({
+      title: "ক্যাশ এন্ট্রি মুছে ফেলবেন?",
+      text: "এই কাজটি ফিরিয়ে আনা যাবে না।",
+      confirmText: "ডিলিট করুন",
+      danger: true,
+    });
     if (!ok) return;
     setApiError(null);
     try {
@@ -158,6 +164,7 @@ export const CashDetailPage = () => {
       await queryClient.invalidateQueries({
         queryKey: ["sites", siteId, "daily-reports"],
       });
+      toastSuccess("ক্যাশ এন্ট্রি ডিলিট হয়েছে");
       navigate(paths.cash, { replace: true });
     } catch (err) {
       setApiError(parseApiError(err));
@@ -176,6 +183,7 @@ export const CashDetailPage = () => {
         queryKey: ["sites", siteId, "daily-reports"],
       });
       setEditing(false);
+      toastSuccess("ক্যাশ এন্ট্রি আপডেট হয়েছে");
     } catch (err) {
       const parsed = parseApiError(err);
       setApiError(parsed);

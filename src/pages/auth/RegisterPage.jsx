@@ -7,6 +7,7 @@ import { register as registerApi } from '../../api/auth.js'
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { paths } from '../../router/paths.js'
+import { toastSuccess } from '../../utils/feedback.js'
 import { OTP_STORAGE, saveOtpSession } from '../../utils/otpSession.js'
 
 const schema = z.object({
@@ -57,6 +58,7 @@ export const RegisterPage = () => {
         resend_cooldown: data.resend_cooldown ?? 60,
         phone_number: values.phone_number,
       })
+      toastSuccess('OTP পাঠানো হয়েছে')
       navigate(paths.registerConfirm)
     } catch (err) {
       const parsed = parseApiError(err)

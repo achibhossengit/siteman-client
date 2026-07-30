@@ -15,6 +15,7 @@ import { DetailMenuButton } from "../../layouts/DetailLayout.jsx";
 import { useAuth } from "../../providers/AuthProvider.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { PERMS } from "../../utils/permissions.js";
+import { confirmAction, toastSuccess } from "../../utils/feedback.js";
 import { paths } from "../../router/paths.js";
 
 const toFormValues = (site) => ({
@@ -142,7 +143,12 @@ export const SiteDetailPage = () => {
   };
 
   const onDelete = async () => {
-    const ok = window.confirm("এই সাইট মুছে ফেলতে চান?");
+    const ok = await confirmAction({
+      title: "সাইট মুছে ফেলবেন?",
+      text: "এই কাজটি ফিরিয়ে আনা যাবে না।",
+      confirmText: "ডিলিট করুন",
+      danger: true,
+    });
     if (!ok) return;
     setApiError(null);
     try {
@@ -153,6 +159,7 @@ export const SiteDetailPage = () => {
       } catch {
         // ignore
       }
+      toastSuccess("সাইট ডিলিট হয়েছে");
       navigate(paths.sites, { replace: true });
     } catch (err) {
       setApiError(parseApiError(err));
@@ -171,6 +178,7 @@ export const SiteDetailPage = () => {
         // ignore
       }
       setEditing(false);
+      toastSuccess("সাইট আপডেট হয়েছে");
     } catch (err) {
       const parsed = parseApiError(err);
       setApiError(parsed);

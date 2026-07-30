@@ -16,6 +16,7 @@ import { useAuth } from "../../providers/AuthProvider.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { PERMS } from "../../utils/permissions.js";
 import { paths } from "../../router/paths.js";
+import { toastSuccess } from "../../utils/feedback.js";
 import {
   readSelectedDate,
   readSelectedSite,
@@ -97,6 +98,7 @@ export const CashNewPage = () => {
       await queryClient.invalidateQueries({
         queryKey: ["sites", siteId, "daily-reports"],
       });
+      toastSuccess("ক্যাশ এন্ট্রি তৈরি হয়েছে");
       if (createAnother) {
         reset(emptyValues);
       } else {

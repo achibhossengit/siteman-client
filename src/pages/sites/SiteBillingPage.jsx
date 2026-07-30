@@ -38,6 +38,7 @@ import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { formatBnNumber } from '../../utils/format.js'
+import { confirmAction, toastSuccess } from '../../utils/feedback.js'
 import { PERMS } from '../../utils/permissions.js'
 
 const MODAL_ID = 'site_billing_category_modal'
@@ -296,10 +297,12 @@ export const SiteBillingPage = () => {
       })
       if (isCreateMode) {
         closeModal()
+        toastSuccess('বিলিং ক্যাটাগরি তৈরি হয়েছে')
       } else {
         setSelected(data)
         reset(toFormValues(data))
         setEditing(false)
+        toastSuccess('বিলিং ক্যাটাগরি আপডেট হয়েছে')
       }
     } catch (err) {
       const parsed = parseApiError(err)
@@ -309,7 +312,12 @@ export const SiteBillingPage = () => {
   })
 
   const onDelete = async () => {
-    const ok = window.confirm('এই বিলিং ক্যাটাগরি মুছে ফেলতে চান?')
+    const ok = await confirmAction({
+      title: 'বিলিং ক্যাটাগরি মুছে ফেলবেন?',
+      text: 'এই কাজটি ফিরিয়ে আনা যাবে না।',
+      confirmText: 'ডিলিট করুন',
+      danger: true,
+    })
     if (!ok) return
     setApiError(null)
     try {
@@ -318,6 +326,7 @@ export const SiteBillingPage = () => {
         queryKey: ['sites', siteId, 'billing-categories'],
       })
       closeModal()
+      toastSuccess('বিলিং ক্যাটাগরি ডিলিট হয়েছে')
     } catch (err) {
       setApiError(parseApiError(err))
     }
@@ -364,6 +373,7 @@ export const SiteBillingPage = () => {
       await queryClient.invalidateQueries({
         queryKey: ['sites', siteId, 'billing-categories'],
       })
+      toastSuccess('ক্রম আপডেট হয়েছে')
     } catch (err) {
       setRows(previous)
       setListError(parseApiError(err))
@@ -544,7 +554,7 @@ export const SiteBillingPage = () => {
                 type="checkbox"
                 className="toggle toggle-primary toggle-sm"
                 disabled={disabled || Boolean(isDoneValue)}
-                checked={Boolean(isDoneValue) ? false : Boolean(isActiveValue)}
+                checked={isDoneValue ? false : Boolean(isActiveValue)}
                 onChange={(e) => {
                   if (disabled || isDoneValue) return
                   setValue('is_active', e.target.checked, { shouldDirty: true })
