@@ -22,7 +22,7 @@ import { messageForCode, parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { PERMS } from "../../utils/permissions.js";
-import { formatBnNumber } from "../../utils/format.js";
+import { concatBillingName, formatBnNumber } from "../../utils/format.js";
 import {
   readSelectedDate,
   readSelectedSite,
@@ -113,8 +113,10 @@ const paymentAmount = (row, key) => {
 
 const HAJIRA_MODAL_ID = "hajira_attendance_modal";
 const PAYMENT_MODAL_ID = "hajira_payment_modal";
+const BILLING_MODAL_ID = "hajira_billing_modal";
 const EARNINGS_FILTER_MODAL_ID = "hajira_earnings_filter_modal";
 const PAYMENT_FILTER_MODAL_ID = "hajira_payment_filter_modal";
+const BILLING_FILTER_MODAL_ID = "hajira_billing_filter_modal";
 
 const EARNINGS_FILTER_OPTIONS = [
   { value: "earn", label: "আয়" },
@@ -186,9 +188,11 @@ export const HajiraPage = () => {
   const [saving, setSaving] = useState(false);
   const [hajiraModal, setHajiraModal] = useState(null);
   const [paymentModal, setPaymentModal] = useState(null);
+  const [billingModal, setBillingModal] = useState(null);
   const [paymentTab, setPaymentTab] = useState(PAYMENT_SPECS[0].key);
   const [earningsFilter, setEarningsFilter] = useState("earn");
   const [paymentFilter, setPaymentFilter] = useState("payment");
+  const [billingFilter, setBillingFilter] = useState("all");
 
   const attendanceQuery = useQuery({
     queryKey: ["sites", siteId, "labour-attendances", { date }],
@@ -239,10 +243,36 @@ export const HajiraPage = () => {
     return map;
   }, [billingOptions]);
 
-  const billingLabel = (id) => {
+  const billingFullLabel = (id) => {
     if (id == null || id === "") return "—";
     return billingLabelById.get(String(id)) ?? `#${id}`;
   };
+
+  const billingLabel = (id) => {
+    if (id == null || id === "") return "—";
+    const full = billingLabelById.get(String(id));
+    if (!full) return `#${id}`;
+    return concatBillingName(full);
+  };
+
+  const billingFilterOptions = useMemo(
+    () => [
+      { value: "all", label: "বিলিং" },
+      { value: "none", label: "—" },
+      ...billingOptions.map((b) => ({
+        value: String(b.id),
+        label: b.name,
+      })),
+    ],
+    [billingOptions],
+  );
+
+  const billingFilterHeaderLabel =
+    billingFilter === "all"
+      ? "বিলিং"
+      : billingFilter === "none"
+        ? "—"
+        : billingLabel(billingFilter);
 
   // Exit edit mode when site/date changes.
   useEffect(() => {
@@ -252,6 +282,7 @@ export const HajiraPage = () => {
     setPaymentModal(null);
     setEarningsFilter("earn");
     setPaymentFilter("payment");
+    setBillingFilter("all");
   }, [siteId, date]);
 
   // View mode: map records by labour from attendance/payment only.
@@ -312,13 +343,24 @@ export const HajiraPage = () => {
 
   const viewEarningsFilter = editing ? "earn" : earningsFilter;
   const viewPaymentFilter = editing ? "all" : paymentFilter;
+  const viewBillingFilter = editing ? "all" : billingFilter;
+
+  const visibleRows = useMemo(() => {
+    if (viewBillingFilter === "all") return rows;
+    if (viewBillingFilter === "none") {
+      return rows.filter((row) => row.billing == null || row.billing === "");
+    }
+    return rows.filter(
+      (row) => String(row.billing ?? "") === String(viewBillingFilter),
+    );
+  }, [rows, viewBillingFilter]);
 
   const totals = useMemo(() => {
     let present = 0;
     let earnings = 0;
     let payment = 0;
     let ret = 0;
-    for (const row of rows) {
+    for (const row of visibleRows) {
       if (hasPresent(row)) present += Number(row.present) || 0;
       earnings += dayEarnings(row, viewEarningsFilter);
       const pay = paymentAmountOf(row);
@@ -333,7 +375,7 @@ export const HajiraPage = () => {
       }
     }
     return { present, earnings, payment, return: ret };
-  }, [rows, viewEarningsFilter, viewPaymentFilter]);
+  }, [visibleRows, viewEarningsFilter, viewPaymentFilter]);
 
   const showPaymentAmount = (row) =>
     viewPaymentFilter !== "return" && paymentAmountOf(row) !== 0;
@@ -364,6 +406,22 @@ export const HajiraPage = () => {
       attendanceId: row.attendanceId,
     });
     document.getElementById(HAJIRA_MODAL_ID)?.showModal();
+  };
+
+  const openBillingModal = (row) => {
+    if (attendanceLocked(row)) return;
+    setBillingModal({
+      labourId: row.labourId,
+      labourName: row.labourName,
+      value: row.billing ?? "",
+    });
+    document.getElementById(BILLING_MODAL_ID)?.showModal();
+  };
+
+  const pickBilling = (billingId) => {
+    if (!billingModal) return;
+    updateRow(billingModal.labourId, { billing: billingId });
+    document.getElementById(BILLING_MODAL_ID)?.close();
   };
 
   const saveHajiraModal = () => {
@@ -706,11 +764,26 @@ export const HajiraPage = () => {
                   </button>
                 )}
               </th>
-              <th>বিলিং</th>
+              <th>
+                {editing ? (
+                  "বিলিং"
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      document
+                        .getElementById(BILLING_FILTER_MODAL_ID)
+                        ?.showModal()
+                    }
+                  >
+                    {billingFilterHeaderLabel}
+                  </button>
+                )}
+              </th>
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
+            {visibleRows.length === 0 ? (
               <tr>
                 <td
                   colSpan={6}
@@ -720,7 +793,7 @@ export const HajiraPage = () => {
                 </td>
               </tr>
             ) : (
-              rows.map((row, index) => {
+              visibleRows.map((row, index) => {
                 const initial = initialByLabour.get(row.labourId) ?? {};
                 const hajiraTone = editing
                   ? fieldTone(
@@ -823,26 +896,21 @@ export const HajiraPage = () => {
                     </td>
                     <td>
                       {editing ? (
-                        <select
-                          className={`select select-bordered select-xs w-24 sm:w-28 ${fieldTone(row, initial, "billing", "attendanceId")}`}
-                          value={row.billing}
+                        <button
+                          type="button"
+                          className={`btn btn-ghost btn-xs h-auto min-h-0 px-1 font-normal ${fieldTone(row, initial, "billing", "attendanceId")}`}
                           disabled={attendanceLocked(row)}
-                          onChange={(e) =>
-                            updateRow(row.labourId, {
-                              billing: e.target.value,
-                            })
-                          }
+                          onClick={() => openBillingModal(row)}
                           aria-label={`${row.labourName} বিলিং`}
+                          title={billingFullLabel(row.billing)}
                         >
-                          <option value="">—</option>
-                          {billingOptions.map((b) => (
-                            <option key={b.id} value={String(b.id)}>
-                              {b.name}
-                            </option>
-                          ))}
-                        </select>
+                          {billingLabel(row.billing)}
+                        </button>
                       ) : (
-                        <span className="text-sm text-base-content/70 truncate">
+                        <span
+                          className="text-sm text-base-content/70"
+                          title={billingFullLabel(row.billing)}
+                        >
                           {billingLabel(row.billing)}
                         </span>
                       )}
@@ -1173,6 +1241,91 @@ export const HajiraPage = () => {
             </div>
           ) : null}
         </div>
+      </dialog>
+
+      <dialog
+        id={BILLING_MODAL_ID}
+        className="modal"
+        onClose={() => setBillingModal(null)}
+      >
+        <div className="modal-box max-w-xs">
+          <form method="dialog">
+            <button
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              ✕
+            </button>
+          </form>
+          <h3 className="font-bold text-lg">
+            বিলিং
+            {billingModal?.labourName
+              ? ` (${billingModal.labourName})`
+              : ""}
+          </h3>
+          <div className="menu bg-base-100 w-full p-0 pt-3">
+            <button
+              type="button"
+              className={`btn btn-ghost btn-sm justify-start ${
+                !billingModal?.value ? "btn-active" : ""
+              }`}
+              onClick={() => pickBilling("")}
+            >
+              —
+            </button>
+            {billingOptions.map((b) => (
+              <button
+                key={b.id}
+                type="button"
+                className={`btn btn-ghost btn-sm justify-start ${
+                  String(billingModal?.value) === String(b.id)
+                    ? "btn-active"
+                    : ""
+                }`}
+                onClick={() => pickBilling(String(b.id))}
+              >
+                {b.name}
+              </button>
+            ))}
+          </div>
+        </div>
+        <form method="dialog" className="modal-backdrop">
+          <button type="submit">close</button>
+        </form>
+      </dialog>
+
+      <dialog id={BILLING_FILTER_MODAL_ID} className="modal">
+        <div className="modal-box max-w-xs">
+          <form method="dialog">
+            <button
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              ✕
+            </button>
+          </form>
+          <h3 className="font-bold text-lg">বিলিং ফিল্টার</h3>
+          <div className="menu bg-base-100 w-full p-0 pt-3">
+            {billingFilterOptions.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                className={`btn btn-ghost btn-sm justify-start ${
+                  billingFilter === opt.value ? "btn-active" : ""
+                }`}
+                onClick={() => {
+                  setBillingFilter(opt.value);
+                  document.getElementById(BILLING_FILTER_MODAL_ID)?.close();
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <form method="dialog" className="modal-backdrop">
+          <button type="submit">close</button>
+        </form>
       </dialog>
 
       <dialog id={EARNINGS_FILTER_MODAL_ID} className="modal">

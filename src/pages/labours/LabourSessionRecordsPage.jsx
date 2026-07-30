@@ -21,13 +21,15 @@ import { PRESENT_OPTIONS } from "../../api/types/hajira.js";
 import { parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
-import { formatBnNumber } from "../../utils/format.js";
+import { concatBillingName, formatBnNumber } from "../../utils/format.js";
 import { PERMS } from "../../utils/permissions.js";
 
 const ATTENDANCE_MODAL_ID = "session_record_attendance_modal";
 const PAYMENT_MODAL_ID = "session_record_payment_modal";
+const BILLING_MODAL_ID = "session_record_billing_modal";
 const EARNINGS_FILTER_MODAL_ID = "session_record_earnings_filter_modal";
 const PAYMENT_FILTER_MODAL_ID = "session_record_payment_filter_modal";
+const BILLING_FILTER_MODAL_ID = "session_record_billing_filter_modal";
 
 const EARNINGS_FILTER_OPTIONS = [
   { value: "earn", label: "আয়" },
@@ -79,6 +81,16 @@ const formatDate = (iso) => {
     day: "2-digit",
     month: "2-digit",
     year: "2-digit",
+  }).format(date);
+};
+
+const formatReadableDate = (iso) => {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("bn-BD", {
+    day: "numeric",
+    month: "short",
   }).format(date);
 };
 
@@ -210,9 +222,11 @@ export const LabourSessionRecordsPage = () => {
   const [apiError, setApiError] = useState(null);
   const [attendanceModal, setAttendanceModal] = useState(null);
   const [paymentModal, setPaymentModal] = useState(null);
+  const [billingModal, setBillingModal] = useState(null);
   const [paymentTab, setPaymentTab] = useState("payment");
   const [earningsFilter, setEarningsFilter] = useState("earn");
   const [paymentFilter, setPaymentFilter] = useState("payment");
+  const [billingFilter, setBillingFilter] = useState("all");
 
   const labourQuery = useQuery({
     queryKey: ["labours", labourId],
@@ -336,6 +350,42 @@ export const LabourSessionRecordsPage = () => {
     return result;
   }, [billingBySite]);
 
+  const billingFullLabel = (id) => {
+    if (id == null || id === "") return "—";
+    return billingNameById.get(String(id)) ?? `#${id}`;
+  };
+
+  const billingLabel = (id) => {
+    if (id == null || id === "") return "—";
+    const full = billingNameById.get(String(id));
+    if (!full) return `#${id}`;
+    return concatBillingName(full);
+  };
+
+  const billingFilterOptions = useMemo(() => {
+    const options = [
+      { value: "all", label: "বিলিং" },
+      { value: "none", label: "—" },
+    ];
+    const seen = new Set();
+    for (const siteOptions of billingBySite.values()) {
+      for (const option of siteOptions) {
+        const value = String(option.id);
+        if (seen.has(value)) continue;
+        seen.add(value);
+        options.push({ value, label: option.name });
+      }
+    }
+    return options;
+  }, [billingBySite]);
+
+  const billingFilterHeaderLabel =
+    billingFilter === "all"
+      ? "বিলিং"
+      : billingFilter === "none"
+        ? "—"
+        : billingLabel(billingFilter);
+
   const initialByDate = useMemo(
     () => new Map(initialRows.map((row) => [row.date, row])),
     [initialRows],
@@ -348,10 +398,21 @@ export const LabourSessionRecordsPage = () => {
 
   const viewEarningsFilter = editing ? "earn" : earningsFilter;
   const viewPaymentFilter = editing ? "all" : paymentFilter;
+  const viewBillingFilter = editing ? "all" : billingFilter;
+
+  const visibleRows = useMemo(() => {
+    if (viewBillingFilter === "all") return rows;
+    if (viewBillingFilter === "none") {
+      return rows.filter((row) => row.billing == null || row.billing === "");
+    }
+    return rows.filter(
+      (row) => String(row.billing ?? "") === String(viewBillingFilter),
+    );
+  }, [rows, viewBillingFilter]);
 
   const totals = useMemo(
     () =>
-      rows.reduce(
+      visibleRows.reduce(
         (result, row) => {
           result.present += num(row.present);
           result.earnings += rowEarnings(row, viewEarningsFilter);
@@ -365,7 +426,7 @@ export const LabourSessionRecordsPage = () => {
         },
         { present: 0, earnings: 0, payment: 0, return: 0 },
       ),
-    [rows, viewEarningsFilter, viewPaymentFilter],
+    [visibleRows, viewEarningsFilter, viewPaymentFilter],
   );
 
   const attendanceLocked = (row) =>
@@ -404,6 +465,28 @@ export const LabourSessionRecordsPage = () => {
       billing: row.billing ?? "",
     });
     document.getElementById(ATTENDANCE_MODAL_ID)?.showModal();
+  };
+
+  const openBillingModal = ({ date, siteId, value, source }) => {
+    setBillingModal({
+      date,
+      siteId,
+      value: value ?? "",
+      source,
+    });
+    document.getElementById(BILLING_MODAL_ID)?.showModal();
+  };
+
+  const pickBilling = (billingId) => {
+    if (!billingModal) return;
+    if (billingModal.source === "attendance") {
+      setAttendanceModal((current) =>
+        current ? { ...current, billing: billingId } : current,
+      );
+    } else {
+      updateRow(billingModal.date, { billing: billingId });
+    }
+    document.getElementById(BILLING_MODAL_ID)?.close();
   };
 
   const saveAttendanceModal = () => {
@@ -555,8 +638,8 @@ export const LabourSessionRecordsPage = () => {
   };
 
   const periodLabel = session
-    ? `${formatDate(session.start_date)} – ${
-        session.end_date ? formatDate(session.end_date) : "চলমান"
+    ? `${formatReadableDate(session.start_date)} – ${
+        session.end_date ? formatReadableDate(session.end_date) : "চলমান"
       }`
     : "";
 
@@ -625,8 +708,6 @@ export const LabourSessionRecordsPage = () => {
   const recordsError = attendanceQuery.error || paymentQuery.error;
   const attendanceModalLocked =
     !attendanceModal || attendanceLocked(attendanceModal);
-  const attendanceBillingOptions =
-    billingBySite.get(String(attendanceModal?.siteId ?? "")) ?? [];
 
   return (
     <div className="h-full min-h-0 flex flex-col gap-2">
@@ -682,11 +763,26 @@ export const LabourSessionRecordsPage = () => {
                   </button>
                 )}
               </th>
-              <th>বিলিং</th>
+              <th>
+                {editing ? (
+                  "বিলিং"
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      document
+                        .getElementById(BILLING_FILTER_MODAL_ID)
+                        ?.showModal()
+                    }
+                  >
+                    {billingFilterHeaderLabel}
+                  </button>
+                )}
+              </th>
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
+            {visibleRows.length === 0 ? (
               <tr>
                 <td
                   colSpan={6}
@@ -696,7 +792,7 @@ export const LabourSessionRecordsPage = () => {
                 </td>
               </tr>
             ) : (
-              rows.map((row, index) => {
+              visibleRows.map((row, index) => {
                 const initial = initialByDate.get(row.date) ?? row;
                 const attendanceDirty = isAttendanceDirty(row, initial);
                 const earnings = rowEarnings(row, viewEarningsFilter);
@@ -787,32 +883,29 @@ export const LabourSessionRecordsPage = () => {
                     </td>
                     <td>
                       {editing && !attendanceLocked(row) ? (
-                        <select
-                          className={`select select-bordered select-xs w-full ${fieldTone(
+                        <button
+                          type="button"
+                          className={`btn btn-ghost btn-xs h-auto min-h-0 px-1 font-normal ${fieldTone(
                             attendanceDirty,
                           )}`}
-                          value={row.billing}
-                          onChange={(event) =>
-                            updateRow(row.date, {
-                              billing: event.target.value,
+                          onClick={() =>
+                            openBillingModal({
+                              date: row.date,
+                              siteId: row.siteId,
+                              value: row.billing,
+                              source: "row",
                             })
                           }
+                          title={billingFullLabel(row.billing)}
                         >
-                          <option value="">—</option>
-                          {(billingBySite.get(String(row.siteId)) ?? []).map(
-                            (option) => (
-                              <option key={option.id} value={String(option.id)}>
-                                {option.name}
-                              </option>
-                            ),
-                          )}
-                        </select>
+                          {billingLabel(row.billing)}
+                        </button>
                       ) : (
-                        <span className="text-sm text-base-content/70 truncate">
-                          {row.billing
-                            ? (billingNameById.get(String(row.billing)) ??
-                              `#${row.billing}`)
-                            : "—"}
+                        <span
+                          className="text-sm text-base-content/70"
+                          title={billingFullLabel(row.billing)}
+                        >
+                          {billingLabel(row.billing)}
                         </span>
                       )}
                     </td>
@@ -993,24 +1086,23 @@ export const LabourSessionRecordsPage = () => {
               </label>
               <label className="form-control w-full">
                 <span className="label-text text-sm">বিলিং</span>
-                <select
-                  className="select select-bordered select-sm w-full"
-                  value={attendanceModal.billing}
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm w-full justify-between font-normal"
                   disabled={attendanceModalLocked}
-                  onChange={(event) =>
-                    setAttendanceModal((current) => ({
-                      ...current,
-                      billing: event.target.value,
-                    }))
+                  onClick={() =>
+                    openBillingModal({
+                      date: attendanceModal.date,
+                      siteId: attendanceModal.siteId,
+                      value: attendanceModal.billing,
+                      source: "attendance",
+                    })
                   }
                 >
-                  <option value="">—</option>
-                  {attendanceBillingOptions.map((option) => (
-                    <option key={option.id} value={String(option.id)}>
-                      {option.name}
-                    </option>
-                  ))}
-                </select>
+                  <span className="truncate">
+                    {billingFullLabel(attendanceModal.billing)}
+                  </span>
+                </button>
               </label>
               {editing ? (
                 <div className="modal-action justify-between">
@@ -1140,6 +1232,54 @@ export const LabourSessionRecordsPage = () => {
         </div>
       </dialog>
 
+      <dialog
+        id={BILLING_MODAL_ID}
+        className="modal"
+        onClose={() => setBillingModal(null)}
+      >
+        <div className="modal-box max-w-xs">
+          <form method="dialog">
+            <button
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              ✕
+            </button>
+          </form>
+          <h3 className="font-bold text-lg">বিলিং</h3>
+          <div className="menu bg-base-100 w-full p-0 pt-3">
+            <button
+              type="button"
+              className={`btn btn-ghost btn-sm justify-start ${
+                !billingModal?.value ? "btn-active" : ""
+              }`}
+              onClick={() => pickBilling("")}
+            >
+              —
+            </button>
+            {(
+              billingBySite.get(String(billingModal?.siteId ?? "")) ?? []
+            ).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={`btn btn-ghost btn-sm justify-start ${
+                  String(billingModal?.value) === String(option.id)
+                    ? "btn-active"
+                    : ""
+                }`}
+                onClick={() => pickBilling(String(option.id))}
+              >
+                {option.name}
+              </button>
+            ))}
+          </div>
+        </div>
+        <form method="dialog" className="modal-backdrop">
+          <button type="submit">close</button>
+        </form>
+      </dialog>
+
       <FilterDialog
         id={EARNINGS_FILTER_MODAL_ID}
         title="আয় ফিল্টার"
@@ -1153,6 +1293,13 @@ export const LabourSessionRecordsPage = () => {
         options={PAYMENT_FILTER_OPTIONS}
         value={paymentFilter}
         onChange={setPaymentFilter}
+      />
+      <FilterDialog
+        id={BILLING_FILTER_MODAL_ID}
+        title="বিলিং ফিল্টার"
+        options={billingFilterOptions}
+        value={billingFilter}
+        onChange={setBillingFilter}
       />
     </div>
   );
