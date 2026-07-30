@@ -113,6 +113,22 @@ const paymentAmount = (row, key) => {
 
 const HAJIRA_MODAL_ID = "hajira_attendance_modal";
 const PAYMENT_MODAL_ID = "hajira_payment_modal";
+const EARNINGS_FILTER_MODAL_ID = "hajira_earnings_filter_modal";
+const PAYMENT_FILTER_MODAL_ID = "hajira_payment_filter_modal";
+
+const EARNINGS_FILTER_OPTIONS = [
+  { value: "earn", label: "আয়" },
+  { value: "from_present", label: "বেতন" },
+  { value: "from_extra", label: "বাড়তি" },
+];
+
+const PAYMENT_FILTER_OPTIONS = [
+  { value: "payment", label: "পেমেন্ট" },
+  { value: "return", label: "রিটার্ন" },
+];
+
+const filterLabel = (options, value) =>
+  options.find((opt) => opt.value === value)?.label ?? options[0]?.label ?? "";
 
 const PAYMENT_SPECS = [
   {
@@ -652,7 +668,7 @@ export const HajiraPage = () => {
             <col />
           </colgroup>
           <thead className="sticky top-0 z-10 bg-base-100">
-            <tr className="border-b border-base-300">
+            <tr className="border-b border-base-300 text-sm">
               <th>নং</th>
               <th>নাম</th>
               <th>হাজিরা</th>
@@ -660,31 +676,34 @@ export const HajiraPage = () => {
                 {editing ? (
                   "আয়"
                 ) : (
-                  <select
-                    className="select border-none select-xs font-normal min-w-24 bg-base-100"
-                    value={earningsFilter}
-                    onChange={(e) => setEarningsFilter(e.target.value)}
-                    aria-label="আয় ফিল্টার"
+                  <button
+                    type="button"
+                    className=""
+                    onClick={() =>
+                      document
+                        .getElementById(EARNINGS_FILTER_MODAL_ID)
+                        ?.showModal()
+                    }
                   >
-                    <option value="earn">আয়</option>
-                    <option value="from_present">হাজিরা আয়</option>
-                    <option value="from_extra">অতিরিক্ত আয়</option>
-                  </select>
+                    {filterLabel(EARNINGS_FILTER_OPTIONS, earningsFilter)}
+                  </button>
                 )}
               </th>
               <th className="text-right">
                 {editing ? (
                   "পেমেন্ট"
                 ) : (
-                  <select
-                    className="select border-none select-xs font-normal min-w-24 bg-base-100"
-                    value={paymentFilter}
-                    onChange={(e) => setPaymentFilter(e.target.value)}
-                    aria-label="পেমেন্ট ফিল্টার"
+                  <button
+                    type="button"
+                    className=""
+                    onClick={() =>
+                      document
+                        .getElementById(PAYMENT_FILTER_MODAL_ID)
+                        ?.showModal()
+                    }
                   >
-                    <option value="payment">পেমেন্ট</option>
-                    <option value="return">রিটার্ন</option>
-                  </select>
+                    {filterLabel(PAYMENT_FILTER_OPTIONS, paymentFilter)}
+                  </button>
                 )}
               </th>
               <th>বিলিং</th>
@@ -992,7 +1011,7 @@ export const HajiraPage = () => {
               </label>
 
               <label className="form-control w-full">
-                <span className="label-text text-sm">অতিরিক্ত</span>
+                <span className="label-text text-sm">বাড়তি</span>
                 <input
                   type="number"
                   min={0}
@@ -1154,6 +1173,74 @@ export const HajiraPage = () => {
             </div>
           ) : null}
         </div>
+      </dialog>
+
+      <dialog id={EARNINGS_FILTER_MODAL_ID} className="modal">
+        <div className="modal-box max-w-xs">
+          <form method="dialog">
+            <button
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              ✕
+            </button>
+          </form>
+          <h3 className="font-bold text-lg">আয় ফিল্টার</h3>
+          <div className="menu bg-base-100 w-full p-0 pt-3">
+            {EARNINGS_FILTER_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                className={`btn btn-ghost btn-sm justify-start ${
+                  earningsFilter === opt.value ? "btn-active" : ""
+                }`}
+                onClick={() => {
+                  setEarningsFilter(opt.value);
+                  document.getElementById(EARNINGS_FILTER_MODAL_ID)?.close();
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <form method="dialog" className="modal-backdrop">
+          <button type="submit">close</button>
+        </form>
+      </dialog>
+
+      <dialog id={PAYMENT_FILTER_MODAL_ID} className="modal">
+        <div className="modal-box max-w-xs">
+          <form method="dialog">
+            <button
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              ✕
+            </button>
+          </form>
+          <h3 className="font-bold text-lg">পেমেন্ট ফিল্টার</h3>
+          <div className="menu bg-base-100 w-full p-0 pt-3">
+            {PAYMENT_FILTER_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                className={`btn btn-ghost btn-sm justify-start ${
+                  paymentFilter === opt.value ? "btn-active" : ""
+                }`}
+                onClick={() => {
+                  setPaymentFilter(opt.value);
+                  document.getElementById(PAYMENT_FILTER_MODAL_ID)?.close();
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <form method="dialog" className="modal-backdrop">
+          <button type="submit">close</button>
+        </form>
       </dialog>
     </div>
   );

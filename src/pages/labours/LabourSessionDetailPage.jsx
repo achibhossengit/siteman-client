@@ -419,7 +419,7 @@ export const LabourSessionDetailPage = () => {
               </span>
             </div>
             <div className="flex justify-between gap-3">
-              <span className="text-base-content/70">অতিরিক্ত আয়</span>
+              <span className="text-base-content/70">বাড়তি আয়</span>
               <span className="text-success">
                 {formatBnSigned(session.extra_earnings)}
               </span>
@@ -517,7 +517,7 @@ export const LabourSessionDetailPage = () => {
                       >
                         <option value="all">আয়</option>
                         <option value="hajira">হাজিরা আয়</option>
-                        <option value="extra">অতিরিক্ত আয়</option>
+                        <option value="extra">বাড়তি আয়</option>
                       </select>
                     </th>
                     <th className="text-right">

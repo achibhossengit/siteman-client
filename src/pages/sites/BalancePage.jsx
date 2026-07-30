@@ -124,7 +124,7 @@ export const BalancePage = () => {
       />
       <Row
         icon={PlusCircle}
-        label="অতিরিক্ত"
+        label="বাড়তি"
         value={formatBnNumber(extra_earnings)}
       />
 

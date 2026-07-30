@@ -14,9 +14,9 @@ export const attendanceFormSchema = z.object({
     .int('পূর্ণ সংখ্যা দিন')
     .min(0, 'বেতন ০ বা তার বেশি হতে হবে'),
   extra: z.coerce
-    .number({ message: 'অতিরিক্ত দিন' })
+    .number({ message: 'বাড়তি দিন' })
     .int('পূর্ণ সংখ্যা দিন')
-    .min(0, 'অতিরিক্ত ০ বা তার বেশি হতে হবে'),
+    .min(0, 'বাড়তি ০ বা তার বেশি হতে হবে'),
   note: z.string().trim().max(255, 'নোট একটু ছোট করুন').optional(),
   billing: z.string().optional(),
 })
