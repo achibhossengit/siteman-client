@@ -28,6 +28,7 @@ import {
   readSelectedSite,
   todayIso,
 } from "../../utils/sessionSelection.js";
+import { PlusIcon } from "lucide-react";
 
 const cloneRows = (rows) => structuredClone(rows);
 
@@ -274,6 +275,24 @@ export const HajiraPage = () => {
     () => JSON.stringify(rows) !== JSON.stringify(initialRows),
     [rows, initialRows],
   );
+
+  const totals = useMemo(() => {
+    let present = 0;
+    let earnings = 0;
+    let payment = 0;
+    let ret = 0;
+    for (const row of rows) {
+      if (hasPresent(row)) present += Number(row.present) || 0;
+      earnings += dayEarnings(row);
+      if (row.payment !== "" && row.payment != null) {
+        payment += Number(row.payment) || 0;
+      }
+      if (row.return !== "" && row.return != null) {
+        ret += Number(row.return) || 0;
+      }
+    }
+    return { present, earnings, payment, return: ret };
+  }, [rows]);
 
   const modalEditable = editing;
 
@@ -588,12 +607,20 @@ export const HajiraPage = () => {
     !modalEditable || !hajiraModal || attendanceLocked(hajiraModal);
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto space-y-3 px-3 py-3">
+    <div className="flex-1 min-h-0 flex flex-col gap-2">
       {apiError ? <ApiErrorAlert error={apiError} /> : null}
 
-      <div className="overflow-x-auto">
-        <table className="table table-xs sm:table-sm">
-          <thead>
+      <div className="flex-1 min-h-0 overflow-auto">
+        <table className="table table-fixed table-xs sm:table-sm w-full">
+          <colgroup>
+            <col className="w-10" />
+            <col className="w-[22%]" />
+            <col className="w-[18%]" />
+            <col className="w-[14%]" />
+            <col className="w-[16%]" />
+            <col />
+          </colgroup>
+          <thead className="sticky top-0 z-10 bg-base-100">
             <tr className="border-b border-base-300">
               <th>নং</th>
               <th>নাম</th>
@@ -749,49 +776,97 @@ export const HajiraPage = () => {
         </table>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 pt-1">
-        {editing ? (
-          <>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={onUseDefaults}
-              disabled={saving || rows.length === 0}
-            >
-              Use Defaults
-            </button>
-            <div className="ml-auto flex gap-2">
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={onCancel}
-                disabled={saving}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={onSave}
-                disabled={saving || !isDirty || rows.length === 0}
-              >
-                {saving ? (
-                  <span className="loading loading-spinner loading-sm" />
-                ) : null}
-                Save
-              </button>
-            </div>
-          </>
-        ) : canAddAttendance ? (
-          <button
-            type="button"
-            className="btn btn-primary btn-sm ml-auto"
-            onClick={onAddHajira}
-            disabled={!date || siteInactive}
-          >
-            Add Hajira
-          </button>
-        ) : null}
+      <div className="shrink-0 border-t border-base-300 bg-base-100">
+        <table className="table table-fixed table-xs sm:table-sm w-full">
+          <colgroup>
+            <col className="w-10" />
+            <col className="w-[22%]" />
+            <col className="w-[18%]" />
+            <col className="w-[14%]" />
+            <col className="w-[16%]" />
+            <col />
+          </colgroup>
+          <tbody>
+            {editing ? (
+              <tr>
+                <td colSpan={5}>
+                  <div className="flex flex-wrap items-center gap-2 py-0.5">
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={onUseDefaults}
+                      disabled={saving || rows.length === 0}
+                    >
+                      Use Defaults
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={onCancel}
+                      disabled={saving}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </td>
+                <td className="text-right">
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={onSave}
+                    disabled={saving || !isDirty || rows.length === 0}
+                  >
+                    {saving ? (
+                      <span className="loading loading-spinner loading-sm" />
+                    ) : null}
+                    Save
+                  </button>
+                </td>
+              </tr>
+            ) : (
+              <tr className="font-medium">
+                <td />
+                <td className="whitespace-nowrap">Total</td>
+                <td className="tabular-nums">
+                  {totals.present ? formatBnNumber(totals.present) : "—"}
+                </td>
+                <td className="text-right tabular-nums">
+                  {totals.earnings ? formatBnNumber(totals.earnings) : "—"}
+                </td>
+                <td className="text-right">
+                  {totals.payment || totals.return ? (
+                    <span className="block tabular-nums space-y-0.5">
+                      {totals.payment ? (
+                        <span className="block text-error">
+                          {formatBnNumber(totals.payment)}
+                        </span>
+                      ) : null}
+                      {totals.return ? (
+                        <span className="block text-success">
+                          {formatBnNumber(totals.return)}
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : (
+                    <span className="text-base-content/60">—</span>
+                  )}
+                </td>
+                <td className="text-right">
+                  {canAddAttendance ? (
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={onAddHajira}
+                      disabled={!date || siteInactive}
+                    >
+                      <PlusIcon className="w-4 h-4" />
+                    </button>
+                  ) : null}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       <dialog
