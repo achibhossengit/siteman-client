@@ -33,12 +33,6 @@ const formatMetaDate = (iso) => {
   }).format(d);
 };
 
-const accentClass = (site) => {
-  if (site?.is_closed) return "bg-error";
-  if (site?.is_active) return "bg-success";
-  return "bg-base-content/25";
-};
-
 export const SiteDetailPage = () => {
   const { siteId } = useParams();
   const navigate = useNavigate();
@@ -59,7 +53,6 @@ export const SiteDetailPage = () => {
     handleSubmit,
     reset,
     setError,
-    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(siteFormSchema),
@@ -76,8 +69,6 @@ export const SiteDetailPage = () => {
   });
 
   const site = detailQuery.data;
-  const nameValue = watch("name");
-  const isActiveValue = watch("is_active");
 
   useEffect(() => {
     setTitle?.(site?.name || "সাইট বিবরণ");
@@ -195,18 +186,25 @@ export const SiteDetailPage = () => {
   const disabled = !editing || site.is_closed;
   const busy = isSubmitting || mutation.isPending;
   const showActions = !site.is_closed || canDeleteSite;
+  const fieldClass = (hasError) =>
+    [
+      "input input-bordered w-full",
+      hasError ? "input-error" : "",
+      disabled ? "bg-base-100" : "",
+    ].join(" ");
 
   return (
-    <div className="max-w-lg mx-auto space-y-3 border-b border-base-300 pb-3">
-      <ApiErrorAlert error={apiError} />
+    <div className="max-w-lg mx-auto">
+      <ApiErrorAlert error={apiError} className="mb-3" />
 
       {site.is_closed ? (
-        <div className="alert alert-warning text-sm py-2">
+        <div className="alert alert-warning text-sm py-2 mb-3">
           এই সাইট বন্ধ — পরিবর্তন করা যাবে না।
         </div>
       ) : null}
 
       <form
+        className="flex flex-col gap-3"
         onSubmit={(e) => {
           e.preventDefault();
           if (!confirmReady) return;
@@ -214,104 +212,33 @@ export const SiteDetailPage = () => {
         }}
         noValidate
       >
-        <div className="relative flex items-center gap-2.5 sm:gap-3 overflow-hidden">
+        <label className="form-control w-full">
+          <span className="label-text mb-1">নাম</span>
+          <input
+            type="text"
+            className={fieldClass(errors.name)}
+            maxLength={255}
+            disabled={disabled}
+            {...register("name")}
+          />
+          {errors.name ? (
+            <span className="label-text-alt text-error mt-1">
+              {errors.name.message}
+            </span>
+          ) : null}
+        </label>
+
+        <label className="label cursor-pointer justify-start gap-3 py-2">
           <input
             type="checkbox"
-            className="toggle toggle-sm toggle-success shrink-0 ml-1"
+            className="toggle toggle-primary"
             disabled={disabled}
             {...register("is_active")}
           />
+          <span className="label-text">সক্রিয়</span>
+        </label>
 
-          <div className="flex-1 min-w-0">
-            {editing ? (
-              <input
-                type="text"
-                className={[
-                  "input input-sm input-ghost w-full px-1 h-8 text-base font-medium",
-                  errors.name ? "input-error" : "",
-                ].join(" ")}
-                maxLength={255}
-                disabled={disabled}
-                {...register("name")}
-              />
-            ) : (
-              <h2 className="text-base sm:text-lg font-semibold truncate leading-tight">
-                {nameValue || site.name}
-              </h2>
-            )}
-          </div>
-
-          {showActions ? (
-            <div className="flex items-center gap-1.5 shrink-0">
-              {editing ? (
-                <>
-                  <button
-                    type="button"
-                    className="btn btn-square btn-sm btn-ghost border border-base-300"
-                    onClick={cancelEdit}
-                    disabled={busy}
-                    aria-label="বাতিল করুন"
-                  >
-                    <X className="size-4" strokeWidth={1.75} />
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-square btn-sm btn-ghost border border-base-300"
-                    disabled={!confirmReady || busy}
-                    aria-label="নিশ্চিত করুন"
-                    onClick={(e) => {
-                      if (!confirmReady) return;
-                      return onConfirm(e);
-                    }}
-                  >
-                    {busy ? (
-                      <span className="loading loading-spinner loading-xs" />
-                    ) : (
-                      <Check className="size-4 text-success" strokeWidth={2} />
-                    )}
-                  </button>
-                </>
-              ) : (
-                <>
-                  {canDeleteSite ? (
-                    <button
-                      type="button"
-                      className="btn btn-square btn-sm btn-ghost border border-base-300"
-                      onClick={onDelete}
-                      disabled={deleteMutation.isPending}
-                      aria-label="ডিলিট করুন"
-                    >
-                      {deleteMutation.isPending ? (
-                        <span className="loading loading-spinner loading-xs" />
-                      ) : (
-                        <Trash2
-                          className="size-4 text-error"
-                          strokeWidth={1.75}
-                        />
-                      )}
-                    </button>
-                  ) : null}
-                  {canChangeSite && !site.is_closed ? (
-                    <button
-                      type="button"
-                      className="btn btn-square btn-sm btn-ghost border border-base-300"
-                      onClick={startEdit}
-                      aria-label="আপডেট করুন"
-                    >
-                      <Pencil className="size-4 text-info" strokeWidth={1.75} />
-                    </button>
-                  ) : null}
-                </>
-              )}
-            </div>
-          ) : null}
-        </div>
-
-        {errors.name ? (
-          <p className="text-error text-xs mt-2 px-1">{errors.name.message}</p>
-        ) : null}
-
-        <p className="text-xs text-base-content/55 mt-2.5 px-0.5 tabular-nums">
+        <p className="text-xs text-base-content/55 tabular-nums">
           তৈরি {formatMetaDate(site.created_at)}
           <span className="mx-1.5 opacity-60">·</span>
           আপডেট {formatMetaDate(site.updated_at)}
@@ -322,6 +249,66 @@ export const SiteDetailPage = () => {
             </>
           ) : null}
         </p>
+
+        {showActions ? (
+          editing ? (
+            <div className="flex gap-2 mt-2">
+              <button
+                type="button"
+                className="btn btn-ghost flex-1"
+                onClick={cancelEdit}
+                disabled={busy}
+              >
+                <X className="size-4" strokeWidth={1.75} />
+                বাতিল করুন
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary flex-1"
+                disabled={!confirmReady || busy}
+                onClick={(e) => {
+                  if (!confirmReady) return;
+                  return onConfirm(e);
+                }}
+              >
+                {busy ? (
+                  <span className="loading loading-spinner loading-sm" />
+                ) : (
+                  <Check className="size-4" strokeWidth={2} />
+                )}
+                নিশ্চিত করুন
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2 mt-2">
+              {canDeleteSite ? (
+                <button
+                  type="button"
+                  className="btn btn-outline btn-error flex-1"
+                  onClick={onDelete}
+                  disabled={deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending ? (
+                    <span className="loading loading-spinner loading-sm" />
+                  ) : (
+                    <Trash2 className="size-4" strokeWidth={1.75} />
+                  )}
+                  ডিলিট
+                </button>
+              ) : null}
+              {canChangeSite && !site.is_closed ? (
+                <button
+                  type="button"
+                  className="btn btn-outline btn-primary flex-1"
+                  onClick={startEdit}
+                >
+                  <Pencil className="size-4" strokeWidth={1.75} />
+                  আপডেট
+                </button>
+              ) : null}
+            </div>
+          )
+        ) : null}
       </form>
     </div>
   );
