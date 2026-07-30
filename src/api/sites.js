@@ -64,6 +64,38 @@ export const updateSiteCash = (siteId, cashId, payload) =>
 export const deleteSiteCash = (siteId, cashId) =>
   api.delete(endpoints.sites.cashDetail(siteId, cashId))
 
+/**
+ * Private site cash ledger list.
+ * GET /sites/{site_pk}/private-cash — filters: date, type, billing.
+ */
+export const fetchPrivateSiteCash = (
+  siteId,
+  { date, type, billing } = {},
+) =>
+  api.get(endpoints.sites.privateCash(siteId), {
+    params: {
+      ...(date ? { date } : {}),
+      ...(type ? { type } : {}),
+      ...(billing != null && billing !== '' ? { billing } : {}),
+    },
+  })
+
+/** GET /sites/{site_pk}/private-cash/{id} */
+export const fetchPrivateSiteCashDetail = (siteId, id) =>
+  api.get(endpoints.sites.privateCashDetail(siteId, id))
+
+/** POST /sites/{site_pk}/private-cash */
+export const createPrivateSiteCash = (siteId, payload) =>
+  api.post(endpoints.sites.privateCash(siteId), payload)
+
+/** PATCH /sites/{site_pk}/private-cash/{id} */
+export const updatePrivateSiteCash = (siteId, id, payload) =>
+  api.patch(endpoints.sites.privateCashDetail(siteId, id), payload)
+
+/** DELETE /sites/{site_pk}/private-cash/{id} */
+export const deletePrivateSiteCash = (siteId, id) =>
+  api.delete(endpoints.sites.privateCashDetail(siteId, id))
+
 /** Billing categories for a site (used as cash `billing` options). */
 export const fetchBillingCategories = (siteId, params = {}) =>
   api.get(endpoints.sites.billingCategories(siteId), { params })

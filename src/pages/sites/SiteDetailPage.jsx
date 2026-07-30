@@ -93,6 +93,14 @@ export const SiteDetailPage = () => {
               বিলিং ক্যাটাগরি
             </button>
           </li>
+          <li>
+            <button
+              type="button"
+              onClick={() => navigate(paths.sitePrivateCash(siteId))}
+            >
+              প্রাইভেট হিসাব
+            </button>
+          </li>
         </ul>
       </DetailMenuButton>,
     );

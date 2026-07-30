@@ -20,6 +20,9 @@ export const endpoints = {
     dailyReports: (id) => `/api/v1/sites/${id}/daily-reports`,
     cash: (id) => `/api/v1/sites/${id}/cash`,
     cashDetail: (siteId, cashId) => `/api/v1/sites/${siteId}/cash/${cashId}`,
+    privateCash: (id) => `/api/v1/sites/${id}/private-cash`,
+    privateCashDetail: (siteId, id) =>
+      `/api/v1/sites/${siteId}/private-cash/${id}`,
     billingCategories: (id) => `/api/v1/sites/${id}/billing-categories`,
     billingCategoryDetail: (siteId, id) =>
       `/api/v1/sites/${siteId}/billing-categories/${id}`,
