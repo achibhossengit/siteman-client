@@ -1,17 +1,12 @@
 import { useOutletContext } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
-  User,
   Banknote,
   Landmark,
   Hammer,
   ArrowUpFromLine,
   Wallet,
   Undo2,
-  Calculator,
-  Coins,
-  PlusCircle,
-  CircleDollarSign,
 } from 'lucide-react'
 import { fetchDailyReport } from '../../api/sites.js'
 import { parseApiError } from '../../api/errors.js'
@@ -25,16 +20,8 @@ const Row = ({
   iconClassName = 'text-base-content/55',
   labelClassName = '',
   valueClassName = 'font-medium tabular-nums',
-  dashed = false,
 }) => (
-  <div
-    className={[
-      'flex items-center gap-2 py-2',
-      dashed
-        ? 'border-b border-dashed border-base-300'
-        : 'border-b border-base-300',
-    ].join(' ')}
-  >
+  <div className="flex items-center gap-2 py-2">
     <Icon className={`size-5 shrink-0 ${iconClassName}`} strokeWidth={1.75} />
     <span className={`flex-1 text-sm sm:text-base ${labelClassName}`}>
       {label}
@@ -42,6 +29,15 @@ const Row = ({
     <span className={`text-sm sm:text-base text-right ${valueClassName}`}>
       {value}
     </span>
+  </div>
+)
+
+/** Sum line from the sketch: a rule, then the bare figure on the right. */
+const SubtotalRow = ({ value, valueClassName }) => (
+  <div className="border-t border-base-content/20 mt-1 pt-2 pb-1">
+    <div className={`text-sm sm:text-base text-right ${valueClassName}`}>
+      {value}
+    </div>
   </div>
 )
 
@@ -93,105 +89,81 @@ export const BalancePage = () => {
   }
 
   const {
-    labour_session_count,
-    present_count,
     previous_balance,
     deposit,
-    site_cost,
-    withdrawal,
-    labour_payment,
     labour_return,
-    total_salary,
-    extra_earnings,
-    total_cost,
-    remaining,
+    withdrawal,
+    site_cost,
+    labour_payment,
     balance,
   } = report
 
+  const creditTotal =
+    (Number(previous_balance) || 0) +
+    (Number(deposit) || 0) +
+    (Number(labour_return) || 0)
+
   return (
     <section className="flex-1 min-h-0 overflow-y-auto p-2">
-      <Row
-        icon={User}
-        label={`লেবার ${formatBnNumber(labour_session_count)} জন`}
-        value={`${formatBnNumber(present_count, { maximumFractionDigits: 2 })} রোজ`}
-      />
-
-      <Row
-        icon={Coins}
-        label="মোট বেতন"
-        value={formatBnNumber(total_salary)}
-        dashed
-      />
-      <Row
-        icon={PlusCircle}
-        label="বাড়তি"
-        value={formatBnNumber(extra_earnings)}
-      />
-
       <Row
         icon={Banknote}
         label="আগের ব্যালেন্স"
         value={formatBnNumber(previous_balance)}
         valueClassName="font-semibold tabular-nums text-success"
-        />
-
+      />
       <Row
         icon={Landmark}
-        label="Cash In"
+        label="সাইট জমা"
         value={formatBnSigned(deposit, { showPlus: true })}
         valueClassName="font-semibold tabular-nums text-success"
-      />
-
-    <Row
-      icon={ArrowUpFromLine}
-      label="Cash Out"
-      value={formatBnNumber(withdrawal)}
-      dashed
-    />
-      <Row
-        icon={Hammer}
-        label="সাইট খরচ"
-        value={formatBnNumber(site_cost)}
-        dashed
-      />
-      <Row
-        icon={Wallet}
-        label="লেবার পেমেন্ট"
-        value={formatBnNumber(labour_payment)}
-        dashed
       />
       <Row
         icon={Undo2}
         label="লেবার রিটার্ন"
-        value={formatBnNumber(labour_return)}
+        value={formatBnSigned(labour_return, { showPlus: true })}
+        valueClassName="font-semibold tabular-nums text-success"
+      />
+
+      <SubtotalRow
+        value={formatBnNumber(creditTotal)}
         valueClassName="font-semibold tabular-nums text-success"
       />
 
       <Row
-        icon={Calculator}
-        label="মোট খরচ"
-        value={formatBnSigned(-Math.abs(total_cost), { showPlus: false })}
-        valueClassName="font-semibold tabular-nums"
+        icon={ArrowUpFromLine}
+        label="ক্যাশ আউট"
+        value={formatBnSigned(-(Math.abs(Number(withdrawal) || 0)), {
+          showPlus: false,
+        })}
+        valueClassName="font-semibold tabular-nums text-error"
       />
-
       <Row
-        icon={CircleDollarSign}
-        label="অবশিষ্ট"
-        value={formatBnNumber(remaining)}
+        icon={Hammer}
+        label="সাইট খরচ"
+        value={formatBnSigned(-(Math.abs(Number(site_cost) || 0)), {
+          showPlus: false,
+        })}
+        valueClassName="font-semibold tabular-nums text-error"
+      />
+      <Row
+        icon={Wallet}
+        label="লেবার পেমেন্ট"
+        value={formatBnSigned(-(Math.abs(Number(labour_payment) || 0)), {
+          showPlus: false,
+        })}
+        valueClassName="font-semibold tabular-nums text-error"
       />
 
-      <div className="flex items-center gap-3 py-2.5 px-1">
-        <Banknote
-          className="size-5 shrink-0 text-success"
-          strokeWidth={1.75}
-        />
-        <span className="flex-1 text-sm sm:text-base text-success font-medium">
+      <div className="flex items-center gap-2 border-t border-base-content/20 mt-1 pt-2">
+        <span className="flex items-center gap-2 flex-1 text-sm sm:text-base text-success font-medium">
+          <Banknote className="w-4 h-4 sm:w-5 sm:h-5" />
           ব্যালেন্স
         </span>
         <span className="text-sm sm:text-base text-right font-bold tabular-nums text-success">
           {formatBnNumber(balance)}
         </span>
       </div>
+ 
     </section>
   )
 }
