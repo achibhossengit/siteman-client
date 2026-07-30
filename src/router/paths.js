@@ -3,8 +3,6 @@ export const paths = {
   balance: '/balance',
   hajira: '/hajira',
   cash: '/cash',
-  cashNew: '/cash/new',
-  cashDetail: (id) => `/cash/${id}`,
   others: '/others',
   sites: '/sites',
   siteNew: '/sites/new',
