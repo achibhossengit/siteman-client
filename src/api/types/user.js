@@ -1,10 +1,12 @@
 /**
  * User / UserList from /api/v1/users
  * Create: name, phone_number, optional email (password system-generated).
- * Patch: name, email, phone_number, is_active.
+ * Admin PATCH: is_active, groups[{id}], sites[id] (replaces assignments).
+ * Profile PATCH: name, email, phone_number.
  */
 
 import { z } from 'zod'
+import { ROLE_NAMES } from '../../utils/permissions.js'
 
 const optionalEmail = z
   .string()
@@ -13,6 +15,12 @@ const optionalEmail = z
   .max(254)
   .optional()
   .or(z.literal(''))
+
+export const ASSIGNABLE_GROUP_NAMES = [
+  ROLE_NAMES.companyAdmin,
+  ROLE_NAMES.siteManager,
+  ROLE_NAMES.siteAuditor,
+]
 
 export const userCreateSchema = z.object({
   name: z
@@ -28,9 +36,14 @@ export const userCreateSchema = z.object({
   email: optionalEmail,
 })
 
-export const userUpdateSchema = userCreateSchema.extend({
+/** Admin user PATCH — only is_active + assignment replace. */
+export const userAdminUpdateSchema = z.object({
   is_active: z.boolean(),
+  groups: z.array(z.number().int()),
+  sites: z.array(z.number().int()),
 })
+
+export const profileUpdateSchema = userCreateSchema
 
 export const toUserCreatePayload = ({ name, phone_number, email }) => ({
   name: String(name ?? '').trim(),
@@ -38,17 +51,48 @@ export const toUserCreatePayload = ({ name, phone_number, email }) => ({
   email: email?.trim() ? email.trim() : null,
 })
 
-export const toUserUpdatePayload = ({
-  name,
-  phone_number,
-  email,
-  is_active,
-}) => ({
+export const toUserAdminUpdatePayload = ({ is_active, groups, sites }) => ({
+  is_active: Boolean(is_active),
+  groups: (groups ?? []).map((id) => ({ id: Number(id) })),
+  sites: (sites ?? []).map((id) => Number(id)),
+})
+
+export const toProfileUpdatePayload = ({ name, phone_number, email }) => ({
   name: String(name ?? '').trim(),
   phone_number: String(phone_number ?? '').trim(),
   email: email?.trim() ? email.trim() : null,
-  is_active: Boolean(is_active),
 })
+
+/** Normalize API groups (objects or ids) → number[]. */
+export const normalizeGroupIds = (groups) =>
+  (Array.isArray(groups) ? groups : [])
+    .map((g) => (typeof g === 'object' && g != null ? g.id : g))
+    .filter((id) => id != null && id !== '')
+    .map(Number)
+
+/** Normalize API sites (objects or ids) → number[]. */
+export const normalizeSiteIds = (sites) =>
+  (Array.isArray(sites) ? sites : [])
+    .map((s) => (typeof s === 'object' && s != null ? s.id : s))
+    .filter((id) => id != null && id !== '')
+    .map(Number)
+
+/**
+ * Build { id, name } options for the three assignable roles.
+ * IDs are discovered from any known group lists (no public catalog endpoint).
+ */
+export const buildAssignableGroups = (...groupLists) => {
+  const byName = new Map()
+  for (const list of groupLists) {
+    for (const g of Array.isArray(list) ? list : []) {
+      if (g?.name && g?.id != null) byName.set(g.name, Number(g.id))
+    }
+  }
+  return ASSIGNABLE_GROUP_NAMES.map((name) => ({
+    name,
+    id: byName.get(name) ?? null,
+  }))
+}
 
 export const userStatusLabel = (user) => {
   if (!user) return '—'
