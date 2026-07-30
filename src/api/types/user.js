@@ -53,13 +53,11 @@ export const toUserUpdatePayload = ({
 export const userStatusLabel = (user) => {
   if (!user) return '—'
   if (!user.is_active) return 'নিষ্ক্রিয়'
-  if (user.is_companyadmin) return 'অ্যাডমিন'
   return 'সক্রিয়'
 }
 
 export const userStatusClass = (user) => {
   if (!user) return ''
   if (!user.is_active) return 'badge-ghost'
-  if (user.is_companyadmin) return 'badge-info'
   return 'badge-success'
 }

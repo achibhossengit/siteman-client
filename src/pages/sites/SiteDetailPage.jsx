@@ -70,10 +70,7 @@ export const SiteDetailPage = () => {
 
   const site = detailQuery.data;
 
-  useEffect(() => {
-    setTitle?.(site?.name || "সাইট বিবরণ");
-    return () => setTitle?.("");
-  }, [setTitle, site?.name]);
+  setTitle?.("সাইট বিবরণ");
 
   useEffect(() => {
     if (site) reset(toFormValues(site));
