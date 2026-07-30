@@ -30,6 +30,14 @@ const BILLING_MODAL_ID = "session_record_billing_modal";
 const EARNINGS_FILTER_MODAL_ID = "session_record_earnings_filter_modal";
 const PAYMENT_FILTER_MODAL_ID = "session_record_payment_filter_modal";
 const BILLING_FILTER_MODAL_ID = "session_record_billing_filter_modal";
+const HAJIRA_FILTER_MODAL_ID = "session_record_hajira_filter_modal";
+
+const HAJIRA_FILTER_OPTIONS = [
+  { value: "hajira", label: "হাজিরা" },
+  { value: "present", label: "উপস্থিতি" },
+  { value: "salary", label: "বেতন" },
+  { value: "extra", label: "বাড়তি" },
+];
 
 const EARNINGS_FILTER_OPTIONS = [
   { value: "earn", label: "আয়" },
@@ -181,6 +189,32 @@ const rowEarnings = (row, filter = "earn") => {
   return fromPresent + fromExtra;
 };
 
+const hasExtra = (row) => num(row.extra) > 0;
+
+const hajiraFieldValue = (row, hajiraFilter = "hajira") => {
+  if (hajiraFilter === "present") {
+    return hasPresent(row) ? formatBnNumber(row.present) : null;
+  }
+  if (hajiraFilter === "salary") {
+    return row.salary !== "" && row.salary != null
+      ? formatBnNumber(row.salary)
+      : null;
+  }
+  if (hajiraFilter === "extra") {
+    return hasExtra(row) ? formatBnNumber(row.extra) : null;
+  }
+  if (!hasPresent(row) && !hasExtra(row)) return null;
+  return "combined";
+};
+
+const hajiraTotalValue = (row, hajiraFilter = "hajira") => {
+  if (hajiraFilter === "salary") {
+    return row.salary !== "" && row.salary != null ? num(row.salary) : 0;
+  }
+  if (hajiraFilter === "extra") return num(row.extra);
+  return num(row.present);
+};
+
 const isAttendanceDirty = (row, initial) =>
   String(row.present ?? "") !== String(initial.present ?? "") ||
   String(row.salary ?? "") !== String(initial.salary ?? "") ||
@@ -227,6 +261,7 @@ export const LabourSessionRecordsPage = () => {
   const [earningsFilter, setEarningsFilter] = useState("earn");
   const [paymentFilter, setPaymentFilter] = useState("payment");
   const [billingFilter, setBillingFilter] = useState("all");
+  const [hajiraFilter, setHajiraFilter] = useState("hajira");
 
   const labourQuery = useQuery({
     queryKey: ["labours", labourId],
@@ -399,6 +434,7 @@ export const LabourSessionRecordsPage = () => {
   const viewEarningsFilter = editing ? "earn" : earningsFilter;
   const viewPaymentFilter = editing ? "all" : paymentFilter;
   const viewBillingFilter = editing ? "all" : billingFilter;
+  const viewHajiraFilter = editing ? "hajira" : hajiraFilter;
 
   const visibleRows = useMemo(() => {
     if (viewBillingFilter === "all") return rows;
@@ -414,7 +450,7 @@ export const LabourSessionRecordsPage = () => {
     () =>
       visibleRows.reduce(
         (result, row) => {
-          result.present += num(row.present);
+          result.present += hajiraTotalValue(row, viewHajiraFilter);
           result.earnings += rowEarnings(row, viewEarningsFilter);
           if (viewPaymentFilter !== "return") {
             result.payment += num(row.payment);
@@ -426,7 +462,7 @@ export const LabourSessionRecordsPage = () => {
         },
         { present: 0, earnings: 0, payment: 0, return: 0 },
       ),
-    [visibleRows, viewEarningsFilter, viewPaymentFilter],
+    [visibleRows, viewEarningsFilter, viewPaymentFilter, viewHajiraFilter],
   );
 
   const attendanceLocked = (row) =>
@@ -730,7 +766,22 @@ export const LabourSessionRecordsPage = () => {
             <tr className="border-b">
               <th>নং</th>
               <th>তারিখ</th>
-              <th>হাজিরা</th>
+              <th>
+                {editing ? (
+                  "হাজিরা"
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      document
+                        .getElementById(HAJIRA_FILTER_MODAL_ID)
+                        ?.showModal()
+                    }
+                  >
+                    {filterLabel(HAJIRA_FILTER_OPTIONS, hajiraFilter)}
+                  </button>
+                )}
+              </th>
               <th className="text-right">
                 {editing ? (
                   "আয়"
@@ -800,6 +851,7 @@ export const LabourSessionRecordsPage = () => {
                   viewPaymentFilter !== "return" && num(row.payment) !== 0;
                 const showReturn =
                   viewPaymentFilter !== "payment" && num(row.return) !== 0;
+                const hajiraValue = hajiraFieldValue(row, viewHajiraFilter);
 
                 return (
                   <tr key={row.date} className="border-b border-base-300/70">
@@ -817,7 +869,7 @@ export const LabourSessionRecordsPage = () => {
                         )}`}
                         onClick={() => openAttendanceModal(row)}
                       >
-                        {hasPresent(row) || num(row.extra) ? (
+                        {hajiraValue === "combined" ? (
                           <span className="block tabular-nums space-y-0.5">
                             {hasPresent(row) ? (
                               <span className="block">
@@ -825,12 +877,14 @@ export const LabourSessionRecordsPage = () => {
                                 {formatBnNumber(row.salary || 0)}
                               </span>
                             ) : null}
-                            {num(row.extra) ? (
+                            {hasExtra(row) ? (
                               <span className="block">
                                 {formatBnNumber(row.extra)}
                               </span>
                             ) : null}
                           </span>
+                        ) : hajiraValue ? (
+                          <span className="tabular-nums">{hajiraValue}</span>
                         ) : (
                           "—"
                         )}
@@ -1280,6 +1334,13 @@ export const LabourSessionRecordsPage = () => {
         </form>
       </dialog>
 
+      <FilterDialog
+        id={HAJIRA_FILTER_MODAL_ID}
+        title="হাজিরা ফিল্টার"
+        options={HAJIRA_FILTER_OPTIONS}
+        value={hajiraFilter}
+        onChange={setHajiraFilter}
+      />
       <FilterDialog
         id={EARNINGS_FILTER_MODAL_ID}
         title="আয় ফিল্টার"
