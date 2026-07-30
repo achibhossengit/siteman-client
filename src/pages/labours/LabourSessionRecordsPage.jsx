@@ -1,0 +1,1195 @@
+import { useEffect, useMemo, useState } from "react";
+import { useOutletContext, useParams } from "react-router-dom";
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import {
+  fetchLabourAttendancesByLabour,
+  fetchLabourDetail,
+  fetchLabourLatestSession,
+  fetchLabourPaymentsByLabour,
+  fetchLabourRunningSession,
+  fetchLabourSession,
+  updateLabourAttendance,
+  updateLabourPayment,
+} from "../../api/labours.js";
+import { fetchBillingCategories } from "../../api/sites.js";
+import { PRESENT_OPTIONS } from "../../api/types/hajira.js";
+import { parseApiError } from "../../api/errors.js";
+import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
+import { usePermissions } from "../../hooks/usePermissions.js";
+import { formatBnNumber } from "../../utils/format.js";
+import { PERMS } from "../../utils/permissions.js";
+
+const ATTENDANCE_MODAL_ID = "session_record_attendance_modal";
+const PAYMENT_MODAL_ID = "session_record_payment_modal";
+const EARNINGS_FILTER_MODAL_ID = "session_record_earnings_filter_modal";
+const PAYMENT_FILTER_MODAL_ID = "session_record_payment_filter_modal";
+
+const EARNINGS_FILTER_OPTIONS = [
+  { value: "earn", label: "আয়" },
+  { value: "from_present", label: "হাজিরা আয়" },
+  { value: "from_extra", label: "বাড়তি আয়" },
+];
+
+const PAYMENT_FILTER_OPTIONS = [
+  { value: "payment", label: "পেমেন্ট" },
+  { value: "return", label: "রিটার্ন" },
+];
+
+const PAYMENT_SPECS = [
+  {
+    key: "payment",
+    noteKey: "paymentNote",
+    idKey: "paymentId",
+    sealedKey: "paymentSealed",
+    label: "পেমেন্ট",
+  },
+  {
+    key: "return",
+    noteKey: "returnNote",
+    idKey: "returnId",
+    sealedKey: "returnSealed",
+    label: "রিটার্ন",
+  },
+];
+
+const cloneRows = (rows) => structuredClone(rows);
+
+const num = (value, fallback = 0) => {
+  if (value == null || value === "") return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const numOrEmpty = (value) => {
+  if (value == null || value === "") return "";
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : "";
+};
+
+const formatDate = (iso) => {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("bn-BD", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  }).format(date);
+};
+
+const filterLabel = (options, value) =>
+  options.find((option) => option.value === value)?.label ??
+  options[0]?.label ??
+  "";
+
+const buildRows = (attendances, payments) => {
+  const rowsByDate = new Map();
+
+  const ensureRow = (date) => {
+    if (!rowsByDate.has(date)) {
+      rowsByDate.set(date, {
+        date,
+        siteId: null,
+        attendanceId: null,
+        attendanceSealed: false,
+        present: "",
+        salary: "",
+        extra: 0,
+        extraNote: "",
+        billing: "",
+        paymentId: null,
+        paymentSealed: false,
+        payment: "",
+        paymentNote: "",
+        returnId: null,
+        returnSealed: false,
+        return: "",
+        returnNote: "",
+      });
+    }
+    return rowsByDate.get(date);
+  };
+
+  for (const attendance of attendances) {
+    if (!attendance?.date) continue;
+    const row = ensureRow(attendance.date);
+    row.siteId = attendance.site ?? row.siteId;
+    row.attendanceId = attendance.id ?? null;
+    row.attendanceSealed = Boolean(attendance.is_sealed);
+    row.present =
+      attendance.present == null || attendance.present === ""
+        ? ""
+        : Number(attendance.present);
+    row.salary =
+      attendance.salary == null || attendance.salary === ""
+        ? ""
+        : Number(attendance.salary);
+    row.extra = num(attendance.extra);
+    row.extraNote = attendance.note ?? "";
+    row.billing =
+      attendance.billing == null || attendance.billing === ""
+        ? ""
+        : String(attendance.billing);
+  }
+
+  for (const payment of payments) {
+    if (!payment?.date) continue;
+    const row = ensureRow(payment.date);
+    row.siteId = payment.site ?? row.siteId;
+    const prefix = payment.type === "return" ? "return" : "payment";
+    row[`${prefix}Id`] = payment.id ?? null;
+    row[`${prefix}Sealed`] = Boolean(payment.is_sealed);
+    row[prefix] =
+      payment.amount == null || payment.amount === ""
+        ? ""
+        : Number(payment.amount);
+    row[`${prefix}Note`] = payment.note ?? "";
+  }
+
+  return [...rowsByDate.values()].sort((a, b) =>
+    String(a.date).localeCompare(String(b.date)),
+  );
+};
+
+const hasPresent = (row) => row.present !== "" && row.present != null;
+
+const presentEarnings = (row) =>
+  (hasPresent(row) ? Number(row.present) : 0) * num(row.salary);
+
+const rowEarnings = (row, filter = "earn") => {
+  const fromPresent = presentEarnings(row);
+  const fromExtra = num(row.extra);
+  if (filter === "from_present") return fromPresent;
+  if (filter === "from_extra") return fromExtra;
+  return fromPresent + fromExtra;
+};
+
+const isAttendanceDirty = (row, initial) =>
+  String(row.present ?? "") !== String(initial.present ?? "") ||
+  String(row.salary ?? "") !== String(initial.salary ?? "") ||
+  num(row.extra) !== num(initial.extra) ||
+  String(row.extraNote ?? "") !== String(initial.extraNote ?? "") ||
+  String(row.billing ?? "") !== String(initial.billing ?? "");
+
+const isPaymentDirty = (row, initial, spec) =>
+  String(row[spec.key] ?? "") !== String(initial[spec.key] ?? "") ||
+  String(row[spec.noteKey] ?? "") !== String(initial[spec.noteKey] ?? "");
+
+const attendancePatchPayload = (row) => ({
+  present: hasPresent(row) ? Number(row.present) : null,
+  salary: row.salary === "" || row.salary == null ? null : Number(row.salary),
+  extra: num(row.extra),
+  note: row.extraNote?.trim() ? row.extraNote.trim() : null,
+  billing:
+    row.billing === "" || row.billing == null ? null : Number(row.billing),
+});
+
+const fieldTone = (dirty) =>
+  dirty ? "text-amber-500" : "text-base-content/60";
+
+export const LabourSessionRecordsPage = () => {
+  const { labourId, sessionId } = useParams();
+  const { setTitle, setHeaderMenu } = useOutletContext();
+  const queryClient = useQueryClient();
+  const { can } = usePermissions();
+  const isRunningRoute = sessionId === "running";
+  const isLatestRoute = sessionId === "latest";
+  const canView = can(PERMS.viewLabourSession);
+  const canChangeAttendance = can(PERMS.changeAttendance);
+  const canChangePayment = can(PERMS.changeLabourPayment);
+
+  const [editing, setEditing] = useState(false);
+  const [rows, setRows] = useState([]);
+  const [initialRows, setInitialRows] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [apiError, setApiError] = useState(null);
+  const [attendanceModal, setAttendanceModal] = useState(null);
+  const [paymentModal, setPaymentModal] = useState(null);
+  const [paymentTab, setPaymentTab] = useState("payment");
+  const [earningsFilter, setEarningsFilter] = useState("earn");
+  const [paymentFilter, setPaymentFilter] = useState("payment");
+
+  const labourQuery = useQuery({
+    queryKey: ["labours", labourId],
+    queryFn: async () => {
+      const { data } = await fetchLabourDetail(labourId);
+      return data;
+    },
+    enabled: Boolean(canView && labourId),
+  });
+
+  const sessionQuery = useQuery({
+    queryKey: ["labours", labourId, "session-detail", sessionId],
+    queryFn: async () => {
+      if (isRunningRoute) {
+        const { data } = await fetchLabourRunningSession(labourId);
+        return data ? { ...data, is_running: true } : null;
+      }
+      if (isLatestRoute) {
+        const { data } = await fetchLabourLatestSession(labourId);
+        return data;
+      }
+      const { data } = await fetchLabourSession(labourId, sessionId);
+      return data;
+    },
+    enabled: Boolean(canView && labourId && sessionId),
+  });
+
+  const session = sessionQuery.data;
+  const recordsEnabled = Boolean(
+    canView && labourId && session?.start_date && !session?.is_modified,
+  );
+  const rangeParams = {
+    date__gte: session?.start_date,
+    ...(session?.end_date ? { date__lte: session.end_date } : {}),
+  };
+
+  const attendanceQuery = useQuery({
+    queryKey: [
+      "labours",
+      labourId,
+      "session-records",
+      sessionId,
+      "attendances",
+      rangeParams,
+    ],
+    queryFn: async () => {
+      const { data } = await fetchLabourAttendancesByLabour(
+        labourId,
+        rangeParams,
+      );
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: recordsEnabled,
+  });
+
+  const paymentQuery = useQuery({
+    queryKey: [
+      "labours",
+      labourId,
+      "session-records",
+      sessionId,
+      "payments",
+      rangeParams,
+    ],
+    queryFn: async () => {
+      const { data } = await fetchLabourPaymentsByLabour(labourId, rangeParams);
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: recordsEnabled,
+  });
+
+  const nextRows = useMemo(
+    () => buildRows(attendanceQuery.data ?? [], paymentQuery.data ?? []),
+    [attendanceQuery.data, paymentQuery.data],
+  );
+
+  useEffect(() => {
+    if (editing) return;
+    setRows(cloneRows(nextRows));
+    setInitialRows(cloneRows(nextRows));
+  }, [editing, nextRows]);
+
+  const usedSiteIds = useMemo(
+    () => [
+      ...new Set(
+        rows
+          .map((row) => row.siteId)
+          .filter((siteId) => siteId != null && siteId !== "")
+          .map(String),
+      ),
+    ],
+    [rows],
+  );
+
+  const billingQueries = useQueries({
+    queries: usedSiteIds.map((siteId) => ({
+      queryKey: ["sites", siteId, "billing-categories"],
+      queryFn: async () => {
+        const { data } = await fetchBillingCategories(siteId);
+        return Array.isArray(data) ? data : [];
+      },
+      enabled: Boolean(siteId),
+    })),
+  });
+
+  const billingBySite = useMemo(() => {
+    const result = new Map();
+    usedSiteIds.forEach((siteId, index) => {
+      result.set(siteId, billingQueries[index]?.data ?? []);
+    });
+    return result;
+  }, [usedSiteIds, billingQueries]);
+
+  const billingNameById = useMemo(() => {
+    const result = new Map();
+    for (const options of billingBySite.values()) {
+      for (const option of options) {
+        result.set(String(option.id), option.name);
+      }
+    }
+    return result;
+  }, [billingBySite]);
+
+  const initialByDate = useMemo(
+    () => new Map(initialRows.map((row) => [row.date, row])),
+    [initialRows],
+  );
+
+  const isDirty = useMemo(
+    () => JSON.stringify(rows) !== JSON.stringify(initialRows),
+    [rows, initialRows],
+  );
+
+  const viewEarningsFilter = editing ? "earn" : earningsFilter;
+  const viewPaymentFilter = editing ? "all" : paymentFilter;
+
+  const totals = useMemo(
+    () =>
+      rows.reduce(
+        (result, row) => {
+          result.present += num(row.present);
+          result.earnings += rowEarnings(row, viewEarningsFilter);
+          if (viewPaymentFilter !== "return") {
+            result.payment += num(row.payment);
+          }
+          if (viewPaymentFilter !== "payment") {
+            result.return += num(row.return);
+          }
+          return result;
+        },
+        { present: 0, earnings: 0, payment: 0, return: 0 },
+      ),
+    [rows, viewEarningsFilter, viewPaymentFilter],
+  );
+
+  const attendanceLocked = (row) =>
+    !editing ||
+    !row?.attendanceId ||
+    row.attendanceSealed ||
+    !canChangeAttendance;
+
+  const paymentLocked = (row, spec) =>
+    !editing || !row?.[spec.idKey] || row[spec.sealedKey] || !canChangePayment;
+
+  const canEditRecords = rows.some(
+    (row) =>
+      (row.attendanceId && !row.attendanceSealed && canChangeAttendance) ||
+      PAYMENT_SPECS.some(
+        (spec) => row[spec.idKey] && !row[spec.sealedKey] && canChangePayment,
+      ),
+  );
+
+  const updateRow = (date, patch) => {
+    setRows((current) =>
+      current.map((row) => (row.date === date ? { ...row, ...patch } : row)),
+    );
+  };
+
+  const openAttendanceModal = (row) => {
+    setAttendanceModal({
+      date: row.date,
+      siteId: row.siteId,
+      attendanceId: row.attendanceId,
+      attendanceSealed: row.attendanceSealed,
+      present: row.present === "" ? "" : String(row.present),
+      salary: row.salary,
+      extra: row.extra || "",
+      note: row.extraNote ?? "",
+      billing: row.billing ?? "",
+    });
+    document.getElementById(ATTENDANCE_MODAL_ID)?.showModal();
+  };
+
+  const saveAttendanceModal = () => {
+    if (!attendanceModal || attendanceLocked(attendanceModal)) return;
+    updateRow(attendanceModal.date, {
+      present:
+        attendanceModal.present === "" ? "" : Number(attendanceModal.present),
+      salary: numOrEmpty(attendanceModal.salary),
+      extra: num(attendanceModal.extra),
+      extraNote: attendanceModal.note ?? "",
+      billing: attendanceModal.billing ?? "",
+    });
+    document.getElementById(ATTENDANCE_MODAL_ID)?.close();
+  };
+
+  const resetAttendanceModal = () => {
+    if (!attendanceModal) return;
+    const initial = initialByDate.get(attendanceModal.date);
+    if (!initial) return;
+    setAttendanceModal((current) => ({
+      ...current,
+      present: initial.present === "" ? "" : String(initial.present),
+      salary: initial.salary,
+      extra: initial.extra || "",
+      note: initial.extraNote ?? "",
+      billing: initial.billing ?? "",
+    }));
+  };
+
+  const openPaymentModal = (row) => {
+    const firstEditable =
+      PAYMENT_SPECS.find((spec) => !paymentLocked(row, spec)) ??
+      PAYMENT_SPECS.find((spec) => row[spec.idKey]) ??
+      PAYMENT_SPECS[0];
+    setPaymentTab(firstEditable.key);
+    setPaymentModal({
+      date: row.date,
+      paymentId: row.paymentId,
+      paymentSealed: row.paymentSealed,
+      payment: row.payment,
+      paymentNote: row.paymentNote ?? "",
+      returnId: row.returnId,
+      returnSealed: row.returnSealed,
+      return: row.return,
+      returnNote: row.returnNote ?? "",
+    });
+    document.getElementById(PAYMENT_MODAL_ID)?.showModal();
+  };
+
+  const savePaymentModal = () => {
+    if (!paymentModal || !editing) return;
+    const patch = {};
+    for (const spec of PAYMENT_SPECS) {
+      if (paymentLocked(paymentModal, spec)) continue;
+      patch[spec.key] = numOrEmpty(paymentModal[spec.key]);
+      patch[spec.noteKey] = paymentModal[spec.noteKey] ?? "";
+    }
+    updateRow(paymentModal.date, patch);
+    document.getElementById(PAYMENT_MODAL_ID)?.close();
+  };
+
+  const resetPaymentModal = () => {
+    if (!paymentModal) return;
+    const initial = initialByDate.get(paymentModal.date);
+    const spec = PAYMENT_SPECS.find((item) => item.key === paymentTab);
+    if (!initial || !spec) return;
+    setPaymentModal((current) => ({
+      ...current,
+      [spec.key]: initial[spec.key],
+      [spec.noteKey]: initial[spec.noteKey] ?? "",
+    }));
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const attendanceUpdates = [];
+      const paymentUpdates = [];
+
+      for (const row of rows) {
+        const initial = initialByDate.get(row.date) ?? row;
+        if (
+          row.attendanceId &&
+          !row.attendanceSealed &&
+          canChangeAttendance &&
+          isAttendanceDirty(row, initial)
+        ) {
+          attendanceUpdates.push({
+            id: row.attendanceId,
+            payload: attendancePatchPayload(row),
+          });
+        }
+
+        for (const spec of PAYMENT_SPECS) {
+          if (
+            !row[spec.idKey] ||
+            row[spec.sealedKey] ||
+            !canChangePayment ||
+            !isPaymentDirty(row, initial, spec)
+          ) {
+            continue;
+          }
+          paymentUpdates.push({
+            id: row[spec.idKey],
+            payload: {
+              amount: num(row[spec.key]),
+              note: row[spec.noteKey]?.trim() ? row[spec.noteKey].trim() : null,
+            },
+          });
+        }
+      }
+
+      await Promise.all([
+        ...attendanceUpdates.map((item) =>
+          updateLabourAttendance(labourId, item.id, item.payload),
+        ),
+        ...paymentUpdates.map((item) =>
+          updateLabourPayment(labourId, item.id, item.payload),
+        ),
+      ]);
+
+      return attendanceUpdates.length + paymentUpdates.length;
+    },
+  });
+
+  const onSave = async () => {
+    setApiError(null);
+    setSaving(true);
+    try {
+      const updated = await saveMutation.mutateAsync();
+      if (!updated) {
+        setApiError("সেভ করার মতো কোনো পরিবর্তন নেই।");
+        return;
+      }
+      await queryClient.invalidateQueries({
+        queryKey: ["labours", labourId],
+      });
+      setEditing(false);
+    } catch (error) {
+      setApiError(parseApiError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onCancel = () => {
+    setRows(cloneRows(initialRows));
+    setEditing(false);
+    setApiError(null);
+  };
+
+  const periodLabel = session
+    ? `${formatDate(session.start_date)} – ${
+        session.end_date ? formatDate(session.end_date) : "চলমান"
+      }`
+    : "";
+
+  useEffect(() => {
+    setTitle?.(periodLabel || "সেশন রেকর্ড");
+    return () => setTitle?.("");
+  }, [setTitle, periodLabel]);
+
+  useEffect(() => {
+    const labourName = labourQuery.data?.name;
+    setHeaderMenu?.(
+      labourName ? (
+        <span className="text-sm font-medium text-base-content/80 truncate px-1 max-w-full">
+          {labourName}
+        </span>
+      ) : null,
+    );
+    return () => setHeaderMenu?.(null);
+  }, [labourQuery.data?.name, setHeaderMenu]);
+
+  if (!canView) {
+    return (
+      <div className="text-sm text-error py-8 text-center">
+        এই পেজ দেখার অনুমতি নেই।
+      </div>
+    );
+  }
+
+  if (labourQuery.isError || sessionQuery.isError) {
+    return (
+      <ApiErrorAlert
+        error={parseApiError(labourQuery.error || sessionQuery.error)}
+      />
+    );
+  }
+
+  if (
+    labourQuery.isLoading ||
+    sessionQuery.isLoading ||
+    attendanceQuery.isLoading ||
+    paymentQuery.isLoading
+  ) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <span className="loading loading-spinner loading-lg text-primary" />
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="text-sm text-base-content/70 py-8 text-center">
+        সেশন পাওয়া যায়নি।
+      </div>
+    );
+  }
+
+  if (session.is_modified) {
+    return (
+      <div className="alert alert-warning text-sm">
+        সেশনটি পরিবর্তিত হয়েছে। রেকর্ড দেখা বন্ধ।
+      </div>
+    );
+  }
+
+  const recordsError = attendanceQuery.error || paymentQuery.error;
+  const attendanceModalLocked =
+    !attendanceModal || attendanceLocked(attendanceModal);
+  const attendanceBillingOptions =
+    billingBySite.get(String(attendanceModal?.siteId ?? "")) ?? [];
+
+  return (
+    <div className="h-full min-h-0 flex flex-col gap-2">
+      {apiError ? <ApiErrorAlert error={apiError} /> : null}
+      {recordsError ? (
+        <ApiErrorAlert error={parseApiError(recordsError)} />
+      ) : null}
+
+      <div className="flex-1 min-h-0 overflow-auto">
+        <table className="table table-fixed table-xs sm:table-sm w-full">
+          <colgroup>
+            <col className="w-10" />
+            <col className="w-[18%]" />
+            <col className="w-[23%]" />
+            <col className="w-[16%]" />
+            <col className="w-[18%]" />
+            <col />
+          </colgroup>
+          <thead className="sticky top-0 z-10 bg-base-200">
+            <tr className="border-b">
+              <th>নং</th>
+              <th>তারিখ</th>
+              <th>হাজিরা</th>
+              <th className="text-right">
+                {editing ? (
+                  "আয়"
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      document
+                        .getElementById(EARNINGS_FILTER_MODAL_ID)
+                        ?.showModal()
+                    }
+                  >
+                    {filterLabel(EARNINGS_FILTER_OPTIONS, earningsFilter)}
+                  </button>
+                )}
+              </th>
+              <th className="text-right">
+                {editing ? (
+                  "পেমেন্ট"
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      document
+                        .getElementById(PAYMENT_FILTER_MODAL_ID)
+                        ?.showModal()
+                    }
+                  >
+                    {filterLabel(PAYMENT_FILTER_OPTIONS, paymentFilter)}
+                  </button>
+                )}
+              </th>
+              <th>বিলিং</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="text-center text-sm text-base-content/60 py-10"
+                >
+                  কোনো রেকর্ড পাওয়া যায়নি।
+                </td>
+              </tr>
+            ) : (
+              rows.map((row, index) => {
+                const initial = initialByDate.get(row.date) ?? row;
+                const attendanceDirty = isAttendanceDirty(row, initial);
+                const earnings = rowEarnings(row, viewEarningsFilter);
+                const showPayment =
+                  viewPaymentFilter !== "return" && num(row.payment) !== 0;
+                const showReturn =
+                  viewPaymentFilter !== "payment" && num(row.return) !== 0;
+
+                return (
+                  <tr key={row.date} className="border-b border-base-300/70">
+                    <td className="tabular-nums text-base-content/60">
+                      {formatBnNumber(index + 1)}
+                    </td>
+                    <td className="whitespace-nowrap">
+                      {formatDate(row.date)}
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className={`btn btn-ghost btn-xs h-auto min-h-0 px-1 font-normal leading-tight ${fieldTone(
+                          editing && attendanceDirty,
+                        )}`}
+                        onClick={() => openAttendanceModal(row)}
+                      >
+                        {hasPresent(row) || num(row.extra) ? (
+                          <span className="block tabular-nums space-y-0.5">
+                            {hasPresent(row) ? (
+                              <span className="block">
+                                {formatBnNumber(row.present)} ×{" "}
+                                {formatBnNumber(row.salary || 0)}
+                              </span>
+                            ) : null}
+                            {num(row.extra) ? (
+                              <span className="block">
+                                {formatBnNumber(row.extra)}
+                              </span>
+                            ) : null}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </button>
+                    </td>
+                    <td
+                      className={`text-right tabular-nums ${fieldTone(
+                        editing && attendanceDirty,
+                      )}`}
+                    >
+                      {earnings ? formatBnNumber(earnings) : "—"}
+                    </td>
+                    <td className="text-right">
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-xs h-auto min-h-0 px-1 font-normal text-right w-full"
+                        onClick={() => openPaymentModal(row)}
+                      >
+                        {showPayment || showReturn ? (
+                          <span className="block tabular-nums space-y-0.5">
+                            {showPayment ? (
+                              <span
+                                className={`block ${
+                                  editing &&
+                                  isPaymentDirty(row, initial, PAYMENT_SPECS[0])
+                                    ? "text-amber-500"
+                                    : "text-error"
+                                }`}
+                              >
+                                {formatBnNumber(row.payment)}
+                              </span>
+                            ) : null}
+                            {showReturn ? (
+                              <span
+                                className={`block ${
+                                  editing &&
+                                  isPaymentDirty(row, initial, PAYMENT_SPECS[1])
+                                    ? "text-amber-500"
+                                    : "text-success"
+                                }`}
+                              >
+                                {formatBnNumber(row.return)}
+                              </span>
+                            ) : null}
+                          </span>
+                        ) : (
+                          <span className="text-base-content/60">—</span>
+                        )}
+                      </button>
+                    </td>
+                    <td>
+                      {editing && !attendanceLocked(row) ? (
+                        <select
+                          className={`select select-bordered select-xs w-full ${fieldTone(
+                            attendanceDirty,
+                          )}`}
+                          value={row.billing}
+                          onChange={(event) =>
+                            updateRow(row.date, {
+                              billing: event.target.value,
+                            })
+                          }
+                        >
+                          <option value="">—</option>
+                          {(billingBySite.get(String(row.siteId)) ?? []).map(
+                            (option) => (
+                              <option key={option.id} value={String(option.id)}>
+                                {option.name}
+                              </option>
+                            ),
+                          )}
+                        </select>
+                      ) : (
+                        <span className="text-sm text-base-content/70 truncate">
+                          {row.billing
+                            ? (billingNameById.get(String(row.billing)) ??
+                              `#${row.billing}`)
+                            : "—"}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="shrink-0 border-t border-base-300 bg-base-200">
+        <table className="table table-fixed table-xs sm:table-sm w-full">
+          <colgroup>
+            <col className="w-10" />
+            <col className="w-[18%]" />
+            <col className="w-[23%]" />
+            <col className="w-[16%]" />
+            <col className="w-[18%]" />
+            <col />
+          </colgroup>
+          <tbody>
+            <tr className="font-semibold">
+              <td colSpan={2}>মোট</td>
+              <td className="tabular-nums">{formatBnNumber(totals.present)}</td>
+              <td className="text-right tabular-nums">
+                {formatBnNumber(totals.earnings)}
+              </td>
+              <td className="text-right tabular-nums">
+                {totals.payment || totals.return ? (
+                  <span className="block space-y-0.5">
+                    {totals.payment ? (
+                      <span className="block text-error">
+                        {formatBnNumber(totals.payment)}
+                      </span>
+                    ) : null}
+                    {totals.return ? (
+                      <span className="block text-success">
+                        {formatBnNumber(totals.return)}
+                      </span>
+                    ) : null}
+                  </span>
+                ) : (
+                  "—"
+                )}
+              </td>
+              <td />
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div>
+        {canEditRecords ? (
+          <div className="flex justify-end gap-2 px-2 py-2">
+            {editing ? (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={onCancel}
+                  disabled={saving}
+                >
+                  বাতিল
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={onSave}
+                  disabled={saving || !isDirty}
+                >
+                  {saving ? (
+                    <span className="loading loading-spinner loading-sm" />
+                  ) : null}
+                  সেভ
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setEditing(true)}
+              >
+                এডিট
+              </button>
+            )}
+          </div>
+        ) : null}
+      </div>
+
+      <dialog
+        id={ATTENDANCE_MODAL_ID}
+        className="modal"
+        onClose={() => setAttendanceModal(null)}
+      >
+        <div className="modal-box max-w-sm">
+          <form method="dialog">
+            <button
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              ✕
+            </button>
+          </form>
+          <h3 className="font-bold text-lg">
+            হাজিরা ({formatDate(attendanceModal?.date)})
+          </h3>
+          {attendanceModal ? (
+            <div className="space-y-3 pt-3">
+              <label className="form-control w-full">
+                <span className="label-text text-sm">হাজিরা</span>
+                <select
+                  className="select select-bordered select-sm w-full"
+                  value={attendanceModal.present}
+                  disabled={attendanceModalLocked}
+                  onChange={(event) =>
+                    setAttendanceModal((current) => ({
+                      ...current,
+                      present: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="">—</option>
+                  {PRESENT_OPTIONS.map((value) => (
+                    <option key={value} value={String(value)}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="form-control w-full">
+                <span className="label-text text-sm">বেতন</span>
+                <input
+                  type="number"
+                  min={0}
+                  className="input input-bordered input-sm w-full"
+                  value={attendanceModal.salary}
+                  disabled={attendanceModalLocked}
+                  onChange={(event) =>
+                    setAttendanceModal((current) => ({
+                      ...current,
+                      salary: numOrEmpty(event.target.value),
+                    }))
+                  }
+                />
+              </label>
+              <label className="form-control w-full">
+                <span className="label-text text-sm">বাড়তি</span>
+                <input
+                  type="number"
+                  min={0}
+                  className="input input-bordered input-sm w-full"
+                  value={attendanceModal.extra}
+                  disabled={attendanceModalLocked}
+                  onChange={(event) =>
+                    setAttendanceModal((current) => ({
+                      ...current,
+                      extra: numOrEmpty(event.target.value),
+                    }))
+                  }
+                />
+              </label>
+              <label className="form-control w-full">
+                <span className="label-text text-sm">নোট</span>
+                <input
+                  type="text"
+                  className="input input-bordered input-sm w-full"
+                  value={attendanceModal.note}
+                  disabled={attendanceModalLocked}
+                  onChange={(event) =>
+                    setAttendanceModal((current) => ({
+                      ...current,
+                      note: event.target.value,
+                    }))
+                  }
+                  maxLength={255}
+                />
+              </label>
+              <label className="form-control w-full">
+                <span className="label-text text-sm">বিলিং</span>
+                <select
+                  className="select select-bordered select-sm w-full"
+                  value={attendanceModal.billing}
+                  disabled={attendanceModalLocked}
+                  onChange={(event) =>
+                    setAttendanceModal((current) => ({
+                      ...current,
+                      billing: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="">—</option>
+                  {attendanceBillingOptions.map((option) => (
+                    <option key={option.id} value={String(option.id)}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {editing ? (
+                <div className="modal-action justify-between">
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={resetAttendanceModal}
+                    disabled={attendanceModalLocked}
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={saveAttendanceModal}
+                    disabled={attendanceModalLocked}
+                  >
+                    Save
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </dialog>
+
+      <dialog
+        id={PAYMENT_MODAL_ID}
+        className="modal"
+        onClose={() => setPaymentModal(null)}
+      >
+        <div className="modal-box max-w-sm">
+          <form method="dialog">
+            <button
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              ✕
+            </button>
+          </form>
+          <h3 className="font-bold text-lg">
+            পেমেন্ট ({formatDate(paymentModal?.date)})
+          </h3>
+          {paymentModal ? (
+            <div className="space-y-3 pt-3">
+              <div role="tablist" className="tabs tabs-bordered">
+                {PAYMENT_SPECS.map((spec) => (
+                  <button
+                    key={spec.key}
+                    type="button"
+                    role="tab"
+                    className={`tab ${
+                      paymentTab === spec.key ? "tab-active" : ""
+                    }`}
+                    onClick={() => setPaymentTab(spec.key)}
+                  >
+                    {spec.label}
+                  </button>
+                ))}
+              </div>
+              {PAYMENT_SPECS.filter((spec) => spec.key === paymentTab).map(
+                (spec) => {
+                  const locked = paymentLocked(paymentModal, spec);
+                  return (
+                    <div key={spec.key} className="space-y-3">
+                      <label className="form-control w-full">
+                        <span className="label-text text-sm">নোট</span>
+                        <input
+                          type="text"
+                          className="input input-bordered input-sm w-full"
+                          value={paymentModal[spec.noteKey]}
+                          disabled={locked}
+                          onChange={(event) =>
+                            setPaymentModal((current) => ({
+                              ...current,
+                              [spec.noteKey]: event.target.value,
+                            }))
+                          }
+                          maxLength={255}
+                        />
+                      </label>
+                      <label className="form-control w-full">
+                        <span className="label-text text-sm">পরিমাণ</span>
+                        <input
+                          type="number"
+                          min={0}
+                          className="input input-bordered input-sm w-full"
+                          value={paymentModal[spec.key]}
+                          disabled={locked}
+                          onChange={(event) =>
+                            setPaymentModal((current) => ({
+                              ...current,
+                              [spec.key]: numOrEmpty(event.target.value),
+                            }))
+                          }
+                        />
+                      </label>
+                    </div>
+                  );
+                },
+              )}
+              {editing ? (
+                <div className="modal-action justify-between">
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={resetPaymentModal}
+                    disabled={PAYMENT_SPECS.some(
+                      (spec) =>
+                        spec.key === paymentTab &&
+                        paymentLocked(paymentModal, spec),
+                    )}
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={savePaymentModal}
+                  >
+                    Save
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </dialog>
+
+      <FilterDialog
+        id={EARNINGS_FILTER_MODAL_ID}
+        title="আয় ফিল্টার"
+        options={EARNINGS_FILTER_OPTIONS}
+        value={earningsFilter}
+        onChange={setEarningsFilter}
+      />
+      <FilterDialog
+        id={PAYMENT_FILTER_MODAL_ID}
+        title="পেমেন্ট ফিল্টার"
+        options={PAYMENT_FILTER_OPTIONS}
+        value={paymentFilter}
+        onChange={setPaymentFilter}
+      />
+    </div>
+  );
+};
+
+const FilterDialog = ({ id, title, options, value, onChange }) => (
+  <dialog id={id} className="modal">
+    <div className="modal-box max-w-xs">
+      <form method="dialog">
+        <button
+          className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+          aria-label="বন্ধ"
+        >
+          ✕
+        </button>
+      </form>
+      <h3 className="font-bold text-lg">{title}</h3>
+      <div className="menu bg-base-100 w-full p-0 pt-3">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className={`btn btn-ghost btn-sm justify-start ${
+              value === option.value ? "btn-active" : ""
+            }`}
+            onClick={() => {
+              onChange(option.value);
+              document.getElementById(id)?.close();
+            }}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+    <form method="dialog" className="modal-backdrop">
+      <button type="submit">close</button>
+    </form>
+  </dialog>
+);
