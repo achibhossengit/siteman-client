@@ -3,7 +3,7 @@ import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Mail, Pencil, Phone, Trash2, User, X } from 'lucide-react'
+import { Check, Pencil, Trash2, X } from 'lucide-react'
 import { deleteUser, fetchUserDetail, updateUser } from '../../api/users.js'
 import {
   toUserUpdatePayload,
@@ -53,7 +53,6 @@ export const UserDetailPage = () => {
     handleSubmit,
     reset,
     setError,
-    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(userUpdateSchema),
@@ -70,15 +69,11 @@ export const UserDetailPage = () => {
   })
 
   const user = detailQuery.data
-  const nameValue = watch('name')
-  const phoneValue = watch('phone_number')
-  const emailValue = watch('email')
-  const isActiveValue = watch('is_active')
 
   useEffect(() => {
-    setTitle?.(user?.name || 'ইউজার বিবরণ')
+    setTitle?.('ইউজার বিবরণ')
     return () => setTitle?.('')
-  }, [setTitle, user?.name])
+  }, [setTitle])
 
   useEffect(() => {
     if (user) reset(toFormValues(user))
@@ -179,17 +174,20 @@ export const UserDetailPage = () => {
 
   const disabled = !editing
   const busy = isSubmitting || mutation.isPending
+  const showActions = canChangeUser || canDeleteUser
   const fieldClass = (hasError) =>
     [
-      'input input-sm input-bordered w-full',
+      'input input-bordered w-full',
       hasError ? 'input-error' : '',
+      disabled ? 'bg-base-100' : '',
     ].join(' ')
 
   return (
-    <div className="max-w-lg mx-auto space-y-3">
-      <ApiErrorAlert error={apiError} />
+    <div className="max-w-lg mx-auto">
+      <ApiErrorAlert error={apiError} className="mb-3" />
 
       <form
+        className="flex flex-col gap-3"
         onSubmit={(e) => {
           e.preventDefault()
           if (!confirmReady) return
@@ -197,190 +195,136 @@ export const UserDetailPage = () => {
         }}
         noValidate
       >
-        <div
-          className={[
-            'rounded-2xl bg-base-100 border border-base-300 overflow-hidden',
-            'border-l-4',
-            isActiveValue ? 'border-l-success shadow-[inset_4px_0_12px_-8px_var(--color-success)]' : 'border-l-base-content/25',
-          ].join(' ')}
-        >
-          {/* Header */}
-          <div className="flex items-start gap-3 p-4">
-            <div className="size-12 sm:size-14 shrink-0 rounded-xl bg-base-200 border border-base-300 flex items-center justify-center">
-              <User
-                className="size-6 text-base-content/40"
-                strokeWidth={1.5}
-              />
-            </div>
+        <label className="form-control w-full">
+          <span className="label-text mb-1">নাম</span>
+          <input
+            type="text"
+            className={fieldClass(errors.name)}
+            maxLength={255}
+            disabled={disabled}
+            {...register('name')}
+          />
+          {errors.name ? (
+            <span className="label-text-alt text-error mt-1">
+              {errors.name.message}
+            </span>
+          ) : null}
+        </label>
 
-            <div className="flex-1 min-w-0 pt-0.5">
-              <div className="flex items-center gap-2 min-w-0">
-                {editing ? (
-                  <input
-                    type="text"
-                    className={[
-                      'input input-sm input-ghost h-8 px-1 text-base font-semibold w-full max-w-48',
-                      errors.name ? 'input-error' : '',
-                    ].join(' ')}
-                    maxLength={255}
-                    {...register('name')}
-                  />
+        <label className="form-control w-full">
+          <span className="label-text mb-1">ফোন নম্বর</span>
+          <input
+            type="tel"
+            className={fieldClass(errors.phone_number)}
+            maxLength={14}
+            disabled={disabled}
+            {...register('phone_number')}
+          />
+          {errors.phone_number ? (
+            <span className="label-text-alt text-error mt-1">
+              {errors.phone_number.message}
+            </span>
+          ) : null}
+        </label>
+
+        <label className="form-control w-full">
+          <span className="label-text mb-1">ইমেইল</span>
+          <input
+            type="email"
+            className={fieldClass(errors.email)}
+            maxLength={254}
+            disabled={disabled}
+            {...register('email')}
+          />
+          {errors.email ? (
+            <span className="label-text-alt text-error mt-1">
+              {errors.email.message}
+            </span>
+          ) : null}
+        </label>
+
+        <label className="label cursor-pointer justify-start gap-3 py-2">
+          <input
+            type="checkbox"
+            className="toggle toggle-primary"
+            disabled={disabled}
+            {...register('is_active')}
+          />
+          <span className="label-text">সক্রিয়</span>
+        </label>
+
+        {user.is_companyadmin ? (
+          <div className="flex items-center gap-2">
+            <span className="label-text">ভূমিকা</span>
+            <span className="badge badge-secondary badge-sm">অ্যাডমিন</span>
+          </div>
+        ) : null}
+
+        <p className="text-xs text-base-content/55 tabular-nums">
+          তৈরি {formatMetaDate(user.created_at)}
+          <span className="mx-1.5 opacity-60">·</span>
+          হালনাগাদ {formatMetaDate(user.updated_at)}
+        </p>
+
+        {showActions ? (
+          editing ? (
+            <div className="flex gap-2 mt-2">
+              <button
+                type="button"
+                className="btn btn-ghost flex-1"
+                onClick={cancelEdit}
+                disabled={busy}
+              >
+                <X className="size-4" strokeWidth={1.75} />
+                বাতিল করুন
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary flex-1"
+                disabled={!confirmReady || busy}
+                onClick={(e) => {
+                  if (!confirmReady) return
+                  return onConfirm(e)
+                }}
+              >
+                {busy ? (
+                  <span className="loading loading-spinner loading-sm" />
                 ) : (
-                  <h2 className="text-base sm:text-lg font-semibold truncate leading-tight">
-                    {nameValue || user.name}
-                  </h2>
+                  <Check className="size-4" strokeWidth={2} />
                 )}
-                {user.is_companyadmin ? (
-                  <span className="badge badge-sm shrink-0 border-0 bg-secondary text-secondary-content">
-                    অ্যাডমিন
-                  </span>
-                ) : null}
-              </div>
-              {errors.name ? (
-                <p className="text-error text-xs mt-1">{errors.name.message}</p>
+                নিশ্চিত করুন
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2 mt-2">
+              {canDeleteUser ? (
+                <button
+                  type="button"
+                  className="btn btn-outline btn-error flex-1"
+                  onClick={onDelete}
+                  disabled={deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending ? (
+                    <span className="loading loading-spinner loading-sm" />
+                  ) : (
+                    <Trash2 className="size-4" strokeWidth={1.75} />
+                  )}
+                  ডিলিট
+                </button>
               ) : null}
-              <p className="text-xs text-base-content/55 mt-1 tabular-nums">
-                তৈরি {formatMetaDate(user.created_at)}
-                <span className="mx-1.5 opacity-60">·</span>
-                হালনাগাদ {formatMetaDate(user.updated_at)}
-              </p>
+              {canChangeUser ? (
+                <button
+                  type="button"
+                  className="btn btn-outline btn-primary flex-1"
+                  onClick={startEdit}
+                >
+                  <Pencil className="size-4" strokeWidth={1.75} />
+                  আপডেট
+                </button>
+              ) : null}
             </div>
-
-            <input
-              type="checkbox"
-              className="toggle toggle-sm toggle-success shrink-0 mt-1"
-              disabled={disabled}
-              {...register('is_active')}
-            />
-          </div>
-
-          {/* Contact */}
-          <div className="border-t border-base-300 px-4 py-3 space-y-2.5">
-            {editing ? (
-              <>
-                <label className="form-control w-full">
-                  <span className="label-text text-xs mb-1 flex items-center gap-1.5">
-                    <Phone className="size-3.5 opacity-60" strokeWidth={1.75} />
-                    ফোন নম্বর
-                  </span>
-                  <input
-                    type="tel"
-                    className={fieldClass(errors.phone_number)}
-                    maxLength={14}
-                    {...register('phone_number')}
-                  />
-                  {errors.phone_number ? (
-                    <span className="label-text-alt text-error mt-1">
-                      {errors.phone_number.message}
-                    </span>
-                  ) : null}
-                </label>
-                <label className="form-control w-full">
-                  <span className="label-text text-xs mb-1 flex items-center gap-1.5">
-                    <Mail className="size-3.5 opacity-60" strokeWidth={1.75} />
-                    ইমেইল
-                  </span>
-                  <input
-                    type="email"
-                    className={fieldClass(errors.email)}
-                    maxLength={254}
-                    {...register('email')}
-                  />
-                  {errors.email ? (
-                    <span className="label-text-alt text-error mt-1">
-                      {errors.email.message}
-                    </span>
-                  ) : null}
-                </label>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-2.5 text-sm text-base-content/70">
-                  <Phone
-                    className="size-4 shrink-0 opacity-55"
-                    strokeWidth={1.75}
-                  />
-                  <span className="truncate tabular-nums">
-                    {phoneValue || '—'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2.5 text-sm text-base-content/70">
-                  <Mail
-                    className="size-4 shrink-0 opacity-55"
-                    strokeWidth={1.75}
-                  />
-                  <span className="truncate">{emailValue || '—'}</span>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Actions */}
-          {(canDeleteUser || canChangeUser) && (
-            <div className="border-t border-base-300 px-4 py-3 flex justify-end gap-2">
-              {editing ? (
-                <>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={cancelEdit}
-                    disabled={busy}
-                  >
-                    <X className="size-4" strokeWidth={1.75} />
-                    বাতিল করুন
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    disabled={!confirmReady || busy}
-                    onClick={(e) => {
-                      if (!confirmReady) return
-                      return onConfirm(e)
-                    }}
-                  >
-                    {busy ? (
-                      <span className="loading loading-spinner loading-xs" />
-                    ) : (
-                      <Check className="size-4" strokeWidth={2} />
-                    )}
-                    নিশ্চিত করুন
-                  </button>
-                </>
-              ) : (
-                <>
-                  {canDeleteUser ? (
-                    <button
-                      type="button"
-                      className="btn btn-square btn-sm btn-ghost border border-error/40"
-                      onClick={onDelete}
-                      disabled={deleteMutation.isPending}
-                      aria-label="ডিলিট করুন"
-                    >
-                      {deleteMutation.isPending ? (
-                        <span className="loading loading-spinner loading-xs" />
-                      ) : (
-                        <Trash2
-                          className="size-4 text-error"
-                          strokeWidth={1.75}
-                        />
-                      )}
-                    </button>
-                  ) : null}
-                  {canChangeUser ? (
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm gap-1.5"
-                      onClick={startEdit}
-                    >
-                      <Pencil className="size-4" strokeWidth={1.75} />
-                      আপডেট করুন
-                    </button>
-                  ) : null}
-                </>
-              )}
-            </div>
-          )}
-        </div>
+          )
+        ) : null}
       </form>
     </div>
   )
