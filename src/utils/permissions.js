@@ -72,6 +72,16 @@ export const ROLE_NAMES = {
   siteAuditor: 'Site Auditor',
 }
 
+/** Display labels for ROLE_NAMES (API still uses English names). */
+export const ROLE_LABELS_BN = {
+  [ROLE_NAMES.companyAdmin]: 'অ্যাডমিন',
+  [ROLE_NAMES.siteManager]: 'ম্যানেজার',
+  [ROLE_NAMES.siteAuditor]: 'অডিটর',
+}
+
+export const groupLabelBn = (name) =>
+  ROLE_LABELS_BN[name] ?? name ?? '—'
+
 /** Never gate solely on group name strings — use permission codenames. */
 
 export const hasPermission = (profile, codename) => {

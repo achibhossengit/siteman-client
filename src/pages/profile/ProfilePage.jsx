@@ -13,6 +13,7 @@ import {
 import { parseApiError, applyFieldErrors } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { toastSuccess } from "../../utils/feedback.js";
+import { groupLabelBn } from "../../utils/permissions.js";
 
 const PASSWORD_MODAL_ID = "profile_change_password_modal";
 
@@ -320,7 +321,7 @@ export const ProfilePage = () => {
               ) : null}
               {groups.map((g) => (
                 <span key={g.id ?? g.name} className="badge badge-outline">
-                  {g.name}
+                  {groupLabelBn(g.name ?? g)}
                 </span>
               ))}
             </div>

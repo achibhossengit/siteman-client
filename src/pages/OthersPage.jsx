@@ -14,6 +14,7 @@ import {
 import { ThemeToggle } from '../components/ThemeToggle.jsx'
 import { useAuth } from '../providers/AuthProvider.jsx'
 import { useTheme } from '../providers/ThemeProvider.jsx'
+import { groupLabelBn } from '../utils/permissions.js'
 import { THEME_DARK } from '../utils/theme.js'
 import { paths } from '../router/paths.js'
 
@@ -67,8 +68,9 @@ const initialsFromName = (name) => {
 const roleLabel = (profile) => {
   if (!profile) return '—'
   if (profile.is_companyadmin) return 'অ্যাডমিন'
-  const group = profile.groups?.[0]?.name
-  return group || 'ইউজার'
+  const group = profile.groups?.[0]
+  const name = typeof group === 'string' ? group : group?.name
+  return name ? groupLabelBn(name) : 'ইউজার'
 }
 
 const MenuRow = ({ icon: Icon, title, to, onClick, trailing, danger }) => {

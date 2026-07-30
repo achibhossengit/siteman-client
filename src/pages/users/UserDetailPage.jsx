@@ -8,7 +8,7 @@ import { fetchUserDetail, updateUser } from "../../api/users.js";
 import { fetchSites } from "../../api/sites.js";
 import {
   buildAssignableGroups,
-  normalizeGroupIds,
+  normalizeGroupNames,
   normalizeSiteIds,
   toUserAdminUpdatePayload,
   userAdminUpdateSchema,
@@ -16,27 +16,23 @@ import {
 import { parseApiError, applyFieldErrors } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { DetailMenuButton } from "../../layouts/DetailLayout.jsx";
-import { useAuth } from "../../providers/AuthProvider.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { toastSuccess } from "../../utils/feedback.js";
 import { PERMS } from "../../utils/permissions.js";
 
 const toFormValues = (user) => ({
   is_active: user?.is_active ?? true,
-  groups: normalizeGroupIds(user?.groups),
+  groups: normalizeGroupNames(user?.groups),
   sites: normalizeSiteIds(user?.sites),
 });
 
-const toggleId = (list, id) => {
-  const n = Number(id);
-  return list.includes(n) ? list.filter((x) => x !== n) : [...list, n];
-};
+const toggleItem = (list, item) =>
+  list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
 
 export const UserDetailPage = () => {
   const { userId } = useParams();
   const { setTitle, setHeaderMenu } = useOutletContext();
   const queryClient = useQueryClient();
-  const { profile } = useAuth();
   const { can } = usePermissions();
   const [editing, setEditing] = useState(false);
   const [confirmReady, setConfirmReady] = useState(false);
@@ -78,10 +74,10 @@ export const UserDetailPage = () => {
 
   const user = detailQuery.data;
   const isActiveValue = watch("is_active");
-  const groupIds = watch("groups") ?? [];
+  const groupNames = watch("groups") ?? [];
   const siteIds = watch("sites") ?? [];
 
-  const assignableGroups = buildAssignableGroups(profile?.groups, user?.groups);
+  const assignableGroups = buildAssignableGroups();
 
   useEffect(() => {
     setTitle?.("ইউজার বিবরণ");
@@ -230,30 +226,28 @@ export const UserDetailPage = () => {
             <span className="label-text font-medium">গ্রুপ</span>
             <div className="mt-2 flex flex-col gap-1.5 h-24 overflow-y-auto pr-1">
               {assignableGroups.map((g) => {
-                const locked = editing && g.id == null;
-                const checked = g.id != null && groupIds.includes(g.id);
+                const checked = groupNames.includes(g.name);
                 return (
                   <label
                     key={g.name}
                     className={[
                       "label cursor-pointer justify-start gap-3 py-1 min-h-0",
-                      disabled || locked ? "cursor-default opacity-80" : "",
-                      locked ? "opacity-50" : "",
+                      disabled ? "cursor-default opacity-80" : "",
                     ].join(" ")}
                   >
                     <input
                       type="checkbox"
                       className="checkbox checkbox-sm checkbox-primary"
-                      disabled={disabled || locked}
+                      disabled={disabled}
                       checked={checked}
                       onChange={() => {
-                        if (disabled || locked) return;
-                        setValue("groups", toggleId(groupIds, g.id), {
+                        if (disabled) return;
+                        setValue("groups", toggleItem(groupNames, g.name), {
                           shouldDirty: true,
                         });
                       }}
                     />
-                    <span className="label-text">{g.name}</span>
+                    <span className="label-text">{g.label}</span>
                   </label>
                 );
               })}
@@ -295,7 +289,7 @@ export const UserDetailPage = () => {
                         checked={checked}
                         onChange={() => {
                           if (disabled) return;
-                          setValue("sites", toggleId(siteIds, id), {
+                          setValue("sites", toggleItem(siteIds, id), {
                             shouldDirty: true,
                           });
                         }}

@@ -13730,7 +13730,7 @@ components:
         groups:
           type: array
           items:
-            $ref: "#/components/schemas/UserGroup"
+            type: string
         sites:
           type: array
           items:
@@ -16848,17 +16848,6 @@ components:
         - name
         - phone_number
         - updated_at
-    UserGroup:
-      type: object
-      properties:
-        id:
-          type: integer
-        name:
-          type: string
-          readOnly: true
-      required:
-        - id
-        - name
     UserList:
       type: object
       properties:
@@ -16953,7 +16942,7 @@ components:
         groups:
           type: array
           items:
-            $ref: "#/components/schemas/UserGroup"
+            type: string
         sites:
           type: array
           items:
@@ -17138,18 +17127,14 @@ components:
       oneOf:
         - $ref: "#/components/schemas/UsersPartialUpdateNonFieldErrorsErrorComponent"
         - $ref: "#/components/schemas/UsersPartialUpdateIsActiveErrorComponent"
-        - $ref: "#/components/schemas/UsersPartialUpdateGroupsNonFieldErrorsErrorComponent"
-        - $ref: "#/components/schemas/UsersPartialUpdateGroupsINDEXNonFieldErrorsErrorComponent"
-        - $ref: "#/components/schemas/UsersPartialUpdateGroupsINDEXIdErrorComponent"
+        - $ref: "#/components/schemas/UsersPartialUpdateGroupsErrorComponent"
         - $ref: "#/components/schemas/UsersPartialUpdateSitesErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
           non_field_errors: "#/components/schemas/UsersPartialUpdateNonFieldErrorsErrorComponent"
           is_active: "#/components/schemas/UsersPartialUpdateIsActiveErrorComponent"
-          groups.non_field_errors: "#/components/schemas/UsersPartialUpdateGroupsNonFieldErrorsErrorComponent"
-          groups.INDEX.non_field_errors: "#/components/schemas/UsersPartialUpdateGroupsINDEXNonFieldErrorsErrorComponent"
-          groups.INDEX.id: "#/components/schemas/UsersPartialUpdateGroupsINDEXIdErrorComponent"
+          groups: "#/components/schemas/UsersPartialUpdateGroupsErrorComponent"
           sites: "#/components/schemas/UsersPartialUpdateSitesErrorComponent"
     UsersPartialUpdateErrorResponse400:
       oneOf:
@@ -17160,68 +17145,24 @@ components:
         mapping:
           validation_error: "#/components/schemas/UsersPartialUpdateValidationError"
           client_error: "#/components/schemas/ParseErrorResponse"
-    UsersPartialUpdateGroupsINDEXIdErrorComponent:
+    UsersPartialUpdateGroupsErrorComponent:
       type: object
       properties:
         attr:
           enum:
-            - groups.INDEX.id
+            - groups
           type: string
-          description: "* `groups.INDEX.id` - groups.INDEX.id"
+          description: "* `groups` - groups"
         code:
           enum:
             - does_not_exist
-            - incorrect_type
-            - "null"
-            - required
-          type: string
-          description: |-
-            * `does_not_exist` - does_not_exist
-            * `incorrect_type` - incorrect_type
-            * `null` - null
-            * `required` - required
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
-    UsersPartialUpdateGroupsINDEXNonFieldErrorsErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - groups.INDEX.non_field_errors
-          type: string
-          description: "* `groups.INDEX.non_field_errors` - groups.INDEX.non_field_errors"
-        code:
-          enum:
             - invalid
-            - "null"
-          type: string
-          description: |-
-            * `invalid` - invalid
-            * `null` - null
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
-    UsersPartialUpdateGroupsNonFieldErrorsErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - groups.non_field_errors
-          type: string
-          description: "* `groups.non_field_errors` - groups.non_field_errors"
-        code:
-          enum:
             - not_a_list
             - "null"
           type: string
           description: |-
+            * `does_not_exist` - does_not_exist
+            * `invalid` - invalid
             * `not_a_list` - not_a_list
             * `null` - null
         detail:

@@ -1,12 +1,12 @@
 /**
  * User / UserList from /api/v1/users
  * Create: name, phone_number, optional email (password system-generated).
- * Admin PATCH: is_active, groups[{id}], sites[id] (replaces assignments).
+ * Admin PATCH: is_active, groups[name], sites[id] (replaces assignments).
  * Profile PATCH: name, email, phone_number.
  */
 
 import { z } from 'zod'
-import { ROLE_NAMES } from '../../utils/permissions.js'
+import { ROLE_NAMES, groupLabelBn } from '../../utils/permissions.js'
 
 const optionalEmail = z
   .string()
@@ -39,7 +39,7 @@ export const userCreateSchema = z.object({
 /** Admin user PATCH — only is_active + assignment replace. */
 export const userAdminUpdateSchema = z.object({
   is_active: z.boolean(),
-  groups: z.array(z.number().int()),
+  groups: z.array(z.string().min(1)),
   sites: z.array(z.number().int()),
 })
 
@@ -53,7 +53,9 @@ export const toUserCreatePayload = ({ name, phone_number, email }) => ({
 
 export const toUserAdminUpdatePayload = ({ is_active, groups, sites }) => ({
   is_active: Boolean(is_active),
-  groups: (groups ?? []).map((id) => ({ id: Number(id) })),
+  groups: (groups ?? [])
+    .map((g) => String(g ?? '').trim())
+    .filter(Boolean),
   sites: (sites ?? []).map((id) => Number(id)),
 })
 
@@ -63,12 +65,15 @@ export const toProfileUpdatePayload = ({ name, phone_number, email }) => ({
   email: email?.trim() ? email.trim() : null,
 })
 
-/** Normalize API groups (objects or ids) → number[]. */
-export const normalizeGroupIds = (groups) =>
+/** Normalize API groups (objects or names) → string[]. */
+export const normalizeGroupNames = (groups) =>
   (Array.isArray(groups) ? groups : [])
-    .map((g) => (typeof g === 'object' && g != null ? g.id : g))
-    .filter((id) => id != null && id !== '')
-    .map(Number)
+    .map((g) => {
+      if (typeof g === 'string') return g.trim()
+      if (g && typeof g === 'object' && g.name != null) return String(g.name).trim()
+      return ''
+    })
+    .filter(Boolean)
 
 /** Normalize API sites (objects or ids) → number[]. */
 export const normalizeSiteIds = (sites) =>
@@ -77,22 +82,12 @@ export const normalizeSiteIds = (sites) =>
     .filter((id) => id != null && id !== '')
     .map(Number)
 
-/**
- * Build { id, name } options for the three assignable roles.
- * IDs are discovered from any known group lists (no public catalog endpoint).
- */
-export const buildAssignableGroups = (...groupLists) => {
-  const byName = new Map()
-  for (const list of groupLists) {
-    for (const g of Array.isArray(list) ? list : []) {
-      if (g?.name && g?.id != null) byName.set(g.name, Number(g.id))
-    }
-  }
-  return ASSIGNABLE_GROUP_NAMES.map((name) => ({
+/** Fixed role options — PATCH assigns by English group name. */
+export const buildAssignableGroups = () =>
+  ASSIGNABLE_GROUP_NAMES.map((name) => ({
     name,
-    id: byName.get(name) ?? null,
+    label: groupLabelBn(name),
   }))
-}
 
 export const userStatusLabel = (user) => {
   if (!user) return '—'
