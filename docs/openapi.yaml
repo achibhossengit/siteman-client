@@ -8625,478 +8625,13 @@ paths:
           description: ""
         "204":
           description: No response body
-  /api/v1/sites/{site_pk}/users:
-    get:
-      operationId: sites_users_list
-      description: |-
-        Nested under ``/sites/<site_pk>/users``.
-
-        Assign with ``{"user": id}``. Authz: ``accounts.UserSite`` model perms only.
-      parameters:
-        - in: path
-          name: site_pk
-          schema:
-            type: integer
-          required: true
-      tags:
-        - sites
-      security:
-        - jwtAuth: []
-      responses:
-        "400":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SitesUsersListErrorResponse400"
-          description: ""
-        "401":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse401"
-              examples:
-                AuthenticationFailed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: authentication_failed
-                        detail: Incorrect authentication credentials.
-                        attr: null
-                NotAuthenticated:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_authenticated
-                        detail: Authentication credentials were not provided.
-                        attr: null
-          description: ""
-        "403":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse403"
-              examples:
-                PermissionDenied:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: permission_denied
-                        detail: You do not have permission to perform this action.
-                        attr: null
-          description: ""
-        "404":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse404"
-              examples:
-                NotFound:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_found
-                        detail: Not found.
-                        attr: null
-          description: ""
-        "405":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse405"
-              examples:
-                MethodNotAllowed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: method_not_allowed
-                        detail: Method "get" not allowed.
-                        attr: null
-          description: ""
-        "406":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse406"
-              examples:
-                NotAcceptable:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_acceptable
-                        detail: Could not satisfy the request Accept header.
-                        attr: null
-          description: ""
-        "415":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse415"
-              examples:
-                UnsupportedMediaType:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: unsupported_media_type
-                        detail: Unsupported media type "application/json" in request.
-                        attr: null
-          description: ""
-        "429":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse429"
-              examples:
-                Throttled:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: throttled
-                        detail: Request was throttled.
-                        attr: null
-          description: ""
-        "500":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse500"
-              examples:
-                APIException:
-                  value:
-                    type: server_error
-                    errors:
-                      - code: error
-                        detail: A server error occurred.
-                        attr: null
-          description: ""
-        "200":
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/SiteUser"
-          description: ""
-    post:
-      operationId: sites_users_create
-      description: |-
-        Nested under ``/sites/<site_pk>/users``.
-
-        Assign with ``{"user": id}``. Authz: ``accounts.UserSite`` model perms only.
-      parameters:
-        - in: path
-          name: site_pk
-          schema:
-            type: integer
-          required: true
-      tags:
-        - sites
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SiteUser"
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: "#/components/schemas/SiteUser"
-          multipart/form-data:
-            schema:
-              $ref: "#/components/schemas/SiteUser"
-        required: true
-      security:
-        - jwtAuth: []
-      responses:
-        "400":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SitesUsersCreateErrorResponse400"
-          description: ""
-        "401":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse401"
-              examples:
-                AuthenticationFailed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: authentication_failed
-                        detail: Incorrect authentication credentials.
-                        attr: null
-                NotAuthenticated:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_authenticated
-                        detail: Authentication credentials were not provided.
-                        attr: null
-          description: ""
-        "403":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse403"
-              examples:
-                PermissionDenied:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: permission_denied
-                        detail: You do not have permission to perform this action.
-                        attr: null
-          description: ""
-        "404":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse404"
-              examples:
-                NotFound:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_found
-                        detail: Not found.
-                        attr: null
-          description: ""
-        "405":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse405"
-              examples:
-                MethodNotAllowed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: method_not_allowed
-                        detail: Method "get" not allowed.
-                        attr: null
-          description: ""
-        "406":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse406"
-              examples:
-                NotAcceptable:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_acceptable
-                        detail: Could not satisfy the request Accept header.
-                        attr: null
-          description: ""
-        "415":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse415"
-              examples:
-                UnsupportedMediaType:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: unsupported_media_type
-                        detail: Unsupported media type "application/json" in request.
-                        attr: null
-          description: ""
-        "429":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse429"
-              examples:
-                Throttled:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: throttled
-                        detail: Request was throttled.
-                        attr: null
-          description: ""
-        "500":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse500"
-              examples:
-                APIException:
-                  value:
-                    type: server_error
-                    errors:
-                      - code: error
-                        detail: A server error occurred.
-                        attr: null
-          description: ""
-        "201":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SiteUser"
-          description: ""
-  /api/v1/sites/{site_pk}/users/{id}:
-    delete:
-      operationId: sites_users_destroy
-      description: |-
-        Nested under ``/sites/<site_pk>/users``.
-
-        Assign with ``{"user": id}``. Authz: ``accounts.UserSite`` model perms only.
-      parameters:
-        - in: path
-          name: id
-          schema:
-            type: integer
-          description: A unique integer value identifying this user site.
-          required: true
-        - in: path
-          name: site_pk
-          schema:
-            type: integer
-          required: true
-      tags:
-        - sites
-      security:
-        - jwtAuth: []
-      responses:
-        "400":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SitesUsersDestroyErrorResponse400"
-          description: ""
-        "401":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse401"
-              examples:
-                AuthenticationFailed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: authentication_failed
-                        detail: Incorrect authentication credentials.
-                        attr: null
-                NotAuthenticated:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_authenticated
-                        detail: Authentication credentials were not provided.
-                        attr: null
-          description: ""
-        "403":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse403"
-              examples:
-                PermissionDenied:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: permission_denied
-                        detail: You do not have permission to perform this action.
-                        attr: null
-          description: ""
-        "404":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse404"
-              examples:
-                NotFound:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_found
-                        detail: Not found.
-                        attr: null
-          description: ""
-        "405":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse405"
-              examples:
-                MethodNotAllowed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: method_not_allowed
-                        detail: Method "get" not allowed.
-                        attr: null
-          description: ""
-        "406":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse406"
-              examples:
-                NotAcceptable:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_acceptable
-                        detail: Could not satisfy the request Accept header.
-                        attr: null
-          description: ""
-        "415":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse415"
-              examples:
-                UnsupportedMediaType:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: unsupported_media_type
-                        detail: Unsupported media type "application/json" in request.
-                        attr: null
-          description: ""
-        "429":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse429"
-              examples:
-                Throttled:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: throttled
-                        detail: Request was throttled.
-                        attr: null
-          description: ""
-        "500":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse500"
-              examples:
-                APIException:
-                  value:
-                    type: server_error
-                    errors:
-                      - code: error
-                        detail: A server error occurred.
-                        attr: null
-          description: ""
-        "204":
-          description: No response body
   /api/v1/users:
     get:
       operationId: users_list
       description: |-
         Company-scoped user management.
 
-        List / retrieve / create / patch. No delete (soft-delete later).
-        Create sets a random password (user resets via forgot-password).
-        Patch may update name, email, phone, is_active — not password.
-        Groups and sites are nested under this resource.
+        PATCH only updates ``is_active`` and replaces assigned ``groups`` and ``sites``.
       parameters:
         - in: query
           name: is_active
@@ -9255,23 +8790,20 @@ paths:
       description: |-
         Company-scoped user management.
 
-        List / retrieve / create / patch. No delete (soft-delete later).
-        Create sets a random password (user resets via forgot-password).
-        Patch may update name, email, phone, is_active — not password.
-        Groups and sites are nested under this resource.
+        PATCH only updates ``is_active`` and replaces assigned ``groups`` and ``sites``.
       tags:
         - users
       requestBody:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/User"
+              $ref: "#/components/schemas/UserCreate"
           application/x-www-form-urlencoded:
             schema:
-              $ref: "#/components/schemas/User"
+              $ref: "#/components/schemas/UserCreate"
           multipart/form-data:
             schema:
-              $ref: "#/components/schemas/User"
+              $ref: "#/components/schemas/UserCreate"
         required: true
       security:
         - jwtAuth: []
@@ -9405,7 +8937,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/User"
+                $ref: "#/components/schemas/UserCreate"
           description: ""
   /api/v1/users/{id}:
     get:
@@ -9413,10 +8945,7 @@ paths:
       description: |-
         Company-scoped user management.
 
-        List / retrieve / create / patch. No delete (soft-delete later).
-        Create sets a random password (user resets via forgot-password).
-        Patch may update name, email, phone, is_active — not password.
-        Groups and sites are nested under this resource.
+        PATCH only updates ``is_active`` and replaces assigned ``groups`` and ``sites``.
       parameters:
         - in: path
           name: id
@@ -9558,17 +9087,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/User"
+                $ref: "#/components/schemas/UserProfile"
           description: ""
     patch:
       operationId: users_partial_update
       description: |-
         Company-scoped user management.
 
-        List / retrieve / create / patch. No delete (soft-delete later).
-        Create sets a random password (user resets via forgot-password).
-        Patch may update name, email, phone, is_active — not password.
-        Groups and sites are nested under this resource.
+        PATCH only updates ``is_active`` and replaces assigned ``groups`` and ``sites``.
       parameters:
         - in: path
           name: id
@@ -9582,13 +9108,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/PatchedUser"
+              $ref: "#/components/schemas/PatchedUserUpdate"
           application/x-www-form-urlencoded:
             schema:
-              $ref: "#/components/schemas/PatchedUser"
+              $ref: "#/components/schemas/PatchedUserUpdate"
           multipart/form-data:
             schema:
-              $ref: "#/components/schemas/PatchedUser"
+              $ref: "#/components/schemas/PatchedUserUpdate"
       security:
         - jwtAuth: []
       responses:
@@ -9721,935 +9247,8 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/User"
+                $ref: "#/components/schemas/UserUpdate"
           description: ""
-  /api/v1/users/{user_pk}/groups:
-    get:
-      operationId: users_groups_list
-      description: |-
-        Nested under ``/users/<user_pk>/groups``.
-
-        List assigned role groups, assign a new one, or remove an assignment.
-        Uses Django ``auth.Group`` model permissions (view/add/delete_group).
-      parameters:
-        - in: path
-          name: user_pk
-          schema:
-            type: string
-          required: true
-      tags:
-        - users
-      security:
-        - jwtAuth: []
-      responses:
-        "400":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UsersGroupsListErrorResponse400"
-          description: ""
-        "401":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse401"
-              examples:
-                AuthenticationFailed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: authentication_failed
-                        detail: Incorrect authentication credentials.
-                        attr: null
-                NotAuthenticated:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_authenticated
-                        detail: Authentication credentials were not provided.
-                        attr: null
-          description: ""
-        "403":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse403"
-              examples:
-                PermissionDenied:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: permission_denied
-                        detail: You do not have permission to perform this action.
-                        attr: null
-          description: ""
-        "404":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse404"
-              examples:
-                NotFound:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_found
-                        detail: Not found.
-                        attr: null
-          description: ""
-        "405":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse405"
-              examples:
-                MethodNotAllowed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: method_not_allowed
-                        detail: Method "get" not allowed.
-                        attr: null
-          description: ""
-        "406":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse406"
-              examples:
-                NotAcceptable:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_acceptable
-                        detail: Could not satisfy the request Accept header.
-                        attr: null
-          description: ""
-        "415":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse415"
-              examples:
-                UnsupportedMediaType:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: unsupported_media_type
-                        detail: Unsupported media type "application/json" in request.
-                        attr: null
-          description: ""
-        "429":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse429"
-              examples:
-                Throttled:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: throttled
-                        detail: Request was throttled.
-                        attr: null
-          description: ""
-        "500":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse500"
-              examples:
-                APIException:
-                  value:
-                    type: server_error
-                    errors:
-                      - code: error
-                        detail: A server error occurred.
-                        attr: null
-          description: ""
-        "200":
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/UserGroup"
-          description: ""
-    post:
-      operationId: users_groups_create
-      description: |-
-        Nested under ``/users/<user_pk>/groups``.
-
-        List assigned role groups, assign a new one, or remove an assignment.
-        Uses Django ``auth.Group`` model permissions (view/add/delete_group).
-      parameters:
-        - in: path
-          name: user_pk
-          schema:
-            type: string
-          required: true
-      tags:
-        - users
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UserGroup"
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: "#/components/schemas/UserGroup"
-          multipart/form-data:
-            schema:
-              $ref: "#/components/schemas/UserGroup"
-        required: true
-      security:
-        - jwtAuth: []
-      responses:
-        "400":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UsersGroupsCreateErrorResponse400"
-          description: ""
-        "401":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse401"
-              examples:
-                AuthenticationFailed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: authentication_failed
-                        detail: Incorrect authentication credentials.
-                        attr: null
-                NotAuthenticated:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_authenticated
-                        detail: Authentication credentials were not provided.
-                        attr: null
-          description: ""
-        "403":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse403"
-              examples:
-                PermissionDenied:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: permission_denied
-                        detail: You do not have permission to perform this action.
-                        attr: null
-          description: ""
-        "404":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse404"
-              examples:
-                NotFound:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_found
-                        detail: Not found.
-                        attr: null
-          description: ""
-        "405":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse405"
-              examples:
-                MethodNotAllowed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: method_not_allowed
-                        detail: Method "get" not allowed.
-                        attr: null
-          description: ""
-        "406":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse406"
-              examples:
-                NotAcceptable:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_acceptable
-                        detail: Could not satisfy the request Accept header.
-                        attr: null
-          description: ""
-        "415":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse415"
-              examples:
-                UnsupportedMediaType:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: unsupported_media_type
-                        detail: Unsupported media type "application/json" in request.
-                        attr: null
-          description: ""
-        "429":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse429"
-              examples:
-                Throttled:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: throttled
-                        detail: Request was throttled.
-                        attr: null
-          description: ""
-        "500":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse500"
-              examples:
-                APIException:
-                  value:
-                    type: server_error
-                    errors:
-                      - code: error
-                        detail: A server error occurred.
-                        attr: null
-          description: ""
-        "201":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UserGroup"
-          description: ""
-  /api/v1/users/{user_pk}/groups/{id}:
-    delete:
-      operationId: users_groups_destroy
-      description: |-
-        Nested under ``/users/<user_pk>/groups``.
-
-        List assigned role groups, assign a new one, or remove an assignment.
-        Uses Django ``auth.Group`` model permissions (view/add/delete_group).
-      parameters:
-        - in: path
-          name: id
-          schema:
-            type: integer
-          description: A unique integer value identifying this group.
-          required: true
-        - in: path
-          name: user_pk
-          schema:
-            type: string
-          required: true
-      tags:
-        - users
-      security:
-        - jwtAuth: []
-      responses:
-        "400":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UsersGroupsDestroyErrorResponse400"
-          description: ""
-        "401":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse401"
-              examples:
-                AuthenticationFailed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: authentication_failed
-                        detail: Incorrect authentication credentials.
-                        attr: null
-                NotAuthenticated:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_authenticated
-                        detail: Authentication credentials were not provided.
-                        attr: null
-          description: ""
-        "403":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse403"
-              examples:
-                PermissionDenied:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: permission_denied
-                        detail: You do not have permission to perform this action.
-                        attr: null
-          description: ""
-        "404":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse404"
-              examples:
-                NotFound:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_found
-                        detail: Not found.
-                        attr: null
-          description: ""
-        "405":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse405"
-              examples:
-                MethodNotAllowed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: method_not_allowed
-                        detail: Method "get" not allowed.
-                        attr: null
-          description: ""
-        "406":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse406"
-              examples:
-                NotAcceptable:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_acceptable
-                        detail: Could not satisfy the request Accept header.
-                        attr: null
-          description: ""
-        "415":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse415"
-              examples:
-                UnsupportedMediaType:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: unsupported_media_type
-                        detail: Unsupported media type "application/json" in request.
-                        attr: null
-          description: ""
-        "429":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse429"
-              examples:
-                Throttled:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: throttled
-                        detail: Request was throttled.
-                        attr: null
-          description: ""
-        "500":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse500"
-              examples:
-                APIException:
-                  value:
-                    type: server_error
-                    errors:
-                      - code: error
-                        detail: A server error occurred.
-                        attr: null
-          description: ""
-        "204":
-          description: No response body
-  /api/v1/users/{user_pk}/sites:
-    get:
-      operationId: users_sites_list
-      description: |-
-        Nested under ``/users/<user_pk>/sites``.
-
-        Assign with ``{"site": id}``. Authz: ``accounts.UserSite`` model perms only.
-      parameters:
-        - in: path
-          name: user_pk
-          schema:
-            type: integer
-          required: true
-      tags:
-        - users
-      security:
-        - jwtAuth: []
-      responses:
-        "400":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UsersSitesListErrorResponse400"
-          description: ""
-        "401":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse401"
-              examples:
-                AuthenticationFailed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: authentication_failed
-                        detail: Incorrect authentication credentials.
-                        attr: null
-                NotAuthenticated:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_authenticated
-                        detail: Authentication credentials were not provided.
-                        attr: null
-          description: ""
-        "403":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse403"
-              examples:
-                PermissionDenied:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: permission_denied
-                        detail: You do not have permission to perform this action.
-                        attr: null
-          description: ""
-        "404":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse404"
-              examples:
-                NotFound:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_found
-                        detail: Not found.
-                        attr: null
-          description: ""
-        "405":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse405"
-              examples:
-                MethodNotAllowed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: method_not_allowed
-                        detail: Method "get" not allowed.
-                        attr: null
-          description: ""
-        "406":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse406"
-              examples:
-                NotAcceptable:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_acceptable
-                        detail: Could not satisfy the request Accept header.
-                        attr: null
-          description: ""
-        "415":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse415"
-              examples:
-                UnsupportedMediaType:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: unsupported_media_type
-                        detail: Unsupported media type "application/json" in request.
-                        attr: null
-          description: ""
-        "429":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse429"
-              examples:
-                Throttled:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: throttled
-                        detail: Request was throttled.
-                        attr: null
-          description: ""
-        "500":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse500"
-              examples:
-                APIException:
-                  value:
-                    type: server_error
-                    errors:
-                      - code: error
-                        detail: A server error occurred.
-                        attr: null
-          description: ""
-        "200":
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/UserSite"
-          description: ""
-    post:
-      operationId: users_sites_create
-      description: |-
-        Nested under ``/users/<user_pk>/sites``.
-
-        Assign with ``{"site": id}``. Authz: ``accounts.UserSite`` model perms only.
-      parameters:
-        - in: path
-          name: user_pk
-          schema:
-            type: integer
-          required: true
-      tags:
-        - users
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UserSite"
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: "#/components/schemas/UserSite"
-          multipart/form-data:
-            schema:
-              $ref: "#/components/schemas/UserSite"
-        required: true
-      security:
-        - jwtAuth: []
-      responses:
-        "400":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UsersSitesCreateErrorResponse400"
-          description: ""
-        "401":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse401"
-              examples:
-                AuthenticationFailed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: authentication_failed
-                        detail: Incorrect authentication credentials.
-                        attr: null
-                NotAuthenticated:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_authenticated
-                        detail: Authentication credentials were not provided.
-                        attr: null
-          description: ""
-        "403":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse403"
-              examples:
-                PermissionDenied:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: permission_denied
-                        detail: You do not have permission to perform this action.
-                        attr: null
-          description: ""
-        "404":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse404"
-              examples:
-                NotFound:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_found
-                        detail: Not found.
-                        attr: null
-          description: ""
-        "405":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse405"
-              examples:
-                MethodNotAllowed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: method_not_allowed
-                        detail: Method "get" not allowed.
-                        attr: null
-          description: ""
-        "406":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse406"
-              examples:
-                NotAcceptable:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_acceptable
-                        detail: Could not satisfy the request Accept header.
-                        attr: null
-          description: ""
-        "415":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse415"
-              examples:
-                UnsupportedMediaType:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: unsupported_media_type
-                        detail: Unsupported media type "application/json" in request.
-                        attr: null
-          description: ""
-        "429":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse429"
-              examples:
-                Throttled:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: throttled
-                        detail: Request was throttled.
-                        attr: null
-          description: ""
-        "500":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse500"
-              examples:
-                APIException:
-                  value:
-                    type: server_error
-                    errors:
-                      - code: error
-                        detail: A server error occurred.
-                        attr: null
-          description: ""
-        "201":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UserSite"
-          description: ""
-  /api/v1/users/{user_pk}/sites/{id}:
-    delete:
-      operationId: users_sites_destroy
-      description: |-
-        Nested under ``/users/<user_pk>/sites``.
-
-        Assign with ``{"site": id}``. Authz: ``accounts.UserSite`` model perms only.
-      parameters:
-        - in: path
-          name: id
-          schema:
-            type: integer
-          description: A unique integer value identifying this user site.
-          required: true
-        - in: path
-          name: user_pk
-          schema:
-            type: integer
-          required: true
-      tags:
-        - users
-      security:
-        - jwtAuth: []
-      responses:
-        "400":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UsersSitesDestroyErrorResponse400"
-          description: ""
-        "401":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse401"
-              examples:
-                AuthenticationFailed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: authentication_failed
-                        detail: Incorrect authentication credentials.
-                        attr: null
-                NotAuthenticated:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_authenticated
-                        detail: Authentication credentials were not provided.
-                        attr: null
-          description: ""
-        "403":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse403"
-              examples:
-                PermissionDenied:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: permission_denied
-                        detail: You do not have permission to perform this action.
-                        attr: null
-          description: ""
-        "404":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse404"
-              examples:
-                NotFound:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_found
-                        detail: Not found.
-                        attr: null
-          description: ""
-        "405":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse405"
-              examples:
-                MethodNotAllowed:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: method_not_allowed
-                        detail: Method "get" not allowed.
-                        attr: null
-          description: ""
-        "406":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse406"
-              examples:
-                NotAcceptable:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: not_acceptable
-                        detail: Could not satisfy the request Accept header.
-                        attr: null
-          description: ""
-        "415":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse415"
-              examples:
-                UnsupportedMediaType:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: unsupported_media_type
-                        detail: Unsupported media type "application/json" in request.
-                        attr: null
-          description: ""
-        "429":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse429"
-              examples:
-                Throttled:
-                  value:
-                    type: client_error
-                    errors:
-                      - code: throttled
-                        detail: Request was throttled.
-                        attr: null
-          description: ""
-        "500":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse500"
-              examples:
-                APIException:
-                  value:
-                    type: server_error
-                    errors:
-                      - code: error
-                        detail: A server error occurred.
-                        attr: null
-          description: ""
-        "204":
-          description: No response body
 components:
   schemas:
     Attendance:
@@ -15075,50 +13674,6 @@ components:
           type: string
           format: date-time
           readOnly: true
-    PatchedUser:
-      type: object
-      description: |-
-        Create / retrieve / partial update.
-
-        Create: name, phone, optional email — password is system-generated.
-        Patch: name, email, phone, is_active.
-        Password changes go through ``/auth/password/change`` or reset.
-      properties:
-        id:
-          type: integer
-          readOnly: true
-        name:
-          type: string
-          maxLength: 255
-        phone_number:
-          type: string
-          description: BD phone, normalized to +8801XXXXXXXXX.
-          maxLength: 14
-        email:
-          type: string
-          format: email
-          nullable: true
-          maxLength: 254
-        is_active:
-          type: boolean
-          readOnly: true
-        is_companyadmin:
-          type: boolean
-          readOnly: true
-          description: Company owner/admin; bypasses site assignment checks.
-        company:
-          type: integer
-          readOnly: true
-          nullable: true
-          description: Null for system-scope users.
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
     PatchedUserProfile:
       type: object
       description: |-
@@ -15164,6 +13719,22 @@ components:
         sites:
           type: string
           readOnly: true
+    PatchedUserUpdate:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        is_active:
+          type: boolean
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserGroup"
+        sites:
+          type: array
+          items:
+            type: integer
     PresentEnum:
       enum:
         - 0
@@ -15896,32 +14467,6 @@ components:
       required:
         - id
         - name
-    SiteUser:
-      type: object
-      description: "List/create under ``/sites/<site_pk>/users`` (body: ``user``)."
-      properties:
-        id:
-          type: integer
-          readOnly: true
-        user:
-          type: integer
-        site:
-          type: integer
-          readOnly: true
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
-      required:
-        - created_at
-        - id
-        - site
-        - updated_at
-        - user
     SitesBillingCategoriesCreateDisplayOrderErrorComponent:
       type: object
       properties:
@@ -18230,98 +16775,6 @@ components:
         propertyName: type
         mapping:
           client_error: "#/components/schemas/ParseErrorResponse"
-    SitesUsersCreateError:
-      oneOf:
-        - $ref: "#/components/schemas/SitesUsersCreateNonFieldErrorsErrorComponent"
-        - $ref: "#/components/schemas/SitesUsersCreateUserErrorComponent"
-      discriminator:
-        propertyName: attr
-        mapping:
-          non_field_errors: "#/components/schemas/SitesUsersCreateNonFieldErrorsErrorComponent"
-          user: "#/components/schemas/SitesUsersCreateUserErrorComponent"
-    SitesUsersCreateErrorResponse400:
-      oneOf:
-        - $ref: "#/components/schemas/SitesUsersCreateValidationError"
-        - $ref: "#/components/schemas/ParseErrorResponse"
-      discriminator:
-        propertyName: type
-        mapping:
-          validation_error: "#/components/schemas/SitesUsersCreateValidationError"
-          client_error: "#/components/schemas/ParseErrorResponse"
-    SitesUsersCreateNonFieldErrorsErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - non_field_errors
-          type: string
-          description: "* `non_field_errors` - non_field_errors"
-        code:
-          enum:
-            - invalid
-            - "null"
-          type: string
-          description: |-
-            * `invalid` - invalid
-            * `null` - null
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
-    SitesUsersCreateUserErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - user
-          type: string
-          description: "* `user` - user"
-        code:
-          enum:
-            - does_not_exist
-            - incorrect_type
-            - "null"
-            - required
-          type: string
-          description: |-
-            * `does_not_exist` - does_not_exist
-            * `incorrect_type` - incorrect_type
-            * `null` - null
-            * `required` - required
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
-    SitesUsersCreateValidationError:
-      type: object
-      properties:
-        type:
-          $ref: "#/components/schemas/ValidationErrorEnum"
-        errors:
-          type: array
-          items:
-            $ref: "#/components/schemas/SitesUsersCreateError"
-      required:
-        - errors
-        - type
-    SitesUsersDestroyErrorResponse400:
-      oneOf:
-        - $ref: "#/components/schemas/ParseErrorResponse"
-      discriminator:
-        propertyName: type
-        mapping:
-          client_error: "#/components/schemas/ParseErrorResponse"
-    SitesUsersListErrorResponse400:
-      oneOf:
-        - $ref: "#/components/schemas/ParseErrorResponse"
-      discriminator:
-        propertyName: type
-        mapping:
-          client_error: "#/components/schemas/ParseErrorResponse"
     Type2c4Enum:
       enum:
         - deposit
@@ -18348,14 +16801,8 @@ components:
       description: |-
         * `payment` - Payment
         * `return` - Return
-    User:
+    UserCreate:
       type: object
-      description: |-
-        Create / retrieve / partial update.
-
-        Create: name, phone, optional email — password is system-generated.
-        Patch: name, email, phone, is_active.
-        Password changes go through ``/auth/password/change`` or reset.
       properties:
         id:
           type: integer
@@ -18495,32 +16942,24 @@ components:
         - permissions
         - phone_number
         - sites
-    UserSite:
+    UserUpdate:
       type: object
-      description: "List/create under ``/users/<user_pk>/sites`` (body: ``site``)."
       properties:
         id:
           type: integer
           readOnly: true
-        user:
-          type: integer
-          readOnly: true
-        site:
-          type: integer
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
+        is_active:
+          type: boolean
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserGroup"
+        sites:
+          type: array
+          items:
+            type: integer
       required:
-        - created_at
         - id
-        - site
-        - updated_at
-        - user
     UsersCreateEmailErrorComponent:
       type: object
       properties:
@@ -18669,98 +17108,6 @@ components:
       required:
         - errors
         - type
-    UsersGroupsCreateError:
-      oneOf:
-        - $ref: "#/components/schemas/UsersGroupsCreateNonFieldErrorsErrorComponent"
-        - $ref: "#/components/schemas/UsersGroupsCreateIdErrorComponent"
-      discriminator:
-        propertyName: attr
-        mapping:
-          non_field_errors: "#/components/schemas/UsersGroupsCreateNonFieldErrorsErrorComponent"
-          id: "#/components/schemas/UsersGroupsCreateIdErrorComponent"
-    UsersGroupsCreateErrorResponse400:
-      oneOf:
-        - $ref: "#/components/schemas/UsersGroupsCreateValidationError"
-        - $ref: "#/components/schemas/ParseErrorResponse"
-      discriminator:
-        propertyName: type
-        mapping:
-          validation_error: "#/components/schemas/UsersGroupsCreateValidationError"
-          client_error: "#/components/schemas/ParseErrorResponse"
-    UsersGroupsCreateIdErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - id
-          type: string
-          description: "* `id` - id"
-        code:
-          enum:
-            - does_not_exist
-            - incorrect_type
-            - "null"
-            - required
-          type: string
-          description: |-
-            * `does_not_exist` - does_not_exist
-            * `incorrect_type` - incorrect_type
-            * `null` - null
-            * `required` - required
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
-    UsersGroupsCreateNonFieldErrorsErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - non_field_errors
-          type: string
-          description: "* `non_field_errors` - non_field_errors"
-        code:
-          enum:
-            - invalid
-            - "null"
-          type: string
-          description: |-
-            * `invalid` - invalid
-            * `null` - null
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
-    UsersGroupsCreateValidationError:
-      type: object
-      properties:
-        type:
-          $ref: "#/components/schemas/ValidationErrorEnum"
-        errors:
-          type: array
-          items:
-            $ref: "#/components/schemas/UsersGroupsCreateError"
-      required:
-        - errors
-        - type
-    UsersGroupsDestroyErrorResponse400:
-      oneOf:
-        - $ref: "#/components/schemas/ParseErrorResponse"
-      discriminator:
-        propertyName: type
-        mapping:
-          client_error: "#/components/schemas/ParseErrorResponse"
-    UsersGroupsListErrorResponse400:
-      oneOf:
-        - $ref: "#/components/schemas/ParseErrorResponse"
-      discriminator:
-        propertyName: type
-        mapping:
-          client_error: "#/components/schemas/ParseErrorResponse"
     UsersListError:
       oneOf: []
       discriminator:
@@ -18787,45 +17134,23 @@ components:
       required:
         - errors
         - type
-    UsersPartialUpdateEmailErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - email
-          type: string
-          description: "* `email` - email"
-        code:
-          enum:
-            - invalid
-            - max_length
-            - null_characters_not_allowed
-            - surrogate_characters_not_allowed
-          type: string
-          description: |-
-            * `invalid` - invalid
-            * `max_length` - max_length
-            * `null_characters_not_allowed` - null_characters_not_allowed
-            * `surrogate_characters_not_allowed` - surrogate_characters_not_allowed
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
     UsersPartialUpdateError:
       oneOf:
         - $ref: "#/components/schemas/UsersPartialUpdateNonFieldErrorsErrorComponent"
-        - $ref: "#/components/schemas/UsersPartialUpdateNameErrorComponent"
-        - $ref: "#/components/schemas/UsersPartialUpdatePhoneNumberErrorComponent"
-        - $ref: "#/components/schemas/UsersPartialUpdateEmailErrorComponent"
+        - $ref: "#/components/schemas/UsersPartialUpdateIsActiveErrorComponent"
+        - $ref: "#/components/schemas/UsersPartialUpdateGroupsNonFieldErrorsErrorComponent"
+        - $ref: "#/components/schemas/UsersPartialUpdateGroupsINDEXNonFieldErrorsErrorComponent"
+        - $ref: "#/components/schemas/UsersPartialUpdateGroupsINDEXIdErrorComponent"
+        - $ref: "#/components/schemas/UsersPartialUpdateSitesErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
           non_field_errors: "#/components/schemas/UsersPartialUpdateNonFieldErrorsErrorComponent"
-          name: "#/components/schemas/UsersPartialUpdateNameErrorComponent"
-          phone_number: "#/components/schemas/UsersPartialUpdatePhoneNumberErrorComponent"
-          email: "#/components/schemas/UsersPartialUpdateEmailErrorComponent"
+          is_active: "#/components/schemas/UsersPartialUpdateIsActiveErrorComponent"
+          groups.non_field_errors: "#/components/schemas/UsersPartialUpdateGroupsNonFieldErrorsErrorComponent"
+          groups.INDEX.non_field_errors: "#/components/schemas/UsersPartialUpdateGroupsINDEXNonFieldErrorsErrorComponent"
+          groups.INDEX.id: "#/components/schemas/UsersPartialUpdateGroupsINDEXIdErrorComponent"
+          sites: "#/components/schemas/UsersPartialUpdateSitesErrorComponent"
     UsersPartialUpdateErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/UsersPartialUpdateValidationError"
@@ -18835,32 +17160,92 @@ components:
         mapping:
           validation_error: "#/components/schemas/UsersPartialUpdateValidationError"
           client_error: "#/components/schemas/ParseErrorResponse"
-    UsersPartialUpdateNameErrorComponent:
+    UsersPartialUpdateGroupsINDEXIdErrorComponent:
       type: object
       properties:
         attr:
           enum:
-            - name
+            - groups.INDEX.id
           type: string
-          description: "* `name` - name"
+          description: "* `groups.INDEX.id` - groups.INDEX.id"
         code:
           enum:
-            - blank
-            - invalid
-            - max_length
+            - does_not_exist
+            - incorrect_type
             - "null"
-            - null_characters_not_allowed
             - required
-            - surrogate_characters_not_allowed
           type: string
           description: |-
-            * `blank` - blank
-            * `invalid` - invalid
-            * `max_length` - max_length
+            * `does_not_exist` - does_not_exist
+            * `incorrect_type` - incorrect_type
             * `null` - null
-            * `null_characters_not_allowed` - null_characters_not_allowed
             * `required` - required
-            * `surrogate_characters_not_allowed` - surrogate_characters_not_allowed
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    UsersPartialUpdateGroupsINDEXNonFieldErrorsErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - groups.INDEX.non_field_errors
+          type: string
+          description: "* `groups.INDEX.non_field_errors` - groups.INDEX.non_field_errors"
+        code:
+          enum:
+            - invalid
+            - "null"
+          type: string
+          description: |-
+            * `invalid` - invalid
+            * `null` - null
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    UsersPartialUpdateGroupsNonFieldErrorsErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - groups.non_field_errors
+          type: string
+          description: "* `groups.non_field_errors` - groups.non_field_errors"
+        code:
+          enum:
+            - not_a_list
+            - "null"
+          type: string
+          description: |-
+            * `not_a_list` - not_a_list
+            * `null` - null
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    UsersPartialUpdateIsActiveErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - is_active
+          type: string
+          description: "* `is_active` - is_active"
+        code:
+          enum:
+            - invalid
+            - "null"
+          type: string
+          description: |-
+            * `invalid` - invalid
+            * `null` - null
         detail:
           type: string
       required:
@@ -18879,44 +17264,36 @@ components:
           enum:
             - invalid
             - "null"
-            - unique
           type: string
           description: |-
             * `invalid` - invalid
             * `null` - null
-            * `unique` - unique
         detail:
           type: string
       required:
         - attr
         - code
         - detail
-    UsersPartialUpdatePhoneNumberErrorComponent:
+    UsersPartialUpdateSitesErrorComponent:
       type: object
       properties:
         attr:
           enum:
-            - phone_number
+            - sites
           type: string
-          description: "* `phone_number` - phone_number"
+          description: "* `sites` - sites"
         code:
           enum:
-            - blank
-            - invalid
-            - max_length
+            - does_not_exist
+            - incorrect_type
+            - not_a_list
             - "null"
-            - null_characters_not_allowed
-            - required
-            - surrogate_characters_not_allowed
           type: string
           description: |-
-            * `blank` - blank
-            * `invalid` - invalid
-            * `max_length` - max_length
+            * `does_not_exist` - does_not_exist
+            * `incorrect_type` - incorrect_type
+            * `not_a_list` - not_a_list
             * `null` - null
-            * `null_characters_not_allowed` - null_characters_not_allowed
-            * `required` - required
-            * `surrogate_characters_not_allowed` - surrogate_characters_not_allowed
         detail:
           type: string
       required:
@@ -18936,98 +17313,6 @@ components:
         - errors
         - type
     UsersRetrieveErrorResponse400:
-      oneOf:
-        - $ref: "#/components/schemas/ParseErrorResponse"
-      discriminator:
-        propertyName: type
-        mapping:
-          client_error: "#/components/schemas/ParseErrorResponse"
-    UsersSitesCreateError:
-      oneOf:
-        - $ref: "#/components/schemas/UsersSitesCreateNonFieldErrorsErrorComponent"
-        - $ref: "#/components/schemas/UsersSitesCreateSiteErrorComponent"
-      discriminator:
-        propertyName: attr
-        mapping:
-          non_field_errors: "#/components/schemas/UsersSitesCreateNonFieldErrorsErrorComponent"
-          site: "#/components/schemas/UsersSitesCreateSiteErrorComponent"
-    UsersSitesCreateErrorResponse400:
-      oneOf:
-        - $ref: "#/components/schemas/UsersSitesCreateValidationError"
-        - $ref: "#/components/schemas/ParseErrorResponse"
-      discriminator:
-        propertyName: type
-        mapping:
-          validation_error: "#/components/schemas/UsersSitesCreateValidationError"
-          client_error: "#/components/schemas/ParseErrorResponse"
-    UsersSitesCreateNonFieldErrorsErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - non_field_errors
-          type: string
-          description: "* `non_field_errors` - non_field_errors"
-        code:
-          enum:
-            - invalid
-            - "null"
-          type: string
-          description: |-
-            * `invalid` - invalid
-            * `null` - null
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
-    UsersSitesCreateSiteErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - site
-          type: string
-          description: "* `site` - site"
-        code:
-          enum:
-            - does_not_exist
-            - incorrect_type
-            - "null"
-            - required
-          type: string
-          description: |-
-            * `does_not_exist` - does_not_exist
-            * `incorrect_type` - incorrect_type
-            * `null` - null
-            * `required` - required
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
-    UsersSitesCreateValidationError:
-      type: object
-      properties:
-        type:
-          $ref: "#/components/schemas/ValidationErrorEnum"
-        errors:
-          type: array
-          items:
-            $ref: "#/components/schemas/UsersSitesCreateError"
-      required:
-        - errors
-        - type
-    UsersSitesDestroyErrorResponse400:
-      oneOf:
-        - $ref: "#/components/schemas/ParseErrorResponse"
-      discriminator:
-        propertyName: type
-        mapping:
-          client_error: "#/components/schemas/ParseErrorResponse"
-    UsersSitesListErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/ParseErrorResponse"
       discriminator:
