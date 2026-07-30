@@ -11,6 +11,7 @@ import {
 } from "../../api/types/site.js";
 import { parseApiError, applyFieldErrors } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
+import { DetailMenuButton } from "../../layouts/DetailLayout.jsx";
 import { useAuth } from "../../providers/AuthProvider.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { PERMS } from "../../utils/permissions.js";
@@ -36,7 +37,7 @@ const formatMetaDate = (iso) => {
 export const SiteDetailPage = () => {
   const { siteId } = useParams();
   const navigate = useNavigate();
-  const { setTitle } = useOutletContext();
+  const { setTitle, setHeaderMenu } = useOutletContext();
   const queryClient = useQueryClient();
   const { bootstrapProfile } = useAuth();
   const { can } = usePermissions();
@@ -71,6 +72,31 @@ export const SiteDetailPage = () => {
   const site = detailQuery.data;
 
   setTitle?.("সাইট বিবরণ");
+
+  useEffect(() => {
+    if (!siteId) {
+      setHeaderMenu?.(null);
+      return () => setHeaderMenu?.(null);
+    }
+    setHeaderMenu?.(
+      <DetailMenuButton>
+        <ul
+          tabIndex={0}
+          className="dropdown-content menu bg-base-100 rounded-box z-20 w-52 p-1 shadow-md border border-base-300"
+        >
+          <li>
+            <button
+              type="button"
+              onClick={() => navigate(paths.siteBilling(siteId))}
+            >
+              বিলিং ক্যাটাগরি
+            </button>
+          </li>
+        </ul>
+      </DetailMenuButton>,
+    );
+    return () => setHeaderMenu?.(null);
+  }, [siteId, navigate, setHeaderMenu]);
 
   useEffect(() => {
     if (site) reset(toFormValues(site));

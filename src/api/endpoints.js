@@ -21,6 +21,8 @@ export const endpoints = {
     cash: (id) => `/api/v1/sites/${id}/cash`,
     cashDetail: (siteId, cashId) => `/api/v1/sites/${siteId}/cash/${cashId}`,
     billingCategories: (id) => `/api/v1/sites/${id}/billing-categories`,
+    billingCategoryDetail: (siteId, id) =>
+      `/api/v1/sites/${siteId}/billing-categories/${id}`,
     labourAttendances: (id) => `/api/v1/sites/${id}/labour-attendances`,
     labourPayments: (id) => `/api/v1/sites/${id}/labour-payments`,
   },

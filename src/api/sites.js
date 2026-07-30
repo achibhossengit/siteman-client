@@ -68,6 +68,22 @@ export const deleteSiteCash = (siteId, cashId) =>
 export const fetchBillingCategories = (siteId, params = {}) =>
   api.get(endpoints.sites.billingCategories(siteId), { params })
 
+/** GET /sites/{site_pk}/billing-categories/{id} */
+export const fetchBillingCategoryDetail = (siteId, id) =>
+  api.get(endpoints.sites.billingCategoryDetail(siteId, id))
+
+/** POST /sites/{site_pk}/billing-categories */
+export const createBillingCategory = (siteId, payload) =>
+  api.post(endpoints.sites.billingCategories(siteId), payload)
+
+/** PATCH /sites/{site_pk}/billing-categories/{id} */
+export const updateBillingCategory = (siteId, id, payload) =>
+  api.patch(endpoints.sites.billingCategoryDetail(siteId, id), payload)
+
+/** DELETE /sites/{site_pk}/billing-categories/{id} */
+export const deleteBillingCategory = (siteId, id) =>
+  api.delete(endpoints.sites.billingCategoryDetail(siteId, id))
+
 /**
  * Site labour attendances list.
  * GET /sites/{site_pk}/labour-attendances — filters: date, labour, billing, is_sealed.
