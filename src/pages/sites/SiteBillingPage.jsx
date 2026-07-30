@@ -3,6 +3,23 @@ import { useOutletContext, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
 import {
   createBillingCategory,
@@ -39,6 +56,62 @@ const toFormValues = (row) => ({
   is_done: row?.is_done ?? false,
 })
 
+const sortByOrder = (rows) =>
+  [...(rows ?? [])].sort(
+    (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0),
+  )
+
+const withSequentialOrder = (rows) =>
+  rows.map((row, index) => ({ ...row, display_order: index }))
+
+const SortableBillingRow = ({ row, index, canReorder, onOpen }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: row.id,
+    disabled: !canReorder,
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.7 : undefined,
+    position: isDragging ? 'relative' : undefined,
+    zIndex: isDragging ? 10 : undefined,
+  }
+
+  return (
+    <tr
+      ref={setNodeRef}
+      style={style}
+      className={[
+        'border-b border-base-300/70 hover:bg-base-200/60',
+        canReorder ? 'cursor-grab active:cursor-grabbing touch-none' : 'cursor-pointer',
+        isDragging ? 'bg-base-200 shadow-md' : '',
+      ].join(' ')}
+      onClick={() => onOpen(row)}
+      {...(canReorder ? { ...attributes, ...listeners } : {})}
+    >
+      <td className="tabular-nums text-base-content/60 w-12">
+        {formatBnNumber(index + 1)}
+      </td>
+      <td className="font-medium">
+        <div className="truncate max-w-40 sm:max-w-none">{row.name}</div>
+      </td>
+      <td className="text-right">
+        <span className={`badge badge-sm ${billingStatusClass(row)}`}>
+          {billingStatusLabel(row)}
+        </span>
+      </td>
+    </tr>
+  )
+}
+
 export const SiteBillingPage = () => {
   const { siteId } = useParams()
   const { setTitle, setHeaderMenu } = useOutletContext()
@@ -51,6 +124,10 @@ export const SiteBillingPage = () => {
   const [editing, setEditing] = useState(false)
   const [confirmReady, setConfirmReady] = useState(false)
   const [apiError, setApiError] = useState(null)
+  const [listError, setListError] = useState(null)
+  const [rows, setRows] = useState([])
+  const [reordering, setReordering] = useState(false)
+  const skipOpenRef = useRef(false)
 
   const canView = can(PERMS.viewBillingCategory)
   const canAdd = can(PERMS.addBillingCategory)
@@ -65,11 +142,26 @@ export const SiteBillingPage = () => {
     handleSubmit,
     reset,
     setError,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(billingCategoryFormSchema),
     defaultValues: emptyValues,
   })
+
+  const isDoneValue = watch('is_done')
+  const isActiveValue = watch('is_active')
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 180, tolerance: 6 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  )
 
   const siteQuery = useQuery({
     queryKey: ['sites', siteId],
@@ -84,15 +176,16 @@ export const SiteBillingPage = () => {
     queryKey: ['sites', siteId, 'billing-categories'],
     queryFn: async () => {
       const { data } = await fetchBillingCategories(siteId)
-      const rows = Array.isArray(data) ? data : []
-      return [...rows].sort(
-        (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0),
-      )
+      return sortByOrder(Array.isArray(data) ? data : [])
     },
     enabled: Boolean(canView && siteId),
   })
 
   const siteName = siteQuery.data?.name
+
+  useEffect(() => {
+    if (listQuery.data) setRows(listQuery.data)
+  }, [listQuery.data])
 
   useEffect(() => {
     setTitle?.('বিলিং ক্যাটাগরি')
@@ -157,11 +250,18 @@ export const SiteBillingPage = () => {
     setCreating(true)
     setEditing(true)
     setConfirmReady(false)
-    reset(emptyValues)
+    reset({
+      ...emptyValues,
+      display_order: rows.length,
+    })
     dialogRef.current?.showModal()
   }
 
   const openDetail = (row) => {
+    if (skipOpenRef.current) {
+      skipOpenRef.current = false
+      return
+    }
     setApiError(null)
     setCreating(false)
     setEditing(false)
@@ -223,6 +323,61 @@ export const SiteBillingPage = () => {
     }
   }
 
+  const onDragStart = () => {
+    skipOpenRef.current = true
+  }
+
+  const onDragEnd = async (event) => {
+    const { active, over } = event
+
+    // Ignore the click that often follows a drag release.
+    window.setTimeout(() => {
+      skipOpenRef.current = false
+    }, 80)
+
+    if (!over || active.id === over.id || !canChange) return
+
+    const oldIndex = rows.findIndex((r) => r.id === active.id)
+    const newIndex = rows.findIndex((r) => r.id === over.id)
+    if (oldIndex < 0 || newIndex < 0) return
+
+    const previous = rows
+    const next = withSequentialOrder(arrayMove(rows, oldIndex, newIndex))
+    setRows(next)
+    setListError(null)
+    setReordering(true)
+
+    const prevById = new Map(previous.map((r) => [r.id, r]))
+    const toPatch = next.filter((row) => {
+      const prev = prevById.get(row.id)
+      return prev && prev.display_order !== row.display_order
+    })
+
+    try {
+      await Promise.all(
+        toPatch.map((row) =>
+          updateBillingCategory(siteId, row.id, {
+            display_order: row.display_order,
+          }),
+        ),
+      )
+      await queryClient.invalidateQueries({
+        queryKey: ['sites', siteId, 'billing-categories'],
+      })
+    } catch (err) {
+      setRows(previous)
+      setListError(parseApiError(err))
+    } finally {
+      setReordering(false)
+    }
+  }
+
+  const onDragCancel = () => {
+    window.setTimeout(() => {
+      skipOpenRef.current = false
+    }, 80)
+  }
+
   if (!canView) {
     return (
       <div className="text-sm text-error py-8 text-center">
@@ -247,7 +402,6 @@ export const SiteBillingPage = () => {
     return <ApiErrorAlert error={parseApiError(siteQuery.error)} />
   }
 
-  const rows = listQuery.data ?? []
   const disabled = !editing
   const busy = isSubmitting || saveMutation.isPending
   const fieldClass = (hasError) =>
@@ -257,61 +411,64 @@ export const SiteBillingPage = () => {
       disabled ? 'bg-base-100' : '',
     ].join(' ')
 
+  const canReorder = canChange && rows.length > 1 && !reordering
+
   return (
     <section className="relative min-h-full flex flex-col pb-20">
+      <ApiErrorAlert error={listError} className="mb-3" />
+
+      {reordering ? (
+        <div className="flex items-center gap-2 text-xs text-base-content/60 mb-2 px-1">
+          <span className="loading loading-spinner loading-xs" />
+          ক্রম আপডেট হচ্ছে…
+        </div>
+      ) : null}
+
       <div className="overflow-x-auto">
-        <table className="table table-sm sm:table-md w-full">
-          <thead>
-            <tr className="border-b border-base-300">
-              <th className="w-12">নং</th>
-              <th>নাম</th>
-              <th className="w-16 text-center hidden sm:table-cell">ক্রম</th>
-              <th className="w-28 text-right">স্ট্যাটাস</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={4}
-                  className="text-center text-sm text-base-content/60 py-10"
-                >
-                  কোনো বিলিং ক্যাটাগরি নেই।
-                </td>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          onDragCancel={onDragCancel}
+        >
+          <table className="table table-sm sm:table-md w-full">
+            <thead>
+              <tr className="border-b border-base-300">
+                <th className="w-12">নং</th>
+                <th>নাম</th>
+                <th className="w-28 text-right">স্ট্যাটাস</th>
               </tr>
-            ) : (
-              rows.map((row, index) => (
-                <tr
-                  key={row.id}
-                  className="border-b border-base-300/70 cursor-pointer hover:bg-base-200/60"
-                  onClick={() => openDetail(row)}
-                >
-                  <td className="tabular-nums text-base-content/60">
-                    {formatBnNumber(index + 1)}
-                  </td>
-                  <td className="font-medium">
-                    <div className="truncate max-w-40 sm:max-w-none">
-                      {row.name}
-                    </div>
-                    <div className="sm:hidden text-xs text-base-content/60 tabular-nums">
-                      ক্রম {formatBnNumber(row.display_order ?? 0)}
-                    </div>
-                  </td>
-                  <td className="hidden sm:table-cell text-center tabular-nums text-sm text-base-content/80">
-                    {formatBnNumber(row.display_order ?? 0)}
-                  </td>
-                  <td className="text-right">
-                    <span
-                      className={`badge badge-sm ${billingStatusClass(row)}`}
+            </thead>
+            <SortableContext
+              items={rows.map((r) => r.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={3}
+                      className="text-center text-sm text-base-content/60 py-10"
                     >
-                      {billingStatusLabel(row)}
-                    </span>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+                      কোনো বিলিং ক্যাটাগরি নেই।
+                    </td>
+                  </tr>
+                ) : (
+                  rows.map((row, index) => (
+                    <SortableBillingRow
+                      key={row.id}
+                      row={row}
+                      index={index}
+                      canReorder={canReorder}
+                      onOpen={openDetail}
+                    />
+                  ))
+                )}
+              </tbody>
+            </SortableContext>
+          </table>
+        </DndContext>
       </div>
 
       {canAdd ? (
@@ -375,39 +532,46 @@ export const SiteBillingPage = () => {
               ) : null}
             </label>
 
-            <label className="form-control w-full">
-              <span className="label-text mb-1">ক্রম</span>
-              <input
-                type="number"
-                inputMode="numeric"
-                step={1}
-                className={fieldClass(errors.display_order)}
-                disabled={disabled}
-                {...register('display_order')}
-              />
-              {errors.display_order ? (
-                <span className="label-text-alt text-error mt-1">
-                  {errors.display_order.message}
-                </span>
-              ) : null}
-            </label>
-
-            <label className="label cursor-pointer justify-start gap-3 py-1">
+            <label
+              className={[
+                'label justify-start gap-3 py-1',
+                disabled || isDoneValue
+                  ? 'cursor-default'
+                  : 'cursor-pointer',
+              ].join(' ')}
+            >
               <input
                 type="checkbox"
                 className="toggle toggle-primary toggle-sm"
-                disabled={disabled}
-                {...register('is_active')}
+                disabled={disabled || Boolean(isDoneValue)}
+                checked={Boolean(isDoneValue) ? false : Boolean(isActiveValue)}
+                onChange={(e) => {
+                  if (disabled || isDoneValue) return
+                  setValue('is_active', e.target.checked, { shouldDirty: true })
+                }}
               />
               <span className="label-text">সক্রিয়</span>
             </label>
 
-            <label className="label cursor-pointer justify-start gap-3 py-1">
+            <label
+              className={[
+                'label justify-start gap-3 py-1',
+                disabled ? 'cursor-default' : 'cursor-pointer',
+              ].join(' ')}
+            >
               <input
                 type="checkbox"
                 className="toggle toggle-info toggle-sm"
                 disabled={disabled}
-                {...register('is_done')}
+                checked={Boolean(isDoneValue)}
+                onChange={(e) => {
+                  if (disabled) return
+                  const done = e.target.checked
+                  setValue('is_done', done, { shouldDirty: true })
+                  if (done) {
+                    setValue('is_active', false, { shouldDirty: true })
+                  }
+                }}
               />
               <span className="label-text">সম্পন্ন</span>
             </label>

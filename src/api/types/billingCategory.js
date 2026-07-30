@@ -21,12 +21,16 @@ export const toBillingCategoryPayload = ({
   display_order,
   is_active,
   is_done,
-}) => ({
-  name: String(name ?? '').trim(),
-  display_order: Number(display_order) || 0,
-  is_active: Boolean(is_active),
-  is_done: Boolean(is_done),
-})
+}) => {
+  const done = Boolean(is_done)
+  return {
+    name: String(name ?? '').trim(),
+    display_order: Number(display_order) || 0,
+    is_done: done,
+    // Done categories cannot be active.
+    is_active: done ? false : Boolean(is_active),
+  }
+}
 
 export const billingStatusLabel = (row) => {
   if (!row) return '—'
