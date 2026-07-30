@@ -30,7 +30,6 @@ import { RegisterConfirmPage } from "../pages/auth/RegisterConfirmPage.jsx";
 import { PasswordResetPage } from "../pages/auth/PasswordResetPage.jsx";
 import { PasswordResetConfirmPage } from "../pages/auth/PasswordResetConfirmPage.jsx";
 import { ProfilePage } from "../pages/profile/ProfilePage.jsx";
-import { ChangePasswordPage } from "../pages/profile/ChangePasswordPage.jsx";
 import { PendingOtpRedirect } from "./PendingOtpRedirect.jsx";
 import { OthersPage } from "../pages/OthersPage.jsx";
 
@@ -63,10 +62,6 @@ export const AppRouter = () => (
           </Route>
 
           <Route path={paths.others} element={<OthersPage />} />
-          <Route
-            path={paths.changePassword}
-            element={<ChangePasswordPage />}
-          />
         </Route>
 
         <Route element={<DetailLayout />}>

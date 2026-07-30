@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import { Link, useOutletContext } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Check, KeyRound, Pencil, X } from "lucide-react";
 import { useAuth } from "../../providers/AuthProvider.jsx";
@@ -11,8 +12,8 @@ import {
 } from "../../api/types/user.js";
 import { parseApiError, applyFieldErrors } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
-import { DetailMenuButton } from "../../layouts/DetailLayout.jsx";
-import { paths } from "../../router/paths.js";
+
+const PASSWORD_MODAL_ID = "profile_change_password_modal";
 
 const toFormValues = (profile) => ({
   name: profile?.name ?? "",
@@ -20,12 +21,33 @@ const toFormValues = (profile) => ({
   email: profile?.email ?? "",
 });
 
+const passwordSchema = z
+  .object({
+    current_password: z.string().min(1, "বর্তমান পাসওয়ার্ড দিন"),
+    new_password: z.string().min(6, "কমপক্ষে ৬ অক্ষর"),
+    confirm_password: z.string().min(6, "পাসওয়ার্ড নিশ্চিত করুন"),
+  })
+  .refine((v) => v.new_password === v.confirm_password, {
+    message: "পাসওয়ার্ড মিলছে না",
+    path: ["confirm_password"],
+  });
+
+const emptyPasswordValues = {
+  current_password: "",
+  new_password: "",
+  confirm_password: "",
+};
+
 export const ProfilePage = () => {
-  const { setTitle, setHeaderMenu } = useOutletContext();
-  const { profile, setProfile, bootstrapProfile } = useAuth();
+  const { setTitle } = useOutletContext();
+  const { profile, setProfile, bootstrapProfile, changePassword } = useAuth();
+  const passwordDialogRef = useRef(null);
+
   const [editing, setEditing] = useState(false);
   const [confirmReady, setConfirmReady] = useState(false);
   const [apiError, setApiError] = useState(null);
+  const [passwordError, setPasswordError] = useState(null);
+  const [passwordSaved, setPasswordSaved] = useState(false);
 
   const {
     register,
@@ -38,29 +60,26 @@ export const ProfilePage = () => {
     defaultValues: toFormValues(null),
   });
 
+  const {
+    register: registerPassword,
+    handleSubmit: handlePasswordSubmit,
+    reset: resetPassword,
+    setError: setPasswordFieldError,
+    watch: watchPassword,
+    formState: { errors: passwordErrors, isSubmitting: passwordSubmitting },
+  } = useForm({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: emptyPasswordValues,
+    mode: "onChange",
+  });
+
+  const passwordValues = watchPassword();
+  const passwordReady = passwordSchema.safeParse(passwordValues).success;
+
   useEffect(() => {
     setTitle?.("প্রোফাইল");
     return () => setTitle?.("");
   }, [setTitle]);
-
-  useEffect(() => {
-    setHeaderMenu?.(
-      <DetailMenuButton>
-        <ul
-          tabIndex={0}
-          className="dropdown-content menu bg-base-100 rounded-box z-20 w-48 p-1 shadow-md border border-base-300"
-        >
-          <li>
-            <Link to={paths.changePassword}>
-              <KeyRound className="size-4" strokeWidth={1.75} />
-              পাসওয়ার্ড বদলান
-            </Link>
-          </li>
-        </ul>
-      </DetailMenuButton>,
-    );
-    return () => setHeaderMenu?.(null);
-  }, [setHeaderMenu]);
 
   useEffect(() => {
     if (profile) reset(toFormValues(profile));
@@ -86,6 +105,7 @@ export const ProfilePage = () => {
 
   const startEdit = () => {
     setApiError(null);
+    setPasswordSaved(false);
     setConfirmReady(false);
     setEditing(true);
   };
@@ -112,6 +132,38 @@ export const ProfilePage = () => {
       } catch {
         // ignore
       }
+    }
+  });
+
+  const openPasswordModal = () => {
+    setPasswordError(null);
+    setPasswordSaved(false);
+    resetPassword(emptyPasswordValues);
+    passwordDialogRef.current?.showModal();
+  };
+
+  const closePasswordModal = () => {
+    passwordDialogRef.current?.close();
+  };
+
+  const resetPasswordModalState = () => {
+    setPasswordError(null);
+    resetPassword(emptyPasswordValues);
+  };
+
+  const onPasswordConfirm = handlePasswordSubmit(async (values) => {
+    setPasswordError(null);
+    try {
+      await changePassword({
+        current_password: values.current_password,
+        new_password: values.new_password,
+      });
+      closePasswordModal();
+      setPasswordSaved(true);
+    } catch (err) {
+      const parsed = parseApiError(err);
+      setPasswordError(parsed);
+      applyFieldErrors(parsed, setPasswordFieldError);
     }
   });
 
@@ -142,6 +194,12 @@ export const ProfilePage = () => {
   return (
     <div className="max-w-lg mx-auto">
       <ApiErrorAlert error={apiError} className="mb-3" />
+      {passwordSaved ? (
+        <div className="alert alert-success text-sm py-2 mb-3">
+          পাসওয়ার্ড আপডেট হয়েছে
+        </div>
+      ) : null}
+
       <form
         className="flex flex-col gap-3"
         onSubmit={(e) => {
@@ -231,6 +289,14 @@ export const ProfilePage = () => {
           <div className="flex gap-2 mt-2">
             <button
               type="button"
+              className="btn btn-outline flex-1 gap-1.5"
+              onClick={openPasswordModal}
+            >
+              <KeyRound className="size-4" strokeWidth={1.75} />
+              পাসওয়ার্ড বদলান
+            </button>
+            <button
+              type="button"
               className="btn btn-outline btn-primary flex-1"
               onClick={startEdit}
             >
@@ -287,6 +353,103 @@ export const ProfilePage = () => {
           )}
         </div>
       </div>
+
+      <dialog
+        ref={passwordDialogRef}
+        id={PASSWORD_MODAL_ID}
+        className="modal"
+        onClose={resetPasswordModalState}
+      >
+        <div className="modal-box max-w-sm">
+          <form method="dialog">
+            <button
+              type="submit"
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              <X className="size-4" strokeWidth={1.75} />
+            </button>
+          </form>
+
+          <h3 className="font-semibold text-base mb-3 pr-8">
+            পাসওয়ার্ড পরিবর্তন
+          </h3>
+
+          <ApiErrorAlert error={passwordError} className="mb-3" />
+
+          <form
+            className="flex flex-col gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              return onPasswordConfirm(e);
+            }}
+            noValidate
+          >
+            <label className="form-control w-full">
+              <span className="label-text mb-1">বর্তমান পাসওয়ার্ড</span>
+              <input
+                type="password"
+                autoComplete="current-password"
+                className={`input input-bordered w-full ${passwordErrors.current_password ? "input-error" : ""}`}
+                {...registerPassword("current_password")}
+              />
+              {passwordErrors.current_password ? (
+                <span className="label-text-alt text-error mt-1">
+                  {passwordErrors.current_password.message}
+                </span>
+              ) : null}
+            </label>
+
+            <label className="form-control w-full">
+              <span className="label-text mb-1">নতুন পাসওয়ার্ড</span>
+              <input
+                type="password"
+                autoComplete="new-password"
+                className={`input input-bordered w-full ${passwordErrors.new_password ? "input-error" : ""}`}
+                {...registerPassword("new_password")}
+              />
+              {passwordErrors.new_password ? (
+                <span className="label-text-alt text-error mt-1">
+                  {passwordErrors.new_password.message}
+                </span>
+              ) : null}
+            </label>
+
+            <label className="form-control w-full">
+              <span className="label-text mb-1">নতুন পাসওয়ার্ড (আবার)</span>
+              <input
+                type="password"
+                autoComplete="new-password"
+                className={`input input-bordered w-full ${passwordErrors.confirm_password ? "input-error" : ""}`}
+                {...registerPassword("confirm_password")}
+              />
+              {passwordErrors.confirm_password ? (
+                <span className="label-text-alt text-error mt-1">
+                  {passwordErrors.confirm_password.message}
+                </span>
+              ) : null}
+            </label>
+
+            <div className="modal-action mt-2">
+              <button
+                type="submit"
+                className="btn btn-primary w-full"
+                disabled={!passwordReady || passwordSubmitting}
+              >
+                {passwordSubmitting ? (
+                  <span className="loading loading-spinner loading-sm" />
+                ) : (
+                  <Check className="size-4" strokeWidth={2} />
+                )}
+                সেভ
+              </button>
+            </div>
+          </form>
+        </div>
+        <form method="dialog" className="modal-backdrop">
+          <button type="submit">close</button>
+        </form>
+      </dialog>
     </div>
   );
 };
