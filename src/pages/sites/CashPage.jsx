@@ -1,64 +1,115 @@
-import { useNavigate, useOutletContext } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
-import { fetchSiteCash } from '../../api/sites.js'
-import { parseApiError } from '../../api/errors.js'
-import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
-import { formatBnNumber, formatBnSigned } from '../../utils/format.js'
-import { paths } from '../../router/paths.js'
-import { usePermissions } from '../../hooks/usePermissions.js'
-import { PERMS } from '../../utils/permissions.js'
+import { useEffect, useState } from "react";
+import { useNavigate, useOutletContext } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { Plus, X } from "lucide-react";
+import { fetchBillingCategories, fetchSiteCash } from "../../api/sites.js";
+import { CASH_TYPES } from "../../api/types/siteCash.js";
+import { parseApiError } from "../../api/errors.js";
+import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
+import { formatBnNumber, formatBnSigned } from "../../utils/format.js";
+import { paths } from "../../router/paths.js";
+import { usePermissions } from "../../hooks/usePermissions.js";
+import { PERMS } from "../../utils/permissions.js";
+
+const TYPE_FILTER_MODAL_ID = "cash_type_filter_modal";
+const BILLING_FILTER_MODAL_ID = "cash_billing_filter_modal";
+
+const TYPE_FILTER_OPTIONS = [{ value: "all", label: "পরিমাণ" }, ...CASH_TYPES];
+
+const filterLabel = (options, value) =>
+  options.find((opt) => opt.value === value)?.label ?? options[0]?.label ?? "";
 
 /** deposit = credit (+); withdrawal / cost = debit (−). Distinct color per type. */
 const AMOUNT_BY_TYPE = {
   deposit: {
     sign: 1,
-    className: 'text-success',
+    className: "text-success",
   },
   withdrawal: {
     sign: -1,
-    className: 'text-warning',
+    className: "text-warning",
   },
   cost: {
     sign: -1,
-    className: 'text-error',
+    className: "text-error",
   },
-}
+};
 
 const formatCashAmount = (type, amount) => {
-  const style = AMOUNT_BY_TYPE[type] ?? AMOUNT_BY_TYPE.cost
+  const style = AMOUNT_BY_TYPE[type] ?? AMOUNT_BY_TYPE.cost;
   return {
     text: formatBnSigned(style.sign * Math.abs(Number(amount) || 0)),
     className: style.className,
-  }
-}
+  };
+};
+
+const colgroup = (
+  <colgroup>
+    <col className="w-12" />
+    <col />
+    <col className="w-24 sm:w-32" />
+    <col className="w-28 sm:w-36" />
+  </colgroup>
+);
 
 export const CashPage = () => {
-  const { date, siteId, sites } = useOutletContext()
-  const navigate = useNavigate()
-  const { can } = usePermissions()
+  const { date, siteId, sites } = useOutletContext();
+  const navigate = useNavigate();
+  const { can } = usePermissions();
 
-  const canViewCash = can(PERMS.viewSiteCash)
-  const canAddCash = can(PERMS.addSiteCash)
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [billingFilter, setBillingFilter] = useState("all");
 
-  const site = (sites ?? []).find((s) => String(s.id) === String(siteId))
-  const siteInactive = site?.is_active === false
+  const canViewCash = can(PERMS.viewSiteCash);
+  const canAddCash = can(PERMS.addSiteCash);
+
+  const site = (sites ?? []).find((s) => String(s.id) === String(siteId));
+  const siteInactive = site?.is_active === false;
+
+  useEffect(() => {
+    setTypeFilter("all");
+    setBillingFilter("all");
+  }, [siteId, date]);
 
   const cashQuery = useQuery({
-    queryKey: ['sites', siteId, 'cash', { date }],
+    queryKey: [
+      "sites",
+      siteId,
+      "cash",
+      { date, type: typeFilter, billing: billingFilter },
+    ],
     queryFn: async () => {
-      const { data } = await fetchSiteCash(siteId, { date })
-      return Array.isArray(data) ? data : []
+      const { data } = await fetchSiteCash(siteId, {
+        date,
+        ...(typeFilter !== "all" ? { type: typeFilter } : {}),
+        ...(billingFilter !== "all" && billingFilter !== "none"
+          ? { billing: billingFilter }
+          : {}),
+      });
+      let rows = Array.isArray(data) ? data : [];
+      if (billingFilter === "none") {
+        rows = rows.filter((row) => row.billing == null);
+      }
+      return rows;
     },
     enabled: Boolean(canViewCash && siteId && date),
-  })
+  });
+
+  const billingQuery = useQuery({
+    queryKey: ["sites", siteId, "billing-categories"],
+    queryFn: async () => {
+      const { data } = await fetchBillingCategories(siteId);
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: Boolean(canViewCash && siteId),
+  });
 
   if (!canViewCash) {
     return (
       <div className="flex-1 flex items-center justify-center text-sm text-error">
         এই পেজ দেখার অনুমতি নেই।
       </div>
-    )
+    );
   }
 
   if (!siteId) {
@@ -66,7 +117,7 @@ export const CashPage = () => {
       <div className="flex-1 flex items-center justify-center text-sm text-base-content/70">
         ক্যাশ দেখতে একটি সাইট নির্বাচন করুন।
       </div>
-    )
+    );
   }
 
   if (cashQuery.isLoading) {
@@ -74,7 +125,7 @@ export const CashPage = () => {
       <div className="flex-1 flex justify-center items-center">
         <span className="loading loading-spinner loading-lg text-primary" />
       </div>
-    )
+    );
   }
 
   if (cashQuery.isError) {
@@ -82,25 +133,60 @@ export const CashPage = () => {
       <div className="flex-1 min-h-0 overflow-y-auto">
         <ApiErrorAlert error={parseApiError(cashQuery.error)} />
       </div>
-    )
+    );
   }
 
-  const rows = cashQuery.data ?? []
+  const rows = cashQuery.data ?? [];
+  const billingOptions = billingQuery.data ?? [];
+
+  const billingFilterOptions = [
+    { value: "all", label: "বিলিং" },
+    { value: "none", label: "সাইট সাধারণ" },
+    ...billingOptions.map((b) => ({
+      value: String(b.id),
+      label: b.name,
+    })),
+  ];
+
+  const billingName = (billingId) => {
+    if (billingId == null) return "সাইট সাধারণ";
+    return (
+      billingOptions.find((b) => String(b.id) === String(billingId))?.name ??
+      "—"
+    );
+  };
 
   return (
     <section className="flex-1 min-h-0 flex flex-col relative">
       <div className="shrink-0 bg-base-100 border-b border-base-300">
-        <table className="table table-fixed table-sm sm:table-md w-full">
-          <colgroup>
-            <col className="w-12" />
-            <col />
-            <col className="w-28 sm:w-36" />
-          </colgroup>
+        <table className="table table-fixed table-xs sm:table-sm w-full text-sm">
+          {colgroup}
           <thead>
             <tr>
               <th>নং</th>
               <th>বিবরণ</th>
-              <th className="text-right">পরিমাণ</th>
+              <th className="text-right">
+                <button
+                  type="button"
+                  onClick={() =>
+                    document.getElementById(TYPE_FILTER_MODAL_ID)?.showModal()
+                  }
+                >
+                  {filterLabel(TYPE_FILTER_OPTIONS, typeFilter)}
+                </button>
+              </th>
+              <th>
+                <button
+                  type="button"
+                  onClick={() =>
+                    document
+                      .getElementById(BILLING_FILTER_MODAL_ID)
+                      ?.showModal()
+                  }
+                >
+                  {filterLabel(billingFilterOptions, billingFilter)}
+                </button>
+              </th>
             </tr>
           </thead>
         </table>
@@ -108,16 +194,12 @@ export const CashPage = () => {
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         <table className="table table-fixed table-sm sm:table-md w-full">
-          <colgroup>
-            <col className="w-12" />
-            <col />
-            <col className="w-28 sm:w-36" />
-          </colgroup>
+          {colgroup}
           <tbody>
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={3}
+                  colSpan={4}
                   className="text-center text-sm text-base-content/60 py-10"
                 >
                   এই তারিখে কোনো ক্যাশ এন্ট্রি নেই।
@@ -128,7 +210,7 @@ export const CashPage = () => {
                 const { text, className } = formatCashAmount(
                   row.type,
                   row.amount,
-                )
+                );
                 return (
                   <tr
                     key={row.id}
@@ -138,14 +220,17 @@ export const CashPage = () => {
                     <td className="tabular-nums text-base-content/60">
                       {formatBnNumber(index + 1)}
                     </td>
-                    <td className="truncate">{row.note || '—'}</td>
+                    <td className="truncate">{row.note || "—"}</td>
                     <td
                       className={`text-right tabular-nums font-medium ${className}`}
                     >
                       {text}
                     </td>
+                    <td className="max-w-0 truncate text-base-content/80">
+                      {billingName(row.billing)}
+                    </td>
                   </tr>
-                )
+                );
               })
             )}
           </tbody>
@@ -163,6 +248,76 @@ export const CashPage = () => {
           <Plus className="size-7" strokeWidth={2} />
         </button>
       ) : null}
+
+      <dialog id={TYPE_FILTER_MODAL_ID} className="modal">
+        <div className="modal-box max-w-xs">
+          <form method="dialog">
+            <button
+              type="submit"
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              <X className="size-4" strokeWidth={1.75} />
+            </button>
+          </form>
+          <h3 className="font-semibold text-base">পরিমাণ ফিল্টার</h3>
+          <div className="menu bg-base-100 w-full p-0 pt-3">
+            {TYPE_FILTER_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                className={`btn btn-ghost btn-sm justify-start ${
+                  typeFilter === opt.value ? "btn-active" : ""
+                }`}
+                onClick={() => {
+                  setTypeFilter(opt.value);
+                  document.getElementById(TYPE_FILTER_MODAL_ID)?.close();
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <form method="dialog" className="modal-backdrop">
+          <button type="submit">close</button>
+        </form>
+      </dialog>
+
+      <dialog id={BILLING_FILTER_MODAL_ID} className="modal">
+        <div className="modal-box max-w-xs">
+          <form method="dialog">
+            <button
+              type="submit"
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              <X className="size-4" strokeWidth={1.75} />
+            </button>
+          </form>
+          <h3 className="font-semibold text-base">বিলিং ফিল্টার</h3>
+          <div className="menu bg-base-100 w-full p-0 pt-3 max-h-72 overflow-y-auto">
+            {billingFilterOptions.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                className={`btn btn-ghost btn-sm justify-start ${
+                  billingFilter === opt.value ? "btn-active" : ""
+                }`}
+                onClick={() => {
+                  setBillingFilter(opt.value);
+                  document.getElementById(BILLING_FILTER_MODAL_ID)?.close();
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <form method="dialog" className="modal-backdrop">
+          <button type="submit">close</button>
+        </form>
+      </dialog>
     </section>
-  )
-}
+  );
+};
