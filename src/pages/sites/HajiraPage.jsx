@@ -42,11 +42,29 @@ const hasPresent = (row) => row.present !== "" && row.present != null;
 
 const hasExtra = (row) => Number(row.extra) > 0;
 
-const dayEarnings = (row) => {
-  const present = hasPresent(row) ? Number(row.present) : 0;
+const presentEarnings = (row) => {
+  if (!hasPresent(row)) return 0;
   const salary =
     row.salary === "" || row.salary == null ? 0 : Number(row.salary);
-  return present * salary + (Number(row.extra) || 0);
+  return Number(row.present) * salary;
+};
+
+const dayEarnings = (row, earningsFilter = "earn") => {
+  const fromPresent = presentEarnings(row);
+  const fromExtra = Number(row.extra) || 0;
+  if (earningsFilter === "from_present") return fromPresent;
+  if (earningsFilter === "from_extra") return fromExtra;
+  return fromPresent + fromExtra;
+};
+
+const paymentAmountOf = (row) => {
+  if (row.payment === "" || row.payment == null) return 0;
+  return Number(row.payment) || 0;
+};
+
+const returnAmountOf = (row) => {
+  if (row.return === "" || row.return == null) return 0;
+  return Number(row.return) || 0;
 };
 
 const attendancePayload = (row, date) => ({
@@ -129,10 +147,6 @@ const paymentLineTone = (row, initial, keys, idKey, typeClass) => {
   return tone === "text-base-content/60" ? typeClass : tone;
 };
 
-const hasPaymentDisplay = (row) =>
-  (row.payment !== "" && Number(row.payment) !== 0) ||
-  (row.return !== "" && Number(row.return) !== 0);
-
 export const HajiraPage = () => {
   const { date: selectedDate, siteId: selectedSiteId, sites } =
     useOutletContext();
@@ -157,6 +171,8 @@ export const HajiraPage = () => {
   const [hajiraModal, setHajiraModal] = useState(null);
   const [paymentModal, setPaymentModal] = useState(null);
   const [paymentTab, setPaymentTab] = useState(PAYMENT_SPECS[0].key);
+  const [earningsFilter, setEarningsFilter] = useState("earn");
+  const [paymentFilter, setPaymentFilter] = useState("payment");
 
   const attendanceQuery = useQuery({
     queryKey: ["sites", siteId, "labour-attendances", { date }],
@@ -218,6 +234,8 @@ export const HajiraPage = () => {
     setApiError(null);
     setHajiraModal(null);
     setPaymentModal(null);
+    setEarningsFilter("earn");
+    setPaymentFilter("payment");
   }, [siteId, date]);
 
   // View mode: map records by labour from attendance/payment only.
@@ -276,6 +294,9 @@ export const HajiraPage = () => {
     [rows, initialRows],
   );
 
+  const viewEarningsFilter = editing ? "earn" : earningsFilter;
+  const viewPaymentFilter = editing ? "all" : paymentFilter;
+
   const totals = useMemo(() => {
     let present = 0;
     let earnings = 0;
@@ -283,16 +304,26 @@ export const HajiraPage = () => {
     let ret = 0;
     for (const row of rows) {
       if (hasPresent(row)) present += Number(row.present) || 0;
-      earnings += dayEarnings(row);
-      if (row.payment !== "" && row.payment != null) {
-        payment += Number(row.payment) || 0;
-      }
-      if (row.return !== "" && row.return != null) {
-        ret += Number(row.return) || 0;
+      earnings += dayEarnings(row, viewEarningsFilter);
+      const pay = paymentAmountOf(row);
+      const rtn = returnAmountOf(row);
+      if (viewPaymentFilter === "return") {
+        ret += rtn;
+      } else if (viewPaymentFilter === "payment") {
+        payment += pay;
+      } else {
+        payment += pay;
+        ret += rtn;
       }
     }
     return { present, earnings, payment, return: ret };
-  }, [rows]);
+  }, [rows, viewEarningsFilter, viewPaymentFilter]);
+
+  const showPaymentAmount = (row) =>
+    viewPaymentFilter !== "return" && paymentAmountOf(row) !== 0;
+
+  const showReturnAmount = (row) =>
+    viewPaymentFilter !== "payment" && returnAmountOf(row) !== 0;
 
   const modalEditable = editing;
 
@@ -625,8 +656,37 @@ export const HajiraPage = () => {
               <th>নং</th>
               <th>নাম</th>
               <th>হাজিরা</th>
-              <th className="text-right">আয়</th>
-              <th className="text-right">পেমেন্ট</th>
+              <th className="text-right">
+                {editing ? (
+                  "আয়"
+                ) : (
+                  <select
+                    className="select border-none select-xs font-normal min-w-24 bg-base-100"
+                    value={earningsFilter}
+                    onChange={(e) => setEarningsFilter(e.target.value)}
+                    aria-label="আয় ফিল্টার"
+                  >
+                    <option value="earn">আয়</option>
+                    <option value="from_present">হাজিরা আয়</option>
+                    <option value="from_extra">অতিরিক্ত আয়</option>
+                  </select>
+                )}
+              </th>
+              <th className="text-right">
+                {editing ? (
+                  "পেমেন্ট"
+                ) : (
+                  <select
+                    className="select border-none select-xs font-normal min-w-24 bg-base-100"
+                    value={paymentFilter}
+                    onChange={(e) => setPaymentFilter(e.target.value)}
+                    aria-label="পেমেন্ট ফিল্টার"
+                  >
+                    <option value="payment">পেমেন্ট</option>
+                    <option value="return">রিটার্ন</option>
+                  </select>
+                )}
+              </th>
               <th>বিলিং</th>
             </tr>
           </thead>
@@ -651,7 +711,9 @@ export const HajiraPage = () => {
                       "attendanceId",
                     )
                   : "text-base-content/60";
-                const earn = dayEarnings(row);
+                const earn = dayEarnings(row, viewEarningsFilter);
+                const showPay = showPaymentAmount(row);
+                const showRet = showReturnAmount(row);
 
                 return (
                   <tr
@@ -698,10 +760,9 @@ export const HajiraPage = () => {
                         className="btn btn-ghost btn-xs h-auto min-h-0 px-1 py-0.5 font-normal text-right leading-tight w-full"
                         onClick={() => openPaymentModal(row)}
                       >
-                        {hasPaymentDisplay(row) ? (
+                        {showPay || showRet ? (
                           <span className="block tabular-nums space-y-0.5">
-                            {row.payment !== "" &&
-                            Number(row.payment) !== 0 ? (
+                            {showPay ? (
                               <span
                                 className={`block ${
                                   editing
@@ -718,8 +779,7 @@ export const HajiraPage = () => {
                                 {formatBnNumber(row.payment)}
                               </span>
                             ) : null}
-                            {row.return !== "" &&
-                            Number(row.return) !== 0 ? (
+                            {showRet ? (
                               <span
                                 className={`block ${
                                   editing
