@@ -9,7 +9,7 @@ const APP_TAGLINE =
   'কনস্ট্রাকশন সাইটের হাজিরা, ক্যাশ ও ব্যালেন্স সহজে পরিচালনা করুন।'
 
 const DEVELOPER = {
-  name: 'আচিব হোসেন',
+  name: 'আছিব হোসেন',
   nameEn: 'Achib Hossen',
   role: 'ডেভেলপার',
   email: 'mail.achibhossen@gmail.com',

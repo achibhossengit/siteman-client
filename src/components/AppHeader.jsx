@@ -31,9 +31,6 @@ export const AppHeader = () => {
             </Link>
           ) : (
             <div className="flex items-center gap-1.5">
-              <NavLink to={paths.register} className="btn btn-outline btn-sm">
-                রেজিস্টার
-              </NavLink>
               <NavLink to={paths.login} className="btn btn-primary btn-sm">
                 লগইন
               </NavLink>

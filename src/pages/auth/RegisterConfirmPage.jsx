@@ -16,7 +16,9 @@ import {
 
 export const RegisterConfirmPage = () => {
   const navigate = useNavigate()
-  const session = readOtpSession(OTP_STORAGE.register)
+  const [session, setSession] = useState(() =>
+    readOtpSession(OTP_STORAGE.register),
+  )
   const initialDeadlines = getOtpDeadlines(session)
   const [otp, setOtp] = useState('')
   const [otpError, setOtpError] = useState(null)
@@ -37,6 +39,9 @@ export const RegisterConfirmPage = () => {
     try {
       await registerConfirm({ ticket: session.ticket, otp })
       clearOtpSession(OTP_STORAGE.register)
+      toastSuccess('নিবন্ধন সম্পন্ন — এখন লগইন করুন', {
+        id: 'login-success:registered',
+      })
       navigate(paths.login, { replace: true, state: { registered: true } })
     } catch (err) {
       const parsed = parseApiError(err)
@@ -66,6 +71,7 @@ export const RegisterConfirmPage = () => {
         otp_expires_in: data.otp_expires_in ?? 300,
         resend_cooldown: data.resend_cooldown ?? 60,
       })
+      setSession(saved)
       const next = getOtpDeadlines(saved)
       setExpiresAt(next.expiresAt)
       setResendAt(next.resendAt)

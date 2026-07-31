@@ -16,7 +16,9 @@ import {
 
 export const PasswordResetConfirmPage = () => {
   const navigate = useNavigate();
-  const session = readOtpSession(OTP_STORAGE.passwordReset);
+  const [session, setSession] = useState(() =>
+    readOtpSession(OTP_STORAGE.passwordReset),
+  );
   const initialDeadlines = getOtpDeadlines(session);
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -50,6 +52,9 @@ export const PasswordResetConfirmPage = () => {
         new_password: newPassword,
       });
       clearOtpSession(OTP_STORAGE.passwordReset);
+      toastSuccess("পাসওয়ার্ড আপডেট হয়েছে — এখন লগইন করুন", {
+        id: "login-success:passwordReset",
+      });
       navigate(paths.login, { replace: true, state: { passwordReset: true } });
     } catch (err) {
       const parsed = parseApiError(err);
@@ -74,6 +79,7 @@ export const PasswordResetConfirmPage = () => {
         otp_expires_in: data.otp_expires_in ?? 300,
         resend_cooldown: data.resend_cooldown ?? 60,
       });
+      setSession(saved);
       const next = getOtpDeadlines(saved);
       setExpiresAt(next.expiresAt);
       setResendAt(next.resendAt);

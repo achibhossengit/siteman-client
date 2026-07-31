@@ -1,35 +1,35 @@
-import { useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useAuth } from '../../providers/AuthProvider.jsx'
-import { parseApiError, applyFieldErrors } from '../../api/errors.js'
-import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
-import { toastSuccess } from '../../utils/feedback.js'
-import { paths } from '../../router/paths.js'
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useAuth } from "../../providers/AuthProvider.jsx";
+import { parseApiError, applyFieldErrors } from "../../api/errors.js";
+import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
+import { toastSuccess } from "../../utils/feedback.js";
+import { paths } from "../../router/paths.js";
 
 const schema = z.object({
-  phone_number: z.string().min(8, 'ফোন নম্বর দিন'),
-  password: z.string().min(1, 'পাসওয়ার্ড দিন'),
-})
+  phone_number: z.string().min(8, "ফোন নম্বর দিন"),
+  password: z.string().min(1, "পাসওয়ার্ড দিন"),
+});
 
 export const LoginPage = () => {
-  const { login } = useAuth()
-  const navigate = useNavigate()
-  const location = useLocation()
-  const [apiError, setApiError] = useState(null)
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [apiError, setApiError] = useState(null);
 
   const successBanner = location.state?.registered
-    ? 'নিবন্ধন সম্পন্ন — এখন লগইন করুন'
+    ? "নিবন্ধন সম্পন্ন — এখন লগইন করুন"
     : location.state?.passwordReset
-      ? 'পাসওয়ার্ড আপডেট হয়েছে — এখন লগইন করুন'
-      : null
+      ? "পাসওয়ার্ড আপডেট হয়েছে — এখন লগইন করুন"
+      : null;
 
   useEffect(() => {
-    if (!successBanner) return
-    toastSuccess(successBanner, { id: `login-success:${successBanner}` })
-  }, [successBanner])
+    if (!successBanner) return;
+    toastSuccess(successBanner, { id: `login-success:${successBanner}` });
+  }, [successBanner]);
 
   const {
     register,
@@ -38,21 +38,20 @@ export const LoginPage = () => {
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: { phone_number: '', password: '' },
-  })
+    defaultValues: { phone_number: "", password: "" },
+  });
 
   const onSubmit = handleSubmit(async (values) => {
-    setApiError(null)
+    setApiError(null);
     try {
-      await login(values)
-      toastSuccess('লগইন সফল হয়েছে')
-      navigate(paths.home, { replace: true })
+      await login(values);
+      navigate(paths.home, { replace: true });
     } catch (err) {
-      const parsed = parseApiError(err)
-      setApiError(parsed)
-      applyFieldErrors(parsed, setError)
+      const parsed = parseApiError(err);
+      setApiError(parsed);
+      applyFieldErrors(parsed, setError);
     }
-  })
+  });
 
   return (
     <div className="card bg-base-100 shadow-sm border border-base-300">
@@ -69,9 +68,9 @@ export const LoginPage = () => {
           <input
             type="tel"
             autoComplete="username"
-            className={`input input-bordered w-full ${errors.phone_number ? 'input-error' : ''}`}
+            className={`input input-bordered w-full ${errors.phone_number ? "input-error" : ""}`}
             placeholder="+8801..."
-            {...register('phone_number')}
+            {...register("phone_number")}
           />
           {errors.phone_number ? (
             <span className="label-text-alt text-error mt-1">
@@ -85,8 +84,8 @@ export const LoginPage = () => {
           <input
             type="password"
             autoComplete="current-password"
-            className={`input input-bordered w-full ${errors.password ? 'input-error' : ''}`}
-            {...register('password')}
+            className={`input input-bordered w-full ${errors.password ? "input-error" : ""}`}
+            {...register("password")}
           />
           {errors.password ? (
             <span className="label-text-alt text-error mt-1">
@@ -94,6 +93,9 @@ export const LoginPage = () => {
             </span>
           ) : null}
         </label>
+        <Link to={paths.passwordReset} className="link link-hover text-base-content/70">
+          পাসওয়ার্ড ভুলে গেছেন?
+        </Link>
 
         <button
           type="submit"
@@ -103,19 +105,17 @@ export const LoginPage = () => {
           {isSubmitting ? (
             <span className="loading loading-spinner loading-sm" />
           ) : (
-            'লগইন'
+            "লগইন"
           )}
         </button>
 
-        <div className="flex flex-col gap-1 text-center text-sm pt-1">
-          <Link to={paths.passwordReset} className="link link-hover">
-            পাসওয়ার্ড ভুলে গেছেন?
-          </Link>
-          <Link to={paths.register} className="link link-primary">
-            নতুন অ্যাকাউন্ট তৈরি করুন
+        <div className="flex flex-col gap-1 text-right text-sm pt-1">
+          <Link to={paths.register} className="link link-hover text-base-content/70">
+            আপনার নিজের কোম্পানি তৈরি করতে রেজিস্টার করুন?
           </Link>
         </div>
+   
       </form>
     </div>
-  )
-}
+  );
+};
