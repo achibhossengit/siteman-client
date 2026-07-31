@@ -9968,28 +9968,6 @@ components:
       required:
         - errors
         - type
-    AuthRegisterCreateChannelErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - channel
-          type: string
-          description: "* `channel` - channel"
-        code:
-          enum:
-            - invalid_choice
-            - "null"
-          type: string
-          description: |-
-            * `invalid_choice` - invalid_choice
-            * `null` - null
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
     AuthRegisterCreateCompanyNameErrorComponent:
       type: object
       properties:
@@ -10032,15 +10010,19 @@ components:
           description: "* `email` - email"
         code:
           enum:
+            - blank
             - invalid
             - "null"
             - null_characters_not_allowed
+            - required
             - surrogate_characters_not_allowed
           type: string
           description: |-
+            * `blank` - blank
             * `invalid` - invalid
             * `null` - null
             * `null_characters_not_allowed` - null_characters_not_allowed
+            * `required` - required
             * `surrogate_characters_not_allowed` - surrogate_characters_not_allowed
         detail:
           type: string
@@ -10056,7 +10038,6 @@ components:
         - $ref: "#/components/schemas/AuthRegisterCreateEmailErrorComponent"
         - $ref: "#/components/schemas/AuthRegisterCreateCompanyNameErrorComponent"
         - $ref: "#/components/schemas/AuthRegisterCreatePasswordErrorComponent"
-        - $ref: "#/components/schemas/AuthRegisterCreateChannelErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
@@ -10066,7 +10047,6 @@ components:
           email: "#/components/schemas/AuthRegisterCreateEmailErrorComponent"
           company_name: "#/components/schemas/AuthRegisterCreateCompanyNameErrorComponent"
           password: "#/components/schemas/AuthRegisterCreatePasswordErrorComponent"
-          channel: "#/components/schemas/AuthRegisterCreateChannelErrorComponent"
     AuthRegisterCreateErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/AuthRegisterCreateValidationError"
@@ -10654,14 +10634,6 @@ components:
       description: |-
         * `food` - Food
         * `equipment` - Equipment
-    ChannelEnum:
-      enum:
-        - sms
-        - email
-      type: string
-      description: |-
-        * `sms` - sms
-        * `email` - email
     ClientErrorEnum:
       enum:
         - client_error
@@ -13679,7 +13651,7 @@ components:
       description: |-
         Own profile: GET returns full snapshot; PATCH updates basic fields.
 
-        Writable: name, email, phone_number.
+        Writable: name and phone_number. Email changes require a verification flow.
         Password changes go through ``/auth/password/change`` or reset.
       properties:
         id:
@@ -13695,8 +13667,8 @@ components:
         email:
           type: string
           format: email
+          readOnly: true
           nullable: true
-          maxLength: 254
         company:
           type: string
           readOnly: true
@@ -13841,45 +13813,17 @@ components:
         - id
         - type
         - updated_at
-    ProfilePartialUpdateEmailErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - email
-          type: string
-          description: "* `email` - email"
-        code:
-          enum:
-            - invalid
-            - max_length
-            - null_characters_not_allowed
-            - surrogate_characters_not_allowed
-          type: string
-          description: |-
-            * `invalid` - invalid
-            * `max_length` - max_length
-            * `null_characters_not_allowed` - null_characters_not_allowed
-            * `surrogate_characters_not_allowed` - surrogate_characters_not_allowed
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
     ProfilePartialUpdateError:
       oneOf:
         - $ref: "#/components/schemas/ProfilePartialUpdateNonFieldErrorsErrorComponent"
         - $ref: "#/components/schemas/ProfilePartialUpdateNameErrorComponent"
         - $ref: "#/components/schemas/ProfilePartialUpdatePhoneNumberErrorComponent"
-        - $ref: "#/components/schemas/ProfilePartialUpdateEmailErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
           non_field_errors: "#/components/schemas/ProfilePartialUpdateNonFieldErrorsErrorComponent"
           name: "#/components/schemas/ProfilePartialUpdateNameErrorComponent"
           phone_number: "#/components/schemas/ProfilePartialUpdatePhoneNumberErrorComponent"
-          email: "#/components/schemas/ProfilePartialUpdateEmailErrorComponent"
     ProfilePartialUpdateErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/ProfilePartialUpdateValidationError"
@@ -14012,12 +13956,9 @@ components:
         password:
           type: string
           writeOnly: true
-        channel:
-          allOf:
-            - $ref: "#/components/schemas/ChannelEnum"
-          default: sms
       required:
         - company_name
+        - email
         - name
         - password
         - phone_number
@@ -16817,7 +16758,6 @@ components:
         email:
           type: string
           format: email
-          nullable: true
           maxLength: 254
         is_active:
           type: boolean
@@ -16842,6 +16782,7 @@ components:
       required:
         - company
         - created_at
+        - email
         - id
         - is_active
         - is_companyadmin
@@ -16880,7 +16821,7 @@ components:
       description: |-
         Own profile: GET returns full snapshot; PATCH updates basic fields.
 
-        Writable: name, email, phone_number.
+        Writable: name and phone_number. Email changes require a verification flow.
         Password changes go through ``/auth/password/change`` or reset.
       properties:
         id:
@@ -16896,8 +16837,8 @@ components:
         email:
           type: string
           format: email
+          readOnly: true
           nullable: true
-          maxLength: 254
         company:
           type: string
           readOnly: true
@@ -16922,6 +16863,7 @@ components:
           readOnly: true
       required:
         - company
+        - email
         - groups
         - id
         - is_active
@@ -16959,15 +16901,21 @@ components:
           description: "* `email` - email"
         code:
           enum:
+            - blank
             - invalid
             - max_length
+            - "null"
             - null_characters_not_allowed
+            - required
             - surrogate_characters_not_allowed
           type: string
           description: |-
+            * `blank` - blank
             * `invalid` - invalid
             * `max_length` - max_length
+            * `null` - null
             * `null_characters_not_allowed` - null_characters_not_allowed
+            * `required` - required
             * `surrogate_characters_not_allowed` - surrogate_characters_not_allowed
         detail:
           type: string

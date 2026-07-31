@@ -126,7 +126,7 @@ export const UserNewPage = () => {
         </label>
 
         <label className="form-control w-full">
-          <span className="label-text mb-1">ইমেইল (ঐচ্ছিক)</span>
+          <span className="label-text mb-1">ইমেইল</span>
           <input
             type="email"
             className={`input input-bordered w-full ${errors.email ? 'input-error' : ''}`}

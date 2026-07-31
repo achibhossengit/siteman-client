@@ -1,20 +1,12 @@
-/**
- * User / UserList from /api/v1/users
- * Create: name, phone_number, optional email (password system-generated).
- * Admin PATCH: is_active, groups[name], sites[id] (replaces assignments).
- * Profile PATCH: name, email, phone_number.
- */
-
 import { z } from 'zod'
 import { ROLE_NAMES, groupLabelBn } from '../../utils/permissions.js'
 
-const optionalEmail = z
+const requiredEmail = z
   .string()
   .trim()
+  .min(1, 'ইমেইল দিন')
   .email('সঠিক ইমেইল দিন')
   .max(254)
-  .optional()
-  .or(z.literal(''))
 
 export const ASSIGNABLE_GROUP_NAMES = [
   ROLE_NAMES.companyAdmin,
@@ -33,7 +25,7 @@ export const userCreateSchema = z.object({
     .trim()
     .min(8, 'ফোন নম্বর দিন')
     .max(14, 'ফোন নম্বর একটু ছোট করুন'),
-  email: optionalEmail,
+  email: requiredEmail,
 })
 
 /** Admin user PATCH — only is_active + assignment replace. */

@@ -13,7 +13,7 @@
  *   id: number,
  *   name: string,
  *   phone_number: string,
- *   email?: string | null,
+ *   email: string | null,
  *   company?: { id: number, name: string } | null,
  *   is_active: boolean,
  *   is_staff?: boolean,

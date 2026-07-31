@@ -13,14 +13,9 @@ import { OTP_STORAGE, saveOtpSession } from '../../utils/otpSession.js'
 const schema = z.object({
   name: z.string().min(2, 'নাম দিন'),
   phone_number: z.string().min(8, 'ফোন নম্বর দিন'),
-  email: z
-    .string()
-    .email('সঠিক ইমেইল দিন')
-    .optional()
-    .or(z.literal('')),
+  email: z.string().trim().email('সঠিক ইমেইল দিন'),
   company_name: z.string().min(2, 'কোম্পানির নাম দিন'),
   password: z.string().min(6, 'কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড'),
-  channel: z.enum(['sms', 'email']),
 })
 
 export const RegisterPage = () => {
@@ -40,15 +35,17 @@ export const RegisterPage = () => {
       email: '',
       company_name: '',
       password: '',
-      channel: 'sms',
     },
   })
 
   const onSubmit = handleSubmit(async (values) => {
     setApiError(null)
     const payload = {
-      ...values,
-      email: values.email || undefined,
+      name: values.name,
+      phone_number: values.phone_number,
+      email: values.email.trim(),
+      company_name: values.company_name,
+      password: values.password,
     }
     try {
       const { data } = await registerApi(payload)
@@ -56,9 +53,10 @@ export const RegisterPage = () => {
         ticket: data.ticket,
         otp_expires_in: data.otp_expires_in ?? 300,
         resend_cooldown: data.resend_cooldown ?? 60,
+        email: payload.email,
         phone_number: values.phone_number,
       })
-      toastSuccess('OTP পাঠানো হয়েছে')
+      toastSuccess('ইমেইলে OTP পাঠানো হয়েছে')
       navigate(paths.registerConfirm)
     } catch (err) {
       const parsed = parseApiError(err)
@@ -70,10 +68,7 @@ export const RegisterPage = () => {
   return (
     <div className="card bg-base-100 shadow-sm border border-base-300">
       <form className="card-body gap-3" onSubmit={onSubmit} noValidate>
-        <h1 className="card-title justify-center text-2xl">নিবন্ধন</h1>
-        <p className="text-center text-sm text-base-content/70 -mt-1">
-          কোম্পানি অ্যাকাউন্ট তৈরি করুন
-        </p>
+        <h1 className="card-title justify-center text-xl">কোম্পানি নিবন্ধন করুন</h1>
 
         <ApiErrorAlert error={apiError} />
 
@@ -106,7 +101,7 @@ export const RegisterPage = () => {
         </label>
 
         <label className="form-control w-full">
-          <span className="label-text mb-1">ইমেইল (ঐচ্ছিক)</span>
+          <span className="label-text mb-1">ইমেইল</span>
           <input
             type="email"
             className={`input input-bordered w-full ${errors.email ? 'input-error' : ''}`}
@@ -145,14 +140,6 @@ export const RegisterPage = () => {
               {errors.password.message}
             </span>
           ) : null}
-        </label>
-
-        <label className="form-control w-full">
-          <span className="label-text mb-1">OTP চ্যানেল</span>
-          <select className="select select-bordered w-full" {...register('channel')}>
-            <option value="sms">SMS</option>
-            <option value="email">ইমেইল</option>
-          </select>
         </label>
 
         <button
