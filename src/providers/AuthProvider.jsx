@@ -4,35 +4,38 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react'
 import { bindAuthTokenAccessors } from '../api/client.js'
 import * as authApi from '../api/auth.js'
 import * as profileApi from '../api/profile.js'
+import {
+  clearAccessToken,
+  readAccessToken,
+  writeAccessToken,
+} from '../utils/authToken.js'
 
 const AuthContext = createContext(null)
 
 export const AuthProvider = ({ children }) => {
-  const accessTokenRef = useRef(null)
-  const [accessToken, setAccessTokenState] = useState(null)
+  const [accessToken, setAccessTokenState] = useState(() => readAccessToken())
   const [profile, setProfile] = useState(null)
   const [bootstrapping, setBootstrapping] = useState(true)
 
   const setAccessToken = useCallback((token) => {
-    accessTokenRef.current = token
+    writeAccessToken(token)
     setAccessTokenState(token)
   }, [])
 
   const clearSession = useCallback(() => {
-    accessTokenRef.current = null
+    clearAccessToken()
     setAccessTokenState(null)
     setProfile(null)
   }, [])
 
   useEffect(() => {
     bindAuthTokenAccessors({
-      getToken: () => accessTokenRef.current,
+      getToken: readAccessToken,
       setToken: setAccessToken,
       onFailure: clearSession,
     })
@@ -92,8 +95,12 @@ export const AuthProvider = ({ children }) => {
 
     const bootstrap = async () => {
       try {
-        await refreshSession()
-        if (cancelled) return
+        // Prefer the stored access token; only hit refresh when none exists.
+        // Expired access is handled by the API 401 → refresh interceptor.
+        if (!readAccessToken()) {
+          await refreshSession()
+          if (cancelled) return
+        }
         await bootstrapProfile()
       } catch {
         if (!cancelled) clearSession()
