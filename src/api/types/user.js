@@ -8,8 +8,8 @@ const requiredEmail = z
   .email('সঠিক ইমেইল দিন')
   .max(254)
 
+/** Groups that can be newly assigned (Company Admin is not assignable). */
 export const ASSIGNABLE_GROUP_NAMES = [
-  ROLE_NAMES.companyAdmin,
   ROLE_NAMES.siteManager,
   ROLE_NAMES.siteAuditor,
 ]
@@ -28,10 +28,10 @@ export const userCreateSchema = z.object({
   email: requiredEmail,
 })
 
-/** Admin user PATCH — only is_active + assignment replace. */
+/** Admin user PATCH — only is_active + assignment replace. Single group only. */
 export const userAdminUpdateSchema = z.object({
   is_active: z.boolean(),
-  groups: z.array(z.string().min(1)),
+  groups: z.array(z.string().min(1)).max(1),
   sites: z.array(z.number().int()),
 })
 
@@ -47,7 +47,8 @@ export const toUserAdminUpdatePayload = ({ is_active, groups, sites }) => ({
   is_active: Boolean(is_active),
   groups: (groups ?? [])
     .map((g) => String(g ?? '').trim())
-    .filter(Boolean),
+    .filter(Boolean)
+    .slice(0, 1),
   sites: (sites ?? []).map((id) => Number(id)),
 })
 
@@ -67,6 +68,13 @@ export const normalizeGroupNames = (groups) =>
     })
     .filter(Boolean)
 
+/** Prefer a single group for the form (Company Admin wins if present). */
+export const toSingleGroupNames = (groups) => {
+  const names = normalizeGroupNames(groups)
+  if (names.includes(ROLE_NAMES.companyAdmin)) return [ROLE_NAMES.companyAdmin]
+  return names.slice(0, 1)
+}
+
 /** Normalize API sites (objects or ids) → number[]. */
 export const normalizeSiteIds = (sites) =>
   (Array.isArray(sites) ? sites : [])
@@ -74,12 +82,32 @@ export const normalizeSiteIds = (sites) =>
     .filter((id) => id != null && id !== '')
     .map(Number)
 
-/** Fixed role options — PATCH assigns by English group name. */
-export const buildAssignableGroups = () =>
-  ASSIGNABLE_GROUP_NAMES.map((name) => ({
-    name,
-    label: groupLabelBn(name),
-  }))
+/**
+ * Select options for user group (single choice).
+ * Company Admin is only listed when already assigned, and is not selectable.
+ */
+export const buildGroupSelectOptions = (currentGroups = []) => {
+  const current = new Set(normalizeGroupNames(currentGroups))
+  const options = []
+
+  if (current.has(ROLE_NAMES.companyAdmin)) {
+    options.push({
+      name: ROLE_NAMES.companyAdmin,
+      label: groupLabelBn(ROLE_NAMES.companyAdmin),
+      disabled: true,
+    })
+  }
+
+  for (const name of ASSIGNABLE_GROUP_NAMES) {
+    options.push({
+      name,
+      label: groupLabelBn(name),
+      disabled: false,
+    })
+  }
+
+  return options
+}
 
 export const userStatusLabel = (user) => {
   if (!user) return '—'

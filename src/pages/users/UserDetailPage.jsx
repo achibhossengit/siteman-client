@@ -7,8 +7,8 @@ import { Check, Pencil, X } from "lucide-react";
 import { fetchUserDetail, updateUser } from "../../api/users.js";
 import { fetchSites } from "../../api/sites.js";
 import {
-  buildAssignableGroups,
-  normalizeGroupNames,
+  buildGroupSelectOptions,
+  toSingleGroupNames,
   normalizeSiteIds,
   toUserAdminUpdatePayload,
   userAdminUpdateSchema,
@@ -22,7 +22,7 @@ import { PERMS } from "../../utils/permissions.js";
 
 const toFormValues = (user) => ({
   is_active: user?.is_active ?? true,
-  groups: normalizeGroupNames(user?.groups),
+  groups: toSingleGroupNames(user?.groups),
   sites: normalizeSiteIds(user?.sites),
 });
 
@@ -77,7 +77,7 @@ export const UserDetailPage = () => {
   const groupNames = watch("groups") ?? [];
   const siteIds = watch("sites") ?? [];
 
-  const assignableGroups = buildAssignableGroups();
+  const assignableGroups = buildGroupSelectOptions(user?.groups);
 
   useEffect(() => {
     setTitle?.("ইউজার বিবরণ");
@@ -227,22 +227,24 @@ export const UserDetailPage = () => {
             <div className="mt-2 flex flex-col gap-1.5 h-24 overflow-y-auto pr-1">
               {assignableGroups.map((g) => {
                 const checked = groupNames.includes(g.name);
+                const optionDisabled = disabled || g.disabled;
                 return (
                   <label
                     key={g.name}
                     className={[
                       "label cursor-pointer justify-start gap-3 py-1 min-h-0",
-                      disabled ? "cursor-default opacity-80" : "",
+                      optionDisabled ? "cursor-default opacity-80" : "",
                     ].join(" ")}
                   >
                     <input
-                      type="checkbox"
-                      className="checkbox checkbox-sm checkbox-primary"
-                      disabled={disabled}
+                      type="radio"
+                      name="user-group"
+                      className="radio radio-sm radio-primary"
+                      disabled={optionDisabled}
                       checked={checked}
                       onChange={() => {
-                        if (disabled) return;
-                        setValue("groups", toggleItem(groupNames, g.name), {
+                        if (optionDisabled) return;
+                        setValue("groups", [g.name], {
                           shouldDirty: true,
                         });
                       }}
