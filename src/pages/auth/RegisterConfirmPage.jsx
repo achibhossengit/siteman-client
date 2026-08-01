@@ -39,9 +39,6 @@ export const RegisterConfirmPage = () => {
     try {
       await registerConfirm({ ticket: session.ticket, otp })
       clearOtpSession(OTP_STORAGE.register)
-      toastSuccess('নিবন্ধন সম্পন্ন — এখন লগইন করুন', {
-        id: 'login-success:registered',
-      })
       navigate(paths.login, { replace: true, state: { registered: true } })
     } catch (err) {
       const parsed = parseApiError(err)

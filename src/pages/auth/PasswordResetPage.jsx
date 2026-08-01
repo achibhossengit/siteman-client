@@ -11,7 +11,6 @@ import { toastSuccess } from '../../utils/feedback.js'
 import { OTP_STORAGE, saveOtpSession } from '../../utils/otpSession.js'
 
 const schema = z.object({
-  name: z.string().min(2, 'নাম দিন'),
   phone_number: z.string().min(8, 'ফোন নম্বর দিন'),
 })
 
@@ -26,7 +25,7 @@ export const PasswordResetPage = () => {
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', phone_number: '' },
+    defaultValues: { phone_number: '' },
   })
 
   const onSubmit = handleSubmit(async (values) => {
@@ -39,7 +38,6 @@ export const PasswordResetPage = () => {
         otp_expires_in: data.otp_expires_in ?? 300,
         resend_cooldown: data.resend_cooldown ?? 60,
         phone_number: values.phone_number,
-        name: values.name,
       })
       toastSuccess('OTP পাঠানো হয়েছে')
       navigate(paths.passwordResetConfirm)
@@ -56,23 +54,10 @@ export const PasswordResetPage = () => {
       <form className="card-body gap-3" onSubmit={onSubmit} noValidate>
         <h1 className="card-title justify-center text-2xl">পাসওয়ার্ড রিসেট</h1>
         <p className="text-center text-sm text-base-content/70 -mt-1">
-          নাম ও ফোন দিয়ে OTP পাঠান
+        আপনার ইমেইল এ OTP যাবে। ইমেইল সেট করা না থাকলে পাসওয়ার্ড রিসেট করা সম্ভব নয়। 
         </p>
 
         <ApiErrorAlert error={apiError} />
-
-        <label className="form-control w-full">
-          <span className="label-text mb-1">নাম</span>
-          <input
-            className={`input input-bordered w-full ${errors.name ? 'input-error' : ''}`}
-            {...register('name')}
-          />
-          {errors.name ? (
-            <span className="label-text-alt text-error mt-1">
-              {errors.name.message}
-            </span>
-          ) : null}
-        </label>
 
         <label className="form-control w-full">
           <span className="label-text mb-1">ফোন নম্বর</span>

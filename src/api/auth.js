@@ -17,8 +17,8 @@ export const registerConfirm = ({ ticket, otp }) =>
 export const registerResendOtp = ({ ticket }) =>
   api.post(endpoints.auth.registerResendOtp, { ticket })
 
-export const passwordReset = ({ phone_number, name }) =>
-  api.post(endpoints.auth.passwordReset, { phone_number, name })
+export const passwordReset = ({ phone_number }) =>
+  api.post(endpoints.auth.passwordReset, { phone_number })
 
 export const passwordResetConfirm = ({ ticket, otp, new_password }) =>
   api.post(endpoints.auth.passwordResetConfirm, {

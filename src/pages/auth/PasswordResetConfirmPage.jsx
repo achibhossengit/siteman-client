@@ -52,9 +52,6 @@ export const PasswordResetConfirmPage = () => {
         new_password: newPassword,
       });
       clearOtpSession(OTP_STORAGE.passwordReset);
-      toastSuccess("পাসওয়ার্ড আপডেট হয়েছে — এখন লগইন করুন", {
-        id: "login-success:passwordReset",
-      });
       navigate(paths.login, { replace: true, state: { passwordReset: true } });
     } catch (err) {
       const parsed = parseApiError(err);
