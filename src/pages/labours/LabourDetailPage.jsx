@@ -27,7 +27,8 @@ import { paths } from '../../router/paths.js'
 const toFormValues = (labour) => ({
   name: labour?.name ?? '',
   current_site: labour?.current_site != null ? String(labour.current_site) : '',
-  default_attendance: labour?.default_attendance ?? 1,
+  // API may send "2.50"; select options use "2.5" — normalize via Number.
+  default_attendance: String(Number(labour?.default_attendance ?? 1)),
   default_salary: labour?.default_salary ?? 0,
   default_fooding: labour?.default_fooding ?? 0,
   is_active: labour?.is_active ?? true,
@@ -293,7 +294,7 @@ export const LabourDetailPage = () => {
             {...register('default_attendance')}
           >
             {DEFAULT_ATTENDANCE_OPTIONS.map((v) => (
-              <option key={v} value={v}>
+              <option key={v} value={String(v)}>
                 {formatBnNumber(v, { maximumFractionDigits: 1 })}
               </option>
             ))}
