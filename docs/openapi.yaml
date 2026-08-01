@@ -4340,7 +4340,8 @@ paths:
       description: |-
         Current authenticated user's profile.
 
-        ``GET /profile`` — basic info, groups, permissions, assigned sites.
+        ``GET /profile`` — basic info, groups, permissions, and sites
+        (all company sites for company admins; otherwise assigned sites only).
         ``PATCH /profile`` — update name, email, phone.
         Password changes use ``/auth/password/change`` or reset.
         No Django model-permission gate (any authenticated user).
@@ -4471,7 +4472,8 @@ paths:
       description: |-
         Current authenticated user's profile.
 
-        ``GET /profile`` — basic info, groups, permissions, assigned sites.
+        ``GET /profile`` — basic info, groups, permissions, and sites
+        (all company sites for company admins; otherwise assigned sites only).
         ``PATCH /profile`` — update name, email, phone.
         Password changes use ``/auth/password/change`` or reset.
         No Django model-permission gate (any authenticated user).
@@ -9650,13 +9652,11 @@ components:
       oneOf:
         - $ref: "#/components/schemas/AuthPasswordResetCreateNonFieldErrorsErrorComponent"
         - $ref: "#/components/schemas/AuthPasswordResetCreatePhoneNumberErrorComponent"
-        - $ref: "#/components/schemas/AuthPasswordResetCreateNameErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
           non_field_errors: "#/components/schemas/AuthPasswordResetCreateNonFieldErrorsErrorComponent"
           phone_number: "#/components/schemas/AuthPasswordResetCreatePhoneNumberErrorComponent"
-          name: "#/components/schemas/AuthPasswordResetCreateNameErrorComponent"
     AuthPasswordResetCreateErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/AuthPasswordResetCreateValidationError"
@@ -9666,38 +9666,6 @@ components:
         mapping:
           validation_error: "#/components/schemas/AuthPasswordResetCreateValidationError"
           client_error: "#/components/schemas/ParseErrorResponse"
-    AuthPasswordResetCreateNameErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - name
-          type: string
-          description: "* `name` - name"
-        code:
-          enum:
-            - blank
-            - invalid
-            - max_length
-            - "null"
-            - null_characters_not_allowed
-            - required
-            - surrogate_characters_not_allowed
-          type: string
-          description: |-
-            * `blank` - blank
-            * `invalid` - invalid
-            * `max_length` - max_length
-            * `null` - null
-            * `null_characters_not_allowed` - null_characters_not_allowed
-            * `required` - required
-            * `surrogate_characters_not_allowed` - surrogate_characters_not_allowed
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
     AuthPasswordResetCreateNonFieldErrorsErrorComponent:
       type: object
       properties:
@@ -13294,11 +13262,7 @@ components:
         phone_number:
           type: string
           maxLength: 20
-        name:
-          type: string
-          maxLength: 255
       required:
-        - name
         - phone_number
     PasswordResetConfirm:
       type: object
@@ -13667,8 +13631,8 @@ components:
         email:
           type: string
           format: email
-          readOnly: true
           nullable: true
+          maxLength: 254
         company:
           type: string
           readOnly: true
@@ -13813,17 +13777,45 @@ components:
         - id
         - type
         - updated_at
+    ProfilePartialUpdateEmailErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - email
+          type: string
+          description: "* `email` - email"
+        code:
+          enum:
+            - invalid
+            - max_length
+            - null_characters_not_allowed
+            - surrogate_characters_not_allowed
+          type: string
+          description: |-
+            * `invalid` - invalid
+            * `max_length` - max_length
+            * `null_characters_not_allowed` - null_characters_not_allowed
+            * `surrogate_characters_not_allowed` - surrogate_characters_not_allowed
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
     ProfilePartialUpdateError:
       oneOf:
         - $ref: "#/components/schemas/ProfilePartialUpdateNonFieldErrorsErrorComponent"
         - $ref: "#/components/schemas/ProfilePartialUpdateNameErrorComponent"
         - $ref: "#/components/schemas/ProfilePartialUpdatePhoneNumberErrorComponent"
+        - $ref: "#/components/schemas/ProfilePartialUpdateEmailErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
           non_field_errors: "#/components/schemas/ProfilePartialUpdateNonFieldErrorsErrorComponent"
           name: "#/components/schemas/ProfilePartialUpdateNameErrorComponent"
           phone_number: "#/components/schemas/ProfilePartialUpdatePhoneNumberErrorComponent"
+          email: "#/components/schemas/ProfilePartialUpdateEmailErrorComponent"
     ProfilePartialUpdateErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/ProfilePartialUpdateValidationError"
@@ -16837,8 +16829,8 @@ components:
         email:
           type: string
           format: email
-          readOnly: true
           nullable: true
+          maxLength: 254
         company:
           type: string
           readOnly: true
@@ -16863,7 +16855,6 @@ components:
           readOnly: true
       required:
         - company
-        - email
         - groups
         - id
         - is_active

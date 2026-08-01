@@ -58,7 +58,7 @@ export const LoginPage = () => {
       <form className="card-body gap-3" onSubmit={onSubmit} noValidate>
         <h1 className="card-title justify-center text-2xl">লগইন</h1>
         <p className="text-center text-sm text-base-content/70 -mt-1">
-          ফোন নম্বর ও পাসওয়ার্ড দিয়ে প্রবেশ করুন
+           ফোন নম্বর ও পাসওয়ার্ড দিয়ে প্রবেশ করুন
         </p>
 
         <ApiErrorAlert error={apiError} />
@@ -111,7 +111,7 @@ export const LoginPage = () => {
 
         <div className="flex flex-col gap-1 text-right text-sm pt-1">
           <Link to={paths.register} className="link link-hover text-base-content/70">
-            আপনার নিজের কোম্পানি তৈরি করতে রেজিস্টার করুন?
+          ঠিকাদার হলে আগে রেজিস্ট্রেশন করুন?
           </Link>
         </div>
    

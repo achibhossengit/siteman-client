@@ -9,6 +9,10 @@ import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { paths } from '../../router/paths.js'
 import { toastSuccess } from '../../utils/feedback.js'
 import { OTP_STORAGE, saveOtpSession } from '../../utils/otpSession.js'
+import {
+  REGISTRATION_DISABLED,
+  REGISTRATION_DISABLED_MESSAGE,
+} from '../../config/features.js'
 
 const schema = z.object({
   name: z.string().min(2, 'নাম দিন'),
@@ -39,6 +43,7 @@ export const RegisterPage = () => {
   })
 
   const onSubmit = handleSubmit(async (values) => {
+    if (REGISTRATION_DISABLED) return
     setApiError(null)
     const payload = {
       name: values.name,
@@ -68,7 +73,12 @@ export const RegisterPage = () => {
   return (
     <div className="card bg-base-100 shadow-sm border border-base-300">
       <form className="card-body gap-3" onSubmit={onSubmit} noValidate>
-        <h1 className="card-title justify-center text-xl">কোম্পানি নিবন্ধন করুন</h1>
+        <h1 className="card-title justify-center text-xl">ঠিকাদার হিসেবে রেজিস্ট্রেশন করুন</h1>
+        {REGISTRATION_DISABLED ? (
+          <div role="status" className="alert alert-warning">
+            <span>{REGISTRATION_DISABLED_MESSAGE}</span>
+          </div>
+        ) : null}
 
         <ApiErrorAlert error={apiError} />
 
@@ -76,6 +86,7 @@ export const RegisterPage = () => {
           <span className="label-text mb-1">নাম</span>
           <input
             className={`input input-bordered w-full ${errors.name ? 'input-error' : ''}`}
+            disabled={REGISTRATION_DISABLED}
             {...register('name')}
           />
           {errors.name ? (
@@ -91,6 +102,7 @@ export const RegisterPage = () => {
             type="tel"
             className={`input input-bordered w-full ${errors.phone_number ? 'input-error' : ''}`}
             placeholder="+8801..."
+            disabled={REGISTRATION_DISABLED}
             {...register('phone_number')}
           />
           {errors.phone_number ? (
@@ -105,6 +117,7 @@ export const RegisterPage = () => {
           <input
             type="email"
             className={`input input-bordered w-full ${errors.email ? 'input-error' : ''}`}
+            disabled={REGISTRATION_DISABLED}
             {...register('email')}
           />
           {errors.email ? (
@@ -118,6 +131,7 @@ export const RegisterPage = () => {
           <span className="label-text mb-1">কোম্পানির নাম</span>
           <input
             className={`input input-bordered w-full ${errors.company_name ? 'input-error' : ''}`}
+            disabled={REGISTRATION_DISABLED}
             {...register('company_name')}
           />
           {errors.company_name ? (
@@ -133,6 +147,7 @@ export const RegisterPage = () => {
             type="password"
             autoComplete="new-password"
             className={`input input-bordered w-full ${errors.password ? 'input-error' : ''}`}
+            disabled={REGISTRATION_DISABLED}
             {...register('password')}
           />
           {errors.password ? (
@@ -145,7 +160,7 @@ export const RegisterPage = () => {
         <button
           type="submit"
           className="btn btn-primary w-full"
-          disabled={isSubmitting}
+          disabled={REGISTRATION_DISABLED || isSubmitting}
         >
           {isSubmitting ? (
             <span className="loading loading-spinner loading-sm" />
