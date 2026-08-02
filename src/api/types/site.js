@@ -1,7 +1,7 @@
 /**
  * Site / SiteList from /api/v1/sites
  * List: { id, name, is_active, is_closed }
- * Detail: + closed_at, company, created_by, created_at, updated_at
+ * Detail: + closed_at, company, created_at, updated_at
  */
 
 import { z } from 'zod'

@@ -9305,10 +9305,6 @@ components:
         company:
           type: integer
           readOnly: true
-        created_by:
-          type: integer
-          readOnly: true
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -9320,7 +9316,6 @@ components:
       required:
         - company
         - created_at
-        - created_by
         - id
         - is_sealed
         - labour
@@ -10539,10 +10534,6 @@ components:
         company:
           type: integer
           readOnly: true
-        created_by:
-          type: integer
-          readOnly: true
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -10554,7 +10545,6 @@ components:
       required:
         - company
         - created_at
-        - created_by
         - id
         - name
         - site
@@ -10927,10 +10917,6 @@ components:
         company:
           type: integer
           readOnly: true
-        created_by:
-          type: integer
-          readOnly: true
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -10942,7 +10928,6 @@ components:
       required:
         - company
         - created_at
-        - created_by
         - id
         - last_session_date
         - name
@@ -11021,10 +11006,6 @@ components:
         company:
           type: integer
           readOnly: true
-        created_by:
-          type: integer
-          readOnly: true
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -11037,7 +11018,6 @@ components:
         - amount
         - company
         - created_at
-        - created_by
         - id
         - is_sealed
         - labour
@@ -11147,9 +11127,6 @@ components:
         is_latest:
           type: boolean
           readOnly: true
-        created_by:
-          type: integer
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -12741,28 +12718,6 @@ components:
         propertyName: type
         mapping:
           client_error: "#/components/schemas/ParseErrorResponse"
-    LaboursSessionsCreateCreatedByErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - created_by
-          type: string
-          description: "* `created_by` - created_by"
-        code:
-          enum:
-            - does_not_exist
-            - incorrect_type
-          type: string
-          description: |-
-            * `does_not_exist` - does_not_exist
-            * `incorrect_type` - incorrect_type
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
     LaboursSessionsCreateCreatedDateErrorComponent:
       type: object
       properties:
@@ -12825,7 +12780,6 @@ components:
         - $ref: "#/components/schemas/LaboursSessionsCreateTotalPaymentErrorComponent"
         - $ref: "#/components/schemas/LaboursSessionsCreateTotalReturnErrorComponent"
         - $ref: "#/components/schemas/LaboursSessionsCreatePreviousPayableErrorComponent"
-        - $ref: "#/components/schemas/LaboursSessionsCreateCreatedByErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
@@ -12839,7 +12793,6 @@ components:
           total_payment: "#/components/schemas/LaboursSessionsCreateTotalPaymentErrorComponent"
           total_return: "#/components/schemas/LaboursSessionsCreateTotalReturnErrorComponent"
           previous_payable: "#/components/schemas/LaboursSessionsCreatePreviousPayableErrorComponent"
-          created_by: "#/components/schemas/LaboursSessionsCreateCreatedByErrorComponent"
     LaboursSessionsCreateErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/LaboursSessionsCreateValidationError"
@@ -13333,10 +13286,6 @@ components:
         company:
           type: integer
           readOnly: true
-        created_by:
-          type: integer
-          readOnly: true
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -13370,10 +13319,6 @@ components:
         company:
           type: integer
           readOnly: true
-        created_by:
-          type: integer
-          readOnly: true
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -13417,10 +13362,6 @@ components:
         company:
           type: integer
           readOnly: true
-        created_by:
-          type: integer
-          readOnly: true
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -13469,10 +13410,6 @@ components:
         company:
           type: integer
           readOnly: true
-        created_by:
-          type: integer
-          readOnly: true
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -13511,10 +13448,6 @@ components:
         company:
           type: integer
           readOnly: true
-        created_by:
-          type: integer
-          readOnly: true
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -13545,10 +13478,6 @@ components:
         company:
           type: integer
           readOnly: true
-        created_by:
-          type: integer
-          readOnly: true
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -13598,10 +13527,6 @@ components:
         company:
           type: integer
           readOnly: true
-        created_by:
-          type: integer
-          readOnly: true
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -13719,10 +13644,6 @@ components:
         company:
           type: integer
           readOnly: true
-        created_by:
-          type: integer
-          readOnly: true
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -13735,7 +13656,6 @@ components:
         - amount
         - company
         - created_at
-        - created_by
         - id
         - site
         - type
@@ -14002,10 +13922,6 @@ components:
         company:
           type: integer
           readOnly: true
-        created_by:
-          type: integer
-          readOnly: true
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -14018,7 +13934,6 @@ components:
         - closed_at
         - company
         - created_at
-        - created_by
         - id
         - is_closed
         - name
@@ -14064,10 +13979,6 @@ components:
         company:
           type: integer
           readOnly: true
-        created_by:
-          type: integer
-          readOnly: true
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -14080,7 +13991,6 @@ components:
         - amount
         - company
         - created_at
-        - created_by
         - id
         - site
         - type
@@ -14188,10 +14098,6 @@ components:
         company:
           type: integer
           readOnly: true
-        created_by:
-          type: integer
-          readOnly: true
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -14203,7 +14109,6 @@ components:
       required:
         - company
         - created_at
-        - created_by
         - id
         - is_sealed
         - labour
@@ -14313,10 +14218,6 @@ components:
         company:
           type: integer
           readOnly: true
-        created_by:
-          type: integer
-          readOnly: true
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -14329,7 +14230,6 @@ components:
         - amount
         - company
         - created_at
-        - created_by
         - id
         - is_sealed
         - labour
