@@ -29,7 +29,6 @@ import {
   readSelectedSite,
   todayIso,
 } from "../../utils/sessionSelection.js";
-import { PlusIcon } from "lucide-react";
 
 const cloneRows = (rows) => structuredClone(rows);
 
@@ -164,6 +163,25 @@ const PAYMENT_FILTER_OPTIONS = [
 
 const filterLabel = (options, value) =>
   options.find((opt) => opt.value === value)?.label ?? options[0]?.label ?? "";
+
+const formatMetaDate = (iso) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("bn-BD", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(d);
+};
+
+const wasUpdated = (createdAt, updatedAt) => {
+  if (!createdAt || !updatedAt) return false;
+  const created = new Date(createdAt).getTime();
+  const updated = new Date(updatedAt).getTime();
+  if (Number.isNaN(created) || Number.isNaN(updated)) return false;
+  return updated !== created;
+};
 
 const PAYMENT_SPECS = [
   {
@@ -440,6 +458,8 @@ export const HajiraPage = () => {
       note: row.extraNote ?? "",
       attendanceSealed: row.attendanceSealed,
       attendanceId: row.attendanceId,
+      attendanceCreatedAt: row.attendanceCreatedAt ?? null,
+      attendanceUpdatedAt: row.attendanceUpdatedAt ?? null,
     });
     document.getElementById(HAJIRA_MODAL_ID)?.showModal();
   };
@@ -500,10 +520,14 @@ export const HajiraPage = () => {
       paymentNote: row.paymentNote ?? "",
       paymentSealed: row.paymentSealed,
       paymentId: row.paymentId,
+      paymentCreatedAt: row.paymentCreatedAt ?? null,
+      paymentUpdatedAt: row.paymentUpdatedAt ?? null,
       return: row.return,
       returnNote: row.returnNote ?? "",
       returnSealed: row.returnSealed,
       returnId: row.returnId,
+      returnCreatedAt: row.returnCreatedAt ?? null,
+      returnUpdatedAt: row.returnUpdatedAt ?? null,
     });
     document.getElementById(PAYMENT_MODAL_ID)?.showModal();
   };
@@ -533,7 +557,7 @@ export const HajiraPage = () => {
     });
   };
 
-  const onAddHajira = () => {
+  const onStartEdit = () => {
     setApiError(null);
     setEditing(true);
   };
@@ -975,58 +999,9 @@ export const HajiraPage = () => {
               })
             )}
           </tbody>
-        </table>
-      </div>
-
-      <div className="shrink-0 border-t border-base-300 bg-base-100">
-        <table className="table table-fixed table-xs sm:table-sm w-full">
-          <colgroup>
-            <col className="w-10" />
-            <col className="w-[22%]" />
-            <col className="w-[18%]" />
-            <col className="w-[14%]" />
-            <col className="w-[16%]" />
-            <col />
-          </colgroup>
-          <tbody>
-            {editing ? (
-              <tr>
-                <td colSpan={5}>
-                  <div className="flex flex-wrap items-center gap-2 py-0.5">
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={onUseDefaults}
-                      disabled={saving || rows.length === 0}
-                    >
-                      Use Defaults
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={onCancel}
-                      disabled={saving}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </td>
-                <td className="text-right">
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={onSave}
-                    disabled={saving || !isDirty || rows.length === 0}
-                  >
-                    {saving ? (
-                      <span className="loading loading-spinner loading-sm" />
-                    ) : null}
-                    Save
-                  </button>
-                </td>
-              </tr>
-            ) : (
-              <tr className="font-medium">
+          {visibleRows.length > 0 ? (
+            <tfoot>
+              <tr className="font-medium border-t border-base-300">
                 <td />
                 <td className="whitespace-nowrap">Total</td>
                 <td className="tabular-nums">
@@ -1053,23 +1028,66 @@ export const HajiraPage = () => {
                     <span className="text-base-content/60">—</span>
                   )}
                 </td>
-                <td className="text-right">
-                  {canAddAttendance ? (
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={onAddHajira}
-                      disabled={!date || siteInactive}
-                    >
-                      <PlusIcon className="w-4 h-4" />
-                    </button>
-                  ) : null}
-                </td>
+                <td />
               </tr>
-            )}
-          </tbody>
+            </tfoot>
+          ) : null}
         </table>
       </div>
+
+      {editing ? (
+        <>
+          <button
+            type="button"
+            className="btn btn-outline btn-primary fixed bottom-16 left-4 z-40 shadow-lg bg-base-100"
+            onClick={onUseDefaults}
+            disabled={saving || rows.length === 0}
+          >
+            ডিফল্ট
+          </button>
+          <div className="fixed bottom-16 right-4 z-40 flex items-center gap-2">
+            <button
+              type="button"
+              className="btn shadow-lg bg-base-100 border border-base-300"
+              onClick={onCancel}
+              disabled={saving}
+            >
+              বাতিল করুন
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary shadow-lg"
+              onClick={onSave}
+              disabled={saving || !isDirty || rows.length === 0}
+            >
+              {saving ? (
+                <span className="loading loading-spinner loading-sm" />
+              ) : null}
+              নিশ্চিত করুন
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            className="btn btn-outline btn-primary fixed bottom-16 left-4 z-40 shadow-lg bg-base-100"
+            disabled={!date}
+          >
+            সব রিভিউ
+          </button>
+          {canAddAttendance ? (
+            <button
+              type="button"
+              className="btn btn-primary fixed bottom-16 right-4 z-40 shadow-lg"
+              onClick={onStartEdit}
+              disabled={!date || siteInactive}
+            >
+              আপডেট
+            </button>
+          ) : null}
+        </>
+      )}
 
       <dialog
         id={HAJIRA_MODAL_ID}
@@ -1091,6 +1109,20 @@ export const HajiraPage = () => {
               ? `হাজিরা (${hajiraModal.labourName})`
               : "হাজিরা"}
           </h3>
+          {hajiraModal?.attendanceCreatedAt ? (
+            <p className="text-xs text-base-content/55 tabular-nums -mt-1">
+              তৈরি: {formatMetaDate(hajiraModal.attendanceCreatedAt)}
+              {wasUpdated(
+                hajiraModal.attendanceCreatedAt,
+                hajiraModal.attendanceUpdatedAt,
+              ) ? (
+                <>
+                  <span className="mx-1.5 opacity-60">·</span>
+                  আপডেট {formatMetaDate(hajiraModal.attendanceUpdatedAt)}
+                </>
+              ) : null}
+            </p>
+          ) : null}
 
           {hajiraModal ? (
             <div className="space-y-3 pt-3">
@@ -1210,6 +1242,28 @@ export const HajiraPage = () => {
               ? `পেমেন্ট (${paymentModal.labourName})`
               : "পেমেন্ট"}
           </h3>
+          {(() => {
+            const createdAt =
+              paymentTab === "return"
+                ? paymentModal?.returnCreatedAt
+                : paymentModal?.paymentCreatedAt;
+            const updatedAt =
+              paymentTab === "return"
+                ? paymentModal?.returnUpdatedAt
+                : paymentModal?.paymentUpdatedAt;
+            if (!createdAt) return null;
+            return (
+              <p className="text-xs text-base-content/55 tabular-nums -mt-1">
+                তৈরি: {formatMetaDate(createdAt)}
+                {wasUpdated(createdAt, updatedAt) ? (
+                  <>
+                    <span className="mx-1.5 opacity-60">·</span>
+                    আপডেট {formatMetaDate(updatedAt)}
+                  </>
+                ) : null}
+              </p>
+            );
+          })()}
 
           {paymentModal ? (
             <div className="space-y-3 pt-3">

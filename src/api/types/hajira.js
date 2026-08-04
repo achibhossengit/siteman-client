@@ -182,6 +182,8 @@ export const buildHajiraEditRows = (labours, attendances, payments) => {
       defaultFooding: Number(labour.default_fooding) || 0,
       attendanceId: attendance?.id ?? null,
       attendanceSealed: Boolean(attendance?.is_sealed),
+      attendanceCreatedAt: attendance?.created_at ?? null,
+      attendanceUpdatedAt: attendance?.updated_at ?? null,
       present:
         attendance?.present == null || attendance?.present === ''
           ? ''
@@ -200,10 +202,14 @@ export const buildHajiraEditRows = (labours, attendances, payments) => {
       paymentSealed: Boolean(payment?.is_sealed),
       payment: blankAmount(payment?.amount),
       paymentNote: payment?.note ?? '',
+      paymentCreatedAt: payment?.created_at ?? null,
+      paymentUpdatedAt: payment?.updated_at ?? null,
       returnId: ret?.id ?? null,
       returnSealed: Boolean(ret?.is_sealed),
       return: blankAmount(ret?.amount),
       returnNote: ret?.note ?? '',
+      returnCreatedAt: ret?.created_at ?? null,
+      returnUpdatedAt: ret?.updated_at ?? null,
     }
   })
 }
