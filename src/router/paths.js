@@ -23,6 +23,7 @@ export const paths = {
   labourRunningSession: (labourId) => `/labours/${labourId}/sessions/running`,
   labourLatestSession: (labourId) => `/labours/${labourId}/sessions/latest`,
   appInfo: '/app-info',
+  activities: '/activities',
   login: '/login',
   register: '/register',
   registerConfirm: '/register/confirm',

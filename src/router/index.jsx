@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthLayout } from "../layouts/AuthLayout.jsx";
 import { AppLayout } from "../layouts/AppLayout.jsx";
+import { ActivityLayout } from "../layouts/ActivityLayout.jsx";
 import { SiteScopedLayout } from "../layouts/SiteScopedLayout.jsx";
 import { DetailLayout } from "../layouts/DetailLayout.jsx";
 import { GuestOnly, RequireAuth } from "./guards.jsx";
@@ -23,6 +24,7 @@ import { LabourSessionsPage } from "../pages/labours/LabourSessionsPage.jsx";
 import { LabourSessionDetailPage } from "../pages/labours/LabourSessionDetailPage.jsx";
 import { LabourSessionRecordsPage } from "../pages/labours/LabourSessionRecordsPage.jsx";
 import { AppInfoPage } from "../pages/AppInfoPage.jsx";
+import { ActivityPage } from "../pages/activities/ActivityPage.jsx";
 import { LoginPage } from "../pages/auth/LoginPage.jsx";
 import { RegisterPage } from "../pages/auth/RegisterPage.jsx";
 import { RegisterConfirmPage } from "../pages/auth/RegisterConfirmPage.jsx";
@@ -61,6 +63,10 @@ export const AppRouter = () => (
           </Route>
 
           <Route path={paths.others} element={<OthersPage />} />
+        </Route>
+
+        <Route element={<ActivityLayout />}>
+          <Route path={paths.activities} element={<ActivityPage />} />
         </Route>
 
         <Route element={<DetailLayout />}>

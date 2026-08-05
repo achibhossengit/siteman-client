@@ -25,6 +25,66 @@ export const activityTextToneClass = (tone) => {
   return ''
 }
 
+export const ACTIVITY_ACTION_FILTER_OPTIONS = [
+  { value: 'all', label: 'সব অ্যাকশন' },
+  { value: 'created', label: 'তৈরি' },
+  { value: 'updated', label: 'আপডেট' },
+  { value: 'deleted', label: 'ডিলিট' },
+]
+
+export const ACTIVITY_ENTITY_FILTER_OPTIONS = [
+  { value: 'all', label: 'সব অ্যাক্টিভিটি' },
+  { value: 'attendance', label: 'হাজিরা' },
+  { value: 'labour_payment', label: 'পেমেন্ট' },
+  { value: 'site_cash', label: 'ক্যাশ' },
+  // { value: 'private_site_cash', label: 'প্রাইভেট ক্যাশ' },
+  // { value: 'labour', label: 'লেবার' },
+  // { value: 'labour_session', label: 'সেশন' },
+  // { value: 'billing_category', label: 'বিলিং' },
+  // { value: 'site', label: 'সাইট' },
+  // { value: 'user', label: 'ইউজার' },
+]
+
+export const ACTIVITY_REVIEWED_FILTER_OPTIONS = [
+  { value: 'all', label: 'সব অ্যাক্টিভিটি' },
+  { value: 'pending', label: 'অডিট হয়নি' },
+  { value: 'reviewed', label: 'অডিট হয়েছে' },
+]
+
+export const activityActionLabel = (action) =>
+  ACTIVITY_ACTION_FILTER_OPTIONS.find((o) => o.value === action)?.label ??
+  action ??
+  '—'
+
+export const activityEntityLabel = (entityType) =>
+  ACTIVITY_ENTITY_FILTER_OPTIONS.find((o) => o.value === entityType)?.label ??
+  entityType ??
+  '—'
+
+const formatBusinessDateBn = (isoDate) => {
+  if (!isoDate) return null
+  const d = new Date(`${isoDate}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return String(isoDate)
+  return new Intl.DateTimeFormat('bn-BD', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(d)
+}
+
+/** One-line summary for activity list rows. */
+export const summarizeActivity = (log) => {
+  if (!log) return '—'
+  const parts = []
+  const biz = formatBusinessDateBn(log.business_date)
+  if (biz) parts.push(biz)
+  parts.push(activityEntityLabel(log.entity_type))
+  parts.push(activityActionLabel(log.action))
+  if (log.labour_name) parts.push(log.labour_name)
+  else if (log.actor_name) parts.push(log.actor_name)
+  return parts.filter(Boolean).join(' · ') || '—'
+}
+
 const blankAmount = (value) => {
   if (value == null || value === '') return ''
   const n = Number(value)

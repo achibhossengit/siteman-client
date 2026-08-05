@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   Building2,
   ChevronRight,
+  ClipboardList,
   Info,
   LandPlot,
   LogOut,
@@ -15,7 +16,7 @@ import { ThemeToggle } from '../components/ThemeToggle.jsx'
 import { useAuth } from '../providers/AuthProvider.jsx'
 import { usePermissions } from '../hooks/usePermissions.js'
 import { useTheme } from '../providers/ThemeProvider.jsx'
-import { groupLabelBn, PERMS } from '../utils/permissions.js'
+import { groupLabelBn, hasPermissionSuffix, PERMS } from '../utils/permissions.js'
 import { THEME_DARK } from '../utils/theme.js'
 import { paths } from '../router/paths.js'
 
@@ -98,6 +99,13 @@ const MANAGE_LINKS = [
     icon: UserRoundCog,
     to: paths.labours,
     anyOf: LABOUR_PERMS,
+  },
+  {
+    key: 'activities',
+    title: 'অ্যাক্টিভিটি',
+    icon: ClipboardList,
+    to: paths.activities,
+    anyOf: [PERMS.viewActivityLog],
   },
 ]
 
@@ -257,15 +265,22 @@ export const OthersPage = () => {
       <div>
         <SectionLabel>ম্যানেজ</SectionLabel>
         <MenuCard>
-          {MANAGE_LINKS.map((item) => (
-            <MenuRow
-              key={item.key}
-              icon={item.icon}
-              title={item.title}
-              to={item.to}
-              disabled={!canAny(item.anyOf)}
-            />
-          ))}
+          {MANAGE_LINKS.map((item) => {
+            const allowed =
+              item.key === 'activities'
+                ? canAny(item.anyOf) ||
+                  hasPermissionSuffix(profile, 'view_activitylog')
+                : canAny(item.anyOf)
+            return (
+              <MenuRow
+                key={item.key}
+                icon={item.icon}
+                title={item.title}
+                to={item.to}
+                disabled={!allowed}
+              />
+            )
+          })}
         </MenuCard>
       </div>
 
