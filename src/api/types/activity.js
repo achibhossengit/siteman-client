@@ -44,6 +44,70 @@ export const snapshotFields = (changes) => {
   return out
 }
 
+/**
+ * Merge unreviwed update logs into per-field { old, new }.
+ * Keeps the earliest `old` and the latest `new` when multiple updates stack.
+ * Accepts `{old,new}` objects or `[old, new]` tuples.
+ */
+export const updateFieldDiffs = (logs = []) => {
+  const updates = sortByCreatedAt(
+    (logs ?? []).filter((l) => l?.action === 'updated'),
+  )
+  if (!updates.length) return null
+
+  const asPair = (value) => {
+    if (
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      ('old' in value || 'new' in value)
+    ) {
+      return { old: value.old, new: value.new }
+    }
+    if (Array.isArray(value) && value.length >= 2) {
+      return { old: value[0], new: value[1] }
+    }
+    return null
+  }
+
+  /** FK snapshots sometimes arrive as `{id, name}` / `{pk, name}`. */
+  const unwrap = (side) => {
+    if (side && typeof side === 'object' && !Array.isArray(side)) {
+      if ('old' in side || 'new' in side) return side
+      if ('id' in side || 'pk' in side || 'name' in side) return side
+    }
+    return side
+  }
+
+  const diffs = {}
+  for (const log of updates) {
+    const changes = log.changes
+    if (!changes || typeof changes !== 'object' || Array.isArray(changes)) {
+      continue
+    }
+    for (const [key, value] of Object.entries(changes)) {
+      const pair = asPair(value)
+      if (!pair) continue
+      const next = { old: unwrap(pair.old), new: unwrap(pair.new) }
+      if (!(key in diffs)) {
+        diffs[key] = next
+      } else {
+        diffs[key] = {
+          old: diffs[key].old,
+          new: next.new !== undefined ? next.new : diffs[key].new,
+        }
+      }
+    }
+  }
+
+  // Common alias: model may log billing_id while API field is billing.
+  if (diffs.billing_id && !diffs.billing) {
+    diffs.billing = diffs.billing_id
+  }
+
+  return Object.keys(diffs).length ? diffs : null
+}
+
 const paymentTypeFromLog = (log) => {
   const fields = snapshotFields(log?.changes)
   const type = fields.type
@@ -388,6 +452,7 @@ export const applyActivitiesToCashRows = (rows = [], cashLogs = []) => {
       ...row,
       activityTone: toneFromLogs(logs),
       activityLogs: logs,
+      activityDiffs: updateFieldDiffs(logs),
     }
   })
 
@@ -408,6 +473,7 @@ export const applyActivitiesToCashRows = (rows = [], cashLogs = []) => {
       ...cashRowFromSnapshot(snapshotLog),
       activityTone: tone,
       activityLogs: logs,
+      activityDiffs: updateFieldDiffs(logs),
     })
   }
 

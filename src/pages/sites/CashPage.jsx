@@ -14,7 +14,9 @@ import {
 import {
   CASH_CATEGORIES,
   CASH_TYPES,
+  cashCategoryLabel,
   cashFormSchema,
+  cashTypeLabel,
   toSiteCashPayload,
 } from '../../api/types/siteCash.js'
 import { parseApiError, applyFieldErrors, messageForCode } from '../../api/errors.js'
@@ -81,6 +83,52 @@ const formatCashAmount = (type, amount) => {
     text: formatBnSigned(style.sign * Math.abs(Number(amount) || 0)),
     className: style.className,
   }
+}
+
+const sameDisplay = (a, b) => String(a ?? '') === String(b ?? '')
+
+/** Normalize billing FK / snapshot to a comparable id string (or null). */
+const normalizeBillingRef = (value) => {
+  if (value == null || value === '' || value === 'None' || value === 'null') {
+    return null
+  }
+  if (typeof value === 'object') {
+    const id = value.id ?? value.pk
+    if (id == null || id === '') return null
+    return String(id)
+  }
+  return String(value)
+}
+
+/** Label for billing ref: object.name, known id, or raw string name. */
+const billingDiffLabel = (value, billingNameFn) => {
+  if (value == null || value === '' || value === 'None' || value === 'null') {
+    return 'সাইট সাধারণ'
+  }
+  if (typeof value === 'object') {
+    if (value.name) return String(value.name)
+    const id = value.id ?? value.pk
+    return id == null || id === '' ? 'সাইট সাধারণ' : billingNameFn(id)
+  }
+  const asNum = Number(value)
+  if (Number.isFinite(asNum) && String(value).trim() === String(asNum)) {
+    return billingNameFn(asNum)
+  }
+  // Already a display name from the activity snapshot.
+  return String(value)
+}
+
+/** Previous (struck) + current value for update diffs in the detail modal. */
+const ChangePair = ({ oldText, newText, newClassName = '' }) => {
+  if (oldText == null || sameDisplay(oldText, newText)) {
+    return <span className={newClassName}>{newText}</span>
+  }
+  return (
+    <span className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
+      <span className="line-through opacity-50">{oldText}</span>
+      <span className={newClassName}>{newText}</span>
+    </span>
+  )
 }
 
 const emptyValues = {
@@ -508,6 +556,51 @@ export const CashPage = () => {
 
   const disabled = !editing
   const busy = isSubmitting || saveMutation.isPending
+  const showActivityDiffs =
+    isDetailMode && !editing && Boolean(selected?.activityDiffs)
+  const diffs = showActivityDiffs ? selected.activityDiffs : null
+  const noteDiffOld =
+    diffs?.note && !sameDisplay(diffs.note.old, selected?.note ?? '')
+      ? diffs.note.old == null || diffs.note.old === ''
+        ? '—'
+        : String(diffs.note.old)
+      : null
+  const amountDiff =
+    diffs && (diffs.amount || diffs.type)
+      ? formatCashAmount(
+          diffs.type?.old ?? selected?.type,
+          diffs.amount?.old ?? selected?.amount,
+        )
+      : null
+  const amountCurrent = formatCashAmount(selected?.type, selected?.amount)
+  const showAmountDiff =
+    amountDiff && !sameDisplay(amountDiff.text, amountCurrent.text)
+  const typeDiffOld =
+    diffs?.type && !sameDisplay(diffs.type.old, selected?.type)
+      ? cashTypeLabel(diffs.type.old)
+      : null
+  const categoryDiffOld =
+    diffs?.category && !sameDisplay(diffs.category.old, selected?.category)
+      ? cashCategoryLabel(diffs.category.old)
+      : null
+  const billingDiff = diffs?.billing ?? diffs?.billing_id
+  const billingNewValue = billingDiff
+    ? normalizeBillingRef(selected?.billing) ===
+      normalizeBillingRef(billingDiff.old)
+      ? billingDiff.new
+      : (selected?.billing ?? billingDiff.new)
+    : null
+  const billingChanged =
+    Boolean(billingDiff) &&
+    normalizeBillingRef(billingDiff.old) !==
+      normalizeBillingRef(billingNewValue)
+  const billingDiffOld = billingChanged
+    ? billingDiffLabel(billingDiff.old, billingName)
+    : null
+  const billingDiffNew = billingChanged
+    ? billingDiffLabel(billingNewValue, billingName)
+    : null
+
   const fieldClass = (hasError, kind = 'input') =>
     [
       kind === 'select'
@@ -694,13 +787,22 @@ export const CashPage = () => {
           >
             <label className="form-control w-full">
               <span className="label-text mb-1">বিবরণ</span>
-              <input
-                type="text"
-                className={fieldClass(errors.note)}
-                maxLength={255}
-                disabled={disabled}
-                {...register('note')}
-              />
+              {noteDiffOld ? (
+                <div className="min-h-10 flex items-center px-1">
+                  <ChangePair
+                    oldText={noteDiffOld}
+                    newText={selected?.note || '—'}
+                  />
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  className={fieldClass(errors.note)}
+                  maxLength={255}
+                  disabled={disabled}
+                  {...register('note')}
+                />
+              )}
               {errors.note ? (
                 <span className="label-text-alt text-error mt-1">
                   {errors.note.message}
@@ -710,15 +812,25 @@ export const CashPage = () => {
 
             <label className="form-control w-full">
               <span className="label-text mb-1">পরিমাণ</span>
-              <input
-                type="number"
-                inputMode="numeric"
-                min={1}
-                step={1}
-                className={fieldClass(errors.amount)}
-                disabled={disabled}
-                {...register('amount')}
-              />
+              {showAmountDiff ? (
+                <div className="min-h-10 flex items-center px-1">
+                  <ChangePair
+                    oldText={amountDiff.text}
+                    newText={amountCurrent.text}
+                    newClassName={`font-medium tabular-nums ${amountCurrent.className}`}
+                  />
+                </div>
+              ) : (
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  step={1}
+                  className={fieldClass(errors.amount)}
+                  disabled={disabled}
+                  {...register('amount')}
+                />
+              )}
               {errors.amount ? (
                 <span className="label-text-alt text-error mt-1">
                   {errors.amount.message}
@@ -729,17 +841,26 @@ export const CashPage = () => {
             <div className="flex justify-between gap-2">
               <label className="form-control w-full">
                 <span className="label-text mb-1">ধরন</span>
-                <select
-                  className={fieldClass(errors.type, 'select')}
-                  disabled={disabled}
-                  {...register('type')}
-                >
-                  {CASH_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
+                {typeDiffOld ? (
+                  <div className="min-h-10 flex items-center px-1">
+                    <ChangePair
+                      oldText={typeDiffOld}
+                      newText={cashTypeLabel(selected?.type)}
+                    />
+                  </div>
+                ) : (
+                  <select
+                    className={fieldClass(errors.type, 'select')}
+                    disabled={disabled}
+                    {...register('type')}
+                  >
+                    {CASH_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 {errors.type ? (
                   <span className="label-text-alt text-error mt-1">
                     {errors.type.message}
@@ -749,35 +870,53 @@ export const CashPage = () => {
 
               <label className="form-control w-full">
                 <span className="label-text mb-1">ক্যাটাগরি</span>
-                <select
-                  className={fieldClass(errors.category, 'select')}
-                  disabled={disabled || !categoryEnabled}
-                  {...register('category')}
-                >
-                  <option value="">—</option>
-                  {CASH_CATEGORIES.map((c) => (
-                    <option key={c.value} value={c.value}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
+                {categoryDiffOld ? (
+                  <div className="min-h-10 flex items-center px-1">
+                    <ChangePair
+                      oldText={categoryDiffOld}
+                      newText={cashCategoryLabel(selected?.category)}
+                    />
+                  </div>
+                ) : (
+                  <select
+                    className={fieldClass(errors.category, 'select')}
+                    disabled={disabled || !categoryEnabled}
+                    {...register('category')}
+                  >
+                    <option value="">—</option>
+                    {CASH_CATEGORIES.map((c) => (
+                      <option key={c.value} value={c.value}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </label>
             </div>
 
             <label className="form-control w-full">
               <span className="label-text mb-1">বিলিং ক্যাটাগরি</span>
-              <select
-                className={fieldClass(errors.billing, 'select')}
-                disabled={disabled}
-                {...register('billing')}
-              >
-                <option value="">সাইট সাধারণ</option>
-                {formBillingOptions.map((b) => (
-                  <option key={b.id} value={String(b.id)}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
+              {billingDiffOld ? (
+                <div className="min-h-10 flex items-center px-1">
+                  <ChangePair
+                    oldText={billingDiffOld}
+                    newText={billingDiffNew}
+                  />
+                </div>
+              ) : (
+                <select
+                  className={fieldClass(errors.billing, 'select')}
+                  disabled={disabled}
+                  {...register('billing')}
+                >
+                  <option value="">সাইট সাধারণ</option>
+                  {formBillingOptions.map((b) => (
+                    <option key={b.id} value={String(b.id)}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </label>
 
             {editing ? (

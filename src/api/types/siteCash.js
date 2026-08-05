@@ -17,11 +17,11 @@ export const CASH_CATEGORIES = [
 ]
 
 export const cashTypeLabel = (type) =>
-  CASH_TYPES.find((t) => t.value === type)?.label ?? type ?? '—'
+  CASH_TYPES.find((t) => t.value === type)?.label ?? type ?? 'সাধারন'
 
 export const cashCategoryLabel = (category) => {
-  if (category == null || category === '') return '—'
-  return CASH_CATEGORIES.find((c) => c.value === category)?.label ?? category
+  if (category == null || category === '') return ''
+  return CASH_CATEGORIES.find((c) => c.value === category)?.label ?? 'সাধারন'
 }
 
 /** Shared create / update form schema. */
