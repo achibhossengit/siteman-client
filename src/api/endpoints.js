@@ -18,6 +18,7 @@ export const endpoints = {
     list: '/api/v1/activities',
     detail: (id) => `/api/v1/activities/${id}`,
     review: (id) => `/api/v1/activities/${id}/review`,
+    reviewBulk: '/api/v1/activities/review-bulk',
   },
   sites: {
     list: '/api/v1/sites',

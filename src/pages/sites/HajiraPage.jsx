@@ -22,13 +22,18 @@ import {
   activityToneClass,
   applyActivitiesToViewRows,
 } from "../../api/types/activity.js";
-import { fetchActivities } from "../../api/activities.js";
+import { fetchActivities, reviewActivitiesBulk } from "../../api/activities.js";
 import { messageForCode, parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { PERMS, hasPermissionSuffix } from "../../utils/permissions.js";
 import { concatBillingName, formatBnNumber } from "../../utils/format.js";
-import { toastInfo, toastSuccess } from "../../utils/feedback.js";
+import {
+  confirmAction,
+  toastApiError,
+  toastInfo,
+  toastSuccess,
+} from "../../utils/feedback.js";
 import {
   readSelectedDate,
   readSelectedSite,
@@ -188,6 +193,27 @@ const wasUpdated = (createdAt, updatedAt) => {
   return updated !== created;
 };
 
+/** Bulk review validation: attr ids + missing id details. */
+const formatBulkReviewError = (parsed) => {
+  const errors = Array.isArray(parsed?.errors) ? parsed.errors : [];
+  const idsError = errors.find((e) => e.attr === "ids");
+  const missingIds = errors
+    .filter((e) => e.attr === "missing")
+    .map((e) => e.rawDetail ?? e.detail)
+    .filter(Boolean);
+
+  if (idsError || missingIds.length) {
+    const main =
+      idsError?.rawDetail ||
+      idsError?.detail ||
+      "কিছু অ্যাক্টিভিটি লগ রিভিউ করা যায়নি।";
+    if (!missingIds.length) return String(main);
+    return `${main} (missing: ${missingIds.join(", ")})`;
+  }
+
+  return parsed?.message || messageForCode("error");
+};
+
 const PAYMENT_SPECS = [
   {
     key: "payment",
@@ -234,6 +260,9 @@ export const HajiraPage = () => {
   const canViewActivityLog =
     can(PERMS.viewActivityLog) ||
     hasPermissionSuffix(profile, "view_activitylog");
+  const canChangeActivityLog =
+    can(PERMS.changeActivityLog) ||
+    hasPermissionSuffix(profile, "change_activitylog");
 
   const siteId = selectedSiteId || readSelectedSite();
   const date = selectedDate || readSelectedDate() || todayIso();
@@ -245,6 +274,7 @@ export const HajiraPage = () => {
   const [initialRows, setInitialRows] = useState([]);
   const [apiError, setApiError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
   const [hajiraModal, setHajiraModal] = useState(null);
   const [paymentModal, setPaymentModal] = useState(null);
   const [billingModal, setBillingModal] = useState(null);
@@ -330,6 +360,17 @@ export const HajiraPage = () => {
     },
     enabled: Boolean(!editing && canViewActivityLog && siteId && date),
   });
+
+  const unreviwedActivityIds = useMemo(() => {
+    const ids = new Set();
+    for (const log of activityAttendanceQuery.data ?? []) {
+      if (log?.id != null) ids.add(Number(log.id));
+    }
+    for (const log of activityPaymentQuery.data ?? []) {
+      if (log?.id != null) ids.add(Number(log.id));
+    }
+    return [...ids].filter((id) => Number.isFinite(id));
+  }, [activityAttendanceQuery.data, activityPaymentQuery.data]);
 
   const billingOptions = billingQuery.data ?? [];
 
@@ -609,6 +650,52 @@ export const HajiraPage = () => {
       [spec.key]: initial[spec.key],
       [spec.noteKey]: initial[spec.noteKey] ?? "",
     });
+  };
+
+  const onAcceptChanges = async () => {
+    if (!canChangeActivityLog || unreviwedActivityIds.length === 0) return;
+    const ok = await confirmAction({
+      title: "পরিবর্তন গুলোতে আপনি কি সম্মত?",
+      text: `${selectedDate} তারিখের হাজিরা ঠিক আছে বলে আপনি সম্মতি দিচ্ছেন। পরে বাতিল করতে পারবেন না। `,
+      confirmText: "সম্মত",
+      cancelText: "বাতিল করুন",
+    });
+    if (!ok) return;
+
+    setReviewing(true);
+    setApiError(null);
+    try {
+      await reviewActivitiesBulk(unreviwedActivityIds);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: [
+            "activities",
+            { site: siteId, business_date: date, entity_type: "attendance" },
+          ],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: [
+            "activities",
+            {
+              site: siteId,
+              business_date: date,
+              entity_type: "labour_payment",
+            },
+          ],
+        }),
+      ]);
+      toastSuccess("পরিবর্তনগুলো গ্রহণ করা হয়েছে");
+    } catch (err) {
+      const parsed = parseApiError(err);
+      const message = formatBulkReviewError(parsed);
+      setApiError({ ...parsed, message });
+      toastApiError({
+        message,
+        errors: [{ code: null, detail: message, attr: null }],
+      });
+    } finally {
+      setReviewing(false);
+    }
   };
 
   const onStartEdit = () => {
@@ -1131,9 +1218,18 @@ export const HajiraPage = () => {
           <button
             type="button"
             className="btn btn-outline btn-primary fixed bottom-16 left-4 z-40 shadow-lg bg-base-100"
-            disabled={!date}
+            onClick={onAcceptChanges}
+            disabled={
+              !date ||
+              reviewing ||
+              !canChangeActivityLog ||
+              unreviwedActivityIds.length === 0
+            }
           >
-            সব রিভিউ
+            {reviewing ? (
+              <span className="loading loading-spinner loading-sm" />
+            ) : null}
+            অডিট করুন
           </button>
           {canAddAttendance ? (
             <button
@@ -1142,7 +1238,7 @@ export const HajiraPage = () => {
               onClick={onStartEdit}
               disabled={!date || siteInactive}
             >
-              আপডেট
+              যোগ করুন
             </button>
           ) : null}
         </>

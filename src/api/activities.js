@@ -44,3 +44,9 @@ export const fetchActivities = ({
 /** PATCH /api/v1/activities/{id}/review — one-way mark reviewed. */
 export const reviewActivity = (id, payload = {}) =>
   api.patch(endpoints.activities.review(id), payload)
+
+/** POST /api/v1/activities/review-bulk — { ids: number[] } */
+export const reviewActivitiesBulk = (ids) =>
+  api.post(endpoints.activities.reviewBulk, {
+    ids: (ids ?? []).map((id) => Number(id)).filter((id) => Number.isFinite(id)),
+  })
