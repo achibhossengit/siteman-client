@@ -19,6 +19,7 @@ import {
   buildHajiraViewRows,
 } from "../../api/types/hajira.js";
 import {
+  activityTextToneClass,
   activityToneClass,
   applyActivitiesToViewRows,
 } from "../../api/types/activity.js";
@@ -41,6 +42,93 @@ import {
 } from "../../utils/sessionSelection.js";
 
 const cloneRows = (rows) => structuredClone(rows);
+
+const sameDisplay = (a, b) => String(a ?? "") === String(b ?? "");
+
+const normalizeBillingRef = (value) => {
+  if (value == null || value === "" || value === "None" || value === "null") {
+    return null;
+  }
+  if (typeof value === "object") {
+    const id = value.id ?? value.pk;
+    if (id == null || id === "") return null;
+    return String(id);
+  }
+  return String(value);
+};
+
+const billingDiffLabel = (value, billingNameFn) => {
+  if (value == null || value === "" || value === "None" || value === "null") {
+    return "—";
+  }
+  if (typeof value === "object") {
+    if (value.name) return String(value.name);
+    const id = value.id ?? value.pk;
+    return id == null || id === "" ? "—" : billingNameFn(id);
+  }
+  const asNum = Number(value);
+  if (Number.isFinite(asNum) && String(value).trim() === String(asNum)) {
+    return billingNameFn(asNum);
+  }
+  return String(value);
+};
+
+const formatDiffNumber = (value) => {
+  if (value == null || value === "") return "—";
+  const n = Number(value);
+  return Number.isFinite(n) ? formatBnNumber(n) : String(value);
+};
+
+const formatDiffText = (value) => {
+  if (value == null || value === "") return "—";
+  return String(value);
+};
+
+/** Previous (struck) + current value for update diffs in detail modals. */
+const ChangePair = ({ oldText, newText, newClassName = "" }) => {
+  if (oldText == null || sameDisplay(oldText, newText)) {
+    return <span className={newClassName}>{newText}</span>;
+  }
+  return (
+    <span className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
+      <span className="line-through opacity-50">{oldText}</span>
+      <span className={newClassName}>{newText}</span>
+    </span>
+  );
+};
+
+/**
+ * Build ~~old~~ → current pair for one activity field.
+ * Returns null when unchanged / no update diff.
+ */
+const diffPairFor = (diffs, field, current, format = formatDiffText) => {
+  const entry =
+    diffs?.[field] ?? (field === "billing" ? diffs?.billing_id : null);
+  if (!entry) return null;
+
+  let currentValue = current ?? entry.new;
+  if (
+    field === "billing" &&
+    normalizeBillingRef(current) === normalizeBillingRef(entry.old)
+  ) {
+    currentValue = entry.new;
+  }
+
+  if (field === "billing") {
+    if (
+      normalizeBillingRef(entry.old) === normalizeBillingRef(currentValue)
+    ) {
+      return null;
+    }
+  } else if (sameDisplay(entry.old, currentValue)) {
+    return null;
+  }
+
+  return {
+    oldText: format(entry.old),
+    newText: format(currentValue),
+  };
+};
 
 const numOrEmpty = (value) => {
   if (value === "" || value == null) return "";
@@ -147,7 +235,6 @@ const paymentAmount = (row, key) => {
 
 const HAJIRA_MODAL_ID = "hajira_attendance_modal";
 const PAYMENT_MODAL_ID = "hajira_payment_modal";
-const BILLING_MODAL_ID = "hajira_billing_modal";
 const EARNINGS_FILTER_MODAL_ID = "hajira_earnings_filter_modal";
 const PAYMENT_FILTER_MODAL_ID = "hajira_payment_filter_modal";
 const BILLING_FILTER_MODAL_ID = "hajira_billing_filter_modal";
@@ -250,7 +337,7 @@ const paymentLineTone = (row, initial, keys, idKey, typeClass) => {
 export const HajiraPage = () => {
   const { date: selectedDate, siteId: selectedSiteId, sites } =
     useOutletContext();
-  const { can, profile } = usePermissions();
+  const { can, profile, isCompanyAdmin } = usePermissions();
   const queryClient = useQueryClient();
 
   const canAddAttendance = can(PERMS.addAttendance);
@@ -263,6 +350,7 @@ export const HajiraPage = () => {
   const canChangeActivityLog =
     can(PERMS.changeActivityLog) ||
     hasPermissionSuffix(profile, "change_activitylog");
+  const showAyColumn = Boolean(isCompanyAdmin) && !editing;
 
   const siteId = selectedSiteId || readSelectedSite();
   const date = selectedDate || readSelectedDate() || todayIso();
@@ -277,7 +365,6 @@ export const HajiraPage = () => {
   const [reviewing, setReviewing] = useState(false);
   const [hajiraModal, setHajiraModal] = useState(null);
   const [paymentModal, setPaymentModal] = useState(null);
-  const [billingModal, setBillingModal] = useState(null);
   const [paymentTab, setPaymentTab] = useState(PAYMENT_SPECS[0].key);
   const [earningsFilter, setEarningsFilter] = useState("earn");
   const [paymentFilter, setPaymentFilter] = useState("payment");
@@ -551,28 +638,14 @@ export const HajiraPage = () => {
       salary: row.salary,
       extra: row.extra || "",
       note: row.extraNote ?? "",
+      billing: row.billing ?? "",
       attendanceSealed: row.attendanceSealed,
       attendanceId: row.attendanceId,
       attendanceCreatedAt: row.attendanceCreatedAt ?? null,
       attendanceUpdatedAt: row.attendanceUpdatedAt ?? null,
+      attendanceDiffs: row.attendanceDiffs ?? null,
     });
     document.getElementById(HAJIRA_MODAL_ID)?.showModal();
-  };
-
-  const openBillingModal = (row) => {
-    if (attendanceLocked(row)) return;
-    setBillingModal({
-      labourId: row.labourId,
-      labourName: row.labourName,
-      value: row.billing ?? "",
-    });
-    document.getElementById(BILLING_MODAL_ID)?.showModal();
-  };
-
-  const pickBilling = (billingId) => {
-    if (!billingModal) return;
-    updateRow(billingModal.labourId, { billing: billingId });
-    document.getElementById(BILLING_MODAL_ID)?.close();
   };
 
   const saveHajiraModal = () => {
@@ -586,6 +659,7 @@ export const HajiraPage = () => {
           ? 0
           : Number(hajiraModal.extra),
       extraNote: hajiraModal.note ?? "",
+      billing: hajiraModal.billing ?? "",
     });
     document.getElementById(HAJIRA_MODAL_ID)?.close();
   };
@@ -600,6 +674,7 @@ export const HajiraPage = () => {
       salary: initial.salary,
       extra: initial.extra || "",
       note: initial.extraNote ?? "",
+      billing: initial.billing ?? "",
     });
   };
 
@@ -623,6 +698,8 @@ export const HajiraPage = () => {
       returnId: row.returnId,
       returnCreatedAt: row.returnCreatedAt ?? null,
       returnUpdatedAt: row.returnUpdatedAt ?? null,
+      paymentDiffs: row.paymentDiffs ?? null,
+      returnDiffs: row.returnDiffs ?? null,
     });
     document.getElementById(PAYMENT_MODAL_ID)?.showModal();
   };
@@ -923,8 +1000,8 @@ export const HajiraPage = () => {
             <col className="w-10" />
             <col className="w-[22%]" />
             <col className="w-[18%]" />
-            <col className="w-[14%]" />
             <col className="w-[16%]" />
+            {showAyColumn ? <col className="w-[14%]" /> : null}
             <col />
           </colgroup>
           <thead className="sticky top-0 z-10 bg-base-100">
@@ -947,40 +1024,6 @@ export const HajiraPage = () => {
                   </button>
                 )}
               </th>
-              <th className="text-right">
-                {editing ? (
-                  "আয়"
-                ) : (
-                  <button
-                    type="button"
-                    className=""
-                    onClick={() =>
-                      document
-                        .getElementById(EARNINGS_FILTER_MODAL_ID)
-                        ?.showModal()
-                    }
-                  >
-                    {filterLabel(EARNINGS_FILTER_OPTIONS, earningsFilter)}
-                  </button>
-                )}
-              </th>
-              <th className="text-right">
-                {editing ? (
-                  "পেমেন্ট"
-                ) : (
-                  <button
-                    type="button"
-                    className=""
-                    onClick={() =>
-                      document
-                        .getElementById(PAYMENT_FILTER_MODAL_ID)
-                        ?.showModal()
-                    }
-                  >
-                    {filterLabel(PAYMENT_FILTER_OPTIONS, paymentFilter)}
-                  </button>
-                )}
-              </th>
               <th>
                 {editing ? (
                   "বিলিং"
@@ -997,13 +1040,43 @@ export const HajiraPage = () => {
                   </button>
                 )}
               </th>
+              {showAyColumn ? (
+                <th className="text-right">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      document
+                        .getElementById(EARNINGS_FILTER_MODAL_ID)
+                        ?.showModal()
+                    }
+                  >
+                    {filterLabel(EARNINGS_FILTER_OPTIONS, earningsFilter)}
+                  </button>
+                </th>
+              ) : null}
+              <th className="text-right">
+                {editing ? (
+                  "পেমেন্ট"
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      document
+                        .getElementById(PAYMENT_FILTER_MODAL_ID)
+                        ?.showModal()
+                    }
+                  >
+                    {filterLabel(PAYMENT_FILTER_OPTIONS, paymentFilter)}
+                  </button>
+                )}
+              </th>
             </tr>
           </thead>
           <tbody>
             {visibleRows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={showAyColumn ? 6 : 5}
                   className="text-center text-sm text-base-content/60 py-10"
                 >
                   {emptyMessage}
@@ -1012,14 +1085,24 @@ export const HajiraPage = () => {
             ) : (
               visibleRows.map((row, index) => {
                 const initial = initialByLabour.get(row.labourId) ?? {};
-                const hajiraTone = editing
+                const hajiraEditTone = editing
                   ? fieldTone(
                       row,
                       initial,
-                      ["present", "salary", "extra", "extraNote"],
+                      ["present", "salary", "extra", "extraNote", "billing"],
                       "attendanceId",
                     )
-                  : "text-base-content/60";
+                  : "";
+                const hajiraViewTone = !editing
+                  ? activityTextToneClass(row.attendanceTone) ||
+                    "text-base-content/70"
+                  : "";
+                const hajiraGroupTone = editing
+                  ? hajiraEditTone
+                  : hajiraViewTone;
+                const paymentActivityTone = !editing
+                  ? activityTextToneClass(row.paymentTone)
+                  : "";
                 const earn = dayEarnings(row, viewEarningsFilter);
                 const showPay = showPaymentAmount(row);
                 const showRet = showReturnAmount(row);
@@ -1044,15 +1127,14 @@ export const HajiraPage = () => {
                     <td>
                       <button
                         type="button"
-                        className={`btn btn-ghost btn-xs h-auto min-h-0 px-1 py-0.5 font-normal text-left leading-tight ${hajiraTone}`}
+                        className={`btn btn-ghost btn-xs h-auto min-h-0 px-1 py-0.5 font-normal text-left leading-tight ${hajiraGroupTone}`}
                         onClick={() => openHajiraModal(row)}
                       >
                         {hajiraValue === "combined" ? (
                           <span className="block tabular-nums space-y-0.5">
                             {hasPresent(row) ? (
                               <span className="block">
-                                {formatBnNumber(row.present)} ×{" "}
-                                {formatBnNumber(row.salary || 0)}
+                                {formatBnNumber(row.present)}
                               </span>
                             ) : null}
                             {hasExtra(row) ? (
@@ -1068,9 +1150,27 @@ export const HajiraPage = () => {
                         )}
                       </button>
                     </td>
-                    <td className={`text-right tabular-nums ${hajiraTone}`}>
-                      {earn ? formatBnNumber(earn) : "—"}
+                    <td>
+                      <button
+                        type="button"
+                        className={`btn btn-ghost btn-xs h-auto min-h-0 px-1 font-normal text-left ${hajiraGroupTone}`}
+                        onClick={() => openHajiraModal(row)}
+                        title={billingFullLabel(row.billing)}
+                      >
+                        {billingLabel(row.billing)}
+                      </button>
                     </td>
+                    {showAyColumn ? (
+                      <td className="text-right">
+                        <button
+                          type="button"
+                          className={`btn btn-ghost btn-xs h-auto min-h-0 px-1 py-0.5 font-normal tabular-nums w-full justify-end ${hajiraGroupTone}`}
+                          onClick={() => openHajiraModal(row)}
+                        >
+                          {earn ? formatBnNumber(earn) : "—"}
+                        </button>
+                      </td>
+                    ) : null}
                     <td className="text-right">
                       <button
                         type="button"
@@ -1082,7 +1182,8 @@ export const HajiraPage = () => {
                             {showPay ? (
                               <span
                                 className={`block ${
-                                  editing
+                                  paymentActivityTone ||
+                                  (editing
                                     ? paymentLineTone(
                                         row,
                                         initial,
@@ -1090,7 +1191,7 @@ export const HajiraPage = () => {
                                         "paymentId",
                                         "text-error",
                                       )
-                                    : "text-error"
+                                    : "text-error")
                                 }`}
                               >
                                 {formatBnNumber(row.payment)}
@@ -1099,7 +1200,8 @@ export const HajiraPage = () => {
                             {showRet ? (
                               <span
                                 className={`block ${
-                                  editing
+                                  paymentActivityTone ||
+                                  (editing
                                     ? paymentLineTone(
                                         row,
                                         initial,
@@ -1107,7 +1209,7 @@ export const HajiraPage = () => {
                                         "returnId",
                                         "text-success",
                                       )
-                                    : "text-success"
+                                    : "text-success")
                                 }`}
                               >
                                 {formatBnNumber(row.return)}
@@ -1115,30 +1217,15 @@ export const HajiraPage = () => {
                             ) : null}
                           </span>
                         ) : (
-                          <span className="text-base-content/60">—</span>
+                          <span
+                            className={
+                              paymentActivityTone || "text-base-content/60"
+                            }
+                          >
+                            —
+                          </span>
                         )}
                       </button>
-                    </td>
-                    <td>
-                      {editing ? (
-                        <button
-                          type="button"
-                          className={`btn btn-ghost btn-xs h-auto min-h-0 px-1 font-normal ${fieldTone(row, initial, "billing", "attendanceId")}`}
-                          disabled={attendanceLocked(row)}
-                          onClick={() => openBillingModal(row)}
-                          aria-label={`${row.labourName} বিলিং`}
-                          title={billingFullLabel(row.billing)}
-                        >
-                          {billingLabel(row.billing)}
-                        </button>
-                      ) : (
-                        <span
-                          className="text-sm text-base-content/70"
-                          title={billingFullLabel(row.billing)}
-                        >
-                          {billingLabel(row.billing)}
-                        </span>
-                      )}
                     </td>
                   </tr>
                 );
@@ -1153,9 +1240,12 @@ export const HajiraPage = () => {
                 <td className="tabular-nums">
                   {totals.present ? formatBnNumber(totals.present) : "—"}
                 </td>
-                <td className="text-right tabular-nums">
-                  {totals.earnings ? formatBnNumber(totals.earnings) : "—"}
-                </td>
+                <td />
+                {showAyColumn ? (
+                  <td className="text-right tabular-nums">
+                    {totals.earnings ? formatBnNumber(totals.earnings) : "—"}
+                  </td>
+                ) : null}
                 <td className="text-right">
                   {totals.payment || totals.return ? (
                     <span className="block tabular-nums space-y-0.5">
@@ -1174,7 +1264,6 @@ export const HajiraPage = () => {
                     <span className="text-base-content/60">—</span>
                   )}
                 </td>
-                <td />
               </tr>
             </tfoot>
           ) : null}
@@ -1281,78 +1370,212 @@ export const HajiraPage = () => {
 
           {hajiraModal ? (
             <div className="space-y-3 pt-3">
+              {(() => {
+                const showDiffs =
+                  hajiraModalLocked && Boolean(hajiraModal.attendanceDiffs);
+                const diffs = showDiffs ? hajiraModal.attendanceDiffs : null;
+                const presentDiff = diffPairFor(
+                  diffs,
+                  "present",
+                  hajiraModal.present,
+                  formatDiffNumber,
+                );
+                const salaryDiff = diffPairFor(
+                  diffs,
+                  "salary",
+                  hajiraModal.salary,
+                  formatDiffNumber,
+                );
+                const extraDiff = diffPairFor(
+                  diffs,
+                  "extra",
+                  hajiraModal.extra,
+                  formatDiffNumber,
+                );
+                const noteDiff = diffPairFor(
+                  diffs,
+                  "note",
+                  hajiraModal.note,
+                  formatDiffText,
+                );
+                const billingDiff = diffPairFor(
+                  diffs,
+                  "billing",
+                  hajiraModal.billing,
+                  (v) => billingDiffLabel(v, billingFullLabel),
+                );
+
+                return (
+                  <>
               <label className="form-control w-full">
                 <span className="label-text text-sm">হাজিরা</span>
-                <select
-                  className="select select-bordered select-sm w-full"
-                  value={hajiraModal.present}
-                  disabled={hajiraModalLocked}
-                  onChange={(e) =>
-                    setHajiraModal((m) => ({
-                      ...m,
-                      present: e.target.value,
-                    }))
-                  }
-                >
-                  <option value="">—</option>
-                  {PRESENT_OPTIONS.map((v) => (
-                    <option key={v} value={String(v)}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
+                {presentDiff ? (
+                  <div className="min-h-8 flex items-center px-1">
+                    <ChangePair
+                      oldText={presentDiff.oldText}
+                      newText={presentDiff.newText}
+                      newClassName="tabular-nums"
+                    />
+                  </div>
+                ) : (
+                  <select
+                    className="select select-bordered select-sm w-full"
+                    value={hajiraModal.present}
+                    disabled={hajiraModalLocked}
+                    onChange={(e) =>
+                      setHajiraModal((m) => ({
+                        ...m,
+                        present: e.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">—</option>
+                    {PRESENT_OPTIONS.map((v) => (
+                      <option key={v} value={String(v)}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </label>
 
               <label className="form-control w-full">
                 <span className="label-text text-sm">বেতন</span>
-                <input
-                  type="number"
-                  min={0}
-                  className="input input-bordered input-sm w-full tabular-nums"
-                  value={hajiraModal.salary}
-                  disabled={hajiraModalLocked}
-                  onChange={(e) =>
-                    setHajiraModal((m) => ({
-                      ...m,
-                      salary: numOrEmpty(e.target.value),
-                    }))
-                  }
-                />
+                {salaryDiff ? (
+                  <div className="min-h-8 flex items-center px-1">
+                    <ChangePair
+                      oldText={salaryDiff.oldText}
+                      newText={salaryDiff.newText}
+                      newClassName="tabular-nums"
+                    />
+                  </div>
+                ) : (
+                  <input
+                    type="number"
+                    min={0}
+                    className="input input-bordered input-sm w-full tabular-nums"
+                    value={hajiraModal.salary}
+                    disabled={hajiraModalLocked}
+                    onChange={(e) =>
+                      setHajiraModal((m) => ({
+                        ...m,
+                        salary: numOrEmpty(e.target.value),
+                      }))
+                    }
+                  />
+                )}
               </label>
 
               <label className="form-control w-full">
                 <span className="label-text text-sm">বাড়তি</span>
-                <input
-                  type="number"
-                  min={0}
-                  className="input input-bordered input-sm w-full tabular-nums"
-                  value={hajiraModal.extra}
-                  disabled={hajiraModalLocked}
-                  onChange={(e) =>
-                    setHajiraModal((m) => ({
-                      ...m,
-                      extra: numOrEmpty(e.target.value),
-                    }))
-                  }
-                />
+                {extraDiff ? (
+                  <div className="min-h-8 flex items-center px-1">
+                    <ChangePair
+                      oldText={extraDiff.oldText}
+                      newText={extraDiff.newText}
+                      newClassName="tabular-nums"
+                    />
+                  </div>
+                ) : (
+                  <input
+                    type="number"
+                    min={0}
+                    className="input input-bordered input-sm w-full tabular-nums"
+                    value={hajiraModal.extra}
+                    disabled={hajiraModalLocked}
+                    onChange={(e) =>
+                      setHajiraModal((m) => ({
+                        ...m,
+                        extra: numOrEmpty(e.target.value),
+                      }))
+                    }
+                  />
+                )}
               </label>
 
               <label className="form-control w-full">
                 <span className="label-text text-sm">নোট</span>
-                <input
-                  type="text"
-                  className="input input-bordered input-sm w-full"
-                  value={hajiraModal.note}
-                  disabled={hajiraModalLocked}
-                  onChange={(e) =>
-                    setHajiraModal((m) => ({
-                      ...m,
-                      note: e.target.value,
-                    }))
-                  }
-                  maxLength={255}
-                />
+                {noteDiff ? (
+                  <div className="min-h-8 flex items-center px-1">
+                    <ChangePair
+                      oldText={noteDiff.oldText}
+                      newText={noteDiff.newText}
+                    />
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    className="input input-bordered input-sm w-full"
+                    value={hajiraModal.note}
+                    disabled={hajiraModalLocked}
+                    onChange={(e) =>
+                      setHajiraModal((m) => ({
+                        ...m,
+                        note: e.target.value,
+                      }))
+                    }
+                    maxLength={255}
+                  />
+                )}
               </label>
+
+              {billingDiff ? (
+                <label className="form-control w-full">
+                  <span className="label-text text-sm">বিলিং</span>
+                  <div className="min-h-8 flex items-center px-1">
+                    <ChangePair
+                      oldText={billingDiff.oldText}
+                      newText={billingDiff.newText}
+                    />
+                  </div>
+                </label>
+              ) : (
+                <label className="form-control w-full">
+                  <span className="label-text text-sm">বিলিং</span>
+                  {hajiraModalLocked ? (
+                    <div className="min-h-8 flex items-center px-1 text-sm">
+                      {billingFullLabel(hajiraModal.billing)}
+                    </div>
+                  ) : (
+                    <select
+                      className="select select-bordered select-sm w-full"
+                      value={
+                        hajiraModal.billing == null || hajiraModal.billing === ""
+                          ? ""
+                          : String(hajiraModal.billing)
+                      }
+                      disabled={hajiraModalLocked}
+                      onChange={(e) =>
+                        setHajiraModal((m) => ({
+                          ...m,
+                          billing: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">—</option>
+                      {(() => {
+                        const opts = [...billingOptions];
+                        const cur = hajiraModal.billing;
+                        if (
+                          cur !== "" &&
+                          cur != null &&
+                          !opts.some((b) => String(b.id) === String(cur))
+                        ) {
+                          opts.unshift({
+                            id: cur,
+                            name: billingFullLabel(cur),
+                          });
+                        }
+                        return opts.map((b) => (
+                          <option key={b.id} value={String(b.id)}>
+                            {b.name}
+                          </option>
+                        ));
+                      })()}
+                    </select>
+                  )}
+                </label>
+              )}
 
               {!hajiraModalLocked ? (
                 <div className="modal-action pt-1">
@@ -1372,6 +1595,9 @@ export const HajiraPage = () => {
                   </button>
                 </div>
               ) : null}
+                  </>
+                );
+              })()}
             </div>
           ) : null}
         </div>
@@ -1440,39 +1666,76 @@ export const HajiraPage = () => {
                 (spec) => {
                   const fieldLocked =
                     !modalEditable || paymentSlotLocked(paymentModal, spec);
+                  const slotDiffs =
+                    fieldLocked
+                      ? spec.key === "return"
+                        ? paymentModal.returnDiffs
+                        : paymentModal.paymentDiffs
+                      : null;
+                  const noteDiff = diffPairFor(
+                    slotDiffs,
+                    "note",
+                    paymentModal[spec.noteKey],
+                    formatDiffText,
+                  );
+                  const amountDiff = diffPairFor(
+                    slotDiffs,
+                    "amount",
+                    paymentModal[spec.key],
+                    formatDiffNumber,
+                  );
                   return (
                     <div key={spec.key} className="space-y-3">
                       <label className="form-control w-full">
                         <span className="label-text text-sm">নোট</span>
-                        <input
-                          type="text"
-                          className="input input-bordered input-sm w-full"
-                          value={paymentModal[spec.noteKey]}
-                          disabled={fieldLocked}
-                          onChange={(e) =>
-                            setPaymentModal((m) => ({
-                              ...m,
-                              [spec.noteKey]: e.target.value,
-                            }))
-                          }
-                          maxLength={255}
-                        />
+                        {noteDiff ? (
+                          <div className="min-h-8 flex items-center px-1">
+                            <ChangePair
+                              oldText={noteDiff.oldText}
+                              newText={noteDiff.newText}
+                            />
+                          </div>
+                        ) : (
+                          <input
+                            type="text"
+                            className="input input-bordered input-sm w-full"
+                            value={paymentModal[spec.noteKey]}
+                            disabled={fieldLocked}
+                            onChange={(e) =>
+                              setPaymentModal((m) => ({
+                                ...m,
+                                [spec.noteKey]: e.target.value,
+                              }))
+                            }
+                            maxLength={255}
+                          />
+                        )}
                       </label>
                       <label className="form-control w-full">
                         <span className="label-text text-sm">পরিমাণ</span>
-                        <input
-                          type="number"
-                          min={0}
-                          className="input input-bordered input-sm w-full tabular-nums"
-                          value={paymentModal[spec.key]}
-                          disabled={fieldLocked}
-                          onChange={(e) =>
-                            setPaymentModal((m) => ({
-                              ...m,
-                              [spec.key]: numOrEmpty(e.target.value),
-                            }))
-                          }
-                        />
+                        {amountDiff ? (
+                          <div className="min-h-8 flex items-center px-1">
+                            <ChangePair
+                              oldText={amountDiff.oldText}
+                              newText={amountDiff.newText}
+                              newClassName="tabular-nums"
+                            />
+                          </div>
+                        ) : (
+                          <input
+                            type="number"
+                            min={0}
+                            className="input input-bordered input-sm w-full tabular-nums"
+                            value={paymentModal[spec.key]}
+                            disabled={fieldLocked}
+                            onChange={(e) =>
+                              setPaymentModal((m) => ({
+                                ...m,
+                                [spec.key]: numOrEmpty(e.target.value),
+                              }))
+                            }
+                          />
+                        )}
                       </label>
                     </div>
                   );
@@ -1505,57 +1768,6 @@ export const HajiraPage = () => {
             </div>
           ) : null}
         </div>
-      </dialog>
-
-      <dialog
-        id={BILLING_MODAL_ID}
-        className="modal"
-        onClose={() => setBillingModal(null)}
-      >
-        <div className="modal-box max-w-xs">
-          <form method="dialog">
-            <button
-              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-              aria-label="বন্ধ"
-            >
-              ✕
-            </button>
-          </form>
-          <h3 className="font-bold text-lg">
-            বিলিং
-            {billingModal?.labourName
-              ? ` (${billingModal.labourName})`
-              : ""}
-          </h3>
-          <div className="menu bg-base-100 w-full p-0 pt-3">
-            <button
-              type="button"
-              className={`btn btn-ghost btn-sm justify-start ${
-                !billingModal?.value ? "btn-active" : ""
-              }`}
-              onClick={() => pickBilling("")}
-            >
-              —
-            </button>
-            {billingOptions.map((b) => (
-              <button
-                key={b.id}
-                type="button"
-                className={`btn btn-ghost btn-sm justify-start ${
-                  String(billingModal?.value) === String(b.id)
-                    ? "btn-active"
-                    : ""
-                }`}
-                onClick={() => pickBilling(String(b.id))}
-              >
-                {b.name}
-              </button>
-            ))}
-          </div>
-        </div>
-        <form method="dialog" className="modal-backdrop">
-          <button type="submit">close</button>
-        </form>
       </dialog>
 
       <dialog id={HAJIRA_FILTER_MODAL_ID} className="modal">

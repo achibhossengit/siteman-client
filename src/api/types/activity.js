@@ -17,6 +17,14 @@ export const activityToneClass = (tone) => {
   return ''
 }
 
+/** Text color for a column group that has its own entity activity. */
+export const activityTextToneClass = (tone) => {
+  if (tone === ACTIVITY_TONES.created) return 'text-success'
+  if (tone === ACTIVITY_TONES.updated) return 'text-warning'
+  if (tone === ACTIVITY_TONES.deleted) return 'text-error'
+  return ''
+}
+
 const blankAmount = (value) => {
   if (value == null || value === '') return ''
   const n = Number(value)
@@ -295,13 +303,14 @@ export const applyActivitiesToViewRows = (
 
   const next = rows.map((row) => {
     const labourId = Number(row.labourId)
-    let tone = null
+    let attendanceTone = null
+    let paymentTone = null
     const logs = []
 
     const attLogs = attendanceByLabour.get(labourId)
     if (attLogs?.length) {
       logs.push(...attLogs)
-      tone = strongerTone(tone, toneFromLogs(attLogs))
+      attendanceTone = toneFromLogs(attLogs)
     }
 
     for (const type of ['payment', 'return']) {
@@ -310,14 +319,20 @@ export const applyActivitiesToViewRows = (
       if (!payLogs?.length) continue
       usedPaymentKeys.add(key)
       logs.push(...payLogs)
-      tone = strongerTone(tone, toneFromLogs(payLogs))
+      paymentTone = strongerTone(paymentTone, toneFromLogs(payLogs))
     }
 
+    const tone = strongerTone(attendanceTone, paymentTone)
     if (!tone) return row
     return {
       ...row,
       activityTone: tone,
+      attendanceTone,
+      paymentTone,
       activityLogs: logs,
+      attendanceDiffs: updateFieldDiffs(attLogs),
+      paymentDiffs: updateFieldDiffs(paymentByKey.get(`${labourId}:payment`)),
+      returnDiffs: updateFieldDiffs(paymentByKey.get(`${labourId}:return`)),
     }
   })
 
@@ -326,8 +341,8 @@ export const applyActivitiesToViewRows = (
 
   for (const [labourId, attLogs] of attendanceByLabour) {
     if (liveLabourIds.has(labourId)) continue
-    const tone = toneFromLogs(attLogs)
-    if (!tone) continue
+    const attendanceTone = toneFromLogs(attLogs)
+    if (!attendanceTone) continue
     const sorted = sortByCreatedAt(attLogs)
     const snapshotLog =
       [...sorted].reverse().find((l) => l.action === 'deleted') ??
@@ -341,7 +356,9 @@ export const applyActivitiesToViewRows = (
     ghost = applyAttendanceSnapshot(ghost, snapshotLog)
 
     const relatedLogs = [...attLogs]
-    let combinedTone = tone
+    let paymentTone = null
+    let paymentDiffs = null
+    let returnDiffs = null
 
     for (const type of ['payment', 'return']) {
       const key = `${labourId}:${type}`
@@ -349,19 +366,26 @@ export const applyActivitiesToViewRows = (
       if (!payLogs?.length) continue
       usedPaymentKeys.add(key)
       relatedLogs.push(...payLogs)
-      combinedTone = strongerTone(combinedTone, toneFromLogs(payLogs))
+      paymentTone = strongerTone(paymentTone, toneFromLogs(payLogs))
       const paySorted = sortByCreatedAt(payLogs)
       const paySnap =
         [...paySorted].reverse().find((l) => l.action === 'deleted') ??
         [...paySorted].reverse().find((l) => l.action === 'created') ??
         paySorted[paySorted.length - 1]
       ghost = applyPaymentSnapshot(ghost, paySnap, type)
+      if (type === 'payment') paymentDiffs = updateFieldDiffs(payLogs)
+      if (type === 'return') returnDiffs = updateFieldDiffs(payLogs)
     }
 
     ghosts.push({
       ...ghost,
-      activityTone: combinedTone,
+      activityTone: strongerTone(attendanceTone, paymentTone),
+      attendanceTone,
+      paymentTone,
       activityLogs: relatedLogs,
+      attendanceDiffs: updateFieldDiffs(attLogs),
+      paymentDiffs,
+      returnDiffs,
       fromActivitySnapshot: true,
     })
     liveLabourIds.add(labourId)
@@ -375,8 +399,8 @@ export const applyActivitiesToViewRows = (
       // Live row existed but payment group wasn't attached (shouldn't happen).
       continue
     }
-    const tone = toneFromLogs(payLogs)
-    if (!tone) continue
+    const paymentTone = toneFromLogs(payLogs)
+    if (!paymentTone) continue
     const sorted = sortByCreatedAt(payLogs)
     const snapshotLog =
       [...sorted].reverse().find((l) => l.action === 'deleted') ??
@@ -390,8 +414,13 @@ export const applyActivitiesToViewRows = (
     ghost = applyPaymentSnapshot(ghost, snapshotLog, type)
     ghosts.push({
       ...ghost,
-      activityTone: tone,
+      activityTone: paymentTone,
+      attendanceTone: null,
+      paymentTone,
       activityLogs: payLogs,
+      attendanceDiffs: null,
+      paymentDiffs: type === 'payment' ? updateFieldDiffs(payLogs) : null,
+      returnDiffs: type === 'return' ? updateFieldDiffs(payLogs) : null,
       fromActivitySnapshot: true,
     })
     liveLabourIds.add(labourId)
