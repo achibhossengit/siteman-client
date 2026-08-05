@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
-import { fetchActivities, reviewActivity } from '../../api/activities.js'
+import { fetchActivities, reviewActivitiesBulk, reviewActivity } from '../../api/activities.js'
 import {
   ACTIVITY_ACTION_FILTER_OPTIONS,
   ACTIVITY_ENTITY_FILTER_OPTIONS,
@@ -16,7 +16,7 @@ import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { useAuth } from '../../providers/AuthProvider.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { paths } from '../../router/paths.js'
-import { toastApiError, toastSuccess } from '../../utils/feedback.js'
+import { confirmAction, toastApiError, toastSuccess } from '../../utils/feedback.js'
 import { formatBnNumber } from '../../utils/format.js'
 import { PERMS, hasPermissionSuffix } from '../../utils/permissions.js'
 import {
@@ -192,7 +192,7 @@ const ChangePair = ({ oldText, newText }) => {
 const MetaRow = ({ label, children }) => (
   <div className="flex gap-3 text-sm">
     <span className="w-28 shrink-0 text-base-content/60">{label}</span>
-    <span className="min-w-0 break-words">{children}</span>
+    <span className="min-w-0 wrap-break-word">{children}</span>
   </div>
 )
 
@@ -231,6 +231,9 @@ export const ActivityPage = () => {
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState(null)
   const [apiError, setApiError] = useState(null)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(() => new Set())
+  const [reviewing, setReviewing] = useState(false)
 
   // Prefer session site when still in list; otherwise first available site.
   useEffect(() => {
@@ -255,6 +258,7 @@ export const ActivityPage = () => {
 
   useEffect(() => {
     setPage(1)
+    setSelectedIds(new Set())
   }, [
     siteId,
     actionFilter,
@@ -265,6 +269,10 @@ export const ActivityPage = () => {
     startDate,
     endDate,
   ])
+
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [page])
 
   const dateParams = createdAtFilterParams(
     dateMode,
@@ -360,6 +368,51 @@ export const ActivityPage = () => {
     document.getElementById(DATE_FILTER_MODAL_ID)?.close()
   }
 
+  const exitSelectMode = () => {
+    setSelectMode(false)
+    setSelectedIds(new Set())
+  }
+
+  const isRowReviewed = (row) => Boolean(row?.reviewed_at)
+
+  const toggleRowSelected = (rowId, checked) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (checked) next.add(rowId)
+      else next.delete(rowId)
+      return next
+    })
+  }
+
+  const toggleSelectAll = (checked, pendingIds) => {
+    setSelectedIds(checked ? new Set(pendingIds) : new Set())
+  }
+
+  const onBulkAudit = async () => {
+    const ids = [...selectedIds]
+    if (!canChangeActivityLog || ids.length === 0) return
+    const ok = await confirmAction({
+      title: 'অডিট নিশ্চিত করুন',
+      text: `${formatBnNumber(ids.length)}টি অ্যাক্টিভিটি রিভিউড হবে। পরে বাতিল করা যাবে না।`,
+      confirmText: 'অডিট করুন',
+      cancelText: 'বাতিল',
+    })
+    if (!ok) return
+
+    setReviewing(true)
+    try {
+      await reviewActivitiesBulk(ids)
+      setSelectedIds(new Set())
+      setSelectMode(false)
+      toastSuccess('অডিট সম্পন্ন হয়েছে')
+      await queryClient.invalidateQueries({ queryKey: ['activities'] })
+    } catch (err) {
+      toastApiError(err)
+    } finally {
+      setReviewing(false)
+    }
+  }
+
   if (!canViewActivityLog) {
     return (
       <div className="flex-1 flex items-center justify-center text-sm text-error">
@@ -390,12 +443,18 @@ export const ActivityPage = () => {
 
   const isReviewed = Boolean(selected?.reviewed_at)
   const changes = changeEntries(selected?.changes)
+  const pendingIds = rows
+    .filter((row) => !isRowReviewed(row) && row?.id != null)
+    .map((row) => row.id)
+  const allPendingSelected =
+    pendingIds.length > 0 && pendingIds.every((id) => selectedIds.has(id))
+  const somePendingSelected = pendingIds.some((id) => selectedIds.has(id))
 
   return (
     <section className="flex-1 min-h-0 flex flex-col bg-base-100">
       <div className="shrink-0 border-b border-base-300 px-2 py-1.5 flex flex-wrap gap-2">
         <select
-          className="select select-bordered select-sm min-w-[7.5rem] flex-1"
+          className="select select-bordered select-sm min-w-30 flex-1"
           aria-label="ধরন"
           value={entityFilter}
           onChange={(e) => setEntityFilter(e.target.value)}
@@ -407,7 +466,7 @@ export const ActivityPage = () => {
           ))}
         </select>
         <select
-          className="select select-bordered select-sm min-w-[7.5rem] flex-1"
+          className="select select-bordered select-sm min-w-30 flex-1"
           aria-label="অ্যাকশন"
           value={actionFilter}
           onChange={(e) => setActionFilter(e.target.value)}
@@ -419,7 +478,7 @@ export const ActivityPage = () => {
           ))}
         </select>
         <select
-          className="select select-bordered select-sm min-w-[7.5rem] flex-1"
+          className="select select-bordered select-sm min-w-30 flex-1"
           aria-label="রিভিউ"
           value={reviewedFilter}
           onChange={(e) => setReviewedFilter(e.target.value)}
@@ -431,7 +490,7 @@ export const ActivityPage = () => {
           ))}
         </select>
         <select
-          className="select select-bordered select-sm min-w-[7.5rem] flex-1"
+          className="select select-bordered select-sm min-w-30 flex-1"
           aria-label="সাইট"
           value={siteId}
           onChange={(e) => setSiteId(e.target.value)}
@@ -458,12 +517,42 @@ export const ActivityPage = () => {
             <table className="table table-fixed table-sm sm:table-md w-full">
               <thead className="sticky top-0 z-10 bg-base-100">
                 <tr className="border-b border-base-300">
-                  <th className="w-12">নং</th>
+                  <th className="w-12">
+                    {selectMode && canChangeActivityLog ? (
+                      <input
+                        type="checkbox"
+                        className="checkbox checkbox-sm"
+                        checked={allPendingSelected}
+                        ref={(el) => {
+                          if (el) {
+                            el.indeterminate =
+                              somePendingSelected && !allPendingSelected
+                          }
+                        }}
+                        disabled={pendingIds.length === 0}
+                        aria-label="সব নির্বাচন"
+                        onChange={(e) =>
+                          toggleSelectAll(e.target.checked, pendingIds)
+                        }
+                      />
+                    ) : canChangeActivityLog ? (
+                      <button
+                        type="button"
+                        className="font-bold"
+                        onClick={() => setSelectMode(true)}
+                        title="নির্বাচন মোড"
+                      >
+                        নং
+                      </button>
+                    ) : (
+                      'নং'
+                    )}
+                  </th>
                   <th className="min-w-0">বিবরণ</th>
                   <th className="w-28 sm:w-36 text-right overflow-hidden">
                     <button
                       type="button"
-                      className="font-bold max-w-full text-right whitespace-normal break-words leading-tight"
+                      className="font-bold max-w-full text-right whitespace-normal wrap-break-word leading-tight"
                       onClick={openDateFilter}
                     >
                       {dateFilterHeaderLabel(
@@ -493,19 +582,41 @@ export const ActivityPage = () => {
                     const title = [biz, entity].filter(Boolean).join(' - ')
                     const pageHref = entityPageHref(row, siteId)
                     const labourId = row.labour
+                    const reviewed = isRowReviewed(row)
+                    const checked = selectedIds.has(row.id)
                     return (
                       <tr
                         key={row.id}
                         className={[
                           'border-b border-base-300/70 align-top cursor-pointer hover:bg-base-200/60',
                           activityToneClass(row.action),
+                          reviewed ? 'opacity-50' : '',
                         ]
                           .filter(Boolean)
                           .join(' ')}
                         onClick={() => openDetail(row)}
                       >
-                        <td className="tabular-nums text-base-content/60">
-                          {formatBnNumber(slOffset + index + 1)}
+                        <td
+                          className="tabular-nums text-base-content/60"
+                          onClick={(e) => {
+                            if (!selectMode) return
+                            e.stopPropagation()
+                          }}
+                        >
+                          {selectMode && canChangeActivityLog ? (
+                            <input
+                              type="checkbox"
+                              className="checkbox checkbox-sm"
+                              checked={checked}
+                              disabled={reviewed}
+                              aria-label={`নির্বাচন ${formatBnNumber(slOffset + index + 1)}`}
+                              onChange={(e) =>
+                                toggleRowSelected(row.id, e.target.checked)
+                              }
+                            />
+                          ) : (
+                            formatBnNumber(slOffset + index + 1)
+                          )}
                         </td>
                         <td className="text-sm leading-snug">
                           {pageHref ? (
@@ -536,7 +647,7 @@ export const ActivityPage = () => {
                             </div>
                           ) : null}
                         </td>
-                        <td className="text-right text-xs sm:text-sm tabular-nums text-base-content/80 whitespace-normal break-words leading-tight">
+                        <td className="text-right text-xs sm:text-sm tabular-nums text-base-content/80 whitespace-normal wrap-break-word leading-tight">
                           {formatDateTimeBn(row.created_at)}
                         </td>
                       </tr>
@@ -574,6 +685,41 @@ export const ActivityPage = () => {
           ) : null}
         </>
       )}
+
+      {selectMode && canChangeActivityLog ? (
+        <div className="fixed bottom-16 inset-x-0 z-40 px-3 pointer-events-none">
+          <div className="max-w-5xl mx-auto flex justify-end gap-2 pointer-events-auto">
+            <button
+              type="button"
+              className="btn btn-error btn-outline "
+              disabled={reviewing}
+              onClick={exitSelectMode}
+            >
+              বাতিল
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={
+                reviewing ||
+                selectedIds.size === 0 ||
+                !canChangeActivityLog
+              }
+              onClick={onBulkAudit}
+            >
+              {reviewing ? (
+                <span className="loading loading-spinner loading-sm" />
+              ) : null}
+              অডিট করুন
+              {selectedIds.size > 0 ? (
+                <span className="badge badge-sm badge-ghost">
+                  {formatBnNumber(selectedIds.size)}
+                </span>
+              ) : null}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <dialog
         ref={dialogRef}
