@@ -4,6 +4,561 @@ info:
   version: 1.0.0 (v1)
   description: "Construction-site management API: auth, company, sites, labour, ledgers."
 paths:
+  /api/v1/activities:
+    get:
+      operationId: activities_list
+      description: |-
+        Company-scoped activity timeline (read + one-way review).
+
+        Global gate: ``view_activitylog`` (list/retrieve), ``change_activitylog``
+        (review). Rows are further narrowed by allowed sites and each entity's
+        ``view_<model>`` permission.
+
+        Pass ``paginate=false`` with ``site``, ``business_date``, and
+        ``entity_type`` to return the full filtered list (day-review screens).
+      parameters:
+        - in: query
+          name: action
+          schema:
+            type: string
+            enum:
+              - created
+              - deleted
+              - updated
+          description: |-
+            * `created` - Created
+            * `updated` - Updated
+            * `deleted` - Deleted
+        - in: query
+          name: actor
+          schema:
+            type: integer
+        - in: query
+          name: business_date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: business_date__gte
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: business_date__lte
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: created_at__gte
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: created_at__lte
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: entity_id
+          schema:
+            type: integer
+        - in: query
+          name: entity_type
+          schema:
+            type: string
+            enum:
+              - attendance
+              - billing_category
+              - labour
+              - labour_payment
+              - labour_session
+              - private_site_cash
+              - site
+              - site_cash
+              - user
+          description: |-
+            * `user` - User
+            * `site` - Site
+            * `billing_category` - Billing category
+            * `site_cash` - Site cash
+            * `private_site_cash` - Private site cash
+            * `labour` - Labour
+            * `labour_payment` - Labour payment
+            * `attendance` - Attendance
+            * `labour_session` - Labour session
+        - in: query
+          name: labour
+          schema:
+            type: integer
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: page_size
+          required: false
+          in: query
+          description: Number of results to return per page.
+          schema:
+            type: integer
+        - in: query
+          name: reviewed
+          schema:
+            type: boolean
+        - in: query
+          name: site
+          schema:
+            type: integer
+      tags:
+        - activities
+      security:
+        - jwtAuth: []
+      responses:
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivitiesListErrorResponse400"
+          description: ""
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse401"
+              examples:
+                AuthenticationFailed:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: authentication_failed
+                        detail: Incorrect authentication credentials.
+                        attr: null
+                NotAuthenticated:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_authenticated
+                        detail: Authentication credentials were not provided.
+                        attr: null
+          description: ""
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse403"
+              examples:
+                PermissionDenied:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: permission_denied
+                        detail: You do not have permission to perform this action.
+                        attr: null
+          description: ""
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse404"
+              examples:
+                NotFound:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_found
+                        detail: Not found.
+                        attr: null
+          description: ""
+        "405":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse405"
+              examples:
+                MethodNotAllowed:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: method_not_allowed
+                        detail: Method "get" not allowed.
+                        attr: null
+          description: ""
+        "406":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse406"
+              examples:
+                NotAcceptable:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_acceptable
+                        detail: Could not satisfy the request Accept header.
+                        attr: null
+          description: ""
+        "415":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse415"
+              examples:
+                UnsupportedMediaType:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: unsupported_media_type
+                        detail: Unsupported media type "application/json" in request.
+                        attr: null
+          description: ""
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse429"
+              examples:
+                Throttled:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: throttled
+                        detail: Request was throttled.
+                        attr: null
+          description: ""
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse500"
+              examples:
+                APIException:
+                  value:
+                    type: server_error
+                    errors:
+                      - code: error
+                        detail: A server error occurred.
+                        attr: null
+          description: ""
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedActivityLogList"
+          description: ""
+  /api/v1/activities/{id}:
+    get:
+      operationId: activities_retrieve
+      description: |-
+        Company-scoped activity timeline (read + one-way review).
+
+        Global gate: ``view_activitylog`` (list/retrieve), ``change_activitylog``
+        (review). Rows are further narrowed by allowed sites and each entity's
+        ``view_<model>`` permission.
+
+        Pass ``paginate=false`` with ``site``, ``business_date``, and
+        ``entity_type`` to return the full filtered list (day-review screens).
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          description: A unique integer value identifying this activity log.
+          required: true
+      tags:
+        - activities
+      security:
+        - jwtAuth: []
+      responses:
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivitiesRetrieveErrorResponse400"
+          description: ""
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse401"
+              examples:
+                AuthenticationFailed:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: authentication_failed
+                        detail: Incorrect authentication credentials.
+                        attr: null
+                NotAuthenticated:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_authenticated
+                        detail: Authentication credentials were not provided.
+                        attr: null
+          description: ""
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse403"
+              examples:
+                PermissionDenied:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: permission_denied
+                        detail: You do not have permission to perform this action.
+                        attr: null
+          description: ""
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse404"
+              examples:
+                NotFound:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_found
+                        detail: Not found.
+                        attr: null
+          description: ""
+        "405":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse405"
+              examples:
+                MethodNotAllowed:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: method_not_allowed
+                        detail: Method "get" not allowed.
+                        attr: null
+          description: ""
+        "406":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse406"
+              examples:
+                NotAcceptable:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_acceptable
+                        detail: Could not satisfy the request Accept header.
+                        attr: null
+          description: ""
+        "415":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse415"
+              examples:
+                UnsupportedMediaType:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: unsupported_media_type
+                        detail: Unsupported media type "application/json" in request.
+                        attr: null
+          description: ""
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse429"
+              examples:
+                Throttled:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: throttled
+                        detail: Request was throttled.
+                        attr: null
+          description: ""
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse500"
+              examples:
+                APIException:
+                  value:
+                    type: server_error
+                    errors:
+                      - code: error
+                        detail: A server error occurred.
+                        attr: null
+          description: ""
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityLog"
+          description: ""
+  /api/v1/activities/{id}/review:
+    patch:
+      operationId: activities_review_partial_update
+      description: Mark a log as reviewed (one-way; cannot undo).
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          description: A unique integer value identifying this activity log.
+          required: true
+      tags:
+        - activities
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchedActivityLog"
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/PatchedActivityLog"
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/PatchedActivityLog"
+      security:
+        - jwtAuth: []
+      responses:
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivitiesReviewPartialUpdateErrorResponse400"
+          description: ""
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse401"
+              examples:
+                AuthenticationFailed:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: authentication_failed
+                        detail: Incorrect authentication credentials.
+                        attr: null
+                NotAuthenticated:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_authenticated
+                        detail: Authentication credentials were not provided.
+                        attr: null
+          description: ""
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse403"
+              examples:
+                PermissionDenied:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: permission_denied
+                        detail: You do not have permission to perform this action.
+                        attr: null
+          description: ""
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse404"
+              examples:
+                NotFound:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_found
+                        detail: Not found.
+                        attr: null
+          description: ""
+        "405":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse405"
+              examples:
+                MethodNotAllowed:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: method_not_allowed
+                        detail: Method "get" not allowed.
+                        attr: null
+          description: ""
+        "406":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse406"
+              examples:
+                NotAcceptable:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_acceptable
+                        detail: Could not satisfy the request Accept header.
+                        attr: null
+          description: ""
+        "415":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse415"
+              examples:
+                UnsupportedMediaType:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: unsupported_media_type
+                        detail: Unsupported media type "application/json" in request.
+                        attr: null
+          description: ""
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse429"
+              examples:
+                Throttled:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: throttled
+                        detail: Request was throttled.
+                        attr: null
+          description: ""
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse500"
+              examples:
+                APIException:
+                  value:
+                    type: server_error
+                    errors:
+                      - code: error
+                        detail: A server error occurred.
+                        attr: null
+          description: ""
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityLog"
+          description: ""
   /api/v1/auth/password/change:
     post:
       operationId: auth_password_change_create
@@ -8634,6 +9189,7 @@ paths:
         Company-scoped user management.
 
         PATCH only updates ``is_active`` and replaces assigned ``groups`` and ``sites``.
+        DELETE hard-deletes the user (``UserSite`` cascades; activity actor FKs null).
       parameters:
         - in: query
           name: is_active
@@ -8793,6 +9349,7 @@ paths:
         Company-scoped user management.
 
         PATCH only updates ``is_active`` and replaces assigned ``groups`` and ``sites``.
+        DELETE hard-deletes the user (``UserSite`` cascades; activity actor FKs null).
       tags:
         - users
       requestBody:
@@ -8948,6 +9505,7 @@ paths:
         Company-scoped user management.
 
         PATCH only updates ``is_active`` and replaces assigned ``groups`` and ``sites``.
+        DELETE hard-deletes the user (``UserSite`` cascades; activity actor FKs null).
       parameters:
         - in: path
           name: id
@@ -9097,6 +9655,7 @@ paths:
         Company-scoped user management.
 
         PATCH only updates ``is_active`` and replaces assigned ``groups`` and ``sites``.
+        DELETE hard-deletes the user (``UserSite`` cascades; activity actor FKs null).
       parameters:
         - in: path
           name: id
@@ -9251,8 +9810,574 @@ paths:
               schema:
                 $ref: "#/components/schemas/UserUpdate"
           description: ""
+    delete:
+      operationId: users_destroy
+      description: |-
+        Company-scoped user management.
+
+        PATCH only updates ``is_active`` and replaces assigned ``groups`` and ``sites``.
+        DELETE hard-deletes the user (``UserSite`` cascades; activity actor FKs null).
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          description: A unique integer value identifying this user.
+          required: true
+      tags:
+        - users
+      security:
+        - jwtAuth: []
+      responses:
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsersDestroyErrorResponse400"
+          description: ""
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse401"
+              examples:
+                AuthenticationFailed:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: authentication_failed
+                        detail: Incorrect authentication credentials.
+                        attr: null
+                NotAuthenticated:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_authenticated
+                        detail: Authentication credentials were not provided.
+                        attr: null
+          description: ""
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse403"
+              examples:
+                PermissionDenied:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: permission_denied
+                        detail: You do not have permission to perform this action.
+                        attr: null
+          description: ""
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse404"
+              examples:
+                NotFound:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_found
+                        detail: Not found.
+                        attr: null
+          description: ""
+        "405":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse405"
+              examples:
+                MethodNotAllowed:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: method_not_allowed
+                        detail: Method "get" not allowed.
+                        attr: null
+          description: ""
+        "406":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse406"
+              examples:
+                NotAcceptable:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_acceptable
+                        detail: Could not satisfy the request Accept header.
+                        attr: null
+          description: ""
+        "415":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse415"
+              examples:
+                UnsupportedMediaType:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: unsupported_media_type
+                        detail: Unsupported media type "application/json" in request.
+                        attr: null
+          description: ""
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse429"
+              examples:
+                Throttled:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: throttled
+                        detail: Request was throttled.
+                        attr: null
+          description: ""
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse500"
+              examples:
+                APIException:
+                  value:
+                    type: server_error
+                    errors:
+                      - code: error
+                        detail: A server error occurred.
+                        attr: null
+          description: ""
+        "204":
+          description: No response body
 components:
   schemas:
+    ActionEnum:
+      enum:
+        - created
+        - updated
+        - deleted
+      type: string
+      description: |-
+        * `created` - Created
+        * `updated` - Updated
+        * `deleted` - Deleted
+    ActivitiesListActionErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - action
+          type: string
+          description: "* `action` - action"
+        code:
+          enum:
+            - invalid_choice
+          type: string
+          description: "* `invalid_choice` - invalid_choice"
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    ActivitiesListActorErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - actor
+          type: string
+          description: "* `actor` - actor"
+        code:
+          enum:
+            - invalid_choice
+          type: string
+          description: "* `invalid_choice` - invalid_choice"
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    ActivitiesListBusinessDateErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - business_date
+          type: string
+          description: "* `business_date` - business_date"
+        code:
+          enum:
+            - invalid
+          type: string
+          description: "* `invalid` - invalid"
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    ActivitiesListBusinessDate_gteErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - business_date__gte
+          type: string
+          description: "* `business_date__gte` - business_date__gte"
+        code:
+          enum:
+            - invalid
+          type: string
+          description: "* `invalid` - invalid"
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    ActivitiesListBusinessDate_lteErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - business_date__lte
+          type: string
+          description: "* `business_date__lte` - business_date__lte"
+        code:
+          enum:
+            - invalid
+          type: string
+          description: "* `invalid` - invalid"
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    ActivitiesListCreatedAt_gteErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - created_at__gte
+          type: string
+          description: "* `created_at__gte` - created_at__gte"
+        code:
+          enum:
+            - invalid
+          type: string
+          description: "* `invalid` - invalid"
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    ActivitiesListCreatedAt_lteErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - created_at__lte
+          type: string
+          description: "* `created_at__lte` - created_at__lte"
+        code:
+          enum:
+            - invalid
+          type: string
+          description: "* `invalid` - invalid"
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    ActivitiesListEntityIdErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - entity_id
+          type: string
+          description: "* `entity_id` - entity_id"
+        code:
+          enum:
+            - invalid
+            - max_value
+          type: string
+          description: |-
+            * `invalid` - invalid
+            * `max_value` - max_value
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    ActivitiesListEntityTypeErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - entity_type
+          type: string
+          description: "* `entity_type` - entity_type"
+        code:
+          enum:
+            - invalid_choice
+          type: string
+          description: "* `invalid_choice` - invalid_choice"
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    ActivitiesListError:
+      oneOf:
+        - $ref: "#/components/schemas/ActivitiesListSiteErrorComponent"
+        - $ref: "#/components/schemas/ActivitiesListLabourErrorComponent"
+        - $ref: "#/components/schemas/ActivitiesListActorErrorComponent"
+        - $ref: "#/components/schemas/ActivitiesListEntityTypeErrorComponent"
+        - $ref: "#/components/schemas/ActivitiesListEntityIdErrorComponent"
+        - $ref: "#/components/schemas/ActivitiesListActionErrorComponent"
+        - $ref: "#/components/schemas/ActivitiesListBusinessDateErrorComponent"
+        - $ref: "#/components/schemas/ActivitiesListBusinessDate_gteErrorComponent"
+        - $ref: "#/components/schemas/ActivitiesListBusinessDate_lteErrorComponent"
+        - $ref: "#/components/schemas/ActivitiesListCreatedAt_gteErrorComponent"
+        - $ref: "#/components/schemas/ActivitiesListCreatedAt_lteErrorComponent"
+      discriminator:
+        propertyName: attr
+        mapping:
+          site: "#/components/schemas/ActivitiesListSiteErrorComponent"
+          labour: "#/components/schemas/ActivitiesListLabourErrorComponent"
+          actor: "#/components/schemas/ActivitiesListActorErrorComponent"
+          entity_type: "#/components/schemas/ActivitiesListEntityTypeErrorComponent"
+          entity_id: "#/components/schemas/ActivitiesListEntityIdErrorComponent"
+          action: "#/components/schemas/ActivitiesListActionErrorComponent"
+          business_date: "#/components/schemas/ActivitiesListBusinessDateErrorComponent"
+          business_date__gte: "#/components/schemas/ActivitiesListBusinessDate_gteErrorComponent"
+          business_date__lte: "#/components/schemas/ActivitiesListBusinessDate_lteErrorComponent"
+          created_at__gte: "#/components/schemas/ActivitiesListCreatedAt_gteErrorComponent"
+          created_at__lte: "#/components/schemas/ActivitiesListCreatedAt_lteErrorComponent"
+    ActivitiesListErrorResponse400:
+      oneOf:
+        - $ref: "#/components/schemas/ActivitiesListValidationError"
+        - $ref: "#/components/schemas/ParseErrorResponse"
+      discriminator:
+        propertyName: type
+        mapping:
+          validation_error: "#/components/schemas/ActivitiesListValidationError"
+          client_error: "#/components/schemas/ParseErrorResponse"
+    ActivitiesListLabourErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - labour
+          type: string
+          description: "* `labour` - labour"
+        code:
+          enum:
+            - invalid_choice
+          type: string
+          description: "* `invalid_choice` - invalid_choice"
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    ActivitiesListSiteErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - site
+          type: string
+          description: "* `site` - site"
+        code:
+          enum:
+            - invalid_choice
+          type: string
+          description: "* `invalid_choice` - invalid_choice"
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    ActivitiesListValidationError:
+      type: object
+      properties:
+        type:
+          $ref: "#/components/schemas/ValidationErrorEnum"
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivitiesListError"
+      required:
+        - errors
+        - type
+    ActivitiesRetrieveErrorResponse400:
+      oneOf:
+        - $ref: "#/components/schemas/ParseErrorResponse"
+      discriminator:
+        propertyName: type
+        mapping:
+          client_error: "#/components/schemas/ParseErrorResponse"
+    ActivitiesReviewPartialUpdateError:
+      oneOf:
+        - $ref: "#/components/schemas/ActivitiesReviewPartialUpdateNonFieldErrorsErrorComponent"
+      discriminator:
+        propertyName: attr
+        mapping:
+          non_field_errors: "#/components/schemas/ActivitiesReviewPartialUpdateNonFieldErrorsErrorComponent"
+    ActivitiesReviewPartialUpdateErrorResponse400:
+      oneOf:
+        - $ref: "#/components/schemas/ActivitiesReviewPartialUpdateValidationError"
+        - $ref: "#/components/schemas/ParseErrorResponse"
+      discriminator:
+        propertyName: type
+        mapping:
+          validation_error: "#/components/schemas/ActivitiesReviewPartialUpdateValidationError"
+          client_error: "#/components/schemas/ParseErrorResponse"
+    ActivitiesReviewPartialUpdateNonFieldErrorsErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - non_field_errors
+          type: string
+          description: "* `non_field_errors` - non_field_errors"
+        code:
+          enum:
+            - invalid
+            - "null"
+          type: string
+          description: |-
+            * `invalid` - invalid
+            * `null` - null
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    ActivitiesReviewPartialUpdateValidationError:
+      type: object
+      properties:
+        type:
+          $ref: "#/components/schemas/ValidationErrorEnum"
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivitiesReviewPartialUpdateError"
+      required:
+        - errors
+        - type
+    ActivityLog:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        site:
+          type: integer
+          readOnly: true
+          nullable: true
+          description: Denormalized site scope when the entity is site-related.
+        labour:
+          type: integer
+          readOnly: true
+          nullable: true
+          description: Denormalized labour when the entity is labour-related.
+        labour_name:
+          type: string
+          readOnly: true
+          nullable: true
+          description: Snapshot of labour name at action time (for client messages).
+        actor:
+          type: integer
+          readOnly: true
+          nullable: true
+        actor_name:
+          type: string
+          readOnly: true
+          description: Snapshot of actor display name at action time.
+        action:
+          allOf:
+            - $ref: "#/components/schemas/ActionEnum"
+          readOnly: true
+        entity_type:
+          allOf:
+            - $ref: "#/components/schemas/EntityTypeEnum"
+          readOnly: true
+        entity_id:
+          type: integer
+          readOnly: true
+          description: PK of the business row at action time (may no longer exist).
+        business_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+          description: Record's business date when applicable (e.g. attendance.date).
+        changes:
+          readOnly: true
+          nullable: true
+          description:
+            "Create: key-field snapshot. Update: {field: {old, new}}. Delete:
+            last snapshot."
+        reviewed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        reviewed_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        reviewed_by_name:
+          type: string
+          readOnly: true
+          nullable: true
+        review_note:
+          type: string
+          readOnly: true
+          nullable: true
+          description: Optional note when an auditor marks this log reviewed.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: When the action was performed (audit clock).
+      required:
+        - action
+        - actor
+        - actor_name
+        - business_date
+        - changes
+        - created_at
+        - entity_id
+        - entity_type
+        - id
+        - labour
+        - labour_name
+        - review_note
+        - reviewed_at
+        - reviewed_by
+        - reviewed_by_name
+        - site
     Attendance:
       type: object
       description: Shared date rules for labour payment and attendance records.
@@ -10631,6 +11756,28 @@ components:
           readOnly: true
       required:
         - access
+    EntityTypeEnum:
+      enum:
+        - user
+        - site
+        - billing_category
+        - site_cash
+        - private_site_cash
+        - labour
+        - labour_payment
+        - attendance
+        - labour_session
+      type: string
+      description: |-
+        * `user` - User
+        * `site` - Site
+        * `billing_category` - Billing category
+        * `site_cash` - Site cash
+        * `private_site_cash` - Private site cash
+        * `labour` - Labour
+        * `labour_payment` - Labour payment
+        * `attendance` - Attendance
+        * `labour_session` - Labour session
     Error401:
       type: object
       properties:
@@ -13166,6 +14313,29 @@ components:
     NullEnum:
       enum:
         - null
+    PaginatedActivityLogList:
+      type: object
+      required:
+        - count
+        - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityLog"
     ParseError:
       type: object
       properties:
@@ -13234,6 +14404,82 @@ components:
         - new_password
         - otp
         - ticket
+    PatchedActivityLog:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        site:
+          type: integer
+          readOnly: true
+          nullable: true
+          description: Denormalized site scope when the entity is site-related.
+        labour:
+          type: integer
+          readOnly: true
+          nullable: true
+          description: Denormalized labour when the entity is labour-related.
+        labour_name:
+          type: string
+          readOnly: true
+          nullable: true
+          description: Snapshot of labour name at action time (for client messages).
+        actor:
+          type: integer
+          readOnly: true
+          nullable: true
+        actor_name:
+          type: string
+          readOnly: true
+          description: Snapshot of actor display name at action time.
+        action:
+          allOf:
+            - $ref: "#/components/schemas/ActionEnum"
+          readOnly: true
+        entity_type:
+          allOf:
+            - $ref: "#/components/schemas/EntityTypeEnum"
+          readOnly: true
+        entity_id:
+          type: integer
+          readOnly: true
+          description: PK of the business row at action time (may no longer exist).
+        business_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+          description: Record's business date when applicable (e.g. attendance.date).
+        changes:
+          readOnly: true
+          nullable: true
+          description:
+            "Create: key-field snapshot. Update: {field: {old, new}}. Delete:
+            last snapshot."
+        reviewed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        reviewed_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        reviewed_by_name:
+          type: string
+          readOnly: true
+          nullable: true
+        review_note:
+          type: string
+          readOnly: true
+          nullable: true
+          description: Optional note when an auditor marks this log reviewed.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: When the action was performed (audit clock).
     PatchedAttendance:
       type: object
       description: Shared date rules for labour payment and attendance records.
@@ -16936,6 +18182,13 @@ components:
       required:
         - errors
         - type
+    UsersDestroyErrorResponse400:
+      oneOf:
+        - $ref: "#/components/schemas/ParseErrorResponse"
+      discriminator:
+        propertyName: type
+        mapping:
+          client_error: "#/components/schemas/ParseErrorResponse"
     UsersListError:
       oneOf: []
       discriminator:

@@ -18,10 +18,15 @@ import {
   buildHajiraEditRows,
   buildHajiraViewRows,
 } from "../../api/types/hajira.js";
+import {
+  activityToneClass,
+  applyActivitiesToViewRows,
+} from "../../api/types/activity.js";
+import { fetchActivities } from "../../api/activities.js";
 import { messageForCode, parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
-import { PERMS } from "../../utils/permissions.js";
+import { PERMS, hasPermissionSuffix } from "../../utils/permissions.js";
 import { concatBillingName, formatBnNumber } from "../../utils/format.js";
 import { toastInfo, toastSuccess } from "../../utils/feedback.js";
 import {
@@ -219,13 +224,16 @@ const paymentLineTone = (row, initial, keys, idKey, typeClass) => {
 export const HajiraPage = () => {
   const { date: selectedDate, siteId: selectedSiteId, sites } =
     useOutletContext();
-  const { can } = usePermissions();
+  const { can, profile } = usePermissions();
   const queryClient = useQueryClient();
 
   const canAddAttendance = can(PERMS.addAttendance);
   const canChangeAttendance = can(PERMS.changeAttendance);
   const canAddPayment = can(PERMS.addLabourPayment);
   const canChangePayment = can(PERMS.changeLabourPayment);
+  const canViewActivityLog =
+    can(PERMS.viewActivityLog) ||
+    hasPermissionSuffix(profile, "view_activitylog");
 
   const siteId = selectedSiteId || readSelectedSite();
   const date = selectedDate || readSelectedDate() || todayIso();
@@ -287,6 +295,42 @@ export const HajiraPage = () => {
     enabled: Boolean(editing && siteId),
   });
 
+  const activityAttendanceQuery = useQuery({
+    queryKey: [
+      "activities",
+      { site: siteId, business_date: date, entity_type: "attendance" },
+    ],
+    queryFn: async () => {
+      const { data } = await fetchActivities({
+        site: siteId,
+        business_date: date,
+        entity_type: "attendance",
+        reviewed: false,
+        paginate: false,
+      });
+      return data;
+    },
+    enabled: Boolean(!editing && canViewActivityLog && siteId && date),
+  });
+
+  const activityPaymentQuery = useQuery({
+    queryKey: [
+      "activities",
+      { site: siteId, business_date: date, entity_type: "labour_payment" },
+    ],
+    queryFn: async () => {
+      const { data } = await fetchActivities({
+        site: siteId,
+        business_date: date,
+        entity_type: "labour_payment",
+        reviewed: false,
+        paginate: false,
+      });
+      return data;
+    },
+    enabled: Boolean(!editing && canViewActivityLog && siteId && date),
+  });
+
   const billingOptions = billingQuery.data ?? [];
 
   const billingLabelById = useMemo(() => {
@@ -342,18 +386,28 @@ export const HajiraPage = () => {
   useEffect(() => {
     if (editing) return;
     if (!attendanceQuery.isSuccess || !paymentQuery.isSuccess) return;
-    const next = buildHajiraViewRows(
+    let next = buildHajiraViewRows(
       attendanceQuery.data ?? [],
       paymentQuery.data ?? [],
     );
+    if (canViewActivityLog) {
+      next = applyActivitiesToViewRows(
+        next,
+        activityAttendanceQuery.data ?? [],
+        activityPaymentQuery.data ?? [],
+      );
+    }
     setRows(cloneRows(next));
     setInitialRows(cloneRows(next));
   }, [
     editing,
+    canViewActivityLog,
     attendanceQuery.isSuccess,
     paymentQuery.isSuccess,
     attendanceQuery.data,
     paymentQuery.data,
+    activityAttendanceQuery.data,
+    activityPaymentQuery.data,
   ]);
 
   // Edit mode: remap already-loaded records onto this site's labours.
@@ -887,7 +941,12 @@ export const HajiraPage = () => {
                 return (
                   <tr
                     key={row.labourId}
-                    className="border-b border-base-300/70"
+                    className={[
+                      "border-b border-base-300/70",
+                      !editing ? activityToneClass(row.activityTone) : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
                   >
                     <td className="tabular-nums text-base-content/60">
                       {formatBnNumber(index + 1)}

@@ -64,6 +64,10 @@ export const PERMS = {
   addLabourSession: 'labours.add_laboursession',
   changeLabourSession: 'labours.change_laboursession',
   deleteLabourSession: 'labours.delete_laboursession',
+
+  // activities.ActivityLog
+  viewActivityLog: 'activities.view_activitylog',
+  changeActivityLog: 'activities.change_activitylog',
 }
 
 export const ROLE_NAMES = {
@@ -88,6 +92,16 @@ export const hasPermission = (profile, codename) => {
   if (!profile || !codename) return false
   const list = profile.permissions
   return Array.isArray(list) && list.includes(codename)
+}
+
+/** Match any permission whose suffix equals codename (e.g. view_activitylog). */
+export const hasPermissionSuffix = (profile, suffix) => {
+  if (!profile || !suffix) return false
+  const list = profile.permissions
+  if (!Array.isArray(list)) return false
+  return list.some(
+    (p) => p === suffix || String(p).endsWith(`.${suffix}`),
+  )
 }
 
 export const hasAnyPermission = (profile, codenames = []) =>
