@@ -1,5 +1,5 @@
 /**
- * Activity-log helpers for হাজিরা view-mode coloring.
+ * Activity-log helpers for হাজিরা / ক্যাশ view-mode coloring.
  * OpenAPI: ActivityLog.entity_id, action in {created,updated,deleted}.
  */
 
@@ -338,4 +338,79 @@ export const applyActivitiesToViewRows = (
   return [...next, ...ghosts].sort((a, b) =>
     String(a.labourName).localeCompare(String(b.labourName), 'bn'),
   )
+}
+
+/** Group site_cash / private_site_cash logs by entity_id. */
+export const groupCashLogs = (logs = []) => {
+  const map = new Map()
+  for (const log of logs) {
+    const entityId = log.entity_id != null ? Number(log.entity_id) : null
+    if (entityId == null || Number.isNaN(entityId)) continue
+    const list = map.get(entityId) ?? []
+    list.push(log)
+    map.set(entityId, list)
+  }
+  for (const [key, list] of map) map.set(key, sortByCreatedAt(list))
+  return map
+}
+
+const cashRowFromSnapshot = (log) => {
+  const fields = snapshotFields(log.changes)
+  const billing =
+    fields.billing != null && fields.billing !== ''
+      ? Number(fields.billing)
+      : null
+  return {
+    id: log.entity_id,
+    date: fields.date ?? log.business_date ?? null,
+    type: fields.type || 'cost',
+    category: fields.category ?? null,
+    amount: Number(fields.amount) || 0,
+    note: fields.note ?? '',
+    billing: Number.isFinite(billing) ? billing : null,
+    created_at: log.created_at ?? null,
+    updated_at: log.created_at ?? null,
+    fromActivitySnapshot: true,
+  }
+}
+
+/**
+ * Attach activity tones to cash rows and append deleted-only ghost rows.
+ * Does not mutate input rows. Totals should use live rows only.
+ */
+export const applyActivitiesToCashRows = (rows = [], cashLogs = []) => {
+  const byEntity = groupCashLogs(cashLogs)
+
+  const next = rows.map((row) => {
+    const logs = byEntity.get(Number(row.id))
+    if (!logs?.length) return row
+    return {
+      ...row,
+      activityTone: toneFromLogs(logs),
+      activityLogs: logs,
+    }
+  })
+
+  const liveIds = new Set(rows.map((r) => Number(r.id)))
+  const ghosts = []
+
+  for (const [entityId, logs] of byEntity) {
+    if (liveIds.has(entityId)) continue
+    const tone = toneFromLogs(logs)
+    if (!tone) continue
+    const sorted = sortByCreatedAt(logs)
+    const snapshotLog =
+      [...sorted].reverse().find((l) => l.action === 'deleted') ??
+      [...sorted].reverse().find((l) => l.action === 'created') ??
+      sorted[sorted.length - 1]
+
+    ghosts.push({
+      ...cashRowFromSnapshot(snapshotLog),
+      activityTone: tone,
+      activityLogs: logs,
+    })
+  }
+
+  if (!ghosts.length) return next
+  return [...next, ...ghosts]
 }

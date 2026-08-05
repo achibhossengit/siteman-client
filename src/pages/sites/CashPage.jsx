@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Check, Pencil, Trash2, X } from 'lucide-react'
 import {
   createSiteCash,
   deleteSiteCash,
@@ -17,18 +17,44 @@ import {
   cashFormSchema,
   toSiteCashPayload,
 } from '../../api/types/siteCash.js'
-import { parseApiError, applyFieldErrors } from '../../api/errors.js'
+import { parseApiError, applyFieldErrors, messageForCode } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { formatBnNumber, formatBnSigned } from '../../utils/format.js'
-import { confirmAction, toastSuccess } from '../../utils/feedback.js'
+import { confirmAction, toastApiError, toastSuccess } from '../../utils/feedback.js'
 import { usePermissions } from '../../hooks/usePermissions.js'
-import { PERMS } from '../../utils/permissions.js'
+import { PERMS, hasPermissionSuffix } from '../../utils/permissions.js'
+import {
+  activityToneClass,
+  applyActivitiesToCashRows,
+} from '../../api/types/activity.js'
+import { fetchActivities, reviewActivitiesBulk } from '../../api/activities.js'
 
 const MODAL_ID = 'site_cash_modal'
 const TYPE_FILTER_MODAL_ID = 'cash_type_filter_modal'
 const BILLING_FILTER_MODAL_ID = 'cash_billing_filter_modal'
 
 const TYPE_FILTER_OPTIONS = [{ value: 'all', label: 'পরিমাণ' }, ...CASH_TYPES]
+
+/** Bulk review validation: attr ids + missing id details. */
+const formatBulkReviewError = (parsed) => {
+  const errors = Array.isArray(parsed?.errors) ? parsed.errors : []
+  const idsError = errors.find((e) => e.attr === 'ids')
+  const missingIds = errors
+    .filter((e) => e.attr === 'missing')
+    .map((e) => e.rawDetail ?? e.detail)
+    .filter(Boolean)
+
+  if (idsError || missingIds.length) {
+    const main =
+      idsError?.rawDetail ||
+      idsError?.detail ||
+      'কিছু অ্যাক্টিভিটি লগ রিভিউ করা যায়নি।'
+    if (!missingIds.length) return String(main)
+    return `${main} (missing: ${missingIds.join(', ')})`
+  }
+
+  return parsed?.message || messageForCode('error')
+}
 
 const filterLabel = (options, value) =>
   options.find((opt) => opt.value === value)?.label ?? options[0]?.label ?? ''
@@ -77,15 +103,15 @@ const colgroup = (
   <colgroup>
     <col className="w-12" />
     <col />
-    <col className="w-24 sm:w-32" />
     <col className="w-28 sm:w-36" />
+    <col className="w-24 sm:w-32" />
   </colgroup>
 )
 
 export const CashPage = () => {
   const { date, siteId, sites } = useOutletContext()
   const queryClient = useQueryClient()
-  const { can } = usePermissions()
+  const { can, profile } = usePermissions()
   const dialogRef = useRef(null)
 
   const [typeFilter, setTypeFilter] = useState('all')
@@ -95,11 +121,18 @@ export const CashPage = () => {
   const [editing, setEditing] = useState(false)
   const [confirmReady, setConfirmReady] = useState(false)
   const [apiError, setApiError] = useState(null)
+  const [reviewing, setReviewing] = useState(false)
 
   const canViewCash = can(PERMS.viewSiteCash)
   const canAddCash = can(PERMS.addSiteCash)
   const canChangeCash = can(PERMS.changeSiteCash)
   const canDeleteCash = can(PERMS.deleteSiteCash)
+  const canViewActivityLog =
+    can(PERMS.viewActivityLog) ||
+    hasPermissionSuffix(profile, 'view_activitylog')
+  const canChangeActivityLog =
+    can(PERMS.changeActivityLog) ||
+    hasPermissionSuffix(profile, 'change_activitylog')
 
   const isCreateMode = creating
   const isDetailMode = Boolean(selected) && !creating
@@ -197,6 +230,64 @@ export const CashPage = () => {
     mutationFn: () => deleteSiteCash(siteId, selected.id),
   })
 
+  const activityCashQuery = useQuery({
+    queryKey: [
+      'activities',
+      { site: siteId, business_date: date, entity_type: 'site_cash' },
+    ],
+    queryFn: async () => {
+      const { data } = await fetchActivities({
+        site: siteId,
+        business_date: date,
+        entity_type: 'site_cash',
+        reviewed: false,
+        paginate: false,
+      })
+      return data
+    },
+    enabled: Boolean(canViewCash && canViewActivityLog && siteId && date),
+  })
+
+  const unreviwedActivityIds = useMemo(() => {
+    const ids = new Set()
+    for (const log of activityCashQuery.data ?? []) {
+      if (log?.id != null) ids.add(Number(log.id))
+    }
+    return [...ids].filter((id) => Number.isFinite(id))
+  }, [activityCashQuery.data])
+
+  const liveRows = cashQuery.data ?? []
+  const totals = useMemo(() => {
+    let net = 0
+    for (const row of liveRows) {
+      const style = AMOUNT_BY_TYPE[row.type] ?? AMOUNT_BY_TYPE.cost
+      net += style.sign * Math.abs(Number(row.amount) || 0)
+    }
+    return { net }
+  }, [liveRows])
+
+  const rows = useMemo(() => {
+    let next = liveRows
+    if (canViewActivityLog) {
+      next = applyActivitiesToCashRows(next, activityCashQuery.data ?? [])
+    }
+    return next.filter((row) => {
+      if (!row.fromActivitySnapshot) return true
+      if (typeFilter !== 'all' && row.type !== typeFilter) return false
+      if (billingFilter === 'none') return row.billing == null
+      if (billingFilter !== 'all') {
+        return String(row.billing) === String(billingFilter)
+      }
+      return true
+    })
+  }, [
+    liveRows,
+    canViewActivityLog,
+    activityCashQuery.data,
+    typeFilter,
+    billingFilter,
+  ])
+
   const invalidateCash = async () => {
     await queryClient.invalidateQueries({
       queryKey: ['sites', siteId, 'cash'],
@@ -204,6 +295,44 @@ export const CashPage = () => {
     await queryClient.invalidateQueries({
       queryKey: ['sites', siteId, 'daily-reports'],
     })
+    await queryClient.invalidateQueries({
+      queryKey: [
+        'activities',
+        { site: siteId, business_date: date, entity_type: 'site_cash' },
+      ],
+    })
+  }
+
+  const onAcceptChanges = async () => {
+    if (!canChangeActivityLog || unreviwedActivityIds.length === 0) return
+    const ok = await confirmAction({
+      title: 'পরিবর্তন গুলোতে আপনি কি সম্মত?',
+      text: `${date} তারিখের ক্যাশ ঠিক আছে বলে আপনি সম্মতি দিচ্ছেন। পরে বাতিল করতে পারবেন না। `,
+      confirmText: 'সম্মত',
+      cancelText: 'বাতিল করুন',
+    })
+    if (!ok) return
+
+    setReviewing(true)
+    try {
+      await reviewActivitiesBulk(unreviwedActivityIds)
+      await queryClient.invalidateQueries({
+        queryKey: [
+          'activities',
+          { site: siteId, business_date: date, entity_type: 'site_cash' },
+        ],
+      })
+      toastSuccess('পরিবর্তনগুলো গ্রহণ করা হয়েছে')
+    } catch (err) {
+      const parsed = parseApiError(err)
+      const message = formatBulkReviewError(parsed)
+      toastApiError({
+        message,
+        errors: [{ code: null, detail: message, attr: null }],
+      })
+    } finally {
+      setReviewing(false)
+    }
   }
 
   const resetModalState = () => {
@@ -229,6 +358,7 @@ export const CashPage = () => {
   }
 
   const openDetail = (row) => {
+    if (row?.fromActivitySnapshot) return
     setApiError(null)
     setCreating(false)
     setEditing(false)
@@ -344,7 +474,6 @@ export const CashPage = () => {
     )
   }
 
-  const rows = cashQuery.data ?? []
   const billingOptions = billingQuery.data ?? []
   const activeBillingOptions = billingOptions.filter((b) => b.is_active !== false)
   const formBillingOptions = (() => {
@@ -397,16 +526,6 @@ export const CashPage = () => {
             <tr>
               <th>নং</th>
               <th>বিবরণ</th>
-              <th className="text-right">
-                <button
-                  type="button"
-                  onClick={() =>
-                    document.getElementById(TYPE_FILTER_MODAL_ID)?.showModal()
-                  }
-                >
-                  {filterLabel(TYPE_FILTER_OPTIONS, typeFilter)}
-                </button>
-              </th>
               <th>
                 <button
                   type="button"
@@ -417,6 +536,16 @@ export const CashPage = () => {
                   }
                 >
                   {filterLabel(billingFilterOptions, billingFilter)}
+                </button>
+              </th>
+              <th className="text-right">
+                <button
+                  type="button"
+                  onClick={() =>
+                    document.getElementById(TYPE_FILTER_MODAL_ID)?.showModal()
+                  }
+                >
+                  {filterLabel(TYPE_FILTER_OPTIONS, typeFilter)}
                 </button>
               </th>
             </tr>
@@ -443,41 +572,91 @@ export const CashPage = () => {
                   row.type,
                   row.amount,
                 )
+                const isGhost = Boolean(row.fromActivitySnapshot)
                 return (
                   <tr
-                    key={row.id}
-                    className="border-b border-base-300/70 cursor-pointer hover:bg-base-200/60"
+                    key={
+                      isGhost
+                        ? `activity-${row.id}`
+                        : row.id
+                    }
+                    className={[
+                      'border-b border-base-300/70',
+                      isGhost
+                        ? 'cursor-default opacity-90'
+                        : 'cursor-pointer hover:bg-base-200/60',
+                      activityToneClass(row.activityTone),
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
                     onClick={() => openDetail(row)}
                   >
                     <td className="tabular-nums text-base-content/60">
                       {formatBnNumber(index + 1)}
                     </td>
                     <td className="truncate">{row.note || '—'}</td>
+                    <td className="max-w-0 truncate text-base-content/80">
+                      {billingName(row.billing)}
+                    </td>
                     <td
                       className={`text-right tabular-nums font-medium ${className}`}
                     >
                       {text}
-                    </td>
-                    <td className="max-w-0 truncate text-base-content/80">
-                      {billingName(row.billing)}
                     </td>
                   </tr>
                 )
               })
             )}
           </tbody>
+          {liveRows.length > 0 ? (
+            <tfoot>
+              <tr className="font-medium border-t border-base-300">
+                <td />
+                <td className="whitespace-nowrap">Total</td>
+                <td />
+                <td
+                  className={`text-right tabular-nums ${
+                    totals.net < 0
+                      ? 'text-error'
+                      : totals.net > 0
+                        ? 'text-success'
+                        : 'text-base-content/60'
+                  }`}
+                >
+                  {totals.net
+                    ? formatBnSigned(totals.net)
+                    : formatBnSigned(0)}
+                </td>
+              </tr>
+            </tfoot>
+          ) : null}
         </table>
       </div>
 
+      <button
+        type="button"
+        className="btn btn-outline btn-primary fixed bottom-16 left-4 z-40 shadow-lg bg-base-100"
+        onClick={onAcceptChanges}
+        disabled={
+          !date ||
+          reviewing ||
+          !canChangeActivityLog ||
+          unreviwedActivityIds.length === 0
+        }
+      >
+        {reviewing ? (
+          <span className="loading loading-spinner loading-sm" />
+        ) : null}
+        অডিট করুন
+      </button>
       {canAddCash ? (
         <button
           type="button"
-          className="btn btn-primary btn-circle btn-lg fixed bottom-16 right-4 z-40 shadow-lg"
-          aria-label="নতুন ক্যাশ"
+          className="btn btn-primary fixed bottom-16 right-4 z-40 shadow-lg"
           onClick={openCreate}
           disabled={!date || siteInactive}
         >
-          <Plus className="size-7" strokeWidth={2} />
+          + নতুন ক্যাশ
         </button>
       ) : null}
 
