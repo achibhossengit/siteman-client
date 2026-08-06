@@ -553,7 +553,6 @@ export const CashPage = () => {
   }
 
   const openDetail = (row) => {
-    if (row?.fromActivitySnapshot) return
     setApiError(null)
     setCreating(false)
     setEditing(false)
@@ -566,6 +565,7 @@ export const CashPage = () => {
   }
 
   const startEdit = () => {
+    if (selected?.fromActivitySnapshot) return
     setApiError(null)
     setConfirmReady(false)
     setModalView('detail')
@@ -623,6 +623,7 @@ export const CashPage = () => {
   })
 
   const onDelete = async () => {
+    if (selected?.fromActivitySnapshot) return
     const ok = await confirmAction({
       title: 'ক্যাশ এন্ট্রি মুছে ফেলবেন?',
       text: 'এই কাজটি ফিরিয়ে আনা যাবে না।',
@@ -707,6 +708,7 @@ export const CashPage = () => {
 
   const disabled = !editing
   const busy = isSubmitting || saveMutation.isPending
+  const isSnapshotDetail = Boolean(selected?.fromActivitySnapshot)
 
   const fieldClass = (hasError, kind = 'input') =>
     [
@@ -814,10 +816,8 @@ export const CashPage = () => {
                         : row.id
                     }
                     className={[
-                      'border-b border-base-300/70',
-                      isGhost
-                        ? 'cursor-default opacity-90'
-                        : 'cursor-pointer hover:bg-base-200/60',
+                      'border-b border-base-300/70 cursor-pointer hover:bg-base-200/60',
+                      isGhost ? 'opacity-90' : '',
                       activityToneClass(row.activityTone),
                     ]
                       .filter(Boolean)
@@ -1362,7 +1362,11 @@ export const CashPage = () => {
                     type="button"
                     className="btn btn-outline btn-error flex-1"
                     onClick={onDelete}
-                    disabled={siteInactive || deleteMutation.isPending}
+                    disabled={
+                      isSnapshotDetail ||
+                      siteInactive ||
+                      deleteMutation.isPending
+                    }
                   >
                     {deleteMutation.isPending ? (
                       <span className="loading loading-spinner loading-sm" />
@@ -1377,7 +1381,7 @@ export const CashPage = () => {
                     type="button"
                     className="btn btn-outline btn-primary flex-1"
                     onClick={startEdit}
-                    disabled={siteInactive}
+                    disabled={isSnapshotDetail || siteInactive}
                   >
                     <Pencil className="size-4" strokeWidth={1.75} />
                     আপডেট

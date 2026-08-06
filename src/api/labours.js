@@ -73,6 +73,10 @@ export const fetchLabourPaymentsByLabour = (
     },
   })
 
+/** GET /labours/{labour_pk}/payments/{id} */
+export const fetchLabourPaymentDetail = (labourId, paymentId) =>
+  api.get(endpoints.labours.paymentDetail(labourId, paymentId))
+
 /** PATCH /labours/{labour_pk}/payments/{id} */
 export const updateLabourPayment = (labourId, paymentId, payload) =>
   api.patch(endpoints.labours.paymentDetail(labourId, paymentId), payload)

@@ -1,22 +1,33 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
-import { fetchActivities, reviewActivitiesBulk, reviewActivity } from '../../api/activities.js'
+import { fetchActivities, reviewActivitiesBulk } from '../../api/activities.js'
+import {
+  fetchLabourAttendanceDetail,
+  fetchLabourPaymentDetail,
+} from '../../api/labours.js'
+import {
+  fetchPrivateSiteCashDetail,
+  fetchSiteCashDetail,
+} from '../../api/sites.js'
 import {
   ACTIVITY_ACTION_FILTER_OPTIONS,
   ACTIVITY_ENTITY_FILTER_OPTIONS,
   ACTIVITY_REVIEWED_FILTER_OPTIONS,
-  activityActionLabel,
   activityEntityLabel,
   activityTextToneClass,
   activityToneClass,
+  snapshotFields,
 } from '../../api/types/activity.js'
+import {
+  cashCategoryLabel,
+  cashTypeLabel,
+} from '../../api/types/siteCash.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { useAuth } from '../../providers/AuthProvider.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
-import { paths } from '../../router/paths.js'
 import { confirmAction, toastApiError, toastSuccess } from '../../utils/feedback.js'
 import { formatBnNumber } from '../../utils/format.js'
 import { PERMS, hasPermissionSuffix } from '../../utils/permissions.js'
@@ -63,6 +74,37 @@ const formatDateTimeBn = (iso) => {
     hour: 'numeric',
     minute: '2-digit',
   }).format(d)
+}
+
+const formatDateTimePartsBn = (iso) => {
+  if (!iso) return { date: '—', time: '' }
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return { date: '—', time: '' }
+  return {
+    date: new Intl.DateTimeFormat('bn-BD', {
+      day: 'numeric',
+      month: 'short',
+      year: '2-digit',
+    }).format(d),
+    time: new Intl.DateTimeFormat('bn-BD', {
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(d),
+  }
+}
+
+const DateTimeStacked = ({ iso, className = '' }) => {
+  const { date, time } = formatDateTimePartsBn(iso)
+  return (
+    <span
+      className={['inline-flex flex-col leading-tight', className]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <span>{date}</span>
+      {time ? <span>{time}</span> : null}
+    </span>
+  )
 }
 
 const formatDateBn = (isoDate) => {
@@ -134,28 +176,125 @@ const formatChangeValue = (value) => {
 
 const sameDisplay = (a, b) => String(a ?? '') === String(b ?? '')
 
-/** Hajira / cash (or private cash) deep link for a log's business date + site. */
-const entityPageHref = (log, fallbackSiteId) => {
-  const site = log?.site ?? fallbackSiteId
-  const date = log?.business_date
-  if (!site || !date) return null
-  const q = new URLSearchParams({
-    site: String(site),
-    date: String(date),
-  })
+const RECORD_FIELD_KEYS = {
+  site_cash: ['date', 'type', 'category', 'amount', 'note', 'billing'],
+  private_site_cash: ['date', 'type', 'amount', 'note', 'billing'],
+  attendance: ['date', 'present', 'salary', 'extra', 'note', 'billing'],
+  labour_payment: ['date', 'type', 'amount', 'note'],
+}
+
+const formatRecordValue = (key, value) => {
+  if (value == null || value === '' || value === 'None' || value === 'null') {
+    return '—'
+  }
+  if (key === 'type') {
+    if (value === 'payment') return 'পেমেন্ট'
+    if (value === 'return') return 'রিটার্ন'
+    return cashTypeLabel(value)
+  }
+  if (key === 'category') return cashCategoryLabel(value) || '—'
+  if (key === 'billing' || key === 'billing_id') {
+    if (typeof value === 'object') {
+      if (value.name) return String(value.name)
+      const id = value.id ?? value.pk
+      return id == null || id === '' ? 'সাইট সাধারণ' : String(id)
+    }
+    return String(value)
+  }
+  if (key === 'date' || key === 'business_date') {
+    return formatDateBn(value) ?? String(value)
+  }
+  return formatChangeValue(value)
+}
+
+const pickRecordEntries = (entityType, data) => {
+  if (!data || typeof data !== 'object') return []
+  const keys = RECORD_FIELD_KEYS[entityType]
+  const source = keys?.length
+    ? keys.filter((key) => data[key] !== undefined)
+    : Object.keys(data).filter(
+        (key) =>
+          !['id', 'created_at', 'updated_at', 'site', 'labour', 'is_sealed'].includes(
+            key,
+          ),
+      )
+  return source.map((key) => ({ key, value: data[key] }))
+}
+
+const canLoadEntityRecord = (log) => {
+  if (!log || log.action === 'deleted') return false
+  if (log.entity_id == null || log.entity_id === '') return false
   if (
     log.entity_type === 'attendance' ||
     log.entity_type === 'labour_payment'
   ) {
-    return `${paths.hajira}?${q}`
+    return log.labour != null && log.labour !== ''
   }
+  if (
+    log.entity_type === 'site_cash' ||
+    log.entity_type === 'private_site_cash'
+  ) {
+    return log.site != null && log.site !== ''
+  }
+  return false
+}
+
+const fetchEntityRecord = async (log) => {
+  const id = log.entity_id
   if (log.entity_type === 'site_cash') {
-    return `${paths.cash}?${q}`
+    const { data } = await fetchSiteCashDetail(log.site, id)
+    return data
   }
   if (log.entity_type === 'private_site_cash') {
-    return `${paths.sitePrivateCash(site)}?date=${encodeURIComponent(date)}`
+    const { data } = await fetchPrivateSiteCashDetail(log.site, id)
+    return data
+  }
+  if (log.entity_type === 'attendance') {
+    const { data } = await fetchLabourAttendanceDetail(log.labour, id)
+    return data
+  }
+  if (log.entity_type === 'labour_payment') {
+    const { data } = await fetchLabourPaymentDetail(log.labour, id)
+    return data
   }
   return null
+}
+
+const summarizeHistoryLog = (log) => {
+  if (!log) return '—'
+  const fields = snapshotFields(log.changes)
+  const bits = []
+  if (fields.note) bits.push(String(fields.note))
+  else if (fields.amount != null && fields.amount !== '') {
+    bits.push(String(fields.amount))
+  } else if (fields.present != null && fields.present !== '') {
+    bits.push(`হাজিরা ${fields.present}`)
+  }
+  if (!bits.length && log.labour_name) bits.push(log.labour_name)
+  return bits.join(' · ') || activityEntityLabel(log.entity_type)
+}
+
+/** One-line বিবরণ: update diffs with strikethrough, concatenated. */
+const HistoryBiboron = ({ log }) => {
+  if (!log) return '—'
+  if (log.action === 'updated') {
+    const entries = changeEntries(log.changes).filter((entry) => entry.isDiff)
+    if (!entries.length) return '—'
+    return (
+      <span className="inline">
+        {entries.map((entry, index) => (
+          <Fragment key={entry.key}>
+            {index > 0 ? <span className="text-base-content/40"> · </span> : null}
+            <ChangePair
+              oldText={formatRecordValue(entry.key, entry.old)}
+              newText={formatRecordValue(entry.key, entry.next)}
+            />
+          </Fragment>
+        ))}
+      </span>
+    )
+  }
+  return summarizeHistoryLog(log)
 }
 
 const changeEntries = (changes) => {
@@ -183,9 +322,9 @@ const ChangePair = ({ oldText, newText }) => {
     return <span>{newText}</span>
   }
   return (
-    <span className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+    <span className="inline whitespace-nowrap">
       <span className="line-through opacity-50">{oldText}</span>
-      <span>{newText}</span>
+      <span> {newText}</span>
     </span>
   )
 }
@@ -197,25 +336,10 @@ const MetaRow = ({ label, children }) => (
   </div>
 )
 
-const MetaCell = ({ label, children }) => (
-  <div className="min-w-0 flex flex-col gap-0.5">
-    <span className="text-[10px] tracking-wide text-base-content/50 leading-none">
-      {label}
-    </span>
-    <div className="text-sm leading-snug wrap-break-word">{children}</div>
-  </div>
-)
-
-const actorActionLabel = (action) => {
-  if (action === 'updated') return 'আপডেট করেছেন'
-  if (action === 'deleted') return 'ডিলিট করেছেন'
-  return 'তৈরি করেছেন'
-}
-
-const actionTimeLabel = (action) => {
-  if (action === 'updated') return 'আপডেটের সময়'
-  if (action === 'deleted') return 'ডিলিটের সময়'
-  return 'তৈরির সময়'
+const shortActionLabel = (action) => {
+  if (action === 'updated') return 'আপডেট'
+  if (action === 'deleted') return 'ডিলিট'
+  return 'তৈরি'
 }
 
 const ALLOWED_ACTIONS = new Set(
@@ -335,6 +459,8 @@ export const ActivityPage = () => {
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState(() => new Set())
   const [reviewing, setReviewing] = useState(false)
+  const [modalView, setModalView] = useState('history') // history | record
+  const [expandedHistoryId, setExpandedHistoryId] = useState(null)
 
   // Prefer URL/session site when still in list; otherwise first available site.
   useEffect(() => {
@@ -449,30 +575,90 @@ export const ActivityPage = () => {
     placeholderData: (previousData) => previousData,
   })
 
-  const reviewMutation = useMutation({
-    mutationFn: (id) => reviewActivity(id),
-    onSuccess: async () => {
-      toastSuccess('রিভিউ সম্পন্ন হয়েছে')
-      setApiError(null)
-      dialogRef.current?.close()
-      setSelected(null)
-      await queryClient.invalidateQueries({ queryKey: ['activities'] })
+  const historyQuery = useQuery({
+    queryKey: [
+      'activities',
+      {
+        site: selected?.site,
+        business_date: selected?.business_date,
+        entity_type: selected?.entity_type,
+        entity_id: selected?.entity_id,
+      },
+    ],
+    queryFn: async () => {
+      const { data } = await fetchActivities({
+        site: selected.site,
+        business_date: selected.business_date,
+        entity_type: selected.entity_type,
+        entity_id: selected.entity_id,
+        paginate: false,
+      })
+      return data
     },
-    onError: (error) => {
-      setApiError(parseApiError(error))
-      toastApiError(error)
-    },
+    enabled: Boolean(
+      selected &&
+        modalView === 'history' &&
+        selected.site &&
+        selected.business_date &&
+        selected.entity_type &&
+        selected.entity_id != null &&
+        selected.entity_id !== '',
+    ),
   })
+
+  const historyLogs = useMemo(() => {
+    const logs = historyQuery.data ?? []
+    const sorted = [...logs].sort((a, b) => {
+      const ta = new Date(a.created_at).getTime()
+      const tb = new Date(b.created_at).getTime()
+      return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0)
+    })
+    if (!selected) return sorted
+    if (sorted.some((log) => String(log.id) === String(selected.id))) {
+      return sorted
+    }
+    return [selected, ...sorted]
+  }, [historyQuery.data, selected])
+
+  const recordQuery = useQuery({
+    queryKey: [
+      'activity-record',
+      selected?.entity_type,
+      selected?.entity_id,
+      selected?.site,
+      selected?.labour,
+    ],
+    queryFn: () => fetchEntityRecord(selected),
+    enabled: Boolean(
+      selected && modalView === 'record' && canLoadEntityRecord(selected),
+    ),
+  })
+
+  const recordEntries = useMemo(() => {
+    if (!selected) return []
+    if (selected.action === 'deleted' || !canLoadEntityRecord(selected)) {
+      return pickRecordEntries(
+        selected.entity_type,
+        snapshotFields(selected.changes),
+      )
+    }
+    if (!recordQuery.data) return []
+    return pickRecordEntries(selected.entity_type, recordQuery.data)
+  }, [selected, recordQuery.data])
 
   const openDetail = (row) => {
     setApiError(null)
     setSelected(row)
+    setModalView('history')
+    setExpandedHistoryId(row.id)
     dialogRef.current?.showModal()
   }
 
   const closeDetail = () => {
     setApiError(null)
     setSelected(null)
+    setModalView('history')
+    setExpandedHistoryId(null)
   }
 
   const openDateFilter = () => {
@@ -566,8 +752,6 @@ export const ActivityPage = () => {
   const slOffset = (page - 1) * PAGE_SIZE
   const isLoading = activitiesQuery.isLoading && !activitiesQuery.data
 
-  const isReviewed = Boolean(selected?.reviewed_at)
-  const changes = changeEntries(selected?.changes)
   const pendingIds = rows
     .filter((row) => !isRowReviewed(row) && row?.id != null)
     .map((row) => row.id)
@@ -706,8 +890,6 @@ export const ActivityPage = () => {
                     const biz = formatDateBn(row.business_date)
                     const entity = activityEntityLabel(row.entity_type)
                     const title = [biz, entity].filter(Boolean).join(' - ')
-                    const pageHref = entityPageHref(row, siteId)
-                    const labourId = row.labour
                     const reviewed = isRowReviewed(row)
                     const checked = selectedIds.has(row.id)
                     return (
@@ -745,36 +927,18 @@ export const ActivityPage = () => {
                           )}
                         </td>
                         <td className="text-sm leading-snug">
-                          {pageHref ? (
-                            <Link
-                              to={pageHref}
-                              className="link link-hover text-primary"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {title || '—'}
-                            </Link>
-                          ) : (
-                            <div>{title || '—'}</div>
-                          )}
-                          {row.labour_name && labourId != null ? (
-                            <div className="text-xs mt-0.5">
-                              লেবার :{' '}
-                              <Link
-                                to={paths.labourDetail(labourId)}
-                                className="link link-hover text-primary"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {row.labour_name}
-                              </Link>
-                            </div>
-                          ) : row.labour_name ? (
+                          <div>{title || '—'}</div>
+                          {row.labour_name ? (
                             <div className="text-xs text-base-content/70 mt-0.5">
                               লেবার : {row.labour_name}
                             </div>
                           ) : null}
                         </td>
-                        <td className="text-right text-xs sm:text-sm tabular-nums text-base-content/80 whitespace-normal wrap-break-word leading-tight">
-                          {formatDateTimeBn(row.created_at)}
+                        <td className="text-right text-xs sm:text-sm tabular-nums text-base-content/80">
+                          <DateTimeStacked
+                            iso={row.created_at}
+                            className="items-end"
+                          />
                         </td>
                       </tr>
                     )
@@ -853,7 +1017,7 @@ export const ActivityPage = () => {
         className="modal"
         onClose={closeDetail}
       >
-        <div className="modal-box max-w-sm">
+        <div className="modal-box max-w-sm h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
             <button
               type="submit"
@@ -864,114 +1028,282 @@ export const ActivityPage = () => {
             </button>
           </form>
 
-          <h3
-            className={[
-              'font-semibold text-base pr-8 pb-3 border-b border-base-300',
-              activityTextToneClass(selected?.action),
-            ]
-              .filter(Boolean)
-              .join(' ')}
-          >
-            {activityEntityLabel(selected?.entity_type)} ·{' '}
-            {activityActionLabel(selected?.action)}
+          <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                className={
+                  modalView === 'record'
+                    ? 'text-primary'
+                    : 'text-base-content/50 hover:text-base-content'
+                }
+                onClick={() => setModalView('record')}
+              >
+                রেকর্ড
+              </button>
+              <button
+                type="button"
+                className={
+                  modalView === 'history'
+                    ? 'text-primary'
+                    : 'text-base-content/50 hover:text-base-content'
+                }
+                onClick={() => {
+                  setModalView('history')
+                  if (selected?.id != null && expandedHistoryId == null) {
+                    setExpandedHistoryId(selected.id)
+                  }
+                }}
+              >
+                হিস্ট্রি
+              </button>
+            </div>
           </h3>
 
-          <ApiErrorAlert error={apiError} className="mt-3" />
+          <ApiErrorAlert error={apiError} className="mb-3 shrink-0" />
 
-          {selected ? (
-            <div className="flex flex-col">
-              <div className="grid grid-cols-2 gap-x-3 gap-y-3 py-3 border-b border-base-300">
-                <MetaCell label={actorActionLabel(selected.action)}>
-                  {selected.actor_name || '—'}
-                </MetaCell>
-                <MetaCell label={actionTimeLabel(selected.action)}>
-                  {formatDateTimeBn(selected.created_at)}
-                </MetaCell>
-                <MetaCell label="অডিট করেছেন">
-                  {isReviewed ? selected.reviewed_by_name || '—' : '—'}
-                </MetaCell>
-                <MetaCell label="অডিট সময়">
-                  {isReviewed
-                    ? formatDateTimeBn(selected.reviewed_at)
-                    : '—'}
-                </MetaCell>
-              </div>
-
-              <div className="flex flex-col gap-2 py-3">
-                {selected.labour_name ? (
-                  <MetaRow label="লেবার">
-                    {selected.labour != null ? (
-                      <Link
-                        to={paths.labourDetail(selected.labour)}
-                        className="link link-hover text-primary"
-                      >
-                        {selected.labour_name}
-                      </Link>
-                    ) : (
-                      selected.labour_name
-                    )}
-                  </MetaRow>
-                ) : null}
-                {selected.business_date ? (
-                  <MetaRow label="তারিখ">
-                    {formatDateBn(selected.business_date) ?? '—'}
-                  </MetaRow>
-                ) : null}
-                {changes.map((entry) => (
-                  <MetaRow key={entry.key} label={fieldLabel(entry.key)}>
-                    {entry.isDiff ? (
-                      <ChangePair
-                        oldText={formatChangeValue(entry.old)}
-                        newText={formatChangeValue(entry.next)}
-                      />
-                    ) : (
-                      formatChangeValue(entry.value)
-                    )}
-                  </MetaRow>
-                ))}
-                {selected.review_note ? (
-                  <MetaRow label="নোট">{selected.review_note}</MetaRow>
-                ) : null}
-                {!selected.labour_name &&
-                !selected.business_date &&
-                changes.length === 0 &&
-                !selected.review_note ? (
-                  <p className="text-sm text-base-content/50 text-center py-2">
-                    কোনো বিস্তারিত নেই।
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {selected && modalView === 'history' ? (
+              <div className="flex flex-col gap-2 min-h-full">
+                {historyQuery.isLoading ? (
+                  <div className="flex flex-1 justify-center items-center py-8">
+                    <span className="loading loading-spinner loading-md text-primary" />
+                  </div>
+                ) : historyQuery.isError ? (
+                  <ApiErrorAlert error={parseApiError(historyQuery.error)} />
+                ) : historyLogs.length === 0 ? (
+                  <p className="text-sm text-base-content/60 text-center py-8">
+                    কোনো হিস্ট্রি নেই।
                   </p>
-                ) : null}
-              </div>
+                ) : (
+                  <table className="table table-sm w-full">
+                    <thead>
+                      <tr className="border-b border-base-300">
+                        <th className="w-28 sm:w-32">তারিখ</th>
+                        <th>বিবরণ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historyLogs.map((log) => {
+                        const open = expandedHistoryId === log.id
+                        const reviewed = Boolean(log.reviewed_at)
+                        const isFocus =
+                          String(log.id) === String(selected.id)
+                        const fields = snapshotFields(log.changes)
+                        const logChanges = changeEntries(log.changes)
+                        return (
+                          <Fragment key={log.id}>
+                            <tr
+                              className={[
+                                'border-b border-base-300/70 cursor-pointer hover:bg-base-200/60',
+                                activityToneClass(log.action),
+                                reviewed ? 'opacity-50' : '',
+                                isFocus ? 'ring-1 ring-inset ring-primary/50' : '',
+                              ]
+                                .filter(Boolean)
+                                .join(' ')}
+                              onClick={() =>
+                                setExpandedHistoryId(open ? null : log.id)
+                              }
+                            >
+                              <td className="text-xs tabular-nums text-base-content/70 align-middle whitespace-nowrap">
+                                <span className="inline-flex items-start gap-1.5">
+                                  {isFocus ? (
+                                    <span
+                                      className="mt-1 size-1.5 shrink-0 rounded-full bg-primary"
+                                      title="নির্বাচিত অ্যাক্টিভিটি"
+                                      aria-label="নির্বাচিত অ্যাক্টিভিটি"
+                                    />
+                                  ) : (
+                                    <span className="mt-1 size-1.5 shrink-0" />
+                                  )}
+                                  <DateTimeStacked iso={log.created_at} />
+                                </span>
+                              </td>
+                              <td className="text-sm leading-snug align-middle max-w-0">
+                                <div className="truncate">
+                                  <HistoryBiboron log={log} />
+                                </div>
+                              </td>
+                            </tr>
+                            {open ? (
+                              <tr
+                                className={[
+                                  'border-b border-base-300/70',
+                                  reviewed ? 'opacity-50' : '',
+                                ]
+                                  .filter(Boolean)
+                                  .join(' ')}
+                              >
+                                <td
+                                  colSpan={2}
+                                  className="bg-base-200/40 px-2 py-1.5"
+                                >
+                                  <div className="flex flex-col gap-0.5 text-xs leading-snug pb-1.5 mb-1.5 border-b border-base-300">
+                                    <p>
+                                      <span className="text-base-content/50">
+                                        {shortActionLabel(log.action)}:{' '}
+                                      </span>
+                                      <span
+                                        className={activityTextToneClass(
+                                          log.action,
+                                        )}
+                                      >
+                                        {log.actor_name || '—'}
+                                      </span>
+                                      <span className="text-base-content/60">
+                                        {' '}
+                                        ({formatDateTimeBn(log.created_at)})
+                                      </span>
+                                    </p>
+                                    <p>
+                                      <span className="text-base-content/50">
+                                        অডিট:{' '}
+                                      </span>
+                                      {log.reviewed_at ? (
+                                        <>
+                                          <span>
+                                            {log.reviewed_by_name || '—'}
+                                          </span>
+                                          <span className="text-base-content/60">
+                                            {' '}
+                                            (
+                                            {formatDateTimeBn(log.reviewed_at)})
+                                          </span>
+                                        </>
+                                      ) : (
+                                        '—'
+                                      )}
+                                    </p>
+                                  </div>
 
-              <div className="flex gap-2 pt-1">
-                {!isReviewed && canChangeActivityLog ? (
-                  <button
-                    type="button"
-                    className="btn btn-primary flex-1"
-                    disabled={reviewMutation.isPending}
-                    onClick={() => reviewMutation.mutate(selected.id)}
-                  >
-                    {reviewMutation.isPending ? (
-                      <span className="loading loading-spinner loading-sm" />
-                    ) : null}
-                    অডিট করুন
-                  </button>
-                ) : null}
-                {(() => {
-                  const href = entityPageHref(selected, siteId)
-                  if (!href) return null
-                  return (
-                    <Link
-                      to={href}
-                      className="btn btn-outline flex-1"
-                      onClick={() => dialogRef.current?.close()}
-                    >
-                      রেকর্ডটি দেখুন
-                    </Link>
-                  )
-                })()}
+                                  <div className="flex flex-col gap-0.5 text-xs leading-snug">
+                                    {log.labour_name ? (
+                                      <div className="flex gap-1.5">
+                                        <span className="w-16 shrink-0 text-base-content/60">
+                                          লেবার
+                                        </span>
+                                        <span className="min-w-0">
+                                          {log.labour_name}
+                                        </span>
+                                      </div>
+                                    ) : null}
+                                    {log.action === 'updated' ? (
+                                      logChanges.length ? (
+                                        logChanges.map((entry) => (
+                                          <div
+                                            key={entry.key}
+                                            className="flex gap-1.5"
+                                          >
+                                            <span className="w-16 shrink-0 text-base-content/60">
+                                              {fieldLabel(entry.key)}
+                                            </span>
+                                            <span className="min-w-0">
+                                              {entry.isDiff ? (
+                                                <ChangePair
+                                                  oldText={formatRecordValue(
+                                                    entry.key,
+                                                    entry.old,
+                                                  )}
+                                                  newText={formatRecordValue(
+                                                    entry.key,
+                                                    entry.next,
+                                                  )}
+                                                />
+                                              ) : (
+                                                formatRecordValue(
+                                                  entry.key,
+                                                  entry.value,
+                                                )
+                                              )}
+                                            </span>
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <p className="text-base-content/50">
+                                          কোনো পরিবর্তন নেই।
+                                        </p>
+                                      )
+                                    ) : (
+                                      <>
+                                        {pickRecordEntries(
+                                          log.entity_type,
+                                          fields,
+                                        ).map(({ key, value }) => (
+                                          <div
+                                            key={key}
+                                            className="flex gap-1.5"
+                                          >
+                                            <span className="w-16 shrink-0 text-base-content/60">
+                                              {fieldLabel(key)}
+                                            </span>
+                                            <span className="min-w-0">
+                                              {formatRecordValue(key, value)}
+                                            </span>
+                                          </div>
+                                        ))}
+                                        {!pickRecordEntries(
+                                          log.entity_type,
+                                          fields,
+                                        ).length ? (
+                                          <p className="text-base-content/50">
+                                            কোনো বিস্তারিত নেই।
+                                          </p>
+                                        ) : null}
+                                      </>
+                                    )}
+                                    {log.review_note ? (
+                                      <div className="flex gap-1.5">
+                                        <span className="w-16 shrink-0 text-base-content/60">
+                                          নোট
+                                        </span>
+                                        <span className="min-w-0">
+                                          {log.review_note}
+                                        </span>
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </td>
+                              </tr>
+                            ) : null}
+                          </Fragment>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                )}
               </div>
-            </div>
-          ) : null}
+            ) : null}
+
+            {selected && modalView === 'record' ? (
+              <div className="flex flex-col gap-2 min-h-full">
+                {selected.action !== 'deleted' &&
+                canLoadEntityRecord(selected) &&
+                recordQuery.isLoading ? (
+                  <div className="flex flex-1 justify-center items-center py-8">
+                    <span className="loading loading-spinner loading-md text-primary" />
+                  </div>
+                ) : selected.action !== 'deleted' &&
+                  canLoadEntityRecord(selected) &&
+                  recordQuery.isError ? (
+                  <ApiErrorAlert error={parseApiError(recordQuery.error)} />
+                ) : (
+                  <div className="flex flex-col gap-2 py-1">
+                    {recordEntries.map(({ key, value }) => (
+                      <MetaRow key={key} label={fieldLabel(key)}>
+                        {formatRecordValue(key, value)}
+                      </MetaRow>
+                    ))}
+                    {recordEntries.length === 0 ? (
+                      <p className="text-sm text-base-content/50 text-center py-2">
+                        কোনো রেকর্ড নেই।
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
         </div>
         <form method="dialog" className="modal-backdrop">
           <button type="submit">close</button>
