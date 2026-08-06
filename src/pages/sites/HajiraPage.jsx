@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchLabours,
@@ -46,6 +46,7 @@ import {
   readSelectedSite,
   todayIso,
 } from "../../utils/sessionSelection.js";
+import { paths } from "../../router/paths.js";
 
 const MODAL_VIEWS = {
   detail: "detail",
@@ -762,6 +763,7 @@ export const HajiraPage = () => {
   const canChangeAttendance = can(PERMS.changeAttendance);
   const canAddPayment = can(PERMS.addLabourPayment);
   const canChangePayment = can(PERMS.changeLabourPayment);
+  const canViewLabour = can(PERMS.viewLabour);
   const canViewActivityLog =
     can(PERMS.viewActivityLog) ||
     hasPermissionSuffix(profile, "view_activitylog");
@@ -1979,7 +1981,17 @@ export const HajiraPage = () => {
                       )}
                     </td>
                     <td className="font-medium whitespace-nowrap max-w-28 truncate">
-                      {row.labourName}
+                      {canViewLabour && row.labourId != null ? (
+                        <Link
+                          to={paths.labourDetail(row.labourId)}
+                          className="link link-hover"
+                          title={row.labourName}
+                        >
+                          {row.labourName}
+                        </Link>
+                      ) : (
+                        row.labourName
+                      )}
                     </td>
                     <td className={`text-right ${hajiraCellBg}`}>
                       <button
