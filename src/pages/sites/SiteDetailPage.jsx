@@ -72,7 +72,10 @@ export const SiteDetailPage = () => {
 
   const site = detailQuery.data;
 
-  setTitle?.("সাইট বিবরণ");
+  useEffect(() => {
+    setTitle?.("সাইট বিবরণ");
+    return () => setTitle?.("");
+  }, [setTitle, siteId]);
 
   useEffect(() => {
     if (!siteId) {

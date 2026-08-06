@@ -58,9 +58,7 @@ export const LabourDetailPage = () => {
     resolver: zodResolver(labourFormSchema),
     defaultValues: toFormValues(null),
   })
-  
-  setTitle?.('লেবার বিবরণ')
-  
+
   const detailQuery = useQuery({
     queryKey: ['labours', labourId],
     queryFn: async () => {
@@ -80,7 +78,11 @@ export const LabourDetailPage = () => {
   })
 
   const labour = detailQuery.data
-  
+
+  useEffect(() => {
+    setTitle?.('লেবার বিবরণ')
+    return () => setTitle?.('')
+  }, [setTitle, labourId])
 
   useEffect(() => {
     if (!labourId) {
