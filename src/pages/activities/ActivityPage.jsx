@@ -274,6 +274,45 @@ const summarizeHistoryLog = (log) => {
   return bits.join(' · ') || activityEntityLabel(log.entity_type)
 }
 
+/** List-row subtitle: site cash note (strikethrough when updated). */
+const cashNoteFromLog = (log) => {
+  if (
+    !log ||
+    (log.entity_type !== 'site_cash' &&
+      log.entity_type !== 'private_site_cash')
+  ) {
+    return null
+  }
+  const raw = log.changes?.note
+  if (
+    log.action === 'updated' &&
+    raw &&
+    typeof raw === 'object' &&
+    !Array.isArray(raw) &&
+    ('old' in raw || 'new' in raw)
+  ) {
+    const oldText =
+      raw.old == null || raw.old === '' ? null : String(raw.old)
+    const newText =
+      raw.new == null || raw.new === '' ? '—' : String(raw.new)
+    if (oldText == null && (raw.new == null || raw.new === '')) return null
+    return { isDiff: true, oldText, newText }
+  }
+  if (
+    log.action === 'updated' &&
+    Array.isArray(raw) &&
+    raw.length >= 2
+  ) {
+    const oldText = raw[0] == null || raw[0] === '' ? null : String(raw[0])
+    const newText = raw[1] == null || raw[1] === '' ? '—' : String(raw[1])
+    if (oldText == null && (raw[1] == null || raw[1] === '')) return null
+    return { isDiff: true, oldText, newText }
+  }
+  const note = snapshotFields(log.changes).note
+  if (note == null || note === '') return null
+  return { isDiff: false, text: String(note) }
+}
+
 /** One-line বিবরণ: update diffs with strikethrough, concatenated. */
 const HistoryBiboron = ({ log }) => {
   if (!log) return '—'
@@ -890,6 +929,7 @@ export const ActivityPage = () => {
                     const biz = formatDateBn(row.business_date)
                     const entity = activityEntityLabel(row.entity_type)
                     const title = [biz, entity].filter(Boolean).join(' - ')
+                    const cashNote = cashNoteFromLog(row)
                     const reviewed = isRowReviewed(row)
                     const checked = selectedIds.has(row.id)
                     return (
@@ -928,6 +968,18 @@ export const ActivityPage = () => {
                         </td>
                         <td className="text-sm leading-snug">
                           <div>{title || '—'}</div>
+                          {cashNote ? (
+                            <div className="text-xs text-base-content/70 mt-0.5 truncate">
+                              {cashNote.isDiff ? (
+                                <ChangePair
+                                  oldText={cashNote.oldText}
+                                  newText={cashNote.newText}
+                                />
+                              ) : (
+                                cashNote.text
+                              )}
+                            </div>
+                          ) : null}
                           {row.labour_name ? (
                             <div className="text-xs text-base-content/70 mt-0.5">
                               লেবার : {row.labour_name}
