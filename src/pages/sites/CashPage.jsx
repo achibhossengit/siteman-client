@@ -407,11 +407,16 @@ export const CashPage = () => {
     mutationFn: () => deleteSiteCash(siteId, selected.id),
   })
 
-  const activityCashQuery = useQuery({
-    queryKey: [
+  const cashActivityQueryKey = useMemo(
+    () => [
       'activities',
       { site: siteId, business_date: date, entity_type: 'site_cash' },
     ],
+    [siteId, date],
+  )
+
+  const activityCashQuery = useQuery({
+    queryKey: cashActivityQueryKey,
     queryFn: async () => {
       const { data } = await fetchActivities({
         site: siteId,
@@ -515,19 +520,59 @@ export const CashPage = () => {
     pendingIds.length > 0 && pendingIds.every((id) => selectedIds.has(id))
   const somePendingSelected = pendingIds.some((id) => selectedIds.has(id))
 
-  const invalidateCash = async () => {
+  /** If activity API lags behind cash write, keep row tone until next real fetch. */
+  const seedCashActivity = (cash, action) => {
+    if (!canViewActivityLog || cash?.id == null || !action) return
+    const entityId = Number(cash.id)
+    if (!Number.isFinite(entityId)) return
+    queryClient.setQueryData(cashActivityQueryKey, (prev) => {
+      const list = Array.isArray(prev) ? prev : []
+      if (
+        list.some(
+          (log) =>
+            Number(log.entity_id) === entityId &&
+            log.action === action &&
+            !log.reviewed_at,
+        )
+      ) {
+        return prev
+      }
+      return [
+        ...list,
+        {
+          id: `local-${action}-${entityId}`,
+          entity_id: entityId,
+          entity_type: 'site_cash',
+          action,
+          business_date: cash.date ?? date,
+          site: siteId,
+          changes: {
+            note: cash.note ?? '',
+            type: cash.type,
+            amount: cash.amount,
+            category: cash.category ?? null,
+            billing: cash.billing ?? null,
+            date: cash.date ?? date,
+          },
+          reviewed_at: null,
+          created_at:
+            cash.updated_at ?? cash.created_at ?? new Date().toISOString(),
+        },
+      ]
+    })
+  }
+
+  const invalidateCash = async (cash, action) => {
     await queryClient.invalidateQueries({
       queryKey: ['sites', siteId, 'cash'],
     })
     await queryClient.invalidateQueries({
       queryKey: ['sites', siteId, 'daily-reports'],
     })
-    await queryClient.invalidateQueries({
-      queryKey: [
-        'activities',
-        { site: siteId, business_date: date, entity_type: 'site_cash' },
-      ],
-    })
+    if (!canViewActivityLog) return
+    await queryClient.refetchQueries({ queryKey: cashActivityQueryKey })
+    seedCashActivity(cash, action)
+    await queryClient.invalidateQueries({ queryKey: ['activities', 'list'] })
   }
 
   const exitSelectMode = () => {
@@ -567,12 +612,8 @@ export const CashPage = () => {
     try {
       await reviewActivitiesBulk(ids)
       exitSelectMode()
-      await queryClient.invalidateQueries({
-        queryKey: [
-          'activities',
-          { site: siteId, business_date: date, entity_type: 'site_cash' },
-        ],
-      })
+      await queryClient.refetchQueries({ queryKey: cashActivityQueryKey })
+      await queryClient.invalidateQueries({ queryKey: ['activities', 'list'] })
       toastSuccess('অডিট সম্পন্ন হয়েছে')
     } catch (err) {
       const parsed = parseApiError(err)
@@ -647,7 +688,7 @@ export const CashPage = () => {
     setApiError(null)
     try {
       const { data } = await saveMutation.mutateAsync(values)
-      await invalidateCash()
+      await invalidateCash(data, isCreateMode ? 'created' : 'updated')
       if (isCreateMode) {
         closeModal()
         toastSuccess('ক্যাশ এন্ট্রি তৈরি হয়েছে')
@@ -667,8 +708,8 @@ export const CashPage = () => {
   const onSaveAndCreateAnother = handleSubmit(async (values) => {
     setApiError(null)
     try {
-      await saveMutation.mutateAsync(values)
-      await invalidateCash()
+      const { data } = await saveMutation.mutateAsync(values)
+      await invalidateCash(data, 'created')
       toastSuccess('ক্যাশ এন্ট্রি তৈরি হয়েছে')
       reset(emptyValues)
       setConfirmReady(false)
@@ -692,9 +733,10 @@ export const CashPage = () => {
     })
     if (!ok) return
     setApiError(null)
+    const deleted = selected
     try {
       await deleteMutation.mutateAsync()
-      await invalidateCash()
+      await invalidateCash(deleted, 'deleted')
       closeModal()
       toastSuccess('ক্যাশ এন্ট্রি ডিলিট হয়েছে')
     } catch (err) {
