@@ -228,11 +228,19 @@ const ALLOWED_REVIEWED = new Set(
   ACTIVITY_REVIEWED_FILTER_OPTIONS.map((o) => o.value),
 )
 const ALLOWED_DATE_MODES = new Set(['all', 'day', 'range'])
+const SITE_ALL = 'all'
 
 const readFilterParam = (params, key, allowed, fallback) => {
   const value = params.get(key)
   if (value && allowed.has(value)) return value
   return fallback
+}
+
+const readSiteParam = (params) => {
+  const value = params.get('site')
+  if (value === SITE_ALL) return SITE_ALL
+  if (value) return value
+  return ''
 }
 
 const filtersToSearchParams = ({
@@ -247,7 +255,8 @@ const filtersToSearchParams = ({
   page,
 }) => {
   const params = new URLSearchParams()
-  if (siteId) params.set('site', String(siteId))
+  if (siteId === SITE_ALL) params.set('site', SITE_ALL)
+  else if (siteId) params.set('site', String(siteId))
   if (actionFilter !== 'all') params.set('action', actionFilter)
   if (entityFilter !== 'all') params.set('entity', entityFilter)
   if (reviewedFilter !== 'pending') params.set('reviewed', reviewedFilter)
@@ -290,7 +299,7 @@ export const ActivityPage = () => {
   }, [authProfile])
 
   const [siteId, setSiteId] = useState(
-    () => searchParams.get('site') || readSelectedSite() || '',
+    () => readSiteParam(searchParams) || readSelectedSite() || '',
   )
   const [actionFilter, setActionFilter] = useState(() =>
     readFilterParam(searchParams, 'action', ALLOWED_ACTIONS, 'all'),
@@ -329,8 +338,9 @@ export const ActivityPage = () => {
 
   // Prefer URL/session site when still in list; otherwise first available site.
   useEffect(() => {
+    if (siteId === SITE_ALL) return
     if (!sites.length) {
-      setSiteId('')
+      setSiteId(SITE_ALL)
       return
     }
     const stillValid = sites.some((s) => String(s.id) === String(siteId))
@@ -343,7 +353,7 @@ export const ActivityPage = () => {
   }, [sites, siteId])
 
   useEffect(() => {
-    if (siteId) writeSelectedSite(siteId)
+    if (siteId && siteId !== SITE_ALL) writeSelectedSite(siteId)
   }, [siteId])
 
   // Keep filters in the URL so refresh restores them.
@@ -426,7 +436,7 @@ export const ActivityPage = () => {
         paginate: true,
         page,
         page_size: PAGE_SIZE,
-        site: siteId,
+        ...(siteId && siteId !== SITE_ALL ? { site: siteId } : {}),
         ...dateParams,
         ...(actionFilter !== 'all' ? { action: actionFilter } : {}),
         ...(entityFilter !== 'all' ? { entity_type: entityFilter } : {}),
@@ -544,14 +554,6 @@ export const ActivityPage = () => {
     )
   }
 
-  if (!sites.length) {
-    return (
-      <div className="flex-1 flex items-center justify-center text-sm text-base-content/70">
-        অ্যাক্টিভিটি দেখতে একটি সাইট নির্বাচন করুন।
-      </div>
-    )
-  }
-
   const pageData = activitiesQuery.data ?? {
     results: [],
     count: 0,
@@ -615,9 +617,10 @@ export const ActivityPage = () => {
         <select
           className="select select-bordered select-sm min-w-30 flex-1"
           aria-label="সাইট"
-          value={siteId}
+          value={siteId || SITE_ALL}
           onChange={(e) => setSiteId(e.target.value)}
         >
+          <option value={SITE_ALL}>সব সাইট</option>
           {sites.map((site) => (
             <option key={site.id} value={site.id}>
               {site.name}
