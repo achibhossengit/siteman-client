@@ -26,7 +26,6 @@ import { confirmAction, toastApiError, toastSuccess } from '../../utils/feedback
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { PERMS, hasPermissionSuffix } from '../../utils/permissions.js'
 import {
-  activityActionLabel,
   activityTextToneClass,
   activityToneClass,
   applyActivitiesToCashRows,
@@ -61,6 +60,37 @@ const formatLogDateTimeBn = (iso) => {
   }).format(d)
 }
 
+const formatLogDateTimePartsBn = (iso) => {
+  if (!iso) return { date: '—', time: '' }
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return { date: '—', time: '' }
+  return {
+    date: new Intl.DateTimeFormat('bn-BD', {
+      day: 'numeric',
+      month: 'short',
+      year: '2-digit',
+    }).format(d),
+    time: new Intl.DateTimeFormat('bn-BD', {
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(d),
+  }
+}
+
+const DateTimeStacked = ({ iso, className = '' }) => {
+  const { date, time } = formatLogDateTimePartsBn(iso)
+  return (
+    <span
+      className={['inline-flex flex-col leading-tight', className]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <span>{date}</span>
+      {time ? <span>{time}</span> : null}
+    </span>
+  )
+}
+
 const formatLogValue = (key, value, billingNameFn) => {
   if (value == null || value === '' || value === 'None' || value === 'null') {
     return '—'
@@ -87,20 +117,31 @@ const formatLogValue = (key, value, billingNameFn) => {
   return String(value)
 }
 
+const cashChangeEntries = (changes) => {
+  if (!changes || typeof changes !== 'object' || Array.isArray(changes)) {
+    return []
+  }
+  return Object.entries(changes).map(([key, value]) => {
+    if (
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      ('old' in value || 'new' in value)
+    ) {
+      return { key, isDiff: true, old: value.old, next: value.new }
+    }
+    if (Array.isArray(value) && value.length >= 2) {
+      return { key, isDiff: true, old: value[0], next: value[1] }
+    }
+    return { key, isDiff: false, value }
+  })
+}
+
 const summarizeCashActivity = (log, billingNameFn) => {
   if (!log) return '—'
-  if (log.action === 'updated') {
-    const changes = log.changes
-    if (!changes || typeof changes !== 'object' || Array.isArray(changes)) {
-      return 'আপডেট'
-    }
-    const labels = Object.keys(changes).map(
-      (key) => CASH_LOG_FIELD_LABELS[key] ?? key,
-    )
-    return labels.length ? labels.join(', ') : 'আপডেট'
-  }
   const fields = snapshotFields(log.changes)
-  const note = fields.note != null && fields.note !== '' ? String(fields.note) : '—'
+  const note =
+    fields.note != null && fields.note !== '' ? String(fields.note) : '—'
   const type = fields.type ? cashTypeLabel(fields.type) : null
   const billing =
     fields.billing != null || fields.billing_id != null
@@ -113,16 +154,35 @@ const summarizeCashActivity = (log, billingNameFn) => {
   return [note, type, billing].filter(Boolean).join(' · ')
 }
 
-const actorActionLabel = (action) => {
-  if (action === 'updated') return 'আপডেট করেছেন'
-  if (action === 'deleted') return 'ডিলিট করেছেন'
-  return 'তৈরি করেছেন'
+/** One-line বিবরণ: update diffs with strikethrough, concatenated. */
+const CashHistoryBiboron = ({ log, billingNameFn }) => {
+  if (!log) return '—'
+  if (log.action === 'updated') {
+    const entries = cashChangeEntries(log.changes).filter((e) => e.isDiff)
+    if (!entries.length) return '—'
+    return (
+      <span className="inline">
+        {entries.map((entry, index) => (
+          <Fragment key={entry.key}>
+            {index > 0 ? (
+              <span className="text-base-content/40"> · </span>
+            ) : null}
+            <ChangePair
+              oldText={formatLogValue(entry.key, entry.old, billingNameFn)}
+              newText={formatLogValue(entry.key, entry.next, billingNameFn)}
+            />
+          </Fragment>
+        ))}
+      </span>
+    )
+  }
+  return summarizeCashActivity(log, billingNameFn)
 }
 
-const actionTimeLabel = (action) => {
-  if (action === 'updated') return 'আপডেটের সময়'
-  if (action === 'deleted') return 'ডিলিটের সময়'
-  return 'তৈরির সময়'
+const shortActionLabel = (action) => {
+  if (action === 'updated') return 'আপডেট'
+  if (action === 'deleted') return 'ডিলিট'
+  return 'তৈরি'
 }
 
 const TYPE_FILTER_OPTIONS = [{ value: 'all', label: 'পরিমাণ' }, ...CASH_TYPES]
@@ -177,15 +237,15 @@ const formatCashAmount = (type, amount) => {
 
 const sameDisplay = (a, b) => String(a ?? '') === String(b ?? '')
 
-/** Previous (struck) + current value for update diffs in history accordion. */
+/** Previous (struck) + current value for update diffs in history. */
 const ChangePair = ({ oldText, newText, newClassName = '' }) => {
   if (oldText == null || sameDisplay(oldText, newText)) {
     return <span className={newClassName}>{newText}</span>
   }
   return (
-    <span className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+    <span className="inline whitespace-nowrap">
       <span className="line-through opacity-50">{oldText}</span>
-      <span className={newClassName}>{newText}</span>
+      <span className={newClassName}> {newText}</span>
     </span>
   )
 }
@@ -1011,13 +1071,7 @@ export const CashPage = () => {
                       const open = expandedHistoryId === log.id
                       const reviewed = Boolean(log.reviewed_at)
                       const fields = snapshotFields(log.changes)
-                      const changeEntries =
-                        log.action === 'updated' &&
-                        log.changes &&
-                        typeof log.changes === 'object' &&
-                        !Array.isArray(log.changes)
-                          ? Object.entries(log.changes)
-                          : []
+                      const logChanges = cashChangeEntries(log.changes)
                       return (
                         <Fragment key={log.id}>
                           <tr
@@ -1032,17 +1086,16 @@ export const CashPage = () => {
                               setExpandedHistoryId(open ? null : log.id)
                             }
                           >
-                            <td className="text-xs tabular-nums text-base-content/70 align-top whitespace-normal leading-tight">
-                              {formatLogDateTimeBn(log.created_at)}
+                            <td className="text-xs tabular-nums text-base-content/70 align-middle whitespace-nowrap">
+                              <DateTimeStacked iso={log.created_at} />
                             </td>
-                            <td className="text-sm leading-snug align-top">
-                              <span
-                                className={activityTextToneClass(log.action)}
-                              >
-                                {activityActionLabel(log.action)}
-                              </span>
-                              {' · '}
-                              {summarizeCashActivity(log, billingName)}
+                            <td className="text-sm leading-snug align-middle max-w-0">
+                              <div className="truncate">
+                                <CashHistoryBiboron
+                                  log={log}
+                                  billingNameFn={billingName}
+                                />
+                              </div>
                             </td>
                           </tr>
                           {open ? (
@@ -1054,11 +1107,14 @@ export const CashPage = () => {
                                 .filter(Boolean)
                                 .join(' ')}
                             >
-                              <td colSpan={2} className="bg-base-200/40 px-2 py-1.5">
-                                <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs leading-snug pb-1.5 mb-1.5 border-b border-base-300">
+                              <td
+                                colSpan={2}
+                                className="bg-base-200/40 px-2 py-1.5"
+                              >
+                                <div className="flex flex-col gap-0.5 text-xs leading-snug pb-1.5 mb-1.5 border-b border-base-300">
                                   <p>
                                     <span className="text-base-content/50">
-                                      {actorActionLabel(log.action)}:{' '}
+                                      {shortActionLabel(log.action)}:{' '}
                                     </span>
                                     <span
                                       className={activityTextToneClass(
@@ -1067,79 +1123,69 @@ export const CashPage = () => {
                                     >
                                       {log.actor_name || '—'}
                                     </span>
-                                  </p>
-                                  <p>
-                                    <span className="text-base-content/50">
-                                      {actionTimeLabel(log.action)}:{' '}
+                                    <span className="text-base-content/60">
+                                      {' '}
+                                      ({formatLogDateTimeBn(log.created_at)})
                                     </span>
-                                    {formatLogDateTimeBn(log.created_at)}
                                   </p>
                                   <p>
                                     <span className="text-base-content/50">
                                       অডিট:{' '}
                                     </span>
-                                    {log.reviewed_at
-                                      ? log.reviewed_by_name || '—'
-                                      : '—'}
-                                  </p>
-                                  <p>
-                                    <span className="text-base-content/50">
-                                      অডিট সময়:{' '}
-                                    </span>
-                                    {log.reviewed_at
-                                      ? formatLogDateTimeBn(log.reviewed_at)
-                                      : '—'}
+                                    {log.reviewed_at ? (
+                                      <>
+                                        <span>
+                                          {log.reviewed_by_name || '—'}
+                                        </span>
+                                        <span className="text-base-content/60">
+                                          {' '}
+                                          (
+                                          {formatLogDateTimeBn(log.reviewed_at)}
+                                          )
+                                        </span>
+                                      </>
+                                    ) : (
+                                      '—'
+                                    )}
                                   </p>
                                 </div>
 
                                 <div className="flex flex-col gap-0.5 text-xs leading-snug">
                                   {log.action === 'updated' ? (
-                                    changeEntries.length ? (
-                                      changeEntries.map(([key, value]) => {
-                                        const pair =
-                                          value &&
-                                          typeof value === 'object' &&
-                                          !Array.isArray(value) &&
-                                          ('old' in value || 'new' in value)
-                                            ? value
-                                            : Array.isArray(value) &&
-                                                value.length >= 2
-                                              ? { old: value[0], new: value[1] }
-                                              : null
-                                        return (
-                                          <div
-                                            key={key}
-                                            className="flex gap-1.5"
-                                          >
-                                            <span className="w-16 shrink-0 text-base-content/60">
-                                              {CASH_LOG_FIELD_LABELS[key] ??
-                                                key}
-                                            </span>
-                                            <span className="min-w-0">
-                                              {pair ? (
-                                                <ChangePair
-                                                  oldText={formatLogValue(
-                                                    key,
-                                                    pair.old,
-                                                    billingName,
-                                                  )}
-                                                  newText={formatLogValue(
-                                                    key,
-                                                    pair.new,
-                                                    billingName,
-                                                  )}
-                                                />
-                                              ) : (
-                                                formatLogValue(
-                                                  key,
-                                                  value,
+                                    logChanges.length ? (
+                                      logChanges.map((entry) => (
+                                        <div
+                                          key={entry.key}
+                                          className="flex gap-1.5"
+                                        >
+                                          <span className="w-16 shrink-0 text-base-content/60">
+                                            {CASH_LOG_FIELD_LABELS[entry.key] ??
+                                              entry.key}
+                                          </span>
+                                          <span className="min-w-0">
+                                            {entry.isDiff ? (
+                                              <ChangePair
+                                                oldText={formatLogValue(
+                                                  entry.key,
+                                                  entry.old,
                                                   billingName,
-                                                )
-                                              )}
-                                            </span>
-                                          </div>
-                                        )
-                                      })
+                                                )}
+                                                newText={formatLogValue(
+                                                  entry.key,
+                                                  entry.next,
+                                                  billingName,
+                                                )}
+                                              />
+                                            ) : (
+                                              formatLogValue(
+                                                entry.key,
+                                                entry.value,
+                                                billingName,
+                                              )
+                                            )}
+                                          </span>
+                                        </div>
+                                      ))
                                     ) : (
                                       <p className="text-base-content/50">
                                         কোনো পরিবর্তন নেই।
