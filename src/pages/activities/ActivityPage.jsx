@@ -9,6 +9,7 @@ import {
   ACTIVITY_REVIEWED_FILTER_OPTIONS,
   activityActionLabel,
   activityEntityLabel,
+  activityTextToneClass,
   activityToneClass,
 } from '../../api/types/activity.js'
 import { parseApiError } from '../../api/errors.js'
@@ -195,6 +196,27 @@ const MetaRow = ({ label, children }) => (
     <span className="min-w-0 wrap-break-word">{children}</span>
   </div>
 )
+
+const MetaCell = ({ label, children }) => (
+  <div className="min-w-0 flex flex-col gap-0.5">
+    <span className="text-[10px] tracking-wide text-base-content/50 leading-none">
+      {label}
+    </span>
+    <div className="text-sm leading-snug wrap-break-word">{children}</div>
+  </div>
+)
+
+const actorActionLabel = (action) => {
+  if (action === 'updated') return 'আপডেট করেছেন'
+  if (action === 'deleted') return 'ডিলিট করেছেন'
+  return 'তৈরি করেছেন'
+}
+
+const actionTimeLabel = (action) => {
+  if (action === 'updated') return 'আপডেটের সময়'
+  if (action === 'deleted') return 'ডিলিটের সময়'
+  return 'তৈরির সময়'
+}
 
 export const ActivityPage = () => {
   const { profile: authProfile } = useAuth()
@@ -738,94 +760,112 @@ export const ActivityPage = () => {
             </button>
           </form>
 
-          <h3 className="font-semibold text-base mb-3 pr-8">
+          <h3
+            className={[
+              'font-semibold text-base pr-8 pb-3 border-b border-base-300',
+              activityTextToneClass(selected?.action),
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
             {activityEntityLabel(selected?.entity_type)} ·{' '}
             {activityActionLabel(selected?.action)}
           </h3>
 
-          <ApiErrorAlert error={apiError} className="mb-3" />
+          <ApiErrorAlert error={apiError} className="mt-3" />
 
           {selected ? (
-            <div className="flex flex-col gap-2">
-              <MetaRow label="অ্যাক্টর">{selected.actor_name || '—'}</MetaRow>
-              {selected.labour_name ? (
-                <MetaRow label="লেবার">
-                  {selected.labour != null ? (
-                    <Link
-                      to={paths.labourDetail(selected.labour)}
-                      className="link link-hover text-primary"
-                    >
-                      {selected.labour_name}
-                    </Link>
-                  ) : (
-                    selected.labour_name
-                  )}
-                </MetaRow>
-              ) : null}
-              <MetaRow label="তারিখ">
+            <div className="flex flex-col">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-3 py-3 border-b border-base-300">
+                <MetaCell label={actorActionLabel(selected.action)}>
+                  {selected.actor_name || '—'}
+                </MetaCell>
+                <MetaCell label={actionTimeLabel(selected.action)}>
+                  {formatDateTimeBn(selected.created_at)}
+                </MetaCell>
+                <MetaCell label="অডিট করেছেন">
+                  {isReviewed ? selected.reviewed_by_name || '—' : '—'}
+                </MetaCell>
+                <MetaCell label="অডিট সময়">
+                  {isReviewed
+                    ? formatDateTimeBn(selected.reviewed_at)
+                    : '—'}
+                </MetaCell>
+              </div>
+
+              <div className="flex flex-col gap-2 py-3">
+                {selected.labour_name ? (
+                  <MetaRow label="লেবার">
+                    {selected.labour != null ? (
+                      <Link
+                        to={paths.labourDetail(selected.labour)}
+                        className="link link-hover text-primary"
+                      >
+                        {selected.labour_name}
+                      </Link>
+                    ) : (
+                      selected.labour_name
+                    )}
+                  </MetaRow>
+                ) : null}
+                {selected.business_date ? (
+                  <MetaRow label="তারিখ">
+                    {formatDateBn(selected.business_date) ?? '—'}
+                  </MetaRow>
+                ) : null}
+                {changes.map((entry) => (
+                  <MetaRow key={entry.key} label={fieldLabel(entry.key)}>
+                    {entry.isDiff ? (
+                      <ChangePair
+                        oldText={formatChangeValue(entry.old)}
+                        newText={formatChangeValue(entry.next)}
+                      />
+                    ) : (
+                      formatChangeValue(entry.value)
+                    )}
+                  </MetaRow>
+                ))}
+                {selected.review_note ? (
+                  <MetaRow label="নোট">{selected.review_note}</MetaRow>
+                ) : null}
+                {!selected.labour_name &&
+                !selected.business_date &&
+                changes.length === 0 &&
+                !selected.review_note ? (
+                  <p className="text-sm text-base-content/50 text-center py-2">
+                    কোনো বিস্তারিত নেই।
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                {!isReviewed && canChangeActivityLog ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary flex-1"
+                    disabled={reviewMutation.isPending}
+                    onClick={() => reviewMutation.mutate(selected.id)}
+                  >
+                    {reviewMutation.isPending ? (
+                      <span className="loading loading-spinner loading-sm" />
+                    ) : null}
+                    অডিট করুন
+                  </button>
+                ) : null}
                 {(() => {
                   const href = entityPageHref(selected, siteId)
-                  const label = formatDateBn(selected.business_date) ?? '—'
-                  return href ? (
-                    <Link to={href} className="link link-hover text-primary">
-                      {label}
+                  if (!href) return null
+                  return (
+                    <Link
+                      to={href}
+                      className="btn btn-outline flex-1"
+                      onClick={() => dialogRef.current?.close()}
+                    >
+                      রেকর্ডটি দেখুন
                     </Link>
-                  ) : (
-                    label
                   )
                 })()}
-              </MetaRow>
-              <MetaRow label="অ্যাকশন তারিখ">
-                {formatDateTimeBn(selected.created_at)}
-              </MetaRow>
-              <MetaRow label="এন্টিটি">#{selected.entity_id ?? '—'}</MetaRow>
-              <MetaRow label="রিভিউ">
-                {isReviewed
-                  ? `রিভিউড${selected.reviewed_by_name ? ` · ${selected.reviewed_by_name}` : ''}`
-                  : 'পেন্ডিং'}
-              </MetaRow>
-              {isReviewed && selected.reviewed_at ? (
-                <MetaRow label="রিভিউ সময়">
-                  {formatDateTimeBn(selected.reviewed_at)}
-                </MetaRow>
-              ) : null}
-              {selected.review_note ? (
-                <MetaRow label="নোট">{selected.review_note}</MetaRow>
-              ) : null}
-
-              {changes.length > 0 ? (
-                <div className="mt-2 pt-2 border-t border-base-300">
-                  <p className="text-sm font-medium mb-2">পরিবর্তন</p>
-                  <div className="flex flex-col gap-2">
-                    {changes.map((entry) => (
-                      <MetaRow key={entry.key} label={fieldLabel(entry.key)}>
-                        {entry.isDiff ? (
-                          <ChangePair
-                            oldText={formatChangeValue(entry.old)}
-                            newText={formatChangeValue(entry.next)}
-                          />
-                        ) : (
-                          formatChangeValue(entry.value)
-                        )}
-                      </MetaRow>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {!isReviewed && canChangeActivityLog ? (
-                <button
-                  type="button"
-                  className="btn btn-primary mt-4"
-                  disabled={reviewMutation.isPending}
-                  onClick={() => reviewMutation.mutate(selected.id)}
-                >
-                  {reviewMutation.isPending ? (
-                    <span className="loading loading-spinner loading-sm" />
-                  ) : null}
-                  রিভিউ করুন
-                </button>
-              ) : null}
+              </div>
             </div>
           ) : null}
         </div>
