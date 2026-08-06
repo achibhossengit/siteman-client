@@ -21,7 +21,6 @@ import {
   snapshotFields,
 } from '../../api/types/activity.js'
 import {
-  cashCategoryLabel,
   cashTypeLabel,
 } from '../../api/types/siteCash.js'
 import { parseApiError } from '../../api/errors.js'
@@ -177,7 +176,7 @@ const formatChangeValue = (value) => {
 const sameDisplay = (a, b) => String(a ?? '') === String(b ?? '')
 
 const RECORD_FIELD_KEYS = {
-  site_cash: ['date', 'type', 'category', 'amount', 'note', 'billing'],
+  site_cash: ['date', 'type', 'amount', 'note', 'billing'],
   private_site_cash: ['date', 'type', 'amount', 'note', 'billing'],
   attendance: ['date', 'present', 'salary', 'extra', 'note', 'billing'],
   labour_payment: ['date', 'type', 'amount', 'note'],
@@ -192,7 +191,6 @@ const formatRecordValue = (key, value) => {
     if (value === 'return') return 'রিটার্ন'
     return cashTypeLabel(value)
   }
-  if (key === 'category') return cashCategoryLabel(value) || '—'
   if (key === 'billing' || key === 'billing_id') {
     if (typeof value === 'object') {
       if (value.name) return String(value.name)

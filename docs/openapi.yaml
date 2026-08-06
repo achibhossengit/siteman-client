@@ -11,8 +11,9 @@ paths:
         Company-scoped activity timeline (read + one-way review).
 
         Global gate: ``view_activitylog`` (list/retrieve), ``change_activitylog``
-        (review / review-bulk). Rows are further narrowed by allowed sites and
-        each entity's ``view_<model>`` permission.
+        (review / review-bulk). Rows are limited to attendance, labour_payment,
+        and site_cash, then narrowed by allowed sites and each entity's
+        ``view_<model>`` permission.
 
         Pass ``paginate=false`` with ``site``, ``business_date``, and
         ``entity_type`` to return the full filtered list (day-review screens).
@@ -253,8 +254,9 @@ paths:
         Company-scoped activity timeline (read + one-way review).
 
         Global gate: ``view_activitylog`` (list/retrieve), ``change_activitylog``
-        (review / review-bulk). Rows are further narrowed by allowed sites and
-        each entity's ``view_<model>`` permission.
+        (review / review-bulk). Rows are limited to attendance, labour_payment,
+        and site_cash, then narrowed by allowed sites and each entity's
+        ``view_<model>`` permission.
 
         Pass ``paginate=false`` with ``site``, ``business_date``, and
         ``entity_type`` to return the full filtered list (day-review screens).
@@ -7032,19 +7034,6 @@ paths:
           schema:
             type: integer
         - in: query
-          name: category
-          schema:
-            type: string
-            nullable: true
-            enum:
-              - equipment
-              - food
-          description: |-
-            Typically used for cost (food | equipment); optional for deposit/withdrawal.
-
-            * `food` - Food
-            * `equipment` - Equipment
-        - in: query
           name: date
           schema:
             type: string
@@ -11907,17 +11896,6 @@ components:
         - id
         - name
         - updated_at
-    BlankEnum:
-      enum:
-        - ""
-    CategoryEnum:
-      enum:
-        - food
-        - equipment
-      type: string
-      description: |-
-        * `food` - Food
-        * `equipment` - Equipment
     ClientErrorEnum:
       enum:
         - client_error
@@ -14949,17 +14927,6 @@ components:
           description: Optional billing category; nullable for all types.
         type:
           $ref: "#/components/schemas/Type2c4Enum"
-        category:
-          nullable: true
-          description: |-
-            Typically used for cost (food | equipment); optional for deposit/withdrawal.
-
-            * `food` - Food
-            * `equipment` - Equipment
-          oneOf:
-            - $ref: "#/components/schemas/CategoryEnum"
-            - $ref: "#/components/schemas/BlankEnum"
-            - $ref: "#/components/schemas/NullEnum"
         date:
           type: string
           format: date
@@ -15401,17 +15368,6 @@ components:
           description: Optional billing category; nullable for all types.
         type:
           $ref: "#/components/schemas/Type2c4Enum"
-        category:
-          nullable: true
-          description: |-
-            Typically used for cost (food | equipment); optional for deposit/withdrawal.
-
-            * `food` - Food
-            * `equipment` - Equipment
-          oneOf:
-            - $ref: "#/components/schemas/CategoryEnum"
-            - $ref: "#/components/schemas/BlankEnum"
-            - $ref: "#/components/schemas/NullEnum"
         date:
           type: string
           format: date
@@ -15453,17 +15409,6 @@ components:
           format: date
         type:
           $ref: "#/components/schemas/Type2c4Enum"
-        category:
-          nullable: true
-          description: |-
-            Typically used for cost (food | equipment); optional for deposit/withdrawal.
-
-            * `food` - Food
-            * `equipment` - Equipment
-          oneOf:
-            - $ref: "#/components/schemas/CategoryEnum"
-            - $ref: "#/components/schemas/BlankEnum"
-            - $ref: "#/components/schemas/NullEnum"
         amount:
           type: integer
           maximum: 2147483647
@@ -16163,25 +16108,6 @@ components:
         - attr
         - code
         - detail
-    SitesCashCreateCategoryErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - category
-          type: string
-          description: "* `category` - category"
-        code:
-          enum:
-            - invalid_choice
-          type: string
-          description: "* `invalid_choice` - invalid_choice"
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
     SitesCashCreateDateErrorComponent:
       type: object
       properties:
@@ -16211,7 +16137,6 @@ components:
         - $ref: "#/components/schemas/SitesCashCreateNonFieldErrorsErrorComponent"
         - $ref: "#/components/schemas/SitesCashCreateBillingErrorComponent"
         - $ref: "#/components/schemas/SitesCashCreateTypeErrorComponent"
-        - $ref: "#/components/schemas/SitesCashCreateCategoryErrorComponent"
         - $ref: "#/components/schemas/SitesCashCreateDateErrorComponent"
         - $ref: "#/components/schemas/SitesCashCreateAmountErrorComponent"
         - $ref: "#/components/schemas/SitesCashCreateNoteErrorComponent"
@@ -16221,7 +16146,6 @@ components:
           non_field_errors: "#/components/schemas/SitesCashCreateNonFieldErrorsErrorComponent"
           billing: "#/components/schemas/SitesCashCreateBillingErrorComponent"
           type: "#/components/schemas/SitesCashCreateTypeErrorComponent"
-          category: "#/components/schemas/SitesCashCreateCategoryErrorComponent"
           date: "#/components/schemas/SitesCashCreateDateErrorComponent"
           amount: "#/components/schemas/SitesCashCreateAmountErrorComponent"
           note: "#/components/schemas/SitesCashCreateNoteErrorComponent"
@@ -16344,25 +16268,6 @@ components:
         - attr
         - code
         - detail
-    SitesCashListCategoryErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - category
-          type: string
-          description: "* `category` - category"
-        code:
-          enum:
-            - invalid_choice
-          type: string
-          description: "* `invalid_choice` - invalid_choice"
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
     SitesCashListDateErrorComponent:
       type: object
       properties:
@@ -16385,14 +16290,12 @@ components:
     SitesCashListError:
       oneOf:
         - $ref: "#/components/schemas/SitesCashListTypeErrorComponent"
-        - $ref: "#/components/schemas/SitesCashListCategoryErrorComponent"
         - $ref: "#/components/schemas/SitesCashListDateErrorComponent"
         - $ref: "#/components/schemas/SitesCashListBillingErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
           type: "#/components/schemas/SitesCashListTypeErrorComponent"
-          category: "#/components/schemas/SitesCashListCategoryErrorComponent"
           date: "#/components/schemas/SitesCashListDateErrorComponent"
           billing: "#/components/schemas/SitesCashListBillingErrorComponent"
     SitesCashListErrorResponse400:
@@ -16487,25 +16390,6 @@ components:
         - attr
         - code
         - detail
-    SitesCashPartialUpdateCategoryErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - category
-          type: string
-          description: "* `category` - category"
-        code:
-          enum:
-            - invalid_choice
-          type: string
-          description: "* `invalid_choice` - invalid_choice"
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
     SitesCashPartialUpdateDateErrorComponent:
       type: object
       properties:
@@ -16535,7 +16419,6 @@ components:
         - $ref: "#/components/schemas/SitesCashPartialUpdateNonFieldErrorsErrorComponent"
         - $ref: "#/components/schemas/SitesCashPartialUpdateBillingErrorComponent"
         - $ref: "#/components/schemas/SitesCashPartialUpdateTypeErrorComponent"
-        - $ref: "#/components/schemas/SitesCashPartialUpdateCategoryErrorComponent"
         - $ref: "#/components/schemas/SitesCashPartialUpdateDateErrorComponent"
         - $ref: "#/components/schemas/SitesCashPartialUpdateAmountErrorComponent"
         - $ref: "#/components/schemas/SitesCashPartialUpdateNoteErrorComponent"
@@ -16545,7 +16428,6 @@ components:
           non_field_errors: "#/components/schemas/SitesCashPartialUpdateNonFieldErrorsErrorComponent"
           billing: "#/components/schemas/SitesCashPartialUpdateBillingErrorComponent"
           type: "#/components/schemas/SitesCashPartialUpdateTypeErrorComponent"
-          category: "#/components/schemas/SitesCashPartialUpdateCategoryErrorComponent"
           date: "#/components/schemas/SitesCashPartialUpdateDateErrorComponent"
           amount: "#/components/schemas/SitesCashPartialUpdateAmountErrorComponent"
           note: "#/components/schemas/SitesCashPartialUpdateNoteErrorComponent"

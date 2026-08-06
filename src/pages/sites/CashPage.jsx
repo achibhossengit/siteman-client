@@ -12,9 +12,7 @@ import {
   updateSiteCash,
 } from '../../api/sites.js'
 import {
-  CASH_CATEGORIES,
   CASH_TYPES,
-  cashCategoryLabel,
   cashFormSchema,
   cashTypeLabel,
   toSiteCashPayload,
@@ -41,7 +39,6 @@ const CASH_LOG_FIELD_LABELS = {
   note: 'নোট',
   amount: 'পরিমাণ',
   type: 'ধরন',
-  category: 'ক্যাটাগরি',
   billing: 'বিলিং',
   billing_id: 'বিলিং',
   date: 'তারিখ',
@@ -96,7 +93,6 @@ const formatLogValue = (key, value, billingNameFn) => {
     return '—'
   }
   if (key === 'type') return cashTypeLabel(value)
-  if (key === 'category') return cashCategoryLabel(value)
   if (key === 'billing' || key === 'billing_id') {
     if (typeof value === 'object') {
       if (value.name) return String(value.name)
@@ -254,7 +250,6 @@ const emptyValues = {
   note: '',
   type: 'cost',
   amount: '',
-  category: '',
   billing: '',
 }
 
@@ -262,7 +257,6 @@ const toFormValues = (cash) => ({
   note: cash?.note ?? '',
   type: cash?.type ?? 'cost',
   amount: cash?.amount ?? '',
-  category: cash?.category ?? '',
   billing: cash?.billing != null ? String(cash.billing) : '',
 })
 
@@ -316,20 +310,11 @@ export const CashPage = () => {
     handleSubmit,
     reset,
     setError,
-    setValue,
-    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(cashFormSchema),
     defaultValues: emptyValues,
   })
-
-  const type = watch('type')
-  const categoryEnabled = type === 'cost'
-
-  useEffect(() => {
-    if (!categoryEnabled) setValue('category', '')
-  }, [categoryEnabled, setValue])
 
   useEffect(() => {
     setTypeFilter('all')
@@ -550,7 +535,6 @@ export const CashPage = () => {
             note: cash.note ?? '',
             type: cash.type,
             amount: cash.amount,
-            category: cash.category ?? null,
             billing: cash.billing ?? null,
             date: cash.date ?? date,
           },
@@ -1267,16 +1251,6 @@ export const CashPage = () => {
                                           {cashTypeLabel(fields.type)}
                                         </span>
                                       </div>
-                                      {fields.type === 'cost' ? (
-                                        <div className="flex gap-1.5">
-                                          <span className="w-16 shrink-0 text-base-content/60">
-                                            ক্যাটাগরি
-                                          </span>
-                                          <span>
-                                            {cashCategoryLabel(fields.category)}
-                                          </span>
-                                        </div>
-                                      ) : null}
                                       <div className="flex gap-1.5">
                                         <span className="w-16 shrink-0 text-base-content/60">
                                           বিলিং
@@ -1346,43 +1320,25 @@ export const CashPage = () => {
               ) : null}
             </label>
 
-            <div className="flex justify-between gap-2">
-              <label className="form-control w-full">
-                <span className="label-text mb-1">ধরন</span>
-                <select
-                  className={fieldClass(errors.type, 'select')}
-                  disabled={disabled}
-                  {...register('type')}
-                >
-                  {CASH_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
-                {errors.type ? (
-                  <span className="label-text-alt text-error mt-1">
-                    {errors.type.message}
-                  </span>
-                ) : null}
-              </label>
-
-              <label className="form-control w-full">
-                <span className="label-text mb-1">ক্যাটাগরি</span>
-                <select
-                  className={fieldClass(errors.category, 'select')}
-                  disabled={disabled || !categoryEnabled}
-                  {...register('category')}
-                >
-                  <option value="">—</option>
-                  {CASH_CATEGORIES.map((c) => (
-                    <option key={c.value} value={c.value}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+            <label className="form-control w-full">
+              <span className="label-text mb-1">ধরন</span>
+              <select
+                className={fieldClass(errors.type, 'select')}
+                disabled={disabled}
+                {...register('type')}
+              >
+                {CASH_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+              {errors.type ? (
+                <span className="label-text-alt text-error mt-1">
+                  {errors.type.message}
+                </span>
+              ) : null}
+            </label>
 
             <label className="form-control w-full">
               <span className="label-text mb-1">বিলিং ক্যাটাগরি</span>

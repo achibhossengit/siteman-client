@@ -36,14 +36,13 @@ export const fetchDailyReport = (siteId, date) =>
 
 /**
  * Site cash ledger list.
- * GET /sites/{site_pk}/cash — filters: date, type, category, billing.
+ * GET /sites/{site_pk}/cash — filters: date, type, billing.
  */
-export const fetchSiteCash = (siteId, { date, type, category, billing } = {}) =>
+export const fetchSiteCash = (siteId, { date, type, billing } = {}) =>
   api.get(endpoints.sites.cash(siteId), {
     params: {
       ...(date ? { date } : {}),
       ...(type ? { type } : {}),
-      ...(category ? { category } : {}),
       ...(billing != null && billing !== '' ? { billing } : {}),
     },
   })
