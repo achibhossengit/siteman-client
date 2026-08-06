@@ -124,7 +124,7 @@ const ChangePair = ({ oldText, newText, newClassName = '' }) => {
     return <span className={newClassName}>{newText}</span>
   }
   return (
-    <span className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
+    <span className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
       <span className="line-through opacity-50">{oldText}</span>
       <span className={newClassName}>{newText}</span>
     </span>
@@ -170,6 +170,8 @@ export const CashPage = () => {
   const [confirmReady, setConfirmReady] = useState(false)
   const [apiError, setApiError] = useState(null)
   const [reviewing, setReviewing] = useState(false)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(() => new Set())
 
   const canViewCash = can(PERMS.viewSiteCash)
   const canAddCash = can(PERMS.addSiteCash)
@@ -211,7 +213,13 @@ export const CashPage = () => {
   useEffect(() => {
     setTypeFilter('all')
     setBillingFilter('all')
+    setSelectMode(false)
+    setSelectedIds(new Set())
   }, [siteId, date])
+
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [typeFilter, billingFilter])
 
   useEffect(() => {
     if (!editing && !creating) {
@@ -296,13 +304,10 @@ export const CashPage = () => {
     enabled: Boolean(canViewCash && canViewActivityLog && siteId && date),
   })
 
-  const unreviwedActivityIds = useMemo(() => {
-    const ids = new Set()
-    for (const log of activityCashQuery.data ?? []) {
-      if (log?.id != null) ids.add(Number(log.id))
-    }
-    return [...ids].filter((id) => Number.isFinite(id))
-  }, [activityCashQuery.data])
+  const activityIdsForRow = (row) =>
+    (row?.activityLogs ?? [])
+      .map((log) => Number(log.id))
+      .filter((id) => Number.isFinite(id))
 
   const liveRows = cashQuery.data ?? []
   const totals = useMemo(() => {
@@ -336,6 +341,18 @@ export const CashPage = () => {
     billingFilter,
   ])
 
+  const pendingIds = useMemo(() => {
+    const ids = new Set()
+    for (const row of rows) {
+      for (const id of activityIdsForRow(row)) ids.add(id)
+    }
+    return [...ids]
+  }, [rows])
+
+  const allPendingSelected =
+    pendingIds.length > 0 && pendingIds.every((id) => selectedIds.has(id))
+  const somePendingSelected = pendingIds.some((id) => selectedIds.has(id))
+
   const invalidateCash = async () => {
     await queryClient.invalidateQueries({
       queryKey: ['sites', siteId, 'cash'],
@@ -351,26 +368,50 @@ export const CashPage = () => {
     })
   }
 
+  const exitSelectMode = () => {
+    setSelectMode(false)
+    setSelectedIds(new Set())
+  }
+
+  const toggleRowSelected = (row, checked) => {
+    const ids = activityIdsForRow(row)
+    if (!ids.length) return
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      for (const id of ids) {
+        if (checked) next.add(id)
+        else next.delete(id)
+      }
+      return next
+    })
+  }
+
+  const toggleSelectAll = (checked) => {
+    setSelectedIds(checked ? new Set(pendingIds) : new Set())
+  }
+
   const onAcceptChanges = async () => {
-    if (!canChangeActivityLog || unreviwedActivityIds.length === 0) return
+    const ids = [...selectedIds]
+    if (!canChangeActivityLog || ids.length === 0) return
     const ok = await confirmAction({
-      title: 'পরিবর্তন গুলোতে আপনি কি সম্মত?',
-      text: `${date} তারিখের ক্যাশ ঠিক আছে বলে আপনি সম্মতি দিচ্ছেন। পরে বাতিল করতে পারবেন না। `,
-      confirmText: 'সম্মত',
-      cancelText: 'বাতিল করুন',
+      title: 'অডিট নিশ্চিত করুন',
+      text: `${formatBnNumber(ids.length)}টি ক্যাশ অ্যাক্টিভিটি রিভিউড হবে। পরে বাতিল করা যাবে না।`,
+      confirmText: 'অডিট করুন',
+      cancelText: 'বাতিল',
     })
     if (!ok) return
 
     setReviewing(true)
     try {
-      await reviewActivitiesBulk(unreviwedActivityIds)
+      await reviewActivitiesBulk(ids)
+      exitSelectMode()
       await queryClient.invalidateQueries({
         queryKey: [
           'activities',
           { site: siteId, business_date: date, entity_type: 'site_cash' },
         ],
       })
-      toastSuccess('পরিবর্তনগুলো গ্রহণ করা হয়েছে')
+      toastSuccess('অডিট সম্পন্ন হয়েছে')
     } catch (err) {
       const parsed = parseApiError(err)
       const message = formatBulkReviewError(parsed)
@@ -492,7 +533,7 @@ export const CashPage = () => {
 
   if (!canViewCash) {
     return (
-      <div className="flex-1 flex items-center justify-center text-sm text-error">
+      <div className="flex-1 flex items-center justify-center text-error">
         এই পেজ দেখার অনুমতি নেই।
       </div>
     )
@@ -500,7 +541,7 @@ export const CashPage = () => {
 
   if (!siteId) {
     return (
-      <div className="flex-1 flex items-center justify-center text-sm text-base-content/70">
+      <div className="flex-1 flex items-center justify-center text-base-content/70">
         ক্যাশ দেখতে একটি সাইট নির্বাচন করুন।
       </div>
     )
@@ -612,12 +653,40 @@ export const CashPage = () => {
 
   return (
     <section className="flex-1 min-h-0 flex flex-col relative">
-      <div className="shrink-0 bg-base-100 border-b border-base-300">
-        <table className="table table-fixed table-xs sm:table-sm w-full text-sm">
+      <div className="bg-base-100">
+        <table className="table table-sm sm:table-md w-full">
           {colgroup}
           <thead>
             <tr>
-              <th>নং</th>
+              <th>
+                {selectMode && canChangeActivityLog ? (
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-sm"
+                    checked={allPendingSelected}
+                    ref={(el) => {
+                      if (el) {
+                        el.indeterminate =
+                          somePendingSelected && !allPendingSelected
+                      }
+                    }}
+                    disabled={pendingIds.length === 0}
+                    aria-label="সব নির্বাচন"
+                    onChange={(e) => toggleSelectAll(e.target.checked)}
+                  />
+                ) : canChangeActivityLog ? (
+                  <button
+                    type="button"
+                    className="font-bold"
+                    onClick={() => setSelectMode(true)}
+                    title="নির্বাচন মোড"
+                  >
+                    নং
+                  </button>
+                ) : (
+                  'নং'
+                )}
+              </th>
               <th>বিবরণ</th>
               <th>
                 <button
@@ -647,14 +716,14 @@ export const CashPage = () => {
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <table className="table table-fixed table-sm sm:table-md w-full">
+        <table className="table table-sm sm:table-md w-full">
           {colgroup}
           <tbody>
             {rows.length === 0 ? (
               <tr>
                 <td
                   colSpan={4}
-                  className="text-center text-sm text-base-content/60 py-10"
+                  className="text-center text-base-content/60 py-10"
                 >
                   এই তারিখে কোনো ক্যাশ এন্ট্রি নেই।
                 </td>
@@ -666,6 +735,11 @@ export const CashPage = () => {
                   row.amount,
                 )
                 const isGhost = Boolean(row.fromActivitySnapshot)
+                const rowActivityIds = activityIdsForRow(row)
+                const selectable = rowActivityIds.length > 0
+                const checked =
+                  selectable &&
+                  rowActivityIds.every((id) => selectedIds.has(id))
                 return (
                   <tr
                     key={
@@ -684,8 +758,27 @@ export const CashPage = () => {
                       .join(' ')}
                     onClick={() => openDetail(row)}
                   >
-                    <td className="tabular-nums text-base-content/60">
-                      {formatBnNumber(index + 1)}
+                    <td
+                      className="tabular-nums text-base-content/60"
+                      onClick={(e) => {
+                        if (!selectMode) return
+                        e.stopPropagation()
+                      }}
+                    >
+                      {selectMode && canChangeActivityLog ? (
+                        <input
+                          type="checkbox"
+                          className="checkbox checkbox-sm"
+                          checked={checked}
+                          disabled={!selectable}
+                          aria-label={`নির্বাচন ${formatBnNumber(index + 1)}`}
+                          onChange={(e) =>
+                            toggleRowSelected(row, e.target.checked)
+                          }
+                        />
+                      ) : (
+                        formatBnNumber(index + 1)
+                      )}
                     </td>
                     <td className="truncate">{row.note || '—'}</td>
                     <td className="max-w-0 truncate text-base-content/80">
@@ -726,32 +819,47 @@ export const CashPage = () => {
         </table>
       </div>
 
-      <button
-        type="button"
-        className="btn btn-outline btn-primary fixed bottom-16 left-4 z-40 shadow-lg bg-base-100"
-        onClick={onAcceptChanges}
-        disabled={
-          !date ||
-          reviewing ||
-          !canChangeActivityLog ||
-          unreviwedActivityIds.length === 0
-        }
-      >
-        {reviewing ? (
-          <span className="loading loading-spinner loading-sm" />
-        ) : null}
-        অডিট করুন
-      </button>
-      {canAddCash ? (
-        <button
-          type="button"
-          className="btn btn-primary fixed bottom-16 right-4 z-40 shadow-lg"
-          onClick={openCreate}
-          disabled={!date || siteInactive}
-        >
-          + নতুন ক্যাশ
-        </button>
-      ) : null}
+      <div className="fixed bottom-16 inset-x-0 z-40 px-3 pointer-events-none">
+        <div className="max-w-5xl mx-auto flex flex-wrap justify-end gap-2 pointer-events-auto">
+          {selectMode && canChangeActivityLog ? (
+            <>
+              <button
+                type="button"
+                className="btn btn-ghost shadow-lg bg-base-100 border border-base-300"
+                disabled={reviewing}
+                onClick={exitSelectMode}
+              >
+                বাতিল
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary shadow-lg"
+                disabled={reviewing || selectedIds.size === 0}
+                onClick={onAcceptChanges}
+              >
+                {reviewing ? (
+                  <span className="loading loading-spinner loading-sm" />
+                ) : null}
+                অডিট করুন
+                {selectedIds.size > 0 ? (
+                  <span className="badge badge-sm badge-ghost">
+                    {formatBnNumber(selectedIds.size)}
+                  </span>
+                ) : null}
+              </button>
+            </>
+          ) : canAddCash ? (
+            <button
+              type="button"
+              className="btn btn-primary shadow-lg"
+              onClick={openCreate}
+              disabled={!date || siteInactive}
+            >
+              + নতুন ক্যাশ
+            </button>
+          ) : null}
+        </div>
+      </div>
 
       <dialog
         ref={dialogRef}
