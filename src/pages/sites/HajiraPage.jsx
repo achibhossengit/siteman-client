@@ -159,28 +159,49 @@ const dayEarnings = (row, earningsFilter = "earn") => {
   return fromPresent + fromExtra;
 };
 
-const hajiraFieldValue = (row, hajiraFilter = "hajira") => {
-  if (hajiraFilter === "present") {
-    return hasPresent(row) ? formatBnNumber(row.present) : null;
-  }
-  if (hajiraFilter === "salary") {
-    return row.salary !== "" && row.salary != null
-      ? formatBnNumber(row.salary)
-      : null;
-  }
-  if (hajiraFilter === "extra") {
-    return hasExtra(row) ? formatBnNumber(row.extra) : null;
-  }
-  if (!hasPresent(row) && !hasExtra(row)) return null;
-  return "combined";
-};
-
 const hajiraTotalValue = (row, hajiraFilter = "hajira") => {
   if (hajiraFilter === "salary") {
     return row.salary !== "" && row.salary != null ? Number(row.salary) || 0 : 0;
   }
   if (hajiraFilter === "extra") return Number(row.extra) || 0;
   return hasPresent(row) ? Number(row.present) || 0 : 0;
+};
+
+const attendanceCellLines = (row, billingNameFn, selectedFields) => {
+  const lines = [];
+  if (selectedFields.includes("present") && hasPresent(row)) {
+    lines.push({
+      key: "present",
+      value: formatBnNumber(row.present),
+      isNumber: true,
+    });
+  }
+  if (
+    selectedFields.includes("salary") &&
+    row.salary !== "" &&
+    row.salary != null
+  ) {
+    lines.push({
+      key: "salary",
+      value: formatBnNumber(row.salary),
+      isNumber: true,
+    });
+  }
+  if (selectedFields.includes("extra") && hasExtra(row)) {
+    lines.push({
+      key: "extra",
+      value: formatBnNumber(row.extra),
+      isNumber: true,
+    });
+  }
+  if (selectedFields.includes("billing")) {
+    lines.push({
+      key: "billing",
+      value: billingNameFn(row.billing),
+      isNumber: false,
+    });
+  }
+  return lines.length ? lines : [{ key: "empty", value: "—", isNumber: false }];
 };
 
 const paymentAmountOf = (row) => {
@@ -241,15 +262,19 @@ const HAJIRA_MODAL_ID = "hajira_attendance_modal";
 const PAYMENT_MODAL_ID = "hajira_payment_modal";
 const EARNINGS_FILTER_MODAL_ID = "hajira_earnings_filter_modal";
 const PAYMENT_FILTER_MODAL_ID = "hajira_payment_filter_modal";
-const BILLING_FILTER_MODAL_ID = "hajira_billing_filter_modal";
 const HAJIRA_FILTER_MODAL_ID = "hajira_hajira_filter_modal";
 
 const HAJIRA_FILTER_OPTIONS = [
-  { value: "hajira", label: "হাজিরা" },
   { value: "present", label: "উপস্থিতি" },
   { value: "salary", label: "বেতন" },
   { value: "extra", label: "বাড়তি" },
+  { value: "billing", label: "বিলিং" },
 ];
+
+const HAJIRA_FILTER_TABS = {
+  display: "display",
+  billing: "billing",
+};
 
 const EARNINGS_FILTER_OPTIONS = [
   { value: "earn", label: "আয়" },
@@ -371,9 +396,16 @@ export const HajiraPage = () => {
   const [paymentModal, setPaymentModal] = useState(null);
   const [paymentTab, setPaymentTab] = useState(PAYMENT_SPECS[0].key);
   const [earningsFilter, setEarningsFilter] = useState("earn");
-  const [paymentFilter, setPaymentFilter] = useState("payment");
+  const [paymentFilter, setPaymentFilter] = useState(["payment"]);
   const [billingFilter, setBillingFilter] = useState("all");
-  const [hajiraFilter, setHajiraFilter] = useState("hajira");
+  const [hajiraFilter, setHajiraFilter] = useState([
+    "present",
+    "extra",
+    "billing",
+  ]);
+  const [hajiraFilterTab, setHajiraFilterTab] = useState(
+    HAJIRA_FILTER_TABS.display,
+  );
 
   const attendanceQuery = useQuery({
     queryKey: ["sites", siteId, "labour-attendances", { date }],
@@ -485,7 +517,8 @@ export const HajiraPage = () => {
 
   const billingFilterOptions = useMemo(
     () => [
-      { value: "all", label: "বিলিং" },
+      { value: "all", label: "সব" },
+ 
       { value: "none", label: NULL_BILLING_LABEL },
       ...billingOptions.map((b) => ({
         value: String(b.id),
@@ -502,6 +535,11 @@ export const HajiraPage = () => {
         ? NULL_BILLING_LABEL
         : billingLabel(billingFilter);
 
+  const openHajiraFilterModal = (tab = HAJIRA_FILTER_TABS.display) => {
+    setHajiraFilterTab(tab);
+    document.getElementById(HAJIRA_FILTER_MODAL_ID)?.showModal();
+  };
+
   // Exit edit mode when site/date changes.
   useEffect(() => {
     setEditing(false);
@@ -509,9 +547,9 @@ export const HajiraPage = () => {
     setHajiraModal(null);
     setPaymentModal(null);
     setEarningsFilter("earn");
-    setPaymentFilter("payment");
+    setPaymentFilter(["payment"]);
     setBillingFilter("all");
-    setHajiraFilter("hajira");
+    setHajiraFilter(["present", "extra", "billing"]);
   }, [siteId, date]);
 
   // View mode: map records by labour from attendance/payment only.
@@ -581,9 +619,18 @@ export const HajiraPage = () => {
   );
 
   const viewEarningsFilter = editing ? "earn" : earningsFilter;
-  const viewPaymentFilter = editing ? "all" : paymentFilter;
+  const viewPaymentFilter = editing ? ["payment", "return"] : paymentFilter;
   const viewBillingFilter = editing ? "all" : billingFilter;
-  const viewHajiraFilter = editing ? "hajira" : hajiraFilter;
+  const viewHajiraFields = editing
+    ? ["present", "extra", "billing"]
+    : hajiraFilter;
+  const viewHajiraFilter = viewHajiraFields.includes("present")
+    ? "present"
+    : viewHajiraFields.includes("salary")
+      ? "salary"
+      : viewHajiraFields.includes("extra")
+        ? "extra"
+        : "present";
 
   const visibleRows = useMemo(() => {
     if (viewBillingFilter === "all") return rows;
@@ -605,23 +652,17 @@ export const HajiraPage = () => {
       earnings += dayEarnings(row, viewEarningsFilter);
       const pay = paymentAmountOf(row);
       const rtn = returnAmountOf(row);
-      if (viewPaymentFilter === "return") {
-        ret += rtn;
-      } else if (viewPaymentFilter === "payment") {
-        payment += pay;
-      } else {
-        payment += pay;
-        ret += rtn;
-      }
+      if (viewPaymentFilter.includes("payment")) payment += pay;
+      if (viewPaymentFilter.includes("return")) ret += rtn;
     }
     return { present, earnings, payment, return: ret };
   }, [visibleRows, viewEarningsFilter, viewPaymentFilter, viewHajiraFilter]);
 
   const showPaymentAmount = (row) =>
-    viewPaymentFilter !== "return" && paymentAmountOf(row) !== 0;
+    viewPaymentFilter.includes("payment") && paymentAmountOf(row) !== 0;
 
   const showReturnAmount = (row) =>
-    viewPaymentFilter !== "payment" && returnAmountOf(row) !== 0;
+    viewPaymentFilter.includes("return") && returnAmountOf(row) !== 0;
 
   const modalEditable = editing;
 
@@ -999,12 +1040,11 @@ export const HajiraPage = () => {
       {apiError ? <ApiErrorAlert error={apiError} /> : null}
 
       <div className="flex-1 min-h-0 overflow-auto">
-        <table className="table table-fixed table-xs sm:table-sm w-full">
+        <table className="table table-fixed table-sm sm:table-md w-full">
           <colgroup>
             <col className="w-10" />
-            <col className="w-[22%]" />
-            <col className="w-[18%]" />
-            <col className="w-[16%]" />
+            <col className="w-[28%]" />
+            <col className="w-[24%]" />
             {showAyColumn ? <col className="w-[14%]" /> : null}
             <col />
           </colgroup>
@@ -1012,35 +1052,15 @@ export const HajiraPage = () => {
             <tr className="border-b border-base-300 text-sm">
               <th>নং</th>
               <th>নাম</th>
-              <th>
+              <th className="text-right">
                 {editing ? (
                   "হাজিরা"
                 ) : (
                   <button
                     type="button"
-                    onClick={() =>
-                      document
-                        .getElementById(HAJIRA_FILTER_MODAL_ID)
-                        ?.showModal()
-                    }
+                    onClick={() => openHajiraFilterModal()}
                   >
-                    {filterLabel(HAJIRA_FILTER_OPTIONS, hajiraFilter)}
-                  </button>
-                )}
-              </th>
-              <th>
-                {editing ? (
-                  "বিলিং"
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      document
-                        .getElementById(BILLING_FILTER_MODAL_ID)
-                        ?.showModal()
-                    }
-                  >
-                    {billingFilterHeaderLabel}
+                    হাজিরা
                   </button>
                 )}
               </th>
@@ -1070,7 +1090,7 @@ export const HajiraPage = () => {
                         ?.showModal()
                     }
                   >
-                    {filterLabel(PAYMENT_FILTER_OPTIONS, paymentFilter)}
+                    পেমেন্ট
                   </button>
                 )}
               </th>
@@ -1110,7 +1130,11 @@ export const HajiraPage = () => {
                 const earn = dayEarnings(row, viewEarningsFilter);
                 const showPay = showPaymentAmount(row);
                 const showRet = showReturnAmount(row);
-                const hajiraValue = hajiraFieldValue(row, viewHajiraFilter);
+                const attendanceLines = attendanceCellLines(
+                  row,
+                  billingFullLabel,
+                  viewHajiraFields,
+                );
 
                 return (
                   <tr
@@ -1128,40 +1152,25 @@ export const HajiraPage = () => {
                     <td className="font-medium whitespace-nowrap max-w-28 truncate">
                       {row.labourName}
                     </td>
-                    <td>
+                    <td className="text-right">
                       <button
                         type="button"
-                        className={`btn btn-ghost btn-xs h-auto min-h-0 px-1 py-0.5 font-normal text-left leading-tight ${hajiraGroupTone}`}
+                        className={`btn btn-ghost btn-xs h-auto min-h-0 px-1 py-0.5 font-normal text-right leading-tight w-full justify-end ${hajiraGroupTone}`}
                         onClick={() => openHajiraModal(row)}
                       >
-                        {hajiraValue === "combined" ? (
-                          <span className="block tabular-nums space-y-0.5">
-                            {hasPresent(row) ? (
-                              <span className="block">
-                                {formatBnNumber(row.present)}
+                        <span className="block w-full space-y-0.5 text-right">
+                          {attendanceLines.map((line) => (
+                            <span
+                              key={line.key}
+                              className="block w-full truncate text-right"
+                              title={line.value}
+                            >
+                              <span className={line.isNumber ? "tabular-nums" : ""}>
+                                {line.value}
                               </span>
-                            ) : null}
-                            {hasExtra(row) ? (
-                              <span className="block">
-                                {formatBnNumber(row.extra)}
-                              </span>
-                            ) : null}
-                          </span>
-                        ) : hajiraValue ? (
-                          <span className="tabular-nums">{hajiraValue}</span>
-                        ) : (
-                          <span>—</span>
-                        )}
-                      </button>
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        className={`btn btn-ghost btn-xs h-auto min-h-0 px-1 font-normal text-left ${hajiraGroupTone}`}
-                        onClick={() => openHajiraModal(row)}
-                        title={billingFullLabel(row.billing)}
-                      >
-                        {billingLabel(row.billing)}
+                            </span>
+                          ))}
+                        </span>
                       </button>
                     </td>
                     {showAyColumn ? (
@@ -1182,10 +1191,10 @@ export const HajiraPage = () => {
                         onClick={() => openPaymentModal(row)}
                       >
                         {showPay || showRet ? (
-                          <span className="block tabular-nums space-y-0.5">
+                          <span className="block w-full tabular-nums space-y-0.5 text-right">
                             {showPay ? (
                               <span
-                                className={`block ${
+                                className={`block w-full text-right ${
                                   paymentActivityTone ||
                                   (editing
                                     ? paymentLineTone(
@@ -1203,7 +1212,7 @@ export const HajiraPage = () => {
                             ) : null}
                             {showRet ? (
                               <span
-                                className={`block ${
+                                className={`block w-full text-right ${
                                   paymentActivityTone ||
                                   (editing
                                     ? paymentLineTone(
@@ -1222,9 +1231,9 @@ export const HajiraPage = () => {
                           </span>
                         ) : (
                           <span
-                            className={
+                            className={`block w-full text-right ${
                               paymentActivityTone || "text-base-content/60"
-                            }
+                            }`}
                           >
                             —
                           </span>
@@ -1244,7 +1253,6 @@ export const HajiraPage = () => {
                 <td className="tabular-nums">
                   {totals.present ? formatBnNumber(totals.present) : "—"}
                 </td>
-                <td />
                 {showAyColumn ? (
                   <td className="text-right tabular-nums">
                     {totals.earnings ? formatBnNumber(totals.earnings) : "—"}
@@ -1252,14 +1260,14 @@ export const HajiraPage = () => {
                 ) : null}
                 <td className="text-right">
                   {totals.payment || totals.return ? (
-                    <span className="block tabular-nums space-y-0.5">
+                    <span className="block w-full tabular-nums space-y-0.5 text-right">
                       {totals.payment ? (
-                        <span className="block text-error">
+                        <span className="block w-full text-right text-error">
                           {formatBnNumber(totals.payment)}
                         </span>
                       ) : null}
                       {totals.return ? (
-                        <span className="block text-success">
+                        <span className="block w-full text-right text-success">
                           {formatBnNumber(totals.return)}
                         </span>
                       ) : null}
@@ -1775,7 +1783,7 @@ export const HajiraPage = () => {
       </dialog>
 
       <dialog id={HAJIRA_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-xs">
+        <div className="modal-box max-w-xs h-[min(24rem,80vh)] flex flex-col">
           <form method="dialog">
             <button
               className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
@@ -1784,57 +1792,83 @@ export const HajiraPage = () => {
               ✕
             </button>
           </form>
-          <h3 className="font-bold text-lg">হাজিরা ফিল্টার</h3>
-          <div className="menu bg-base-100 w-full p-0 pt-3">
-            {HAJIRA_FILTER_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`btn btn-ghost btn-sm justify-start ${
-                  hajiraFilter === opt.value ? "btn-active" : ""
-                }`}
-                onClick={() => {
-                  setHajiraFilter(opt.value);
-                  document.getElementById(HAJIRA_FILTER_MODAL_ID)?.close();
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
+          <h3 className="font-bold text-lg pr-8 shrink-0">হাজিরা</h3>
+          <div className="flex items-center gap-4 pt-1 pr-8 shrink-0">
+            <button
+              type="button"
+              className={`text-xs ${
+                hajiraFilterTab === HAJIRA_FILTER_TABS.display
+                  ? "text-primary font-semibold"
+                  : "text-base-content/60"
+              }`}
+              onClick={() => setHajiraFilterTab(HAJIRA_FILTER_TABS.display)}
+            >
+              মান দেখান
+            </button>
+            <button
+              type="button"
+              className={`text-xs ${
+                hajiraFilterTab === HAJIRA_FILTER_TABS.billing
+                  ? "text-primary font-semibold"
+                  : "text-base-content/60"
+              }`}
+              onClick={() => setHajiraFilterTab(HAJIRA_FILTER_TABS.billing)}
+            >
+              বিলিং ফিল্টার
+            </button>
           </div>
-        </div>
-        <form method="dialog" className="modal-backdrop">
-          <button type="submit">close</button>
-        </form>
-      </dialog>
-
-      <dialog id={BILLING_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-xs">
-          <form method="dialog">
-            <button
-              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-              aria-label="বন্ধ"
+          <div className="pt-3 space-y-4 flex-1 min-h-0 overflow-y-auto">
+            <div
+              className={
+                hajiraFilterTab === HAJIRA_FILTER_TABS.display ? "" : "hidden"
+              }
             >
-              ✕
-            </button>
-          </form>
-          <h3 className="font-bold text-lg">বিলিং ফিল্টার</h3>
-          <div className="menu bg-base-100 w-full p-0 pt-3">
-            {billingFilterOptions.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`btn btn-ghost btn-sm justify-start ${
-                  billingFilter === opt.value ? "btn-active" : ""
-                }`}
-                onClick={() => {
-                  setBillingFilter(opt.value);
-                  document.getElementById(BILLING_FILTER_MODAL_ID)?.close();
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
+                {HAJIRA_FILTER_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="inline-flex items-center gap-2 cursor-pointer text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      className="checkbox checkbox-xs"
+                      checked={hajiraFilter.includes(opt.value)}
+                      onChange={() => {
+                        setHajiraFilter((prev) =>
+                          prev.includes(opt.value)
+                            ? prev.filter((value) => value !== opt.value)
+                            : [...prev, opt.value],
+                        );
+                      }}
+                    />
+                    <span>{opt.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div
+              className={
+                hajiraFilterTab === HAJIRA_FILTER_TABS.billing ? "" : "hidden"
+              }
+            >
+              <div className="menu bg-base-100 w-full p-0">
+                {billingFilterOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    className={`btn btn-ghost btn-sm justify-start ${
+                      billingFilter === opt.value ? "btn-active" : ""
+                    }`}
+                    onClick={() => {
+                      setBillingFilter(opt.value);
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
         <form method="dialog" className="modal-backdrop">
@@ -1886,22 +1920,27 @@ export const HajiraPage = () => {
               ✕
             </button>
           </form>
-          <h3 className="font-bold text-lg">পেমেন্ট ফিল্টার</h3>
-          <div className="menu bg-base-100 w-full p-0 pt-3">
+          <h3 className="font-bold text-lg">পেমেন্ট</h3>
+          <div className="flex flex-wrap gap-x-4 gap-y-2 pt-3">
             {PAYMENT_FILTER_OPTIONS.map((opt) => (
-              <button
+              <label
                 key={opt.value}
-                type="button"
-                className={`btn btn-ghost btn-sm justify-start ${
-                  paymentFilter === opt.value ? "btn-active" : ""
-                }`}
-                onClick={() => {
-                  setPaymentFilter(opt.value);
-                  document.getElementById(PAYMENT_FILTER_MODAL_ID)?.close();
-                }}
+                className="inline-flex items-center gap-2 cursor-pointer text-sm"
               >
-                {opt.label}
-              </button>
+                <input
+                  type="checkbox"
+                  className="checkbox checkbox-xs"
+                  checked={paymentFilter.includes(opt.value)}
+                  onChange={() => {
+                    setPaymentFilter((prev) =>
+                      prev.includes(opt.value)
+                        ? prev.filter((value) => value !== opt.value)
+                        : [...prev, opt.value],
+                    );
+                  }}
+                />
+                <span>{opt.label}</span>
+              </label>
             ))}
           </div>
         </div>
