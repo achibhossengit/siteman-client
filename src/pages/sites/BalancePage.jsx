@@ -9,6 +9,7 @@ import {
   Undo2,
 } from 'lucide-react'
 import { fetchDailyReport } from '../../api/sites.js'
+import { cashTypeLabel } from '../../api/types/siteCash.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { formatBnNumber, formatBnSigned } from '../../utils/format.js'
@@ -109,11 +110,11 @@ export const BalancePage = () => {
         icon={Banknote}
         label="আগের ব্যালেন্স"
         value={formatBnNumber(previous_balance)}
-        valueClassName="font-semibold tabular-nums text-success"
+        valueClassName={`font-semibold tabular-nums ${Number(previous_balance) >= 0 ? 'text-success' : 'text-error'}`}
       />
       <Row
         icon={Landmark}
-        label="সাইট জমা"
+        label={cashTypeLabel('deposit')}
         value={formatBnSigned(deposit, { showPlus: true })}
         valueClassName="font-semibold tabular-nums text-success"
       />
@@ -126,12 +127,12 @@ export const BalancePage = () => {
 
       <SubtotalRow
         value={formatBnNumber(creditTotal)}
-        valueClassName="font-semibold tabular-nums text-success"
+        valueClassName={`font-semibold tabular-nums ${Number(creditTotal) >= 0 ? 'text-success' : 'text-error'}`}
       />
 
       <Row
         icon={ArrowUpFromLine}
-        label="ক্যাশ আউট"
+        label={cashTypeLabel('withdrawal')}
         value={formatBnSigned(-(Math.abs(Number(withdrawal) || 0)), {
           showPlus: false,
         })}
@@ -139,7 +140,7 @@ export const BalancePage = () => {
       />
       <Row
         icon={Hammer}
-        label="সাইট খরচ"
+        label={cashTypeLabel('cost')}
         value={formatBnSigned(-(Math.abs(Number(site_cost) || 0)), {
           showPlus: false,
         })}
@@ -155,11 +156,11 @@ export const BalancePage = () => {
       />
 
       <div className="flex items-center gap-2 border-t border-base-content/20 mt-1 pt-2">
-        <span className="flex items-center gap-2 flex-1 text-sm sm:text-base text-success font-medium">
+        <span className="flex items-center gap-2 flex-1 text-sm sm:text-base font-semibold">
           <Banknote className="w-4 h-4 sm:w-5 sm:h-5" />
           ব্যালেন্স
         </span>
-        <span className="text-sm sm:text-base text-right font-bold tabular-nums text-success">
+        <span className={`text-sm sm:text-base text-right font-semibold tabular-nums ${Number(balance) >= 0 ? 'text-success' : 'text-error'}`}>
           {formatBnNumber(balance)}
         </span>
       </div>

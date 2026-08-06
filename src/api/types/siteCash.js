@@ -6,8 +6,8 @@
 import { z } from 'zod'
 
 export const CASH_TYPES = [
-  { value: 'deposit', label: 'জমা' },
-  { value: 'withdrawal', label: 'উত্তোলন' },
+  { value: 'deposit', label: 'ক্যাশ ইন' },
+  { value: 'withdrawal', label: 'ক্যাশ আউট' },
   { value: 'cost', label: 'খরচ' },
 ]
 
