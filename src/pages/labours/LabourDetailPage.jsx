@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Pencil, Trash2, X } from 'lucide-react'
+import { Check, Pencil, X } from 'lucide-react'
 import {
   deleteLabour,
   fetchLabourDetail,
@@ -79,6 +79,36 @@ export const LabourDetailPage = () => {
 
   const labour = detailQuery.data
 
+  const mutation = useMutation({
+    mutationFn: (values) => updateLabour(labourId, toLabourPayload(values)),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteLabour(labourId),
+  })
+
+  const onDelete = async () => {
+    const ok = await confirmAction({
+      title: 'লেবার মুছে ফেলবেন?',
+      text: 'এই কাজটি ফিরিয়ে আনা যাবে না।',
+      confirmText: 'ডিলিট করুন',
+      danger: true,
+    })
+    if (!ok) return
+    setApiError(null)
+    try {
+      await deleteMutation.mutateAsync()
+      await queryClient.invalidateQueries({ queryKey: ['labours'] })
+      toastSuccess('লেবার ডিলিট হয়েছে')
+      navigate(paths.labours, { replace: true })
+    } catch (err) {
+      setApiError(parseApiError(err))
+    }
+  }
+
+  const onDeleteRef = useRef(onDelete)
+  onDeleteRef.current = onDelete
+
   useEffect(() => {
     setTitle?.('লেবার বিবরণ')
     return () => setTitle?.('')
@@ -111,11 +141,29 @@ export const LabourDetailPage = () => {
               সর্বশেষ সেশন
             </button>
           </li>
+          {canDeleteLabour ? (
+            <li>
+              <button
+                type="button"
+                className="text-error"
+                disabled={deleteMutation.isPending}
+                onClick={() => void onDeleteRef.current()}
+              >
+                ডিলিট
+              </button>
+            </li>
+          ) : null}
         </ul>
       </DetailMenuButton>,
     )
     return () => setHeaderMenu?.(null)
-  }, [labourId, navigate, setHeaderMenu])
+  }, [
+    labourId,
+    navigate,
+    setHeaderMenu,
+    canDeleteLabour,
+    deleteMutation.isPending,
+  ])
 
   useEffect(() => {
     if (labour) reset(toFormValues(labour))
@@ -139,14 +187,6 @@ export const LabourDetailPage = () => {
     }
   }, [editing])
 
-  const mutation = useMutation({
-    mutationFn: (values) => updateLabour(labourId, toLabourPayload(values)),
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteLabour(labourId),
-  })
-
   const startEdit = () => {
     setApiError(null)
     setConfirmReady(false)
@@ -157,25 +197,6 @@ export const LabourDetailPage = () => {
     setApiError(null)
     reset(toFormValues(labour))
     setEditing(false)
-  }
-
-  const onDelete = async () => {
-    const ok = await confirmAction({
-      title: 'লেবার মুছে ফেলবেন?',
-      text: 'এই কাজটি ফিরিয়ে আনা যাবে না।',
-      confirmText: 'ডিলিট করুন',
-      danger: true,
-    })
-    if (!ok) return
-    setApiError(null)
-    try {
-      await deleteMutation.mutateAsync()
-      await queryClient.invalidateQueries({ queryKey: ['labours'] })
-      toastSuccess('লেবার ডিলিট হয়েছে')
-      navigate(paths.labours, { replace: true })
-    } catch (err) {
-      setApiError(parseApiError(err))
-    }
   }
 
   const onConfirm = handleSubmit(async (values) => {
@@ -223,7 +244,7 @@ export const LabourDetailPage = () => {
 
   const disabled = !editing
   const busy = isSubmitting || mutation.isPending
-  const showActions = canChangeLabour || canDeleteLabour
+  const showActions = canChangeLabour
   const fieldClass = (hasError, kind = 'input') =>
     [
       kind === 'select'
@@ -375,31 +396,14 @@ export const LabourDetailPage = () => {
             </div>
           ) : (
             <div className="flex gap-2 mt-2">
-              {canDeleteLabour ? (
-                <button
-                  type="button"
-                  className="btn btn-outline btn-error flex-1"
-                  onClick={onDelete}
-                  disabled={deleteMutation.isPending}
-                >
-                  {deleteMutation.isPending ? (
-                    <span className="loading loading-spinner loading-sm" />
-                  ) : (
-                    <Trash2 className="size-4" strokeWidth={1.75} />
-                  )}
-                  ডিলিট
-                </button>
-              ) : null}
-              {canChangeLabour ? (
-                <button
-                  type="button"
-                  className="btn btn-outline btn-primary flex-1"
-                  onClick={startEdit}
-                >
-                  <Pencil className="size-4" strokeWidth={1.75} />
-                  আপডেট
-                </button>
-              ) : null}
+              <button
+                type="button"
+                className="btn btn-outline btn-primary flex-1"
+                onClick={startEdit}
+              >
+                <Pencil className="size-4" strokeWidth={1.75} />
+                আপডেট
+              </button>
             </div>
           )
         ) : null}

@@ -100,13 +100,6 @@ const MANAGE_LINKS = [
     to: paths.labours,
     anyOf: LABOUR_PERMS,
   },
-  {
-    key: 'activities',
-    title: 'অ্যাক্টিভিটি',
-    icon: ClipboardList,
-    to: paths.activities,
-    anyOf: [PERMS.viewActivityLog],
-  },
 ]
 
 const OTHER_LINKS = [

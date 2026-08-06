@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Pencil, Trash2, X } from "lucide-react";
+import { Check, Pencil, X } from "lucide-react";
 import { deleteSite, fetchSiteDetail, updateSite } from "../../api/sites.js";
 import {
   siteFormSchema,
@@ -72,6 +72,41 @@ export const SiteDetailPage = () => {
 
   const site = detailQuery.data;
 
+  const mutation = useMutation({
+    mutationFn: (values) => updateSite(siteId, toSitePayload(values)),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteSite(siteId),
+  });
+
+  const onDelete = async () => {
+    const ok = await confirmAction({
+      title: "সাইট মুছে ফেলবেন?",
+      text: "এই কাজটি ফিরিয়ে আনা যাবে না।",
+      confirmText: "ডিলিট করুন",
+      danger: true,
+    });
+    if (!ok) return;
+    setApiError(null);
+    try {
+      await deleteMutation.mutateAsync();
+      await queryClient.invalidateQueries({ queryKey: ["sites"] });
+      try {
+        await bootstrapProfile();
+      } catch {
+        // ignore
+      }
+      toastSuccess("সাইট ডিলিট হয়েছে");
+      navigate(paths.sites, { replace: true });
+    } catch (err) {
+      setApiError(parseApiError(err));
+    }
+  };
+
+  const onDeleteRef = useRef(onDelete);
+  onDeleteRef.current = onDelete;
+
   useEffect(() => {
     setTitle?.("সাইট বিবরণ");
     return () => setTitle?.("");
@@ -104,11 +139,29 @@ export const SiteDetailPage = () => {
               প্রাইভেট হিসাব
             </button>
           </li>
+          {canDeleteSite ? (
+            <li>
+              <button
+                type="button"
+                className="text-error"
+                disabled={deleteMutation.isPending}
+                onClick={() => void onDeleteRef.current()}
+              >
+                ডিলিট
+              </button>
+            </li>
+          ) : null}
         </ul>
       </DetailMenuButton>,
     );
     return () => setHeaderMenu?.(null);
-  }, [siteId, navigate, setHeaderMenu]);
+  }, [
+    siteId,
+    navigate,
+    setHeaderMenu,
+    canDeleteSite,
+    deleteMutation.isPending,
+  ]);
 
   useEffect(() => {
     if (site) reset(toFormValues(site));
@@ -132,14 +185,6 @@ export const SiteDetailPage = () => {
     };
   }, [editing]);
 
-  const mutation = useMutation({
-    mutationFn: (values) => updateSite(siteId, toSitePayload(values)),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteSite(siteId),
-  });
-
   const startEdit = () => {
     if (site?.is_closed) return;
     setApiError(null);
@@ -151,30 +196,6 @@ export const SiteDetailPage = () => {
     setApiError(null);
     reset(toFormValues(site));
     setEditing(false);
-  };
-
-  const onDelete = async () => {
-    const ok = await confirmAction({
-      title: "সাইট মুছে ফেলবেন?",
-      text: "এই কাজটি ফিরিয়ে আনা যাবে না।",
-      confirmText: "ডিলিট করুন",
-      danger: true,
-    });
-    if (!ok) return;
-    setApiError(null);
-    try {
-      await deleteMutation.mutateAsync();
-      await queryClient.invalidateQueries({ queryKey: ["sites"] });
-      try {
-        await bootstrapProfile();
-      } catch {
-        // ignore
-      }
-      toastSuccess("সাইট ডিলিট হয়েছে");
-      navigate(paths.sites, { replace: true });
-    } catch (err) {
-      setApiError(parseApiError(err));
-    }
   };
 
   const onConfirm = handleSubmit(async (values) => {
@@ -227,7 +248,7 @@ export const SiteDetailPage = () => {
 
   const disabled = !editing || site.is_closed;
   const busy = isSubmitting || mutation.isPending;
-  const showActions = !site.is_closed || canDeleteSite;
+  const showActions = canChangeSite && !site.is_closed;
   const fieldClass = (hasError) =>
     [
       "input input-bordered w-full",
@@ -323,31 +344,14 @@ export const SiteDetailPage = () => {
             </div>
           ) : (
             <div className="flex gap-2 mt-2">
-              {canDeleteSite ? (
-                <button
-                  type="button"
-                  className="btn btn-outline btn-error flex-1"
-                  onClick={onDelete}
-                  disabled={deleteMutation.isPending}
-                >
-                  {deleteMutation.isPending ? (
-                    <span className="loading loading-spinner loading-sm" />
-                  ) : (
-                    <Trash2 className="size-4" strokeWidth={1.75} />
-                  )}
-                  ডিলিট
-                </button>
-              ) : null}
-              {canChangeSite && !site.is_closed ? (
-                <button
-                  type="button"
-                  className="btn btn-outline btn-primary flex-1"
-                  onClick={startEdit}
-                >
-                  <Pencil className="size-4" strokeWidth={1.75} />
-                  আপডেট
-                </button>
-              ) : null}
+              <button
+                type="button"
+                className="btn btn-outline btn-primary flex-1"
+                onClick={startEdit}
+              >
+                <Pencil className="size-4" strokeWidth={1.75} />
+                আপডেট
+              </button>
             </div>
           )
         ) : null}
