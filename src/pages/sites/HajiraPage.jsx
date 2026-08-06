@@ -780,6 +780,8 @@ export const HajiraPage = () => {
   const [apiError, setApiError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [reviewing, setReviewing] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [hajiraModal, setHajiraModal] = useState(null);
   const [paymentModal, setPaymentModal] = useState(null);
   const [hajiraModalView, setHajiraModalView] = useState(MODAL_VIEWS.detail);
@@ -844,11 +846,24 @@ export const HajiraPage = () => {
     enabled: Boolean(editing && siteId),
   });
 
-  const activityAttendanceQuery = useQuery({
-    queryKey: [
+  const activityAttendanceQueryKey = useMemo(
+    () => [
       "activities",
       { site: siteId, business_date: date, entity_type: "attendance" },
     ],
+    [siteId, date],
+  );
+
+  const activityPaymentQueryKey = useMemo(
+    () => [
+      "activities",
+      { site: siteId, business_date: date, entity_type: "labour_payment" },
+    ],
+    [siteId, date],
+  );
+
+  const activityAttendanceQuery = useQuery({
+    queryKey: activityAttendanceQueryKey,
     queryFn: async () => {
       const { data } = await fetchActivities({
         site: siteId,
@@ -863,10 +878,7 @@ export const HajiraPage = () => {
   });
 
   const activityPaymentQuery = useQuery({
-    queryKey: [
-      "activities",
-      { site: siteId, business_date: date, entity_type: "labour_payment" },
-    ],
+    queryKey: activityPaymentQueryKey,
     queryFn: async () => {
       const { data } = await fetchActivities({
         site: siteId,
@@ -880,16 +892,10 @@ export const HajiraPage = () => {
     enabled: Boolean(!editing && canViewActivityLog && siteId && date),
   });
 
-  const unreviwedActivityIds = useMemo(() => {
-    const ids = new Set();
-    for (const log of activityAttendanceQuery.data ?? []) {
-      if (log?.id != null) ids.add(Number(log.id));
-    }
-    for (const log of activityPaymentQuery.data ?? []) {
-      if (log?.id != null) ids.add(Number(log.id));
-    }
-    return [...ids].filter((id) => Number.isFinite(id));
-  }, [activityAttendanceQuery.data, activityPaymentQuery.data]);
+  const activityIdsForRow = (row) =>
+    (row?.activityLogs ?? [])
+      .map((log) => Number(log.id))
+      .filter((id) => Number.isFinite(id));
 
   const canShowPaymentHistory = Boolean(
     paymentModal?.paymentId || paymentModal?.returnId,
@@ -1064,9 +1070,11 @@ export const HajiraPage = () => {
     document.getElementById(HAJIRA_FILTER_MODAL_ID)?.showModal();
   };
 
-  // Exit edit mode when site/date changes.
+  // Exit edit/select mode when site/date changes.
   useEffect(() => {
     setEditing(false);
+    setSelectMode(false);
+    setSelectedIds(new Set());
     setApiError(null);
     setHajiraModal(null);
     setPaymentModal(null);
@@ -1075,6 +1083,10 @@ export const HajiraPage = () => {
     setBillingFilter("all");
     setHajiraFilter(["present", "extra", "billing"]);
   }, [siteId, date]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [earningsFilter, paymentFilter, billingFilter, hajiraFilter]);
 
   // View mode: map records by labour from attendance/payment only.
   useEffect(() => {
@@ -1165,6 +1177,18 @@ export const HajiraPage = () => {
       (row) => String(row.billing ?? "") === String(viewBillingFilter),
     );
   }, [rows, viewBillingFilter]);
+
+  const pendingIds = useMemo(() => {
+    const ids = new Set();
+    for (const row of visibleRows) {
+      for (const id of activityIdsForRow(row)) ids.add(id);
+    }
+    return [...ids];
+  }, [visibleRows]);
+
+  const allPendingSelected =
+    pendingIds.length > 0 && pendingIds.every((id) => selectedIds.has(id));
+  const somePendingSelected = pendingIds.some((id) => selectedIds.has(id));
 
   const totals = useMemo(() => {
     let present = 0;
@@ -1337,39 +1361,57 @@ export const HajiraPage = () => {
     });
   };
 
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const toggleRowSelected = (row, checked) => {
+    const ids = activityIdsForRow(row);
+    if (!ids.length) return;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (checked) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (checked) => {
+    setSelectedIds(checked ? new Set(pendingIds) : new Set());
+  };
+
   const onAcceptChanges = async () => {
-    if (!canChangeActivityLog || unreviwedActivityIds.length === 0) return;
+    const ids = [...selectedIds];
+    if (!canChangeActivityLog || ids.length === 0) return;
     const ok = await confirmAction({
-      title: "পরিবর্তন গুলোতে আপনি কি সম্মত?",
-      text: `${selectedDate} তারিখের হাজিরা ঠিক আছে বলে আপনি সম্মতি দিচ্ছেন। পরে বাতিল করতে পারবেন না। `,
-      confirmText: "সম্মত",
-      cancelText: "বাতিল করুন",
+      title: "অডিট নিশ্চিত করুন",
+      text: `${formatBnNumber(ids.length)}টি হাজিরা অ্যাক্টিভিটি রিভিউড হবে। পরে বাতিল করা যাবে না।`,
+      confirmText: "অডিট করুন",
+      cancelText: "বাতিল",
     });
     if (!ok) return;
 
     setReviewing(true);
     setApiError(null);
     try {
-      await reviewActivitiesBulk(unreviwedActivityIds);
+      await reviewActivitiesBulk(ids);
+      exitSelectMode();
+      const reviewed = new Set(ids.map((id) => Number(id)));
+      const dropReviewed = (logs) =>
+        (Array.isArray(logs) ? logs : []).filter(
+          (log) => !reviewed.has(Number(log?.id)),
+        );
+      queryClient.setQueryData(activityAttendanceQueryKey, dropReviewed);
+      queryClient.setQueryData(activityPaymentQueryKey, dropReviewed);
       await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: [
-            "activities",
-            { site: siteId, business_date: date, entity_type: "attendance" },
-          ],
-        }),
-        queryClient.invalidateQueries({
-          queryKey: [
-            "activities",
-            {
-              site: siteId,
-              business_date: date,
-              entity_type: "labour_payment",
-            },
-          ],
-        }),
+        queryClient.refetchQueries({ queryKey: activityAttendanceQueryKey }),
+        queryClient.refetchQueries({ queryKey: activityPaymentQueryKey }),
+        queryClient.invalidateQueries({ queryKey: ["activities", "list"] }),
       ]);
-      toastSuccess("পরিবর্তনগুলো গ্রহণ করা হয়েছে");
+      toastSuccess("অডিট সম্পন্ন হয়েছে");
     } catch (err) {
       const parsed = parseApiError(err);
       const message = formatBulkReviewError(parsed);
@@ -1384,6 +1426,7 @@ export const HajiraPage = () => {
   };
 
   const onStartEdit = () => {
+    exitSelectMode();
     setApiError(null);
     setEditing(true);
   };
@@ -1787,7 +1830,35 @@ export const HajiraPage = () => {
           </colgroup>
           <thead className="sticky top-0 z-10 bg-base-100">
             <tr className="border-b border-base-300 text-sm">
-              <th>নং</th>
+              <th>
+                {!editing && selectMode && canChangeActivityLog ? (
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-sm"
+                    checked={allPendingSelected}
+                    ref={(el) => {
+                      if (el) {
+                        el.indeterminate =
+                          somePendingSelected && !allPendingSelected;
+                      }
+                    }}
+                    disabled={pendingIds.length === 0}
+                    aria-label="সব নির্বাচন"
+                    onChange={(e) => toggleSelectAll(e.target.checked)}
+                  />
+                ) : !editing && canChangeActivityLog ? (
+                  <button
+                    type="button"
+                    className="font-bold"
+                    onClick={() => setSelectMode(true)}
+                    title="নির্বাচন মোড"
+                  >
+                    নং
+                  </button>
+                ) : (
+                  "নং"
+                )}
+              </th>
               <th>নাম</th>
               <th className="text-right">
                 {editing ? (
@@ -1850,6 +1921,11 @@ export const HajiraPage = () => {
             ) : (
               visibleRows.map((row, index) => {
                 const initial = initialByLabour.get(row.labourId) ?? {};
+                const rowActivityIds = activityIdsForRow(row);
+                const selectable = rowActivityIds.length > 0;
+                const rowSelected =
+                  selectable &&
+                  rowActivityIds.every((id) => selectedIds.has(id));
                 const hajiraEditTone = editing
                   ? fieldTone(
                       row,
@@ -1887,7 +1963,20 @@ export const HajiraPage = () => {
                     className="border-b border-base-300/70"
                   >
                     <td className="tabular-nums text-base-content/60">
-                      {formatBnNumber(index + 1)}
+                      {!editing && selectMode && canChangeActivityLog ? (
+                        <input
+                          type="checkbox"
+                          className="checkbox checkbox-sm"
+                          checked={rowSelected}
+                          disabled={!selectable}
+                          aria-label={`নির্বাচন ${formatBnNumber(index + 1)}`}
+                          onChange={(e) =>
+                            toggleRowSelected(row, e.target.checked)
+                          }
+                        />
+                      ) : (
+                        formatBnNumber(index + 1)
+                      )}
                     </td>
                     <td className="font-medium whitespace-nowrap max-w-28 truncate">
                       {row.labourName}
@@ -2046,36 +2135,45 @@ export const HajiraPage = () => {
             নিশ্চিত করুন
           </button>
         </div>
-      ) : (
-        <>
-          <button
-            type="button"
-            className="btn btn-outline btn-primary fixed bottom-16 left-4 z-40 shadow-lg bg-base-100"
-            onClick={onAcceptChanges}
-            disabled={
-              !date ||
-              reviewing ||
-              !canChangeActivityLog ||
-              unreviwedActivityIds.length === 0
-            }
-          >
-            {reviewing ? (
-              <span className="loading loading-spinner loading-sm" />
-            ) : null}
-            অডিট করুন
-          </button>
-          {canAddAttendance ? (
+      ) : selectMode && canChangeActivityLog ? (
+        <div className="fixed bottom-16 inset-x-0 z-40 px-3 pointer-events-none">
+          <div className="max-w-5xl mx-auto flex flex-wrap justify-end gap-2 pointer-events-auto">
             <button
               type="button"
-              className="btn btn-primary fixed bottom-16 right-4 z-40 shadow-lg"
-              onClick={onStartEdit}
-              disabled={!date || siteInactive}
+              className="btn btn-ghost shadow-lg bg-base-100 border border-base-300"
+              disabled={reviewing}
+              onClick={exitSelectMode}
             >
-              যোগ করুন
+              বাতিল
             </button>
-          ) : null}
-        </>
-      )}
+            <button
+              type="button"
+              className="btn btn-primary shadow-lg"
+              disabled={reviewing || selectedIds.size === 0}
+              onClick={onAcceptChanges}
+            >
+              {reviewing ? (
+                <span className="loading loading-spinner loading-sm" />
+              ) : null}
+              অডিট করুন
+              {selectedIds.size > 0 ? (
+                <span className="badge badge-sm badge-ghost">
+                  {formatBnNumber(selectedIds.size)}
+                </span>
+              ) : null}
+            </button>
+          </div>
+        </div>
+      ) : canAddAttendance ? (
+        <button
+          type="button"
+          className="btn btn-primary fixed bottom-16 right-4 z-40 shadow-lg"
+          onClick={onStartEdit}
+          disabled={!date || siteInactive}
+        >
+          যোগ করুন
+        </button>
+      ) : null}
 
       <dialog
         id={HAJIRA_MODAL_ID}
