@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { fetchActivities, reviewActivitiesBulk, reviewActivity } from '../../api/activities.js'
@@ -218,10 +218,63 @@ const actionTimeLabel = (action) => {
   return 'তৈরির সময়'
 }
 
+const ALLOWED_ACTIONS = new Set(
+  ACTIVITY_ACTION_FILTER_OPTIONS.map((o) => o.value),
+)
+const ALLOWED_ENTITIES = new Set(
+  ACTIVITY_ENTITY_FILTER_OPTIONS.map((o) => o.value),
+)
+const ALLOWED_REVIEWED = new Set(
+  ACTIVITY_REVIEWED_FILTER_OPTIONS.map((o) => o.value),
+)
+const ALLOWED_DATE_MODES = new Set(['all', 'day', 'range'])
+
+const readFilterParam = (params, key, allowed, fallback) => {
+  const value = params.get(key)
+  if (value && allowed.has(value)) return value
+  return fallback
+}
+
+const filtersToSearchParams = ({
+  siteId,
+  actionFilter,
+  entityFilter,
+  reviewedFilter,
+  dateMode,
+  specificDate,
+  startDate,
+  endDate,
+  page,
+}) => {
+  const params = new URLSearchParams()
+  if (siteId) params.set('site', String(siteId))
+  if (actionFilter !== 'all') params.set('action', actionFilter)
+  if (entityFilter !== 'all') params.set('entity', entityFilter)
+  if (reviewedFilter !== 'pending') params.set('reviewed', reviewedFilter)
+  if (dateMode !== 'all') params.set('date_mode', dateMode)
+  if (dateMode === 'day' && specificDate) params.set('date', specificDate)
+  if (dateMode === 'range') {
+    if (startDate) params.set('start', startDate)
+    if (endDate) params.set('end', endDate)
+  }
+  if (page > 1) params.set('page', String(page))
+  return params
+}
+
+const sameSearchParams = (a, b) => {
+  const keys = new Set([...a.keys(), ...b.keys()])
+  for (const key of keys) {
+    if ((a.get(key) ?? '') !== (b.get(key) ?? '')) return false
+  }
+  return true
+}
+
 export const ActivityPage = () => {
   const { profile: authProfile } = useAuth()
   const queryClient = useQueryClient()
   const dialogRef = useRef(null)
+  const skipPageReset = useRef(true)
+  const [searchParams, setSearchParams] = useSearchParams()
   const { can, profile } = usePermissions()
 
   const canViewActivityLog =
@@ -237,48 +290,96 @@ export const ActivityPage = () => {
   }, [authProfile])
 
   const [siteId, setSiteId] = useState(
-    () => readSelectedSite() || '',
+    () => searchParams.get('site') || readSelectedSite() || '',
   )
-  const [actionFilter, setActionFilter] = useState('all')
-  const [entityFilter, setEntityFilter] = useState('all')
-  const [reviewedFilter, setReviewedFilter] = useState('pending')
-  const [dateMode, setDateMode] = useState('all')
-  const [specificDate, setSpecificDate] = useState(() => todayIso())
-  const [startDate, setStartDate] = useState(() => todayIso())
-  const [endDate, setEndDate] = useState(() => todayIso())
+  const [actionFilter, setActionFilter] = useState(() =>
+    readFilterParam(searchParams, 'action', ALLOWED_ACTIONS, 'all'),
+  )
+  const [entityFilter, setEntityFilter] = useState(() =>
+    readFilterParam(searchParams, 'entity', ALLOWED_ENTITIES, 'all'),
+  )
+  const [reviewedFilter, setReviewedFilter] = useState(() =>
+    readFilterParam(searchParams, 'reviewed', ALLOWED_REVIEWED, 'pending'),
+  )
+  const [dateMode, setDateMode] = useState(() =>
+    readFilterParam(searchParams, 'date_mode', ALLOWED_DATE_MODES, 'all'),
+  )
+  const [specificDate, setSpecificDate] = useState(
+    () => searchParams.get('date') || todayIso(),
+  )
+  const [startDate, setStartDate] = useState(
+    () => searchParams.get('start') || todayIso(),
+  )
+  const [endDate, setEndDate] = useState(
+    () => searchParams.get('end') || todayIso(),
+  )
   const [draftDateMode, setDraftDateMode] = useState('all')
   const [draftSpecificDate, setDraftSpecificDate] = useState(() => todayIso())
   const [draftStartDate, setDraftStartDate] = useState(() => todayIso())
   const [draftEndDate, setDraftEndDate] = useState(() => todayIso())
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useState(() => {
+    const raw = Number(searchParams.get('page'))
+    return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 1
+  })
   const [selected, setSelected] = useState(null)
   const [apiError, setApiError] = useState(null)
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState(() => new Set())
   const [reviewing, setReviewing] = useState(false)
 
-  // Prefer session site when still in list; otherwise first available site.
+  // Prefer URL/session site when still in list; otherwise first available site.
   useEffect(() => {
     if (!sites.length) {
       setSiteId('')
       return
     }
+    const stillValid = sites.some((s) => String(s.id) === String(siteId))
+    if (stillValid) return
     const saved = readSelectedSite()
-    const stillValid = sites.some((s) => String(s.id) === String(saved))
-    if (stillValid) {
-      setSiteId(String(saved))
-      return
-    }
-    const next = String(sites[0].id)
+    const savedValid = sites.some((s) => String(s.id) === String(saved))
+    const next = String(savedValid ? saved : sites[0].id)
     setSiteId(next)
     writeSelectedSite(next)
-  }, [sites])
+  }, [sites, siteId])
 
   useEffect(() => {
     if (siteId) writeSelectedSite(siteId)
   }, [siteId])
 
+  // Keep filters in the URL so refresh restores them.
   useEffect(() => {
+    const next = filtersToSearchParams({
+      siteId,
+      actionFilter,
+      entityFilter,
+      reviewedFilter,
+      dateMode,
+      specificDate,
+      startDate,
+      endDate,
+      page,
+    })
+    if (!sameSearchParams(next, searchParams)) {
+      setSearchParams(next, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync outward from state
+  }, [
+    siteId,
+    actionFilter,
+    entityFilter,
+    reviewedFilter,
+    dateMode,
+    specificDate,
+    startDate,
+    endDate,
+    page,
+  ])
+
+  useEffect(() => {
+    if (skipPageReset.current) {
+      skipPageReset.current = false
+      return
+    }
     setPage(1)
     setSelectedIds(new Set())
   }, [
