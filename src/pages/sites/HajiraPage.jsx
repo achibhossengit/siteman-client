@@ -144,6 +144,17 @@ const hasPresent = (row) => row.present !== "" && row.present != null;
 
 const hasExtra = (row) => Number(row.extra) > 0;
 
+const hasBilling = (row) => row.billing !== "" && row.billing != null;
+
+/** present=0 with extra=0 is not a valid attendance. */
+const isZeroPresentAndExtra = (row) => {
+  if (!hasPresent(row)) return false;
+  return Number(row.present) === 0 && (Number(row.extra) || 0) === 0;
+};
+
+const ZERO_PRESENT_EXTRA_MESSAGE =
+  "হাজিরা ও বাড়তি দুটোই ০ হতে পারে না।";
+
 const presentEarnings = (row) => {
   if (!hasPresent(row)) return 0;
   const salary =
@@ -194,7 +205,7 @@ const attendanceCellLines = (row, billingNameFn, selectedFields) => {
       isNumber: true,
     });
   }
-  if (selectedFields.includes("billing")) {
+  if (selectedFields.includes("billing") && hasBilling(row)) {
     lines.push({
       key: "billing",
       value: billingNameFn(row.billing),
@@ -260,9 +271,42 @@ const paymentAmount = (row, key) => {
 
 const HAJIRA_MODAL_ID = "hajira_attendance_modal";
 const PAYMENT_MODAL_ID = "hajira_payment_modal";
+const HAJIRA_BULK_MODAL_ID = "hajira_bulk_attendance_modal";
+const PAYMENT_BULK_MODAL_ID = "hajira_bulk_payment_modal";
 const EARNINGS_FILTER_MODAL_ID = "hajira_earnings_filter_modal";
 const PAYMENT_FILTER_MODAL_ID = "hajira_payment_filter_modal";
 const HAJIRA_FILTER_MODAL_ID = "hajira_hajira_filter_modal";
+
+const emptyBulkAttendance = () => ({
+  present: "",
+  salary: "",
+  extra: "",
+  note: "",
+  billing: "",
+});
+
+const emptyBulkPayment = () => ({
+  payment: "",
+  paymentNote: "",
+});
+
+const isBulkAttendanceDirty = (form) =>
+  form.present !== "" ||
+  (form.salary !== "" && form.salary != null) ||
+  (form.extra !== "" && form.extra != null) ||
+  Boolean(form.note?.trim()) ||
+  (form.billing !== "" && form.billing != null);
+
+const isBulkPaymentDirty = (form) =>
+  (form.payment !== "" && form.payment != null) ||
+  Boolean(form.paymentNote?.trim());
+
+const isBulkAttendanceZeroInvalid = (form) => {
+  if (form.present === "" || form.present == null) return false;
+  return (
+    Number(form.present) === 0 && (Number(form.extra) || 0) === 0
+  );
+};
 
 const HAJIRA_FILTER_OPTIONS = [
   { value: "present", label: "উপস্থিতি" },
@@ -406,6 +450,8 @@ export const HajiraPage = () => {
   const [hajiraFilterTab, setHajiraFilterTab] = useState(
     HAJIRA_FILTER_TABS.display,
   );
+  const [bulkAttendance, setBulkAttendance] = useState(emptyBulkAttendance);
+  const [bulkPayment, setBulkPayment] = useState(emptyBulkPayment);
 
   const attendanceQuery = useQuery({
     queryKey: ["sites", siteId, "labour-attendances", { date }],
@@ -695,7 +741,7 @@ export const HajiraPage = () => {
 
   const saveHajiraModal = () => {
     if (!hajiraModal || !modalEditable || attendanceLocked(hajiraModal)) return;
-    updateRow(hajiraModal.labourId, {
+    const next = {
       present:
         hajiraModal.present === "" ? "" : Number(hajiraModal.present),
       salary: numOrEmpty(hajiraModal.salary),
@@ -705,7 +751,12 @@ export const HajiraPage = () => {
           : Number(hajiraModal.extra),
       extraNote: hajiraModal.note ?? "",
       billing: hajiraModal.billing ?? "",
-    });
+    };
+    if (isZeroPresentAndExtra(next)) {
+      toastInfo(ZERO_PRESENT_EXTRA_MESSAGE);
+      return;
+    }
+    updateRow(hajiraModal.labourId, next);
     document.getElementById(HAJIRA_MODAL_ID)?.close();
   };
 
@@ -720,6 +771,23 @@ export const HajiraPage = () => {
       extra: initial.extra || "",
       note: initial.extraNote ?? "",
       billing: initial.billing ?? "",
+    });
+  };
+
+  const applyHajiraModalDefaults = () => {
+    if (!hajiraModal || !modalEditable || attendanceLocked(hajiraModal)) return;
+    const row = rows.find((r) => r.labourId === hajiraModal.labourId);
+    if (!row) return;
+    setHajiraModal((m) => {
+      if (!m) return m;
+      const blank = (value) => value === "" || value == null;
+      const present = blank(m.present)
+        ? row.defaultAttendance === "" || row.defaultAttendance == null
+          ? ""
+          : String(row.defaultAttendance)
+        : m.present;
+      const salary = blank(m.salary) ? row.defaultSalary : m.salary;
+      return { ...m, present, salary };
     });
   };
 
@@ -774,6 +842,20 @@ export const HajiraPage = () => {
     });
   };
 
+  const applyPaymentModalDefaults = () => {
+    if (!paymentModal || !modalEditable) return;
+    const spec = PAYMENT_SPECS.find((s) => s.key === paymentTab);
+    if (!spec || spec.key !== "payment") return;
+    if (paymentSlotLocked(paymentModal, spec)) return;
+    const row = rows.find((r) => r.labourId === paymentModal.labourId);
+    if (!row) return;
+    setPaymentModal((m) => {
+      if (!m) return m;
+      if (m.payment !== "" && m.payment != null) return m;
+      return { ...m, payment: row.defaultFooding };
+    });
+  };
+
   const onAcceptChanges = async () => {
     if (!canChangeActivityLog || unreviwedActivityIds.length === 0) return;
     const ok = await confirmAction({
@@ -825,31 +907,190 @@ export const HajiraPage = () => {
     setEditing(true);
   };
 
-  const onUseDefaults = () => {
-    const isBlank = (value) => value === "" || value == null;
-    const paymentSpec = PAYMENT_SPECS[0];
+  const isBlank = (value) => value === "" || value == null;
+
+  const applyAttendanceDefaults = () => {
     setRows((prev) =>
       prev.map((row) => {
-        const skipAttendance = attendanceLocked(row);
-        const skipPayment = paymentSlotLocked(row, paymentSpec);
+        if (attendanceLocked(row)) return row;
         return {
           ...row,
-          present:
-            !skipAttendance && isBlank(row.present)
-              ? row.defaultAttendance
-              : row.present,
-          salary:
-            !skipAttendance && isBlank(row.salary)
-              ? row.defaultSalary
-              : row.salary,
-          payment:
-            !skipPayment && isBlank(row.payment)
-              ? row.defaultFooding
-              : row.payment,
+          present: isBlank(row.present) ? row.defaultAttendance : row.present,
+          salary: isBlank(row.salary) ? row.defaultSalary : row.salary,
         };
       }),
     );
   };
+
+  const applyPaymentDefaults = () => {
+    const paymentSpec = PAYMENT_SPECS[0];
+    setRows((prev) =>
+      prev.map((row) => {
+        if (paymentSlotLocked(row, paymentSpec)) return row;
+        return {
+          ...row,
+          payment: isBlank(row.payment) ? row.defaultFooding : row.payment,
+        };
+      }),
+    );
+  };
+
+  const openHajiraBulkModal = () => {
+    setBulkAttendance(emptyBulkAttendance());
+    document.getElementById(HAJIRA_BULK_MODAL_ID)?.showModal();
+  };
+
+  const openPaymentBulkModal = () => {
+    setBulkPayment(emptyBulkPayment());
+    document.getElementById(PAYMENT_BULK_MODAL_ID)?.showModal();
+  };
+
+  const onHajiraBulkDefault = () => {
+    applyAttendanceDefaults();
+    document.getElementById(HAJIRA_BULK_MODAL_ID)?.close();
+  };
+
+  const onHajiraBulkCustom = () => {
+    if (!isBulkAttendanceDirty(bulkAttendance)) return;
+    if (isBulkAttendanceZeroInvalid(bulkAttendance)) {
+      toastInfo(ZERO_PRESENT_EXTRA_MESSAGE);
+      return;
+    }
+
+    const customWouldBeInvalid = rows.some((row) => {
+      if (attendanceLocked(row)) return false;
+      const next = {
+        present:
+          bulkAttendance.present === ""
+            ? row.present
+            : Number(bulkAttendance.present),
+        extra:
+          bulkAttendance.extra === "" || bulkAttendance.extra == null
+            ? row.extra
+            : Number(bulkAttendance.extra),
+      };
+      return isZeroPresentAndExtra(next);
+    });
+    if (customWouldBeInvalid) {
+      toastInfo(ZERO_PRESENT_EXTRA_MESSAGE);
+      return;
+    }
+
+    setRows((prev) =>
+      prev.map((row) => {
+        if (attendanceLocked(row)) return row;
+        return {
+          ...row,
+          present:
+            bulkAttendance.present === ""
+              ? row.present
+              : Number(bulkAttendance.present),
+          salary:
+            bulkAttendance.salary === "" || bulkAttendance.salary == null
+              ? row.salary
+              : Number(bulkAttendance.salary),
+          extra:
+            bulkAttendance.extra === "" || bulkAttendance.extra == null
+              ? row.extra
+              : Number(bulkAttendance.extra),
+          extraNote:
+            bulkAttendance.note === ""
+              ? row.extraNote
+              : bulkAttendance.note,
+          billing:
+            bulkAttendance.billing === ""
+              ? row.billing
+              : bulkAttendance.billing,
+        };
+      }),
+    );
+    document.getElementById(HAJIRA_BULK_MODAL_ID)?.close();
+  };
+
+  const onPaymentBulkDefault = () => {
+    applyPaymentDefaults();
+    document.getElementById(PAYMENT_BULK_MODAL_ID)?.close();
+  };
+
+  const onPaymentBulkCustom = () => {
+    if (!isBulkPaymentDirty(bulkPayment)) return;
+    const paymentSpec = PAYMENT_SPECS[0];
+    setRows((prev) =>
+      prev.map((row) => {
+        if (paymentSlotLocked(row, paymentSpec)) return row;
+        return {
+          ...row,
+          payment:
+            bulkPayment.payment === "" || bulkPayment.payment == null
+              ? row.payment
+              : Number(bulkPayment.payment),
+          paymentNote:
+            bulkPayment.paymentNote === ""
+              ? row.paymentNote
+              : bulkPayment.paymentNote,
+        };
+      }),
+    );
+    document.getElementById(PAYMENT_BULK_MODAL_ID)?.close();
+  };
+
+  const onHajiraBulkReset = () => {
+    setRows((prev) =>
+      prev.map((row) => {
+        if (attendanceLocked(row)) return row;
+        const initial = initialByLabour.get(row.labourId);
+        if (!initial) return row;
+        return {
+          ...row,
+          present: initial.present,
+          salary: initial.salary,
+          extra: initial.extra,
+          extraNote: initial.extraNote,
+          billing: initial.billing,
+        };
+      }),
+    );
+    setBulkAttendance(emptyBulkAttendance());
+    document.getElementById(HAJIRA_BULK_MODAL_ID)?.close();
+  };
+
+  const onPaymentBulkReset = () => {
+    setRows((prev) =>
+      prev.map((row) => {
+        const initial = initialByLabour.get(row.labourId);
+        if (!initial) return row;
+        let next = row;
+        for (const spec of PAYMENT_SPECS) {
+          if (paymentSlotLocked(row, spec)) continue;
+          next = {
+            ...next,
+            [spec.key]: initial[spec.key],
+            [spec.noteKey]: initial[spec.noteKey],
+          };
+        }
+        return next;
+      }),
+    );
+    setBulkPayment(emptyBulkPayment());
+    document.getElementById(PAYMENT_BULK_MODAL_ID)?.close();
+  };
+
+  const hasHajiraBulkReset =
+    rows.some((row) => {
+      if (attendanceLocked(row)) return false;
+      const initial = initialByLabour.get(row.labourId);
+      return initial ? isAttendanceDirty(row, initial) : false;
+    }) || isBulkAttendanceDirty(bulkAttendance);
+
+  const hasPaymentBulkReset =
+    rows.some((row) => {
+      const initial = initialByLabour.get(row.labourId);
+      if (!initial) return false;
+      return PAYMENT_SPECS.some(
+        (spec) =>
+          !paymentSlotLocked(row, spec) && isPaymentDirty(row, initial, spec.key),
+      );
+    }) || isBulkPaymentDirty(bulkPayment);
 
   const onCancel = () => {
     setEditing(false);
@@ -961,6 +1202,22 @@ export const HajiraPage = () => {
 
   const onSave = async () => {
     setApiError(null);
+    const invalidZero = rows.some((row) => {
+      const initial =
+        initialRows.find((r) => r.labourId === row.labourId) ?? row;
+      if (
+        !isAttendanceDirty(row, initial) ||
+        row.attendanceSealed ||
+        !(row.attendanceId || hasAttendanceData(row))
+      ) {
+        return false;
+      }
+      return isZeroPresentAndExtra(row);
+    });
+    if (invalidZero) {
+      toastInfo(ZERO_PRESENT_EXTRA_MESSAGE);
+      return;
+    }
     setSaving(true);
     try {
       const result = await saveMutation.mutateAsync();
@@ -986,7 +1243,6 @@ export const HajiraPage = () => {
       await queryClient.invalidateQueries({
         queryKey: ["sites", siteId, "daily-reports"],
       });
-      setEditing(false);
       toastSuccess("হাজিরা ও পেমেন্ট সেভ হয়েছে");
     } catch (err) {
       setApiError(parseApiError(err));
@@ -1054,7 +1310,9 @@ export const HajiraPage = () => {
               <th>নাম</th>
               <th className="text-right">
                 {editing ? (
-                  "হাজিরা"
+                  <button type="button" onClick={openHajiraBulkModal}>
+                    হাজিরা
+                  </button>
                 ) : (
                   <button
                     type="button"
@@ -1080,7 +1338,9 @@ export const HajiraPage = () => {
               ) : null}
               <th className="text-right">
                 {editing ? (
-                  "পেমেন্ট"
+                  <button type="button" onClick={openPaymentBulkModal}>
+                    পেমেন্ট
+                  </button>
                 ) : (
                   <button
                     type="button"
@@ -1100,7 +1360,7 @@ export const HajiraPage = () => {
             {visibleRows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={showAyColumn ? 6 : 5}
+                  colSpan={showAyColumn ? 5 : 4}
                   className="text-center text-sm text-base-content/60 py-10"
                 >
                   {emptyMessage}
@@ -1247,10 +1507,10 @@ export const HajiraPage = () => {
           </tbody>
           {visibleRows.length > 0 ? (
             <tfoot>
-              <tr className="font-medium border-t border-base-300">
+              <tr className="border-t border-base-300">
                 <td />
-                <td className="whitespace-nowrap">Total</td>
-                <td className="tabular-nums">
+                <td className="whitespace-nowrap">মোট</td>
+                <td className="text-right tabular-nums">
                   {totals.present ? formatBnNumber(totals.present) : "—"}
                 </td>
                 {showAyColumn ? (
@@ -1273,7 +1533,9 @@ export const HajiraPage = () => {
                       ) : null}
                     </span>
                   ) : (
-                    <span className="text-base-content/60">—</span>
+                    <span className="block w-full text-right text-base-content/60">
+                      —
+                    </span>
                   )}
                 </td>
               </tr>
@@ -1283,37 +1545,27 @@ export const HajiraPage = () => {
       </div>
 
       {editing ? (
-        <>
+        <div className="fixed bottom-16 right-4 z-40 flex items-center gap-2">
           <button
             type="button"
-            className="btn btn-outline btn-primary fixed bottom-16 left-4 z-40 shadow-lg bg-base-100"
-            onClick={onUseDefaults}
-            disabled={saving || rows.length === 0}
+            className="btn shadow-lg bg-base-100 border border-base-300"
+            onClick={onCancel}
+            disabled={saving}
           >
-            ডিফল্ট
+            বাতিল করুন
           </button>
-          <div className="fixed bottom-16 right-4 z-40 flex items-center gap-2">
-            <button
-              type="button"
-              className="btn shadow-lg bg-base-100 border border-base-300"
-              onClick={onCancel}
-              disabled={saving}
-            >
-              বাতিল করুন
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary shadow-lg"
-              onClick={onSave}
-              disabled={saving || !isDirty || rows.length === 0}
-            >
-              {saving ? (
-                <span className="loading loading-spinner loading-sm" />
-              ) : null}
-              নিশ্চিত করুন
-            </button>
-          </div>
-        </>
+          <button
+            type="button"
+            className="btn btn-primary shadow-lg"
+            onClick={onSave}
+            disabled={saving || !isDirty || rows.length === 0}
+          >
+            {saving ? (
+              <span className="loading loading-spinner loading-sm" />
+            ) : null}
+            নিশ্চিত করুন
+          </button>
+        </div>
       ) : (
         <>
           <button
@@ -1590,21 +1842,30 @@ export const HajiraPage = () => {
               )}
 
               {!hajiraModalLocked ? (
-                <div className="modal-action pt-1">
+                <div className="modal-action pt-1 flex-wrap justify-between gap-2">
                   <button
                     type="button"
                     className="btn btn-ghost btn-sm"
                     onClick={resetHajiraModal}
                   >
-                    Reset
+                    রিসেট করুন
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={saveHajiraModal}
-                  >
-                    Save
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={applyHajiraModalDefaults}
+                    >
+                      ডিফল্ট
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={saveHajiraModal}
+                    >
+                      সেট করুন
+                    </button>
+                  </div>
                 </div>
               ) : null}
                   </>
@@ -1755,7 +2016,7 @@ export const HajiraPage = () => {
               )}
 
               {modalEditable ? (
-                <div className="modal-action pt-1 justify-between">
+                <div className="modal-action pt-1 flex-wrap justify-between gap-2">
                   <button
                     type="button"
                     className="btn btn-ghost btn-sm"
@@ -1766,20 +2027,249 @@ export const HajiraPage = () => {
                         paymentSlotLocked(paymentModal, spec),
                     )}
                   >
-                    Reset
+                    রিসেট করুন
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={savePaymentModal}
-                  >
-                    Save
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={applyPaymentModalDefaults}
+                      disabled={
+                        paymentTab !== "payment" ||
+                        paymentSlotLocked(paymentModal, PAYMENT_SPECS[0])
+                      }
+                    >
+                      ডিফল্ট
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={savePaymentModal}
+                    >
+                      সেট করুন
+                    </button>
+                  </div>
                 </div>
               ) : null}
             </div>
           ) : null}
         </div>
+      </dialog>
+
+      <dialog id={HAJIRA_BULK_MODAL_ID} className="modal">
+        <div className="modal-box max-w-sm">
+          <form method="dialog">
+            <button
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              ✕
+            </button>
+          </form>
+          <h3 className="font-bold text-lg pr-8">হাজিরা</h3>
+          <div className="space-y-3 pt-3">
+            <label className="form-control w-full">
+              <span className="label-text text-sm">হাজিরা</span>
+              <select
+                className="select select-bordered select-sm w-full"
+                value={bulkAttendance.present}
+                onChange={(e) =>
+                  setBulkAttendance((m) => ({
+                    ...m,
+                    present: e.target.value,
+                  }))
+                }
+              >
+                <option value="">—</option>
+                {PRESENT_OPTIONS.map((v) => (
+                  <option key={v} value={String(v)}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="form-control w-full">
+              <span className="label-text text-sm">বেতন</span>
+              <input
+                type="number"
+                min={0}
+                className="input input-bordered input-sm w-full tabular-nums"
+                value={bulkAttendance.salary}
+                onChange={(e) =>
+                  setBulkAttendance((m) => ({
+                    ...m,
+                    salary: numOrEmpty(e.target.value),
+                  }))
+                }
+              />
+            </label>
+            <label className="form-control w-full">
+              <span className="label-text text-sm">বাড়তি</span>
+              <input
+                type="number"
+                min={0}
+                className="input input-bordered input-sm w-full tabular-nums"
+                value={bulkAttendance.extra}
+                onChange={(e) =>
+                  setBulkAttendance((m) => ({
+                    ...m,
+                    extra: numOrEmpty(e.target.value),
+                  }))
+                }
+              />
+            </label>
+            <label className="form-control w-full">
+              <span className="label-text text-sm">নোট</span>
+              <input
+                type="text"
+                className="input input-bordered input-sm w-full"
+                value={bulkAttendance.note}
+                onChange={(e) =>
+                  setBulkAttendance((m) => ({
+                    ...m,
+                    note: e.target.value,
+                  }))
+                }
+                maxLength={255}
+              />
+            </label>
+            <label className="form-control w-full">
+              <span className="label-text text-sm">বিলিং</span>
+              <select
+                className="select select-bordered select-sm w-full"
+                value={
+                  bulkAttendance.billing == null ||
+                  bulkAttendance.billing === ""
+                    ? ""
+                    : String(bulkAttendance.billing)
+                }
+                onChange={(e) =>
+                  setBulkAttendance((m) => ({
+                    ...m,
+                    billing: e.target.value,
+                  }))
+                }
+              >
+                <option value="">—</option>
+                <option value="">{NULL_BILLING_LABEL}</option>
+                {billingOptions.map((b) => (
+                  <option key={b.id} value={String(b.id)}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="modal-action pt-1 flex-wrap justify-between gap-2">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={onHajiraBulkReset}
+                disabled={!hasHajiraBulkReset}
+              >
+                রিসেট
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={onHajiraBulkDefault}
+                >
+                  ডিফল্ট সেট
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={onHajiraBulkCustom}
+                  disabled={
+                    !isBulkAttendanceDirty(bulkAttendance) ||
+                    isBulkAttendanceZeroInvalid(bulkAttendance)
+                  }
+                >
+                  কাস্টম সেট
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <form method="dialog" className="modal-backdrop">
+          <button type="submit">close</button>
+        </form>
+      </dialog>
+
+      <dialog id={PAYMENT_BULK_MODAL_ID} className="modal">
+        <div className="modal-box max-w-sm">
+          <form method="dialog">
+            <button
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              ✕
+            </button>
+          </form>
+          <h3 className="font-bold text-lg pr-8">পেমেন্ট</h3>
+          <div className="space-y-3 pt-3">
+            <label className="form-control w-full">
+              <span className="label-text text-sm">নোট</span>
+              <input
+                type="text"
+                className="input input-bordered input-sm w-full"
+                value={bulkPayment.paymentNote}
+                onChange={(e) =>
+                  setBulkPayment((m) => ({
+                    ...m,
+                    paymentNote: e.target.value,
+                  }))
+                }
+                maxLength={255}
+              />
+            </label>
+            <label className="form-control w-full">
+              <span className="label-text text-sm">পরিমাণ</span>
+              <input
+                type="number"
+                min={0}
+                className="input input-bordered input-sm w-full tabular-nums"
+                value={bulkPayment.payment}
+                onChange={(e) =>
+                  setBulkPayment((m) => ({
+                    ...m,
+                    payment: numOrEmpty(e.target.value),
+                  }))
+                }
+              />
+            </label>
+            <div className="modal-action pt-1 flex-wrap justify-between gap-2">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={onPaymentBulkReset}
+                disabled={!hasPaymentBulkReset}
+              >
+                রিসেট
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={onPaymentBulkDefault}
+                >
+                  ডিফল্ট সেট
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={onPaymentBulkCustom}
+                  disabled={!isBulkPaymentDirty(bulkPayment)}
+                >
+                  কাস্টম সেট
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <form method="dialog" className="modal-backdrop">
+          <button type="submit">close</button>
+        </form>
       </dialog>
 
       <dialog id={HAJIRA_FILTER_MODAL_ID} className="modal">
