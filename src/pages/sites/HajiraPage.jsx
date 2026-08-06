@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -19,9 +19,11 @@ import {
   buildHajiraViewRows,
 } from "../../api/types/hajira.js";
 import {
+  activityCellToneClass,
   activityTextToneClass,
   activityToneClass,
   applyActivitiesToViewRows,
+  snapshotFields,
 } from "../../api/types/activity.js";
 import { fetchActivities, reviewActivitiesBulk } from "../../api/activities.js";
 import { messageForCode, parseApiError } from "../../api/errors.js";
@@ -44,6 +46,368 @@ import {
   readSelectedSite,
   todayIso,
 } from "../../utils/sessionSelection.js";
+
+const MODAL_VIEWS = {
+  detail: "detail",
+  history: "history",
+};
+
+const ATTENDANCE_LOG_FIELD_LABELS = {
+  present: "হাজিরা",
+  salary: "বেতন",
+  extra: "বাড়তি",
+  note: "নোট",
+  billing: "বিলিং",
+  billing_id: "বিলিং",
+  date: "তারিখ",
+};
+
+const PAYMENT_LOG_FIELD_LABELS = {
+  amount: "পরিমাণ",
+  note: "নোট",
+  type: "ধরন",
+  date: "তারিখ",
+};
+
+const paymentTypeLabel = (value) => {
+  if (value === "payment") return "পেমেন্ট";
+  if (value === "return") return "রিটার্ন";
+  return value == null || value === "" ? "—" : String(value);
+};
+
+const formatLogDateTimeBn = (iso) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("bn-BD", {
+    day: "numeric",
+    month: "short",
+    year: "2-digit",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(d);
+};
+
+const formatLogDateTimePartsBn = (iso) => {
+  if (!iso) return { date: "—", time: "" };
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return { date: "—", time: "" };
+  return {
+    date: new Intl.DateTimeFormat("bn-BD", {
+      day: "numeric",
+      month: "short",
+      year: "2-digit",
+    }).format(d),
+    time: new Intl.DateTimeFormat("bn-BD", {
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(d),
+  };
+};
+
+const DateTimeStacked = ({ iso, className = "" }) => {
+  const { date, time } = formatLogDateTimePartsBn(iso);
+  return (
+    <span
+      className={["inline-flex flex-col leading-tight", className]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <span>{date}</span>
+      {time ? <span>{time}</span> : null}
+    </span>
+  );
+};
+
+const shortActionLabel = (action) => {
+  if (action === "updated") return "আপডেট";
+  if (action === "deleted") return "ডিলিট";
+  return "তৈরি";
+};
+
+const activityChangeEntries = (changes) => {
+  if (!changes || typeof changes !== "object" || Array.isArray(changes)) {
+    return [];
+  }
+  return Object.entries(changes).map(([key, value]) => {
+    if (
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      ("old" in value || "new" in value)
+    ) {
+      return { key, isDiff: true, old: value.old, next: value.new };
+    }
+    if (Array.isArray(value) && value.length >= 2) {
+      return { key, isDiff: true, old: value[0], next: value[1] };
+    }
+    return { key, isDiff: false, value };
+  });
+};
+
+const formatHajiraLogValue = (key, value, billingNameFn) => {
+  if (value == null || value === "" || value === "None" || value === "null") {
+    if (key === "billing" || key === "billing_id") return NULL_BILLING_LABEL;
+    return "—";
+  }
+  if (key === "type") return paymentTypeLabel(value);
+  if (key === "billing" || key === "billing_id") {
+    return billingDiffLabel(value, billingNameFn);
+  }
+  if (key === "present" || key === "salary" || key === "extra" || key === "amount") {
+    return formatDiffNumber(value);
+  }
+  if (typeof value === "boolean") return value ? "হ্যাঁ" : "না";
+  if (typeof value === "object") {
+    if (value.name) return String(value.name);
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
+};
+
+const summarizeAttendanceLog = (log, billingNameFn) => {
+  if (!log) return "—";
+  const fields = snapshotFields(log.changes);
+  const bits = [];
+  if (fields.present != null && fields.present !== "") {
+    bits.push(formatHajiraLogValue("present", fields.present, billingNameFn));
+  }
+  if (fields.extra != null && Number(fields.extra) > 0) {
+    bits.push(`বাড়তি ${formatHajiraLogValue("extra", fields.extra, billingNameFn)}`);
+  }
+  if (fields.billing != null || fields.billing_id != null) {
+    bits.push(
+      formatHajiraLogValue(
+        "billing",
+        fields.billing ?? fields.billing_id,
+        billingNameFn,
+      ),
+    );
+  }
+  if (fields.note != null && fields.note !== "") bits.push(String(fields.note));
+  return bits.length ? bits.join(" · ") : "—";
+};
+
+const summarizePaymentLog = (log, billingNameFn) => {
+  if (!log) return "—";
+  const fields = snapshotFields(log.changes);
+  const bits = [];
+  if (fields.type) bits.push(paymentTypeLabel(fields.type));
+  if (fields.amount != null && fields.amount !== "") {
+    bits.push(formatHajiraLogValue("amount", fields.amount, billingNameFn));
+  }
+  if (fields.note != null && fields.note !== "") bits.push(String(fields.note));
+  return bits.length ? bits.join(" · ") : "—";
+};
+
+const HistoryBiboron = ({ log, billingNameFn, summarize }) => {
+  if (!log) return "—";
+  if (log.action === "updated") {
+    const entries = activityChangeEntries(log.changes).filter((e) => e.isDiff);
+    if (!entries.length) return "—";
+    return (
+      <span className="inline">
+        {entries.map((entry, index) => (
+          <Fragment key={entry.key}>
+            {index > 0 ? (
+              <span className="text-base-content/40"> · </span>
+            ) : null}
+            <ChangePair
+              oldText={formatHajiraLogValue(
+                entry.key,
+                entry.old,
+                billingNameFn,
+              )}
+              newText={formatHajiraLogValue(
+                entry.key,
+                entry.next,
+                billingNameFn,
+              )}
+            />
+          </Fragment>
+        ))}
+      </span>
+    );
+  }
+  return summarize(log, billingNameFn);
+};
+
+const EntityHistoryPanel = ({
+  isLoading,
+  error,
+  logs,
+  expandedId,
+  setExpandedId,
+  fieldLabels,
+  billingNameFn,
+  summarize,
+  snapshotKeys,
+}) => {
+  if (isLoading) {
+    return (
+      <div className="flex flex-1 justify-center items-center py-8">
+        <span className="loading loading-spinner loading-md text-primary" />
+      </div>
+    );
+  }
+  if (error) {
+    return <ApiErrorAlert error={parseApiError(error)} />;
+  }
+  if (!logs.length) {
+    return (
+      <p className="text-sm text-base-content/60 text-center py-8">
+        কোনো হিস্ট্রি নেই।
+      </p>
+    );
+  }
+
+  return (
+    <table className="table table-sm w-full">
+      <thead>
+        <tr className="border-b border-base-300">
+          <th className="w-28 sm:w-32">তারিখ</th>
+          <th>বিবরণ</th>
+        </tr>
+      </thead>
+      <tbody>
+        {logs.map((log) => {
+          const open = expandedId === log.id;
+          const reviewed = Boolean(log.reviewed_at);
+          const fields = snapshotFields(log.changes);
+          const logChanges = activityChangeEntries(log.changes);
+          return (
+            <Fragment key={log.id}>
+              <tr
+                className={[
+                  "border-b border-base-300/70 cursor-pointer hover:bg-base-200/60",
+                  activityToneClass(log.action),
+                  reviewed ? "opacity-50" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onClick={() => setExpandedId(open ? null : log.id)}
+              >
+                <td className="text-xs tabular-nums text-base-content/70 align-middle whitespace-nowrap">
+                  <DateTimeStacked iso={log.created_at} />
+                </td>
+                <td className="text-sm leading-snug align-middle max-w-0">
+                  <div className="truncate">
+                    <HistoryBiboron
+                      log={log}
+                      billingNameFn={billingNameFn}
+                      summarize={summarize}
+                    />
+                  </div>
+                </td>
+              </tr>
+              {open ? (
+                <tr
+                  className={[
+                    "border-b border-base-300/70",
+                    reviewed ? "opacity-50" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                >
+                  <td colSpan={2} className="bg-base-200/40 px-2 py-1.5">
+                    <div className="flex flex-col gap-0.5 text-xs leading-snug pb-1.5 mb-1.5 border-b border-base-300">
+                      <p>
+                        <span className="text-base-content/50">
+                          {shortActionLabel(log.action)}:{" "}
+                        </span>
+                        <span className={activityTextToneClass(log.action)}>
+                          {log.actor_name || "—"}
+                        </span>
+                        <span className="text-base-content/60">
+                          {" "}
+                          ({formatLogDateTimeBn(log.created_at)})
+                        </span>
+                      </p>
+                      <p>
+                        <span className="text-base-content/50">অডিট: </span>
+                        {log.reviewed_at ? (
+                          <>
+                            <span>{log.reviewed_by_name || "—"}</span>
+                            <span className="text-base-content/60">
+                              {" "}
+                              ({formatLogDateTimeBn(log.reviewed_at)})
+                            </span>
+                          </>
+                        ) : (
+                          "—"
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-0.5 text-xs leading-snug">
+                      {log.action === "updated" ? (
+                        logChanges.length ? (
+                          logChanges.map((entry) => (
+                            <div key={entry.key} className="flex gap-1.5">
+                              <span className="w-16 shrink-0 text-base-content/60">
+                                {fieldLabels[entry.key] ?? entry.key}
+                              </span>
+                              <span className="min-w-0">
+                                {entry.isDiff ? (
+                                  <ChangePair
+                                    oldText={formatHajiraLogValue(
+                                      entry.key,
+                                      entry.old,
+                                      billingNameFn,
+                                    )}
+                                    newText={formatHajiraLogValue(
+                                      entry.key,
+                                      entry.next,
+                                      billingNameFn,
+                                    )}
+                                  />
+                                ) : (
+                                  formatHajiraLogValue(
+                                    entry.key,
+                                    entry.value,
+                                    billingNameFn,
+                                  )
+                                )}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-base-content/50">
+                            কোনো পরিবর্তন নেই।
+                          </p>
+                        )
+                      ) : (
+                        snapshotKeys.map((key) => (
+                          <div key={key} className="flex gap-1.5">
+                            <span className="w-16 shrink-0 text-base-content/60">
+                              {fieldLabels[key] ?? key}
+                            </span>
+                            <span>
+                              {formatHajiraLogValue(
+                                key,
+                                key === "billing"
+                                  ? (fields.billing ?? fields.billing_id)
+                                  : fields[key],
+                                billingNameFn,
+                              )}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : null}
+            </Fragment>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+};
 
 const cloneRows = (rows) => structuredClone(rows);
 
@@ -334,25 +698,6 @@ const PAYMENT_FILTER_OPTIONS = [
 const filterLabel = (options, value) =>
   options.find((opt) => opt.value === value)?.label ?? options[0]?.label ?? "";
 
-const formatMetaDate = (iso) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return new Intl.DateTimeFormat("bn-BD", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(d);
-};
-
-const wasUpdated = (createdAt, updatedAt) => {
-  if (!createdAt || !updatedAt) return false;
-  const created = new Date(createdAt).getTime();
-  const updated = new Date(updatedAt).getTime();
-  if (Number.isNaN(created) || Number.isNaN(updated)) return false;
-  return updated !== created;
-};
-
 /** Bulk review validation: attr ids + missing id details. */
 const formatBulkReviewError = (parsed) => {
   const errors = Array.isArray(parsed?.errors) ? parsed.errors : [];
@@ -423,7 +768,6 @@ export const HajiraPage = () => {
   const canChangeActivityLog =
     can(PERMS.changeActivityLog) ||
     hasPermissionSuffix(profile, "change_activitylog");
-  const showAyColumn = Boolean(isCompanyAdmin) && !editing;
 
   const siteId = selectedSiteId || readSelectedSite();
   const date = selectedDate || readSelectedDate() || todayIso();
@@ -438,9 +782,13 @@ export const HajiraPage = () => {
   const [reviewing, setReviewing] = useState(false);
   const [hajiraModal, setHajiraModal] = useState(null);
   const [paymentModal, setPaymentModal] = useState(null);
-  const [paymentTab, setPaymentTab] = useState(PAYMENT_SPECS[0].key);
+  const [hajiraModalView, setHajiraModalView] = useState(MODAL_VIEWS.detail);
+  const [paymentModalView, setPaymentModalView] = useState(MODAL_VIEWS.detail);
+  const [expandedHajiraHistoryId, setExpandedHajiraHistoryId] = useState(null);
+  const [expandedPaymentHistoryId, setExpandedPaymentHistoryId] =
+    useState(null);
   const [earningsFilter, setEarningsFilter] = useState("earn");
-  const [paymentFilter, setPaymentFilter] = useState(["payment"]);
+  const [paymentFilter, setPaymentFilter] = useState(["payment", "return"]);
   const [billingFilter, setBillingFilter] = useState("all");
   const [hajiraFilter, setHajiraFilter] = useState([
     "present",
@@ -452,6 +800,8 @@ export const HajiraPage = () => {
   );
   const [bulkAttendance, setBulkAttendance] = useState(emptyBulkAttendance);
   const [bulkPayment, setBulkPayment] = useState(emptyBulkPayment);
+
+  const showAyColumn = Boolean(isCompanyAdmin) && !editing;
 
   const attendanceQuery = useQuery({
     queryKey: ["sites", siteId, "labour-attendances", { date }],
@@ -541,6 +891,134 @@ export const HajiraPage = () => {
     return [...ids].filter((id) => Number.isFinite(id));
   }, [activityAttendanceQuery.data, activityPaymentQuery.data]);
 
+  const canShowPaymentHistory = Boolean(
+    paymentModal?.paymentId || paymentModal?.returnId,
+  );
+
+  const attendanceHistoryQuery = useQuery({
+    queryKey: [
+      "activities",
+      {
+        site: siteId,
+        business_date: date,
+        entity_type: "attendance",
+        entity_id: hajiraModal?.attendanceId,
+      },
+    ],
+    queryFn: async () => {
+      const { data } = await fetchActivities({
+        site: siteId,
+        business_date: date,
+        entity_type: "attendance",
+        entity_id: hajiraModal.attendanceId,
+        paginate: false,
+      });
+      return data;
+    },
+    enabled: Boolean(
+      canViewActivityLog &&
+        siteId &&
+        date &&
+        hajiraModal?.attendanceId &&
+        !editing &&
+        hajiraModalView === MODAL_VIEWS.history,
+    ),
+  });
+
+  const paymentSlotHistoryQuery = useQuery({
+    queryKey: [
+      "activities",
+      {
+        site: siteId,
+        business_date: date,
+        entity_type: "labour_payment",
+        entity_id: paymentModal?.paymentId,
+        slot: "payment",
+      },
+    ],
+    queryFn: async () => {
+      const { data } = await fetchActivities({
+        site: siteId,
+        business_date: date,
+        entity_type: "labour_payment",
+        entity_id: paymentModal.paymentId,
+        paginate: false,
+      });
+      return data;
+    },
+    enabled: Boolean(
+      canViewActivityLog &&
+        siteId &&
+        date &&
+        paymentModal?.paymentId &&
+        !editing &&
+        paymentModalView === MODAL_VIEWS.history,
+    ),
+  });
+
+  const returnSlotHistoryQuery = useQuery({
+    queryKey: [
+      "activities",
+      {
+        site: siteId,
+        business_date: date,
+        entity_type: "labour_payment",
+        entity_id: paymentModal?.returnId,
+        slot: "return",
+      },
+    ],
+    queryFn: async () => {
+      const { data } = await fetchActivities({
+        site: siteId,
+        business_date: date,
+        entity_type: "labour_payment",
+        entity_id: paymentModal.returnId,
+        paginate: false,
+      });
+      return data;
+    },
+    enabled: Boolean(
+      canViewActivityLog &&
+        siteId &&
+        date &&
+        paymentModal?.returnId &&
+        !editing &&
+        paymentModalView === MODAL_VIEWS.history,
+    ),
+  });
+
+  const attendanceHistoryLogs = useMemo(() => {
+    const logs = attendanceHistoryQuery.data ?? [];
+    return [...logs].sort((a, b) => {
+      const ta = new Date(a.created_at).getTime();
+      const tb = new Date(b.created_at).getTime();
+      return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+    });
+  }, [attendanceHistoryQuery.data]);
+
+  const paymentHistoryLogs = useMemo(() => {
+    const byId = new Map();
+    for (const log of [
+      ...(paymentSlotHistoryQuery.data ?? []),
+      ...(returnSlotHistoryQuery.data ?? []),
+    ]) {
+      if (log?.id == null) continue;
+      byId.set(log.id, log);
+    }
+    return [...byId.values()].sort((a, b) => {
+      const ta = new Date(a.created_at).getTime();
+      const tb = new Date(b.created_at).getTime();
+      return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+    });
+  }, [paymentSlotHistoryQuery.data, returnSlotHistoryQuery.data]);
+
+  const paymentHistoryLoading =
+    (Boolean(paymentModal?.paymentId) && paymentSlotHistoryQuery.isLoading) ||
+    (Boolean(paymentModal?.returnId) && returnSlotHistoryQuery.isLoading);
+
+  const paymentHistoryError =
+    paymentSlotHistoryQuery.error || returnSlotHistoryQuery.error;
+
   const billingOptions = billingQuery.data ?? [];
 
   const billingLabelById = useMemo(() => {
@@ -593,7 +1071,7 @@ export const HajiraPage = () => {
     setHajiraModal(null);
     setPaymentModal(null);
     setEarningsFilter("earn");
-    setPaymentFilter(["payment"]);
+    setPaymentFilter(["payment", "return"]);
     setBillingFilter("all");
     setHajiraFilter(["present", "extra", "billing"]);
   }, [siteId, date]);
@@ -722,6 +1200,8 @@ export const HajiraPage = () => {
     (row?.[spec.idKey] ? !canChangePayment : !canAddPayment);
 
   const openHajiraModal = (row) => {
+    setHajiraModalView(MODAL_VIEWS.detail);
+    setExpandedHajiraHistoryId(null);
     setHajiraModal({
       labourId: row.labourId,
       labourName: row.labourName,
@@ -792,10 +1272,8 @@ export const HajiraPage = () => {
   };
 
   const openPaymentModal = (row) => {
-    const firstOpen =
-      PAYMENT_SPECS.find((spec) => !paymentSlotLocked(row, spec)) ??
-      PAYMENT_SPECS[0];
-    setPaymentTab(firstOpen.key);
+    setPaymentModalView(MODAL_VIEWS.detail);
+    setExpandedPaymentHistoryId(null);
     setPaymentModal({
       labourId: row.labourId,
       labourName: row.labourName,
@@ -833,19 +1311,22 @@ export const HajiraPage = () => {
     if (!paymentModal) return;
     const initial = initialByLabour.get(paymentModal.labourId);
     if (!initial) return;
-    const spec = PAYMENT_SPECS.find((s) => s.key === paymentTab);
-    if (!spec) return;
+    const patch = {};
+    for (const spec of PAYMENT_SPECS) {
+      if (paymentSlotLocked(paymentModal, spec)) continue;
+      patch[spec.key] = initial[spec.key];
+      patch[spec.noteKey] = initial[spec.noteKey] ?? "";
+    }
+    if (!Object.keys(patch).length) return;
     setPaymentModal({
       ...paymentModal,
-      [spec.key]: initial[spec.key],
-      [spec.noteKey]: initial[spec.noteKey] ?? "",
+      ...patch,
     });
   };
 
   const applyPaymentModalDefaults = () => {
     if (!paymentModal || !modalEditable) return;
-    const spec = PAYMENT_SPECS.find((s) => s.key === paymentTab);
-    if (!spec || spec.key !== "payment") return;
+    const spec = PAYMENT_SPECS[0];
     if (paymentSlotLocked(paymentModal, spec)) return;
     const row = rows.find((r) => r.labourId === paymentModal.labourId);
     if (!row) return;
@@ -1339,7 +1820,7 @@ export const HajiraPage = () => {
               <th className="text-right">
                 {editing ? (
                   <button type="button" onClick={openPaymentBulkModal}>
-                    পেমেন্ট
+                    লেনদেন
                   </button>
                 ) : (
                   <button
@@ -1350,7 +1831,7 @@ export const HajiraPage = () => {
                         ?.showModal()
                     }
                   >
-                    পেমেন্ট
+                    লেনদেন
                   </button>
                 )}
               </th>
@@ -1384,6 +1865,10 @@ export const HajiraPage = () => {
                 const hajiraGroupTone = editing
                   ? hajiraEditTone
                   : hajiraViewTone;
+                const hajiraCellBg =
+                  !editing ? activityCellToneClass(row.attendanceTone) : "";
+                const paymentCellBg =
+                  !editing ? activityCellToneClass(row.paymentTone) : "";
                 const paymentActivityTone = !editing
                   ? activityTextToneClass(row.paymentTone)
                   : "";
@@ -1399,12 +1884,7 @@ export const HajiraPage = () => {
                 return (
                   <tr
                     key={row.labourId}
-                    className={[
-                      "border-b border-base-300/70",
-                      !editing ? activityToneClass(row.activityTone) : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
+                    className="border-b border-base-300/70"
                   >
                     <td className="tabular-nums text-base-content/60">
                       {formatBnNumber(index + 1)}
@@ -1412,7 +1892,7 @@ export const HajiraPage = () => {
                     <td className="font-medium whitespace-nowrap max-w-28 truncate">
                       {row.labourName}
                     </td>
-                    <td className="text-right">
+                    <td className={`text-right ${hajiraCellBg}`}>
                       <button
                         type="button"
                         className={`btn btn-ghost btn-xs h-auto min-h-0 px-1 py-0.5 font-normal text-right leading-tight w-full justify-end ${hajiraGroupTone}`}
@@ -1434,7 +1914,7 @@ export const HajiraPage = () => {
                       </button>
                     </td>
                     {showAyColumn ? (
-                      <td className="text-right">
+                      <td className={`text-right ${hajiraCellBg}`}>
                         <button
                           type="button"
                           className={`btn btn-ghost btn-xs h-auto min-h-0 px-1 py-0.5 font-normal tabular-nums w-full justify-end ${hajiraGroupTone}`}
@@ -1444,7 +1924,7 @@ export const HajiraPage = () => {
                         </button>
                       </td>
                     ) : null}
-                    <td className="text-right">
+                    <td className={`text-right ${paymentCellBg}`}>
                       <button
                         type="button"
                         className="btn btn-ghost btn-xs h-auto min-h-0 px-1 py-0.5 font-normal text-right leading-tight w-full"
@@ -1600,9 +2080,13 @@ export const HajiraPage = () => {
       <dialog
         id={HAJIRA_MODAL_ID}
         className="modal"
-        onClose={() => setHajiraModal(null)}
+        onClose={() => {
+          setHajiraModal(null);
+          setHajiraModalView(MODAL_VIEWS.detail);
+          setExpandedHajiraHistoryId(null);
+        }}
       >
-        <div className="modal-box max-w-sm">
+        <div className="modal-box max-w-sm h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
             <button
               className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
@@ -1612,276 +2096,326 @@ export const HajiraPage = () => {
             </button>
           </form>
 
-          <h3 className="font-bold text-lg">
-            {hajiraModal
-              ? `হাজিরা (${hajiraModal.labourName})`
-              : "হাজিরা"}
+          <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">
+            {hajiraModal &&
+            canViewActivityLog &&
+            !editing &&
+            hajiraModal.attendanceId ? (
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  className={
+                    hajiraModalView === MODAL_VIEWS.detail
+                      ? "text-primary"
+                      : "text-base-content/50 hover:text-base-content"
+                  }
+                  onClick={() => {
+                    setHajiraModalView(MODAL_VIEWS.detail);
+                    setExpandedHajiraHistoryId(null);
+                  }}
+                >
+                  বিস্তারিত
+                </button>
+                <button
+                  type="button"
+                  className={
+                    hajiraModalView === MODAL_VIEWS.history
+                      ? "text-primary"
+                      : "text-base-content/50 hover:text-base-content"
+                  }
+                  onClick={() => {
+                    setHajiraModalView(MODAL_VIEWS.history);
+                    setExpandedHajiraHistoryId(null);
+                  }}
+                >
+                  হিস্ট্রি
+                </button>
+              </div>
+            ) : hajiraModal ? (
+              `হাজিরা (${hajiraModal.labourName})`
+            ) : (
+              "হাজিরা"
+            )}
           </h3>
-          {hajiraModal?.attendanceCreatedAt ? (
-            <p className="text-xs text-base-content/55 tabular-nums -mt-1">
-              তৈরি: {formatMetaDate(hajiraModal.attendanceCreatedAt)}
-              {wasUpdated(
-                hajiraModal.attendanceCreatedAt,
-                hajiraModal.attendanceUpdatedAt,
-              ) ? (
-                <>
-                  <span className="mx-1.5 opacity-60">·</span>
-                  আপডেট {formatMetaDate(hajiraModal.attendanceUpdatedAt)}
-                </>
-              ) : null}
-            </p>
-          ) : null}
 
-          {hajiraModal ? (
-            <div className="space-y-3 pt-3">
-              {(() => {
-                const showDiffs =
-                  hajiraModalLocked && Boolean(hajiraModal.attendanceDiffs);
-                const diffs = showDiffs ? hajiraModal.attendanceDiffs : null;
-                const presentDiff = diffPairFor(
-                  diffs,
-                  "present",
-                  hajiraModal.present,
-                  formatDiffNumber,
-                );
-                const salaryDiff = diffPairFor(
-                  diffs,
-                  "salary",
-                  hajiraModal.salary,
-                  formatDiffNumber,
-                );
-                const extraDiff = diffPairFor(
-                  diffs,
-                  "extra",
-                  hajiraModal.extra,
-                  formatDiffNumber,
-                );
-                const noteDiff = diffPairFor(
-                  diffs,
-                  "note",
-                  hajiraModal.note,
-                  formatDiffText,
-                );
-                const billingDiff = diffPairFor(
-                  diffs,
-                  "billing",
-                  hajiraModal.billing,
-                  (v) => billingDiffLabel(v, billingFullLabel),
-                );
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {hajiraModal &&
+            hajiraModalView === MODAL_VIEWS.history &&
+            !editing &&
+            hajiraModal.attendanceId ? (
+              <EntityHistoryPanel
+                isLoading={attendanceHistoryQuery.isLoading}
+                error={
+                  attendanceHistoryQuery.isError
+                    ? attendanceHistoryQuery.error
+                    : null
+                }
+                logs={attendanceHistoryLogs}
+                expandedId={expandedHajiraHistoryId}
+                setExpandedId={setExpandedHajiraHistoryId}
+                fieldLabels={ATTENDANCE_LOG_FIELD_LABELS}
+                billingNameFn={billingFullLabel}
+                summarize={summarizeAttendanceLog}
+                snapshotKeys={["present", "salary", "extra", "note", "billing"]}
+              />
+            ) : hajiraModal ? (
+              <div className="space-y-3">
+                {(() => {
+                  const showDiffs =
+                    hajiraModalLocked && Boolean(hajiraModal.attendanceDiffs);
+                  const diffs = showDiffs ? hajiraModal.attendanceDiffs : null;
+                  const presentDiff = diffPairFor(
+                    diffs,
+                    "present",
+                    hajiraModal.present,
+                    formatDiffNumber,
+                  );
+                  const salaryDiff = diffPairFor(
+                    diffs,
+                    "salary",
+                    hajiraModal.salary,
+                    formatDiffNumber,
+                  );
+                  const extraDiff = diffPairFor(
+                    diffs,
+                    "extra",
+                    hajiraModal.extra,
+                    formatDiffNumber,
+                  );
+                  const noteDiff = diffPairFor(
+                    diffs,
+                    "note",
+                    hajiraModal.note,
+                    formatDiffText,
+                  );
+                  const billingDiff = diffPairFor(
+                    diffs,
+                    "billing",
+                    hajiraModal.billing,
+                    (v) => billingDiffLabel(v, billingFullLabel),
+                  );
 
-                return (
-                  <>
-              <label className="form-control w-full">
-                <span className="label-text text-sm">হাজিরা</span>
-                {presentDiff ? (
-                  <div className="min-h-8 flex items-center px-1">
-                    <ChangePair
-                      oldText={presentDiff.oldText}
-                      newText={presentDiff.newText}
-                      newClassName="tabular-nums"
-                    />
-                  </div>
-                ) : (
-                  <select
-                    className="select select-bordered select-sm w-full"
-                    value={hajiraModal.present}
-                    disabled={hajiraModalLocked}
-                    onChange={(e) =>
-                      setHajiraModal((m) => ({
-                        ...m,
-                        present: e.target.value,
-                      }))
-                    }
-                  >
-                    <option value="">—</option>
-                    {PRESENT_OPTIONS.map((v) => (
-                      <option key={v} value={String(v)}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </label>
+                  return (
+                    <>
+                      <label className="form-control w-full">
+                        <span className="label-text text-sm">হাজিরা</span>
+                        {presentDiff ? (
+                          <div className="min-h-8 flex items-center px-1">
+                            <ChangePair
+                              oldText={presentDiff.oldText}
+                              newText={presentDiff.newText}
+                              newClassName="tabular-nums"
+                            />
+                          </div>
+                        ) : (
+                          <select
+                            className="select select-bordered select-sm w-full"
+                            value={hajiraModal.present}
+                            disabled={hajiraModalLocked}
+                            onChange={(e) =>
+                              setHajiraModal((m) => ({
+                                ...m,
+                                present: e.target.value,
+                              }))
+                            }
+                          >
+                            <option value="">—</option>
+                            {PRESENT_OPTIONS.map((v) => (
+                              <option key={v} value={String(v)}>
+                                {v}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </label>
 
-              <label className="form-control w-full">
-                <span className="label-text text-sm">বেতন</span>
-                {salaryDiff ? (
-                  <div className="min-h-8 flex items-center px-1">
-                    <ChangePair
-                      oldText={salaryDiff.oldText}
-                      newText={salaryDiff.newText}
-                      newClassName="tabular-nums"
-                    />
-                  </div>
-                ) : (
-                  <input
-                    type="number"
-                    min={0}
-                    className="input input-bordered input-sm w-full tabular-nums"
-                    value={hajiraModal.salary}
-                    disabled={hajiraModalLocked}
-                    onChange={(e) =>
-                      setHajiraModal((m) => ({
-                        ...m,
-                        salary: numOrEmpty(e.target.value),
-                      }))
-                    }
-                  />
-                )}
-              </label>
+                      <label className="form-control w-full">
+                        <span className="label-text text-sm">বেতন</span>
+                        {salaryDiff ? (
+                          <div className="min-h-8 flex items-center px-1">
+                            <ChangePair
+                              oldText={salaryDiff.oldText}
+                              newText={salaryDiff.newText}
+                              newClassName="tabular-nums"
+                            />
+                          </div>
+                        ) : (
+                          <input
+                            type="number"
+                            min={0}
+                            className="input input-bordered input-sm w-full tabular-nums"
+                            value={hajiraModal.salary}
+                            disabled={hajiraModalLocked}
+                            onChange={(e) =>
+                              setHajiraModal((m) => ({
+                                ...m,
+                                salary: numOrEmpty(e.target.value),
+                              }))
+                            }
+                          />
+                        )}
+                      </label>
 
-              <label className="form-control w-full">
-                <span className="label-text text-sm">বাড়তি</span>
-                {extraDiff ? (
-                  <div className="min-h-8 flex items-center px-1">
-                    <ChangePair
-                      oldText={extraDiff.oldText}
-                      newText={extraDiff.newText}
-                      newClassName="tabular-nums"
-                    />
-                  </div>
-                ) : (
-                  <input
-                    type="number"
-                    min={0}
-                    className="input input-bordered input-sm w-full tabular-nums"
-                    value={hajiraModal.extra}
-                    disabled={hajiraModalLocked}
-                    onChange={(e) =>
-                      setHajiraModal((m) => ({
-                        ...m,
-                        extra: numOrEmpty(e.target.value),
-                      }))
-                    }
-                  />
-                )}
-              </label>
+                      <label className="form-control w-full">
+                        <span className="label-text text-sm">বাড়তি</span>
+                        {extraDiff ? (
+                          <div className="min-h-8 flex items-center px-1">
+                            <ChangePair
+                              oldText={extraDiff.oldText}
+                              newText={extraDiff.newText}
+                              newClassName="tabular-nums"
+                            />
+                          </div>
+                        ) : (
+                          <input
+                            type="number"
+                            min={0}
+                            className="input input-bordered input-sm w-full tabular-nums"
+                            value={hajiraModal.extra}
+                            disabled={hajiraModalLocked}
+                            onChange={(e) =>
+                              setHajiraModal((m) => ({
+                                ...m,
+                                extra: numOrEmpty(e.target.value),
+                              }))
+                            }
+                          />
+                        )}
+                      </label>
 
-              <label className="form-control w-full">
-                <span className="label-text text-sm">নোট</span>
-                {noteDiff ? (
-                  <div className="min-h-8 flex items-center px-1">
-                    <ChangePair
-                      oldText={noteDiff.oldText}
-                      newText={noteDiff.newText}
-                    />
-                  </div>
-                ) : (
-                  <input
-                    type="text"
-                    className="input input-bordered input-sm w-full"
-                    value={hajiraModal.note}
-                    disabled={hajiraModalLocked}
-                    onChange={(e) =>
-                      setHajiraModal((m) => ({
-                        ...m,
-                        note: e.target.value,
-                      }))
-                    }
-                    maxLength={255}
-                  />
-                )}
-              </label>
+                      <label className="form-control w-full">
+                        <span className="label-text text-sm">নোট</span>
+                        {noteDiff ? (
+                          <div className="min-h-8 flex items-center px-1">
+                            <ChangePair
+                              oldText={noteDiff.oldText}
+                              newText={noteDiff.newText}
+                            />
+                          </div>
+                        ) : (
+                          <input
+                            type="text"
+                            className="input input-bordered input-sm w-full"
+                            value={hajiraModal.note}
+                            disabled={hajiraModalLocked}
+                            onChange={(e) =>
+                              setHajiraModal((m) => ({
+                                ...m,
+                                note: e.target.value,
+                              }))
+                            }
+                            maxLength={255}
+                          />
+                        )}
+                      </label>
 
-              {billingDiff ? (
-                <label className="form-control w-full">
-                  <span className="label-text text-sm">বিলিং</span>
-                  <div className="min-h-8 flex items-center px-1">
-                    <ChangePair
-                      oldText={billingDiff.oldText}
-                      newText={billingDiff.newText}
-                    />
-                  </div>
-                </label>
-              ) : (
-                <label className="form-control w-full">
-                  <span className="label-text text-sm">বিলিং</span>
-                  {hajiraModalLocked ? (
-                    <div className="min-h-8 flex items-center px-1 text-sm">
-                      {billingFullLabel(hajiraModal.billing)}
-                    </div>
-                  ) : (
-                    <select
-                      className="select select-bordered select-sm w-full"
-                      value={
-                        hajiraModal.billing == null || hajiraModal.billing === ""
-                          ? ""
-                          : String(hajiraModal.billing)
-                      }
-                      disabled={hajiraModalLocked}
-                      onChange={(e) =>
-                        setHajiraModal((m) => ({
-                          ...m,
-                          billing: e.target.value,
-                        }))
-                      }
-                    >
-                      <option value="">{NULL_BILLING_LABEL}</option>
-                      {(() => {
-                        const opts = [...billingOptions];
-                        const cur = hajiraModal.billing;
-                        if (
-                          cur !== "" &&
-                          cur != null &&
-                          !opts.some((b) => String(b.id) === String(cur))
-                        ) {
-                          opts.unshift({
-                            id: cur,
-                            name: billingFullLabel(cur),
-                          });
-                        }
-                        return opts.map((b) => (
-                          <option key={b.id} value={String(b.id)}>
-                            {b.name}
-                          </option>
-                        ));
-                      })()}
-                    </select>
-                  )}
-                </label>
-              )}
+                      {billingDiff ? (
+                        <label className="form-control w-full">
+                          <span className="label-text text-sm">বিলিং</span>
+                          <div className="min-h-8 flex items-center px-1">
+                            <ChangePair
+                              oldText={billingDiff.oldText}
+                              newText={billingDiff.newText}
+                            />
+                          </div>
+                        </label>
+                      ) : (
+                        <label className="form-control w-full">
+                          <span className="label-text text-sm">বিলিং</span>
+                          {hajiraModalLocked ? (
+                            <div className="min-h-8 flex items-center px-1 text-sm">
+                              {billingFullLabel(hajiraModal.billing)}
+                            </div>
+                          ) : (
+                            <select
+                              className="select select-bordered select-sm w-full"
+                              value={
+                                hajiraModal.billing == null ||
+                                hajiraModal.billing === ""
+                                  ? ""
+                                  : String(hajiraModal.billing)
+                              }
+                              disabled={hajiraModalLocked}
+                              onChange={(e) =>
+                                setHajiraModal((m) => ({
+                                  ...m,
+                                  billing: e.target.value,
+                                }))
+                              }
+                            >
+                              <option value="">{NULL_BILLING_LABEL}</option>
+                              {(() => {
+                                const opts = [...billingOptions];
+                                const cur = hajiraModal.billing;
+                                if (
+                                  cur !== "" &&
+                                  cur != null &&
+                                  !opts.some(
+                                    (b) => String(b.id) === String(cur),
+                                  )
+                                ) {
+                                  opts.unshift({
+                                    id: cur,
+                                    name: billingFullLabel(cur),
+                                  });
+                                }
+                                return opts.map((b) => (
+                                  <option key={b.id} value={String(b.id)}>
+                                    {b.name}
+                                  </option>
+                                ));
+                              })()}
+                            </select>
+                          )}
+                        </label>
+                      )}
 
-              {!hajiraModalLocked ? (
-                <div className="modal-action pt-1 flex-wrap justify-between gap-2">
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={resetHajiraModal}
-                  >
-                    রিসেট করুন
-                  </button>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-sm"
-                      onClick={applyHajiraModalDefaults}
-                    >
-                      ডিফল্ট
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={saveHajiraModal}
-                    >
-                      সেট করুন
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-                  </>
-                );
-              })()}
-            </div>
-          ) : null}
+                      {!hajiraModalLocked ? (
+                        <div className="modal-action pt-1 flex-wrap justify-between gap-2">
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={resetHajiraModal}
+                          >
+                            রিসেট করুন
+                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              onClick={applyHajiraModalDefaults}
+                            >
+                              ডিফল্ট
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              onClick={saveHajiraModal}
+                            >
+                              সেট করুন
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </>
+                  );
+                })()}
+              </div>
+            ) : null}
+          </div>
         </div>
       </dialog>
 
       <dialog
         id={PAYMENT_MODAL_ID}
         className="modal"
-        onClose={() => setPaymentModal(null)}
+        onClose={() => {
+          setPaymentModal(null);
+          setPaymentModalView(MODAL_VIEWS.detail);
+          setExpandedPaymentHistoryId(null);
+        }}
       >
-        <div className="modal-box max-w-sm">
+        <div className="modal-box max-w-sm h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
             <button
               className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
@@ -1891,60 +2425,79 @@ export const HajiraPage = () => {
             </button>
           </form>
 
-          <h3 className="font-bold text-lg">
-            {paymentModal
-              ? `পেমেন্ট (${paymentModal.labourName})`
-              : "পেমেন্ট"}
-          </h3>
-          {(() => {
-            const createdAt =
-              paymentTab === "return"
-                ? paymentModal?.returnCreatedAt
-                : paymentModal?.paymentCreatedAt;
-            const updatedAt =
-              paymentTab === "return"
-                ? paymentModal?.returnUpdatedAt
-                : paymentModal?.paymentUpdatedAt;
-            if (!createdAt) return null;
-            return (
-              <p className="text-xs text-base-content/55 tabular-nums -mt-1">
-                তৈরি: {formatMetaDate(createdAt)}
-                {wasUpdated(createdAt, updatedAt) ? (
-                  <>
-                    <span className="mx-1.5 opacity-60">·</span>
-                    আপডেট {formatMetaDate(updatedAt)}
-                  </>
-                ) : null}
-              </p>
-            );
-          })()}
-
-          {paymentModal ? (
-            <div className="space-y-3 pt-3">
-              <div role="tablist" className="tabs tabs-bordered">
-                {PAYMENT_SPECS.map((spec) => (
-                  <button
-                    key={spec.key}
-                    type="button"
-                    role="tab"
-                    className={`tab ${paymentTab === spec.key ? "tab-active" : ""}`}
-                    onClick={() => setPaymentTab(spec.key)}
-                  >
-                    {spec.label}
-                  </button>
-                ))}
+          <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">
+            {paymentModal &&
+            canViewActivityLog &&
+            !editing &&
+            canShowPaymentHistory ? (
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  className={
+                    paymentModalView === MODAL_VIEWS.detail
+                      ? "text-primary"
+                      : "text-base-content/50 hover:text-base-content"
+                  }
+                  onClick={() => {
+                    setPaymentModalView(MODAL_VIEWS.detail);
+                    setExpandedPaymentHistoryId(null);
+                  }}
+                >
+                  বিস্তারিত
+                </button>
+                <button
+                  type="button"
+                  className={
+                    paymentModalView === MODAL_VIEWS.history
+                      ? "text-primary"
+                      : "text-base-content/50 hover:text-base-content"
+                  }
+                  onClick={() => {
+                    setPaymentModalView(MODAL_VIEWS.history);
+                    setExpandedPaymentHistoryId(null);
+                  }}
+                >
+                  হিস্ট্রি
+                </button>
               </div>
+            ) : paymentModal ? (
+              `লেনদেন (${paymentModal.labourName})`
+            ) : (
+              "লেনদেন"
+            )}
+          </h3>
 
-              {PAYMENT_SPECS.filter((spec) => spec.key === paymentTab).map(
-                (spec) => {
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {paymentModal &&
+            paymentModalView === MODAL_VIEWS.history &&
+            !editing &&
+            canShowPaymentHistory ? (
+              <EntityHistoryPanel
+                isLoading={paymentHistoryLoading}
+                error={
+                  paymentSlotHistoryQuery.isError ||
+                  returnSlotHistoryQuery.isError
+                    ? paymentHistoryError
+                    : null
+                }
+                logs={paymentHistoryLogs}
+                expandedId={expandedPaymentHistoryId}
+                setExpandedId={setExpandedPaymentHistoryId}
+                fieldLabels={PAYMENT_LOG_FIELD_LABELS}
+                billingNameFn={billingFullLabel}
+                summarize={summarizePaymentLog}
+                snapshotKeys={["type", "amount", "note"]}
+              />
+            ) : paymentModal ? (
+              <div className="space-y-4">
+                {PAYMENT_SPECS.map((spec) => {
                   const fieldLocked =
                     !modalEditable || paymentSlotLocked(paymentModal, spec);
-                  const slotDiffs =
-                    fieldLocked
-                      ? spec.key === "return"
-                        ? paymentModal.returnDiffs
-                        : paymentModal.paymentDiffs
-                      : null;
+                  const slotDiffs = fieldLocked
+                    ? spec.key === "return"
+                      ? paymentModal.returnDiffs
+                      : paymentModal.paymentDiffs
+                    : null;
                   const noteDiff = diffPairFor(
                     slotDiffs,
                     "note",
@@ -1959,6 +2512,9 @@ export const HajiraPage = () => {
                   );
                   return (
                     <div key={spec.key} className="space-y-3">
+                      <p className="text-sm font-medium text-base-content/80">
+                        {spec.label}
+                      </p>
                       <label className="form-control w-full">
                         <span className="label-text text-sm">নোট</span>
                         {noteDiff ? (
@@ -2012,47 +2568,45 @@ export const HajiraPage = () => {
                       </label>
                     </div>
                   );
-                },
-              )}
+                })}
 
-              {modalEditable ? (
-                <div className="modal-action pt-1 flex-wrap justify-between gap-2">
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={resetPaymentModal}
-                    disabled={PAYMENT_SPECS.some(
-                      (spec) =>
-                        spec.key === paymentTab &&
+                {modalEditable ? (
+                  <div className="modal-action pt-1 flex-wrap justify-between gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={resetPaymentModal}
+                      disabled={PAYMENT_SPECS.every((spec) =>
                         paymentSlotLocked(paymentModal, spec),
-                    )}
-                  >
-                    রিসেট করুন
-                  </button>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-sm"
-                      onClick={applyPaymentModalDefaults}
-                      disabled={
-                        paymentTab !== "payment" ||
-                        paymentSlotLocked(paymentModal, PAYMENT_SPECS[0])
-                      }
+                      )}
                     >
-                      ডিফল্ট
+                      রিসেট করুন
                     </button>
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={savePaymentModal}
-                    >
-                      সেট করুন
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={applyPaymentModalDefaults}
+                        disabled={paymentSlotLocked(
+                          paymentModal,
+                          PAYMENT_SPECS[0],
+                        )}
+                      >
+                        ডিফল্ট
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={savePaymentModal}
+                      >
+                        সেট করুন
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </div>
       </dialog>
 
@@ -2206,7 +2760,7 @@ export const HajiraPage = () => {
               ✕
             </button>
           </form>
-          <h3 className="font-bold text-lg pr-8">পেমেন্ট</h3>
+          <h3 className="font-bold text-lg pr-8">লেনদেন</h3>
           <div className="space-y-3 pt-3">
             <label className="form-control w-full">
               <span className="label-text text-sm">নোট</span>
@@ -2410,7 +2964,7 @@ export const HajiraPage = () => {
               ✕
             </button>
           </form>
-          <h3 className="font-bold text-lg">পেমেন্ট</h3>
+          <h3 className="font-bold text-lg">লেনদেন</h3>
           <div className="flex flex-wrap gap-x-4 gap-y-2 pt-3">
             {PAYMENT_FILTER_OPTIONS.map((opt) => (
               <label

@@ -17,6 +17,14 @@ export const activityToneClass = (tone) => {
   return ''
 }
 
+/** Background for a single cell / field with its own entity activity. */
+export const activityCellToneClass = (tone) => {
+  if (tone === ACTIVITY_TONES.created) return 'bg-success/20'
+  if (tone === ACTIVITY_TONES.updated) return 'bg-warning/20'
+  if (tone === ACTIVITY_TONES.deleted) return 'bg-error/15'
+  return ''
+}
+
 /** Text color for a column group that has its own entity activity. */
 export const activityTextToneClass = (tone) => {
   if (tone === ACTIVITY_TONES.created) return 'text-success'
