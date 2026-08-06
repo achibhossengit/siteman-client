@@ -21,7 +21,11 @@ import {
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
-import { formatBnNumber, formatBnSigned } from '../../utils/format.js'
+import {
+  formatBnNumber,
+  formatBnSigned,
+  NULL_BILLING_LABEL,
+} from '../../utils/format.js'
 import { confirmAction, toastSuccess } from '../../utils/feedback.js'
 import { todayIso } from '../../utils/sessionSelection.js'
 import { PERMS } from '../../utils/permissions.js'
@@ -166,7 +170,7 @@ export const PrivateCashPage = () => {
 
   const billingFilterOptions = [
     { value: 'all', label: 'বিলিং' },
-    { value: 'none', label: 'সাইট সাধারণ' },
+    { value: 'none', label: NULL_BILLING_LABEL },
     ...billingOptions.map((b) => ({
       value: String(b.id),
       label: b.name,
@@ -179,7 +183,7 @@ export const PrivateCashPage = () => {
   )
 
   const billingName = (billingId) => {
-    if (billingId == null) return 'সাইট সাধারণ'
+    if (billingId == null) return NULL_BILLING_LABEL
     return (
       billingOptions.find((b) => String(b.id) === String(billingId))?.name ??
       '—'
@@ -555,7 +559,7 @@ export const PrivateCashPage = () => {
                 disabled={disabled}
                 {...register('billing')}
               >
-                <option value="">সাইট সাধারণ</option>
+                <option value="">{NULL_BILLING_LABEL}</option>
                 {billingOptions.map((opt) => (
                   <option key={opt.id} value={String(opt.id)}>
                     {opt.name}

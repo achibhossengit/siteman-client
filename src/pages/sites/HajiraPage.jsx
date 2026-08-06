@@ -28,7 +28,11 @@ import { messageForCode, parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { PERMS, hasPermissionSuffix } from "../../utils/permissions.js";
-import { concatBillingName, formatBnNumber } from "../../utils/format.js";
+import {
+  concatBillingName,
+  formatBnNumber,
+  NULL_BILLING_LABEL,
+} from "../../utils/format.js";
 import {
   confirmAction,
   toastApiError,
@@ -59,12 +63,12 @@ const normalizeBillingRef = (value) => {
 
 const billingDiffLabel = (value, billingNameFn) => {
   if (value == null || value === "" || value === "None" || value === "null") {
-    return "—";
+    return NULL_BILLING_LABEL;
   }
   if (typeof value === "object") {
     if (value.name) return String(value.name);
     const id = value.id ?? value.pk;
-    return id == null || id === "" ? "—" : billingNameFn(id);
+    return id == null || id === "" ? NULL_BILLING_LABEL : billingNameFn(id);
   }
   const asNum = Number(value);
   if (Number.isFinite(asNum) && String(value).trim() === String(asNum)) {
@@ -468,12 +472,12 @@ export const HajiraPage = () => {
   }, [billingOptions]);
 
   const billingFullLabel = (id) => {
-    if (id == null || id === "") return "—";
+    if (id == null || id === "") return NULL_BILLING_LABEL;
     return billingLabelById.get(String(id)) ?? `#${id}`;
   };
 
   const billingLabel = (id) => {
-    if (id == null || id === "") return "—";
+    if (id == null || id === "") return NULL_BILLING_LABEL;
     const full = billingLabelById.get(String(id));
     if (!full) return `#${id}`;
     return concatBillingName(full);
@@ -482,7 +486,7 @@ export const HajiraPage = () => {
   const billingFilterOptions = useMemo(
     () => [
       { value: "all", label: "বিলিং" },
-      { value: "none", label: "—" },
+      { value: "none", label: NULL_BILLING_LABEL },
       ...billingOptions.map((b) => ({
         value: String(b.id),
         label: b.name,
@@ -495,7 +499,7 @@ export const HajiraPage = () => {
     billingFilter === "all"
       ? "বিলিং"
       : billingFilter === "none"
-        ? "—"
+        ? NULL_BILLING_LABEL
         : billingLabel(billingFilter);
 
   // Exit edit mode when site/date changes.
@@ -1552,7 +1556,7 @@ export const HajiraPage = () => {
                         }))
                       }
                     >
-                      <option value="">—</option>
+                      <option value="">{NULL_BILLING_LABEL}</option>
                       {(() => {
                         const opts = [...billingOptions];
                         const cur = hajiraModal.billing;

@@ -28,7 +28,7 @@ import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { useAuth } from '../../providers/AuthProvider.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { confirmAction, toastApiError, toastSuccess } from '../../utils/feedback.js'
-import { formatBnNumber } from '../../utils/format.js'
+import { formatBnNumber, NULL_BILLING_LABEL } from '../../utils/format.js'
 import { PERMS, hasPermissionSuffix } from '../../utils/permissions.js'
 import {
   readSelectedSite,
@@ -184,6 +184,7 @@ const RECORD_FIELD_KEYS = {
 
 const formatRecordValue = (key, value) => {
   if (value == null || value === '' || value === 'None' || value === 'null') {
+    if (key === 'billing' || key === 'billing_id') return NULL_BILLING_LABEL
     return '—'
   }
   if (key === 'type') {
@@ -195,7 +196,7 @@ const formatRecordValue = (key, value) => {
     if (typeof value === 'object') {
       if (value.name) return String(value.name)
       const id = value.id ?? value.pk
-      return id == null || id === '' ? 'সাইট সাধারণ' : String(id)
+      return id == null || id === '' ? NULL_BILLING_LABEL : String(id)
     }
     return String(value)
   }

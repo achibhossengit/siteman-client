@@ -21,7 +21,11 @@ import { PRESENT_OPTIONS } from "../../api/types/hajira.js";
 import { parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
-import { concatBillingName, formatBnNumber } from "../../utils/format.js";
+import {
+  concatBillingName,
+  formatBnNumber,
+  NULL_BILLING_LABEL,
+} from "../../utils/format.js";
 import { toastInfo, toastSuccess } from "../../utils/feedback.js";
 import { PERMS } from "../../utils/permissions.js";
 
@@ -387,12 +391,12 @@ export const LabourSessionRecordsPage = () => {
   }, [billingBySite]);
 
   const billingFullLabel = (id) => {
-    if (id == null || id === "") return "—";
+    if (id == null || id === "") return NULL_BILLING_LABEL;
     return billingNameById.get(String(id)) ?? `#${id}`;
   };
 
   const billingLabel = (id) => {
-    if (id == null || id === "") return "—";
+    if (id == null || id === "") return NULL_BILLING_LABEL;
     const full = billingNameById.get(String(id));
     if (!full) return `#${id}`;
     return concatBillingName(full);
@@ -401,7 +405,7 @@ export const LabourSessionRecordsPage = () => {
   const billingFilterOptions = useMemo(() => {
     const options = [
       { value: "all", label: "বিলিং" },
-      { value: "none", label: "—" },
+      { value: "none", label: NULL_BILLING_LABEL },
     ];
     const seen = new Set();
     for (const siteOptions of billingBySite.values()) {
@@ -419,7 +423,7 @@ export const LabourSessionRecordsPage = () => {
     billingFilter === "all"
       ? "বিলিং"
       : billingFilter === "none"
-        ? "—"
+        ? NULL_BILLING_LABEL
         : billingLabel(billingFilter);
 
   const initialByDate = useMemo(
@@ -1311,7 +1315,7 @@ export const LabourSessionRecordsPage = () => {
               }`}
               onClick={() => pickBilling("")}
             >
-              —
+              {NULL_BILLING_LABEL}
             </button>
             {(
               billingBySite.get(String(billingModal?.siteId ?? "")) ?? []

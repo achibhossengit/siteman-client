@@ -19,7 +19,11 @@ import {
 } from '../../api/types/siteCash.js'
 import { parseApiError, applyFieldErrors, messageForCode } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
-import { formatBnNumber, formatBnSigned } from '../../utils/format.js'
+import {
+  formatBnNumber,
+  formatBnSigned,
+  NULL_BILLING_LABEL,
+} from '../../utils/format.js'
 import { confirmAction, toastApiError, toastSuccess } from '../../utils/feedback.js'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { PERMS, hasPermissionSuffix } from '../../utils/permissions.js'
@@ -90,6 +94,7 @@ const DateTimeStacked = ({ iso, className = '' }) => {
 
 const formatLogValue = (key, value, billingNameFn) => {
   if (value == null || value === '' || value === 'None' || value === 'null') {
+    if (key === 'billing' || key === 'billing_id') return NULL_BILLING_LABEL
     return '—'
   }
   if (key === 'type') return cashTypeLabel(value)
@@ -97,7 +102,7 @@ const formatLogValue = (key, value, billingNameFn) => {
     if (typeof value === 'object') {
       if (value.name) return String(value.name)
       const id = value.id ?? value.pk
-      return id == null || id === '' ? 'সাইট সাধারণ' : billingNameFn(id)
+      return id == null || id === '' ? NULL_BILLING_LABEL : billingNameFn(id)
     }
     return billingNameFn(value)
   }
@@ -777,7 +782,7 @@ export const CashPage = () => {
 
   const billingFilterOptions = [
     { value: 'all', label: 'বিলিং' },
-    { value: 'none', label: 'সাইট সাধারণ' },
+    { value: 'none', label: NULL_BILLING_LABEL },
     ...billingOptions.map((b) => ({
       value: String(b.id),
       label: b.name,
@@ -785,7 +790,7 @@ export const CashPage = () => {
   ]
 
   const billingName = (billingId) => {
-    if (billingId == null) return 'সাইট সাধারণ'
+    if (billingId == null) return NULL_BILLING_LABEL
     return (
       billingOptions.find((b) => String(b.id) === String(billingId))?.name ??
       '—'
@@ -1347,7 +1352,7 @@ export const CashPage = () => {
                 disabled={disabled}
                 {...register('billing')}
               >
-                  <option value="">সাইট সাধারণ</option>
+                  <option value="">{NULL_BILLING_LABEL}</option>
                   {formBillingOptions.map((b) => (
                     <option key={b.id} value={String(b.id)}>
                       {b.name}

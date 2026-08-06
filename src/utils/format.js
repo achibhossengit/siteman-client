@@ -14,6 +14,9 @@ export const formatBnSigned = (value, { showPlus = true } = {}) => {
   return abs
 }
 
+/** Display label when billing_category is null. */
+export const NULL_BILLING_LABEL = 'জেনারেল বিলিং'
+
 /**
  * Compact billing label for narrow table cells.
  * "Basement Nothing to say some" → "BNtss"
