@@ -1,31 +1,19 @@
 import { api } from './client.js'
 import { endpoints } from './endpoints.js'
-import { asList, asPage, fetchAllPages } from './pagination.js'
+import { asList, asPage } from './pagination.js'
 
 /** GET /sites — optional filters: is_active, is_closed. Paginated. */
-export const fetchSites = ({
-  is_active,
-  is_closed,
-  page,
-  page_size,
-  all = false,
-} = {}) => {
+export const fetchSites = ({ is_active, is_closed, page, page_size } = {}) => {
   const params = {
     ...(typeof is_active === 'boolean' ? { is_active } : {}),
     ...(typeof is_closed === 'boolean' ? { is_closed } : {}),
     ...(page != null ? { page } : {}),
     ...(page_size != null ? { page_size } : {}),
   }
-  if (all) {
-    return fetchAllPages((p, pageSize) =>
-      api.get(endpoints.sites.list, {
-        params: { ...params, page: p, page_size: pageSize },
-      }),
-    ).then((results) => ({ data: results }))
-  }
   return api.get(endpoints.sites.list, { params }).then((res) => ({
     ...res,
-    data: page != null || page_size != null ? asPage(res.data) : asList(res.data),
+    data:
+      page != null || page_size != null ? asPage(res.data) : asList(res.data),
   }))
 }
 
@@ -63,10 +51,11 @@ export const fetchDailyReport = (siteId, date) =>
 /**
  * Site cash ledger list (paginated).
  * GET /sites/{site_pk}/cash — filters: date, type, billing.
+ * For a single day use fetchSiteCashByDate instead.
  */
 export const fetchSiteCash = (
   siteId,
-  { date, type, billing, page, page_size, all = false } = {},
+  { date, type, billing, page, page_size } = {},
 ) => {
   const params = {
     ...(date ? { date } : {}),
@@ -75,23 +64,16 @@ export const fetchSiteCash = (
     ...(page != null ? { page } : {}),
     ...(page_size != null ? { page_size } : {}),
   }
-  if (all) {
-    return fetchAllPages((p, pageSize) =>
-      api.get(endpoints.sites.cash(siteId), {
-        params: { ...params, page: p, page_size: pageSize },
-      }),
-    ).then((results) => ({ data: results }))
-  }
   return api.get(endpoints.sites.cash(siteId), { params }).then((res) => ({
     ...res,
-    data: asList(res.data),
+    data:
+      page != null || page_size != null ? asPage(res.data) : asList(res.data),
   }))
 }
 
 /**
  * Unpaginated cash entries for one day.
  * GET /sites/{site_pk}/cash/{cash_date}
- * OpenAPI may document a singular schema; runtime is a list.
  */
 export const fetchSiteCashByDate = (siteId, cashDate) =>
   api.get(endpoints.sites.cashByDate(siteId, cashDate)).then((res) => ({
@@ -131,7 +113,7 @@ export const deleteSiteCash = (siteId, cashId) =>
  */
 export const fetchPrivateSiteCash = (
   siteId,
-  { date, type, billing, page, page_size, all = false } = {},
+  { date, type, billing, page, page_size } = {},
 ) => {
   const params = {
     ...(date ? { date } : {}),
@@ -140,18 +122,12 @@ export const fetchPrivateSiteCash = (
     ...(page != null ? { page } : {}),
     ...(page_size != null ? { page_size } : {}),
   }
-  if (all) {
-    return fetchAllPages((p, pageSize) =>
-      api.get(endpoints.sites.privateCash(siteId), {
-        params: { ...params, page: p, page_size: pageSize },
-      }),
-    ).then((results) => ({ data: results }))
-  }
   return api
     .get(endpoints.sites.privateCash(siteId), { params })
     .then((res) => ({
       ...res,
-      data: asList(res.data),
+      data:
+        page != null || page_size != null ? asPage(res.data) : asList(res.data),
     }))
 }
 
@@ -171,28 +147,22 @@ export const updatePrivateSiteCash = (siteId, id, payload) =>
 export const deletePrivateSiteCash = (siteId, id) =>
   api.delete(endpoints.sites.privateCashDetail(siteId, id))
 
-/** Billing categories for a site (paginated). */
+/** Billing categories for a site (paginated). Prefer active-billing for options. */
 export const fetchBillingCategories = (
   siteId,
-  { page, page_size, all = false, ...filters } = {},
+  { page, page_size, ...filters } = {},
 ) => {
   const params = {
     ...filters,
     ...(page != null ? { page } : {}),
     ...(page_size != null ? { page_size } : {}),
   }
-  if (all) {
-    return fetchAllPages((p, pageSize) =>
-      api.get(endpoints.sites.billingCategories(siteId), {
-        params: { ...params, page: p, page_size: pageSize },
-      }),
-    ).then((results) => ({ data: results }))
-  }
   return api
     .get(endpoints.sites.billingCategories(siteId), { params })
     .then((res) => ({
       ...res,
-      data: asList(res.data),
+      data:
+        page != null || page_size != null ? asPage(res.data) : asList(res.data),
     }))
 }
 
@@ -224,11 +194,11 @@ export const deleteBillingCategory = (siteId, id) =>
 
 /**
  * Site daily records list (paginated).
- * GET /sites/{site_pk}/daily-records — filters: date, labour, billing, is_sealed.
+ * For a single day use fetchSiteDailyRecordsByDate instead.
  */
 export const fetchSiteDailyRecords = (
   siteId,
-  { date, labour, billing, is_sealed, page, page_size, all = false } = {},
+  { date, labour, billing, is_sealed, page, page_size } = {},
 ) => {
   const params = {
     ...(date ? { date } : {}),
@@ -238,18 +208,12 @@ export const fetchSiteDailyRecords = (
     ...(page != null ? { page } : {}),
     ...(page_size != null ? { page_size } : {}),
   }
-  if (all) {
-    return fetchAllPages((p, pageSize) =>
-      api.get(endpoints.sites.dailyRecords(siteId), {
-        params: { ...params, page: p, page_size: pageSize },
-      }),
-    ).then((results) => ({ data: results }))
-  }
   return api
     .get(endpoints.sites.dailyRecords(siteId), { params })
     .then((res) => ({
       ...res,
-      data: asList(res.data),
+      data:
+        page != null || page_size != null ? asPage(res.data) : asList(res.data),
     }))
 }
 

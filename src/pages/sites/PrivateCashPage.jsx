@@ -7,7 +7,7 @@ import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
 import {
   createPrivateSiteCash,
   deletePrivateSiteCash,
-  fetchBillingCategories,
+  fetchActiveBillingCategories,
   fetchPrivateSiteCash,
   fetchSiteDetail,
   updatePrivateSiteCash,
@@ -144,9 +144,10 @@ export const PrivateCashPage = () => {
         ...(billingFilter !== 'all' && billingFilter !== 'none'
           ? { billing: billingFilter }
           : {}),
-        all: true,
+        page: 1,
+        page_size: 100,
       })
-      let next = sortByDateDesc(Array.isArray(data) ? data : [])
+      let next = sortByDateDesc(data?.results ?? [])
       if (billingFilter === 'none') {
         next = next.filter((row) => row.billing == null)
       }
@@ -156,9 +157,9 @@ export const PrivateCashPage = () => {
   })
 
   const billingQuery = useQuery({
-    queryKey: ['sites', siteId, 'billing-categories'],
+    queryKey: ['sites', siteId, 'active-billing'],
     queryFn: async () => {
-      const { data } = await fetchBillingCategories(siteId, { all: true })
+      const { data } = await fetchActiveBillingCategories(siteId)
       return Array.isArray(data) ? data : []
     },
     enabled: Boolean(canView && siteId),

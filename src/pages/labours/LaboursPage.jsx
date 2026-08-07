@@ -10,10 +10,14 @@ import {
 } from '../../api/types/labour.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
+import { ListPagination } from '../../components/ListPagination.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { formatBnNumber } from '../../utils/format.js'
 import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
+
+const PAGE_SIZE = 20
+const SEARCH_DEBOUNCE_MS = 300
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'স্ট্যাটাস' },
@@ -21,19 +25,10 @@ const STATUS_OPTIONS = [
   { value: 'inactive', label: 'নিষ্ক্রিয়' },
 ]
 
-const matchesStatus = (labour, status) => {
-  if (status === 'all') return true
-  if (status === 'active') return Boolean(labour.is_active)
-  if (status === 'inactive') return !labour.is_active
-  return true
-}
-
-const matchesName = (name, query) => {
-  const needle = query.trim().toLowerCase()
-  if (!needle) return true
-  return String(name ?? '')
-    .toLowerCase()
-    .includes(needle)
+const statusParams = (status) => {
+  if (status === 'active') return { is_active: true }
+  if (status === 'inactive') return { is_active: false }
+  return {}
 }
 
 export const LaboursPage = () => {
@@ -41,7 +36,9 @@ export const LaboursPage = () => {
   const { setTitle } = useOutletContext()
   const { can } = usePermissions()
   const [nameQuery, setNameQuery] = useState('')
+  const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [page, setPage] = useState(1)
 
   const canViewLabour = can(PERMS.viewLabour)
   const canAddLabour = can(PERMS.addLabour)
@@ -51,22 +48,45 @@ export const LaboursPage = () => {
     return () => setTitle?.('')
   }, [setTitle])
 
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setSearch(nameQuery.trim())
+    }, SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(id)
+  }, [nameQuery])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search, statusFilter])
+
   const laboursQuery = useQuery({
-    queryKey: ['labours'],
+    queryKey: [
+      'labours',
+      'list',
+      { page, page_size: PAGE_SIZE, search, statusFilter },
+    ],
     queryFn: async () => {
-      const { data } = await fetchLabours({ all: true })
-      return Array.isArray(data) ? data : []
+      const { data } = await fetchLabours({
+        page,
+        page_size: PAGE_SIZE,
+        ...(search ? { search } : {}),
+        ...statusParams(statusFilter),
+      })
+      return data
     },
     enabled: canViewLabour,
+    placeholderData: (previousData) => previousData,
   })
 
+  // Site names for the current labour page (lookup map; not list-paginated UI).
   const sitesQuery = useQuery({
-    queryKey: ['sites'],
+    queryKey: ['sites', 'names'],
     queryFn: async () => {
-      const { data } = await fetchSites({ all: true })
-      return Array.isArray(data) ? data : []
+      const { data } = await fetchSites({ page: 1, page_size: 100 })
+      return data?.results ?? []
     },
     enabled: canViewLabour,
+    staleTime: 60_000,
   })
 
   const siteNameById = useMemo(() => {
@@ -82,16 +102,16 @@ export const LaboursPage = () => {
     return siteNameById.get(id) ?? `#${id}`
   }
 
-  const allRows = laboursQuery.data ?? []
-  const rows = useMemo(
-    () =>
-      allRows.filter(
-        (row) =>
-          matchesName(row.name, nameQuery) &&
-          matchesStatus(row, statusFilter),
-      ),
-    [allRows, nameQuery, statusFilter],
-  )
+  const pageData = laboursQuery.data ?? {
+    results: [],
+    count: 0,
+    next: null,
+    previous: null,
+  }
+  const rows = pageData.results ?? []
+  const totalCount = pageData.count ?? 0
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+  const slOffset = (page - 1) * PAGE_SIZE
 
   if (!canViewLabour) {
     return (
@@ -101,7 +121,7 @@ export const LaboursPage = () => {
     )
   }
 
-  if (laboursQuery.isLoading) {
+  if (laboursQuery.isLoading && !laboursQuery.data) {
     return (
       <div className="flex justify-center py-16">
         <span className="loading loading-spinner loading-lg text-primary" />
@@ -114,11 +134,11 @@ export const LaboursPage = () => {
   }
 
   const emptyLabel =
-    allRows.length === 0 ? 'কোনো লেবার নেই।' : 'কোনো মিল পাওয়া যায়নি।'
+    totalCount === 0 ? 'কোনো লেবার নেই।' : 'কোনো মিল পাওয়া যায়নি।'
 
   return (
     <section className="relative min-h-full flex flex-col pb-20">
-      <div className="overflow-x-auto">
+      <div className="flex-1 min-h-0 overflow-x-auto">
         <table className="table table-sm sm:table-md w-full">
           <thead>
             <tr className="border-b border-base-300">
@@ -168,7 +188,7 @@ export const LaboursPage = () => {
                   onClick={() => navigate(paths.labourDetail(row.id))}
                 >
                   <td className="tabular-nums text-base-content/60">
-                    {formatBnNumber(index + 1)}
+                    {formatBnNumber(slOffset + index + 1)}
                   </td>
                   <td className="font-medium">
                     <div className="truncate max-w-40 sm:max-w-none">
@@ -194,6 +214,15 @@ export const LaboursPage = () => {
           </tbody>
         </table>
       </div>
+
+      <ListPagination
+        page={page}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        pageSize={PAGE_SIZE}
+        isFetching={laboursQuery.isFetching}
+        onPageChange={setPage}
+      />
 
       {canAddLabour ? (
         <button

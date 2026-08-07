@@ -15,20 +15,3 @@ export const asPage = (data) => {
     previous: data?.previous ?? null,
   }
 }
-
-/**
- * Walk paginated list endpoints until exhausted.
- * `requestPage(page)` should return axios response (`{ data }`).
- */
-export const fetchAllPages = async (requestPage, { pageSize = 100 } = {}) => {
-  const all = []
-  let page = 1
-  for (;;) {
-    const { data } = await requestPage(page, pageSize)
-    const { results, next } = asPage(data)
-    all.push(...results)
-    if (!next || !results.length) break
-    page += 1
-  }
-  return all
-}

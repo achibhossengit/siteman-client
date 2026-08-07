@@ -71,8 +71,8 @@ export const LabourDetailPage = () => {
   const sitesQuery = useQuery({
     queryKey: ['sites'],
     queryFn: async () => {
-      const { data } = await fetchSites({ all: true })
-      return Array.isArray(data) ? data : []
+      const { data } = await fetchSites({ page: 1, page_size: 100 })
+      return Array.isArray(data?.results) ? data.results : []
     },
     enabled: canViewLabour,
   })

@@ -632,9 +632,10 @@ export const ActivityPage = () => {
         business_date: selected.business_date,
         entity_type: selected.entity_type,
         entity_id: selected.entity_id,
-        all: true,
+        page: 1,
+        page_size: 100,
       })
-      return data
+      return data?.results ?? []
     },
     enabled: Boolean(
       selected &&

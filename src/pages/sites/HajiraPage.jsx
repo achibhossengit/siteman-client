@@ -23,7 +23,7 @@ import {
   applyActivitiesToViewRows,
   snapshotFields,
 } from "../../api/types/activity.js";
-import { fetchActivities, reviewActivities } from "../../api/activities.js";
+import { reviewActivities } from "../../api/activities.js";
 import { messageForCode, parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
@@ -902,89 +902,36 @@ export const HajiraPage = () => {
 
   const canShowPaymentHistory = Boolean(recordIdOf(paymentModal));
 
-  const attendanceHistoryQuery = useQuery({
-    queryKey: [
-      "activities",
-      {
-        site: siteId,
-        business_date: date,
-        entity_type: "daily_record",
-        entity_id: recordIdOf(hajiraModal),
-      },
-    ],
-    queryFn: async () => {
-      const { data } = await fetchActivities({
-        site: siteId,
-        business_date: date,
-        entity_type: "daily_record",
-        entity_id: recordIdOf(hajiraModal),
-        all: true,
-      });
-      return Array.isArray(data) ? data : [];
-    },
-    enabled: Boolean(
-      canViewActivityLog &&
-        siteId &&
-        date &&
-        recordIdOf(hajiraModal) &&
-        !editing &&
-        hajiraModalView === MODAL_VIEWS.history,
-    ),
-  });
-
-  const paymentHistoryQuery = useQuery({
-    queryKey: [
-      "activities",
-      {
-        site: siteId,
-        business_date: date,
-        entity_type: "daily_record",
-        entity_id: recordIdOf(paymentModal),
-        slot: "payment",
-      },
-    ],
-    queryFn: async () => {
-      const { data } = await fetchActivities({
-        site: siteId,
-        business_date: date,
-        entity_type: "daily_record",
-        entity_id: recordIdOf(paymentModal),
-        all: true,
-      });
-      return Array.isArray(data) ? data : [];
-    },
-    enabled: Boolean(
-      canViewActivityLog &&
-        siteId &&
-        date &&
-        recordIdOf(paymentModal) &&
-        !editing &&
-        paymentModalView === MODAL_VIEWS.history,
-    ),
-  });
-
-  const attendanceHistoryLogs = useMemo(() => {
-    const logs = attendanceHistoryQuery.data ?? [];
-    return [...logs].sort((a, b) => {
+  const sortLogsDesc = (logs) =>
+    [...logs].sort((a, b) => {
       const ta = new Date(a.created_at).getTime();
       const tb = new Date(b.created_at).getTime();
       return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
     });
-  }, [attendanceHistoryQuery.data]);
+
+  /** Modal history from day pending_log (dedicated, unpaginated) — not /activities. */
+  const attendanceHistoryLogs = useMemo(() => {
+    const entityId = recordIdOf(hajiraModal);
+    if (entityId == null) return [];
+    const logs = (pendingLogQuery.data ?? []).filter(
+      (log) => Number(log.entity_id) === Number(entityId),
+    );
+    return sortLogsDesc(logs);
+  }, [pendingLogQuery.data, hajiraModal]);
 
   const paymentHistoryLogs = useMemo(() => {
-    const logs = paymentHistoryQuery.data ?? [];
-    return [...logs].sort((a, b) => {
-      const ta = new Date(a.created_at).getTime();
-      const tb = new Date(b.created_at).getTime();
-      return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
-    });
-  }, [paymentHistoryQuery.data]);
+    const entityId = recordIdOf(paymentModal);
+    if (entityId == null) return [];
+    const logs = (pendingLogQuery.data ?? []).filter(
+      (log) => Number(log.entity_id) === Number(entityId),
+    );
+    return sortLogsDesc(logs);
+  }, [pendingLogQuery.data, paymentModal]);
 
   const paymentHistoryLoading =
-    Boolean(recordIdOf(paymentModal)) && paymentHistoryQuery.isLoading;
+    Boolean(recordIdOf(paymentModal)) && pendingLogQuery.isLoading;
 
-  const paymentHistoryError = paymentHistoryQuery.error;
+  const paymentHistoryError = pendingLogQuery.error;
 
   const billingOptions = billingQuery.data ?? [];
 
@@ -2186,10 +2133,10 @@ export const HajiraPage = () => {
             !editing &&
             hajiraModal.attendanceId ? (
               <EntityHistoryPanel
-                isLoading={attendanceHistoryQuery.isLoading}
+                isLoading={pendingLogQuery.isLoading}
                 error={
-                  attendanceHistoryQuery.isError
-                    ? attendanceHistoryQuery.error
+                  pendingLogQuery.isError
+                    ? pendingLogQuery.error
                     : null
                 }
                 logs={attendanceHistoryLogs}
@@ -2525,7 +2472,7 @@ export const HajiraPage = () => {
               <EntityHistoryPanel
                 isLoading={paymentHistoryLoading}
                 error={
-                  paymentHistoryQuery.isError ? paymentHistoryError : null
+                  pendingLogQuery.isError ? paymentHistoryError : null
                 }
                 logs={paymentHistoryLogs}
                 expandedId={expandedPaymentHistoryId}

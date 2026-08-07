@@ -283,9 +283,10 @@ export const LabourSessionRecordsPage = () => {
     queryFn: async () => {
       const { data } = await fetchLabourDailyRecords(labourId, {
         ...rangeParams,
-        all: true,
+        page: 1,
+        page_size: 100,
       });
-      return Array.isArray(data) ? data : [];
+      return data?.results ?? [];
     },
     enabled: recordsEnabled,
   });

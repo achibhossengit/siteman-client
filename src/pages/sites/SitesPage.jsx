@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
@@ -9,10 +9,13 @@ import {
 } from '../../api/types/site.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
+import { ListPagination } from '../../components/ListPagination.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { formatBnNumber } from '../../utils/format.js'
 import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
+
+const PAGE_SIZE = 20
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'স্ট্যাটাস' },
@@ -21,12 +24,11 @@ const STATUS_OPTIONS = [
   { value: 'closed', label: 'সমাপ্ত' },
 ]
 
-const matchesStatus = (site, status) => {
-  if (status === 'all') return true
-  if (status === 'closed') return Boolean(site.is_closed)
-  if (status === 'inactive') return !site.is_closed && !site.is_active
-  if (status === 'active') return !site.is_closed && Boolean(site.is_active)
-  return true
+const statusParams = (status) => {
+  if (status === 'closed') return { is_closed: true }
+  if (status === 'inactive') return { is_active: false, is_closed: false }
+  if (status === 'active') return { is_active: true, is_closed: false }
+  return {}
 }
 
 const matchesName = (name, query) => {
@@ -43,6 +45,7 @@ export const SitesPage = () => {
   const { can } = usePermissions()
   const [nameQuery, setNameQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [page, setPage] = useState(1)
 
   const canViewSite = can(PERMS.viewSite)
   const canAddSite = can(PERMS.addSite)
@@ -52,25 +55,39 @@ export const SitesPage = () => {
     return () => setTitle?.('')
   }, [setTitle])
 
+  useEffect(() => {
+    setPage(1)
+  }, [statusFilter, nameQuery])
+
   const sitesQuery = useQuery({
-    queryKey: ['sites'],
+    queryKey: ['sites', 'list', { page, page_size: PAGE_SIZE, statusFilter }],
     queryFn: async () => {
-      const { data } = await fetchSites({ all: true })
-      return Array.isArray(data) ? data : []
+      const { data } = await fetchSites({
+        page,
+        page_size: PAGE_SIZE,
+        ...statusParams(statusFilter),
+      })
+      return data
     },
     enabled: canViewSite,
+    placeholderData: (previousData) => previousData,
   })
 
-  const allRows = sitesQuery.data ?? []
-  const rows = useMemo(
-    () =>
-      allRows.filter(
-        (row) =>
-          matchesName(row.name, nameQuery) &&
-          matchesStatus(row, statusFilter),
-      ),
-    [allRows, nameQuery, statusFilter],
-  )
+  const pageData = sitesQuery.data ?? {
+    results: [],
+    count: 0,
+    next: null,
+    previous: null,
+  }
+  const pageRows = pageData.results ?? []
+  const totalCount = pageData.count ?? 0
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+  const slOffset = (page - 1) * PAGE_SIZE
+
+  // Sites list has no search param — filter the current page only.
+  const rows = nameQuery.trim()
+    ? pageRows.filter((row) => matchesName(row.name, nameQuery))
+    : pageRows
 
   if (!canViewSite) {
     return (
@@ -80,7 +97,7 @@ export const SitesPage = () => {
     )
   }
 
-  if (sitesQuery.isLoading) {
+  if (sitesQuery.isLoading && !sitesQuery.data) {
     return (
       <div className="flex justify-center py-16">
         <span className="loading loading-spinner loading-lg text-primary" />
@@ -93,11 +110,11 @@ export const SitesPage = () => {
   }
 
   const emptyLabel =
-    allRows.length === 0 ? 'কোনো সাইট নেই।' : 'কোনো মিল পাওয়া যায়নি।'
+    totalCount === 0 ? 'কোনো সাইট নেই।' : 'কোনো মিল পাওয়া যায়নি।'
 
   return (
     <section className="relative min-h-full flex flex-col pb-20">
-      <div className="overflow-x-auto">
+      <div className="flex-1 min-h-0 overflow-x-auto">
         <table className="table table-sm sm:table-md w-full">
           <thead>
             <tr className="border-b border-base-300">
@@ -146,7 +163,7 @@ export const SitesPage = () => {
                   onClick={() => navigate(paths.siteDetail(row.id))}
                 >
                   <td className="tabular-nums text-base-content/60">
-                    {formatBnNumber(index + 1)}
+                    {formatBnNumber(slOffset + index + 1)}
                   </td>
                   <td className="font-medium truncate max-w-48 sm:max-w-none">
                     {row.name}
@@ -164,6 +181,15 @@ export const SitesPage = () => {
           </tbody>
         </table>
       </div>
+
+      <ListPagination
+        page={page}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        pageSize={PAGE_SIZE}
+        isFetching={sitesQuery.isFetching}
+        onPageChange={setPage}
+      />
 
       {canAddSite ? (
         <button

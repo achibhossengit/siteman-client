@@ -1,11 +1,10 @@
 import { api } from './client.js'
 import { endpoints } from './endpoints.js'
-import { asList, asPage, fetchAllPages } from './pagination.js'
+import { asPage } from './pagination.js'
 
 /**
- * GET /api/v1/activities — always paginated in OpenAPI.
- * Pass `all: true` to walk pages (day/history style fetches).
- * Pass `page`/`page_size` for list UI.
+ * GET /api/v1/activities — paginated.
+ * Pass `page` / `page_size` for list UI and history panels.
  */
 export const fetchActivities = ({
   site,
@@ -22,7 +21,6 @@ export const fetchActivities = ({
   created_at__lte,
   page,
   page_size,
-  all = false,
 } = {}) => {
   const params = {
     ...(site != null && site !== '' ? { site } : {}),
@@ -39,14 +37,6 @@ export const fetchActivities = ({
     ...(created_at__lte ? { created_at__lte } : {}),
     ...(page != null ? { page } : {}),
     ...(page_size != null ? { page_size } : {}),
-  }
-
-  if (all) {
-    return fetchAllPages((p, size) =>
-      api.get(endpoints.activities.list, {
-        params: { ...params, page: p, page_size: size },
-      }),
-    ).then((results) => ({ data: results }))
   }
 
   return api.get(endpoints.activities.list, { params }).then((res) => ({

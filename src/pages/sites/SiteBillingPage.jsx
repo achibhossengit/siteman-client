@@ -176,8 +176,11 @@ export const SiteBillingPage = () => {
   const listQuery = useQuery({
     queryKey: ['sites', siteId, 'billing-categories'],
     queryFn: async () => {
-      const { data } = await fetchBillingCategories(siteId, { all: true })
-      return sortByOrder(Array.isArray(data) ? data : [])
+      const { data } = await fetchBillingCategories(siteId, {
+        page: 1,
+        page_size: 100,
+      })
+      return sortByOrder(data?.results ?? [])
     },
     enabled: Boolean(canView && siteId),
   })

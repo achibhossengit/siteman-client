@@ -1,6 +1,6 @@
 import { api } from './client.js'
 import { endpoints } from './endpoints.js'
-import { asList, asPage, fetchAllPages } from './pagination.js'
+import { asList, asPage } from './pagination.js'
 
 /** GET /labours — filters: current_site, is_active, search. Paginated. */
 export const fetchLabours = ({
@@ -9,7 +9,6 @@ export const fetchLabours = ({
   search,
   page,
   page_size,
-  all = false,
 } = {}) => {
   const params = {
     ...(current_site != null && current_site !== ''
@@ -19,13 +18,6 @@ export const fetchLabours = ({
     ...(search ? { search } : {}),
     ...(page != null ? { page } : {}),
     ...(page_size != null ? { page_size } : {}),
-  }
-  if (all) {
-    return fetchAllPages((p, pageSize) =>
-      api.get(endpoints.labours.list, {
-        params: { ...params, page: p, page_size: pageSize },
-      }),
-    ).then((results) => ({ data: results }))
   }
   return api.get(endpoints.labours.list, { params }).then((res) => ({
     ...res,
@@ -52,7 +44,7 @@ export const deleteLabour = (labourId) =>
 
 /**
  * GET /labours/{labour_pk}/daily-records — filters: date range, site, billing, is_sealed.
- * Paginated; pass `all: true` to walk pages.
+ * Paginated.
  */
 export const fetchLabourDailyRecords = (
   labourId,
@@ -65,7 +57,6 @@ export const fetchLabourDailyRecords = (
     is_sealed,
     page,
     page_size,
-    all = false,
   } = {},
 ) => {
   const params = {
@@ -78,18 +69,12 @@ export const fetchLabourDailyRecords = (
     ...(page != null ? { page } : {}),
     ...(page_size != null ? { page_size } : {}),
   }
-  if (all) {
-    return fetchAllPages((p, pageSize) =>
-      api.get(endpoints.labours.dailyRecords(labourId), {
-        params: { ...params, page: p, page_size: pageSize },
-      }),
-    ).then((results) => ({ data: results }))
-  }
   return api
     .get(endpoints.labours.dailyRecords(labourId), { params })
     .then((res) => ({
       ...res,
-      data: asList(res.data),
+      data:
+        page != null || page_size != null ? asPage(res.data) : asList(res.data),
     }))
 }
 
@@ -105,28 +90,22 @@ export const updateLabourDailyRecord = (labourId, recordId, payload) =>
 export const deleteLabourDailyRecord = (labourId, recordId) =>
   api.delete(endpoints.labours.dailyRecordDetail(labourId, recordId))
 
-/** GET /labours/{labour_pk}/sessions */
+/** GET /labours/{labour_pk}/sessions — paginated. */
 export const fetchLabourSessions = (
   labourId,
-  { page, page_size, all = false, ...rest } = {},
+  { page, page_size, ...rest } = {},
 ) => {
   const params = {
     ...rest,
     ...(page != null ? { page } : {}),
     ...(page_size != null ? { page_size } : {}),
   }
-  if (all) {
-    return fetchAllPages((p, pageSize) =>
-      api.get(endpoints.labours.sessions(labourId), {
-        params: { ...params, page: p, page_size: pageSize },
-      }),
-    ).then((results) => ({ data: results }))
-  }
   return api
     .get(endpoints.labours.sessions(labourId), { params })
     .then((res) => ({
       ...res,
-      data: asList(res.data),
+      data:
+        page != null || page_size != null ? asPage(res.data) : asList(res.data),
     }))
 }
 

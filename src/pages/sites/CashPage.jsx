@@ -34,7 +34,7 @@ import {
   applyActivitiesToCashRows,
   snapshotFields,
 } from '../../api/types/activity.js'
-import { fetchActivities, reviewActivities } from '../../api/activities.js'
+import { reviewActivities } from '../../api/activities.js'
 
 const MODAL_ID = 'site_cash_modal'
 const TYPE_FILTER_MODAL_ID = 'cash_type_filter_modal'
@@ -392,51 +392,24 @@ export const CashPage = () => {
     queryKey: cashActivityQueryKey,
     queryFn: async () => {
       const { data } = await fetchSiteCashPendingLog(siteId, date)
-      return data ?? []
+      return Array.isArray(data) ? data : []
     },
     enabled: Boolean(canViewCash && canViewActivityLog && siteId && date),
   })
 
-  const cashHistoryQuery = useQuery({
-    queryKey: [
-      'activities',
-      {
-        site: siteId,
-        business_date: selected?.date ?? date,
-        entity_type: 'site_cash',
-        entity_id: selected?.id,
-      },
-    ],
-    queryFn: async () => {
-      const businessDate = selected.date ?? date
-      const { data } = await fetchActivities({
-        site: siteId,
-        business_date: businessDate,
-        entity_type: 'site_cash',
-        entity_id: selected.id,
-        all: true,
-      })
-      return data ?? []
-    },
-    enabled: Boolean(
-      canViewCash &&
-        canViewActivityLog &&
-        siteId &&
-        (selected?.date || date) &&
-        selected?.id &&
-        !creating &&
-        modalView === 'history',
-    ),
-  })
-
+  /** Modal history from day pending_log (dedicated, unpaginated) — not /activities. */
   const historyLogs = useMemo(() => {
-    const logs = cashHistoryQuery.data ?? []
+    const entityId = selected?.id
+    if (entityId == null) return []
+    const logs = (activityCashQuery.data ?? []).filter(
+      (log) => Number(log.entity_id) === Number(entityId),
+    )
     return [...logs].sort((a, b) => {
       const ta = new Date(a.created_at).getTime()
       const tb = new Date(b.created_at).getTime()
       return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0)
     })
-  }, [cashHistoryQuery.data])
+  }, [activityCashQuery.data, selected?.id])
 
   const activityIdsForRow = (row) =>
     (row?.activityLogs ?? [])
@@ -1085,12 +1058,12 @@ export const CashPage = () => {
           <div className="flex-1 min-h-0 overflow-y-auto">
           {modalView === 'history' && !isCreateMode && !editing ? (
             <div className="flex flex-col gap-2 min-h-full">
-              {cashHistoryQuery.isLoading ? (
+              {activityCashQuery.isLoading ? (
                 <div className="flex flex-1 justify-center items-center py-8">
                   <span className="loading loading-spinner loading-md text-primary" />
                 </div>
-              ) : cashHistoryQuery.isError ? (
-                <ApiErrorAlert error={parseApiError(cashHistoryQuery.error)} />
+              ) : activityCashQuery.isError ? (
+                <ApiErrorAlert error={parseApiError(activityCashQuery.error)} />
               ) : historyLogs.length === 0 ? (
                 <p className="text-sm text-base-content/60 text-center py-8">
                   কোনো হিস্ট্রি নেই।
