@@ -53,7 +53,7 @@ export const UsersPage = () => {
   const usersQuery = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
-      const { data } = await fetchUsers()
+      const { data } = await fetchUsers({ all: true })
       return Array.isArray(data) ? data : []
     },
     enabled: canViewUser,

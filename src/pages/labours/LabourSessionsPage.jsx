@@ -44,7 +44,7 @@ export const LabourSessionsPage = () => {
   const sessionsQuery = useQuery({
     queryKey: ['labours', labourId, 'sessions'],
     queryFn: async () => {
-      const { data } = await fetchLabourSessions(labourId)
+      const { data } = await fetchLabourSessions(labourId, { all: true })
       return Array.isArray(data) ? data : []
     },
     enabled: Boolean(canView && labourId),

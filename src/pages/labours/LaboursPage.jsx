@@ -54,7 +54,7 @@ export const LaboursPage = () => {
   const laboursQuery = useQuery({
     queryKey: ['labours'],
     queryFn: async () => {
-      const { data } = await fetchLabours()
+      const { data } = await fetchLabours({ all: true })
       return Array.isArray(data) ? data : []
     },
     enabled: canViewLabour,
@@ -63,7 +63,7 @@ export const LaboursPage = () => {
   const sitesQuery = useQuery({
     queryKey: ['sites'],
     queryFn: async () => {
-      const { data } = await fetchSites()
+      const { data } = await fetchSites({ all: true })
       return Array.isArray(data) ? data : []
     },
     enabled: canViewLabour,

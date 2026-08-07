@@ -7,17 +7,18 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import {
-  fetchLabourAttendancesByLabour,
+  fetchLabourDailyRecords,
   fetchLabourDetail,
   fetchLabourLatestSession,
-  fetchLabourPaymentsByLabour,
   fetchLabourRunningSession,
   fetchLabourSession,
-  updateLabourAttendance,
-  updateLabourPayment,
+  updateLabourDailyRecord,
 } from "../../api/labours.js";
-import { fetchBillingCategories } from "../../api/sites.js";
-import { PRESENT_OPTIONS } from "../../api/types/hajira.js";
+import { fetchActiveBillingCategories } from "../../api/sites.js";
+import {
+  PRESENT_OPTIONS,
+  toDailyRecordPatchPayload,
+} from "../../api/types/hajira.js";
 import { parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
@@ -112,73 +113,46 @@ const filterLabel = (options, value) =>
   options[0]?.label ??
   "";
 
-const buildRows = (attendances, payments) => {
-  const rowsByDate = new Map();
+const buildRows = (records) => {
+  const rows = [];
 
-  const ensureRow = (date) => {
-    if (!rowsByDate.has(date)) {
-      rowsByDate.set(date, {
-        date,
-        siteId: null,
-        attendanceId: null,
-        attendanceSealed: false,
-        present: "",
-        salary: "",
-        extra: 0,
-        extraNote: "",
-        billing: "",
-        paymentId: null,
-        paymentSealed: false,
-        payment: "",
-        paymentNote: "",
-        returnId: null,
-        returnSealed: false,
-        return: "",
-        returnNote: "",
-      });
-    }
-    return rowsByDate.get(date);
-  };
-
-  for (const attendance of attendances) {
-    if (!attendance?.date) continue;
-    const row = ensureRow(attendance.date);
-    row.siteId = attendance.site ?? row.siteId;
-    row.attendanceId = attendance.id ?? null;
-    row.attendanceSealed = Boolean(attendance.is_sealed);
-    row.present =
-      attendance.present == null || attendance.present === ""
-        ? ""
-        : Number(attendance.present);
-    row.salary =
-      attendance.salary == null || attendance.salary === ""
-        ? ""
-        : Number(attendance.salary);
-    row.extra = num(attendance.extra);
-    row.extraNote = attendance.note ?? "";
-    row.billing =
-      attendance.billing == null || attendance.billing === ""
-        ? ""
-        : String(attendance.billing);
+  for (const record of records) {
+    if (!record?.date) continue;
+    const sealed = Boolean(record.is_sealed);
+    const recordId = record.id ?? null;
+    rows.push({
+      date: record.date,
+      siteId: record.site ?? null,
+      recordId,
+      sealed,
+      // Legacy aliases for existing lock / modal helpers
+      attendanceId: recordId,
+      attendanceSealed: sealed,
+      paymentId: recordId,
+      paymentSealed: sealed,
+      returnId: recordId,
+      returnSealed: sealed,
+      present:
+        record.present == null || record.present === ""
+          ? ""
+          : Number(record.present),
+      salary:
+        record.wage == null || record.wage === "" ? "" : Number(record.wage),
+      extra: num(record.extra_earn),
+      extraNote: record.note ?? "",
+      billing:
+        record.billing == null || record.billing === ""
+          ? ""
+          : String(record.billing),
+      payment: numOrEmpty(record.fooding_pay),
+      paymentNote: "",
+      advance: numOrEmpty(record.advance_pay),
+      return: numOrEmpty(record.return_amount),
+      returnNote: "",
+    });
   }
 
-  for (const payment of payments) {
-    if (!payment?.date) continue;
-    const row = ensureRow(payment.date);
-    row.siteId = payment.site ?? row.siteId;
-    const prefix = payment.type === "return" ? "return" : "payment";
-    row[`${prefix}Id`] = payment.id ?? null;
-    row[`${prefix}Sealed`] = Boolean(payment.is_sealed);
-    row[prefix] =
-      payment.amount == null || payment.amount === ""
-        ? ""
-        : Number(payment.amount);
-    row[`${prefix}Note`] = payment.note ?? "";
-  }
-
-  return [...rowsByDate.values()].sort((a, b) =>
-    String(a.date).localeCompare(String(b.date)),
-  );
+  return rows.sort((a, b) => String(a.date).localeCompare(String(b.date)));
 };
 
 const hasPresent = (row) => row.present !== "" && row.present != null;
@@ -231,14 +205,10 @@ const isPaymentDirty = (row, initial, spec) =>
   String(row[spec.key] ?? "") !== String(initial[spec.key] ?? "") ||
   String(row[spec.noteKey] ?? "") !== String(initial[spec.noteKey] ?? "");
 
-const attendancePatchPayload = (row) => ({
-  present: hasPresent(row) ? Number(row.present) : null,
-  salary: row.salary === "" || row.salary == null ? null : Number(row.salary),
-  extra: num(row.extra),
-  note: row.extraNote?.trim() ? row.extraNote.trim() : null,
-  billing:
-    row.billing === "" || row.billing == null ? null : Number(row.billing),
-});
+const isRecordDirty = (row, initial) =>
+  isAttendanceDirty(row, initial) ||
+  String(row.advance ?? "") !== String(initial.advance ?? "") ||
+  PAYMENT_SPECS.some((spec) => isPaymentDirty(row, initial, spec));
 
 const fieldTone = (dirty) =>
   dirty ? "text-amber-500" : "text-base-content/60";
@@ -251,8 +221,7 @@ export const LabourSessionRecordsPage = () => {
   const isRunningRoute = sessionId === "running";
   const isLatestRoute = sessionId === "latest";
   const canView = can(PERMS.viewLabourSession);
-  const canChangeAttendance = can(PERMS.changeAttendance);
-  const canChangePayment = can(PERMS.changeLabourPayment);
+  const canChangeDailyRecord = can(PERMS.changeDailyRecord);
 
   const [editing, setEditing] = useState(false);
   const [rows, setRows] = useState([]);
@@ -303,44 +272,27 @@ export const LabourSessionRecordsPage = () => {
     ...(session?.end_date ? { date__lte: session.end_date } : {}),
   };
 
-  const attendanceQuery = useQuery({
+  const dailyRecordsQuery = useQuery({
     queryKey: [
       "labours",
       labourId,
-      "session-records",
+      "daily-records",
       sessionId,
-      "attendances",
       rangeParams,
     ],
     queryFn: async () => {
-      const { data } = await fetchLabourAttendancesByLabour(
-        labourId,
-        rangeParams,
-      );
-      return Array.isArray(data) ? data : [];
-    },
-    enabled: recordsEnabled,
-  });
-
-  const paymentQuery = useQuery({
-    queryKey: [
-      "labours",
-      labourId,
-      "session-records",
-      sessionId,
-      "payments",
-      rangeParams,
-    ],
-    queryFn: async () => {
-      const { data } = await fetchLabourPaymentsByLabour(labourId, rangeParams);
+      const { data } = await fetchLabourDailyRecords(labourId, {
+        ...rangeParams,
+        all: true,
+      });
       return Array.isArray(data) ? data : [];
     },
     enabled: recordsEnabled,
   });
 
   const nextRows = useMemo(
-    () => buildRows(attendanceQuery.data ?? [], paymentQuery.data ?? []),
-    [attendanceQuery.data, paymentQuery.data],
+    () => buildRows(dailyRecordsQuery.data ?? []),
+    [dailyRecordsQuery.data],
   );
 
   useEffect(() => {
@@ -363,9 +315,9 @@ export const LabourSessionRecordsPage = () => {
 
   const billingQueries = useQueries({
     queries: usedSiteIds.map((siteId) => ({
-      queryKey: ["sites", siteId, "billing-categories"],
+      queryKey: ["sites", siteId, "billing-categories", "active"],
       queryFn: async () => {
-        const { data } = await fetchBillingCategories(siteId);
+        const { data } = await fetchActiveBillingCategories(siteId);
         return Array.isArray(data) ? data : [];
       },
       enabled: Boolean(siteId),
@@ -474,17 +426,16 @@ export const LabourSessionRecordsPage = () => {
     !editing ||
     !row?.attendanceId ||
     row.attendanceSealed ||
-    !canChangeAttendance;
+    !canChangeDailyRecord;
 
   const paymentLocked = (row, spec) =>
-    !editing || !row?.[spec.idKey] || row[spec.sealedKey] || !canChangePayment;
+    !editing ||
+    !row?.[spec.idKey] ||
+    row[spec.sealedKey] ||
+    !canChangeDailyRecord;
 
   const canEditRecords = rows.some(
-    (row) =>
-      (row.attendanceId && !row.attendanceSealed && canChangeAttendance) ||
-      PAYMENT_SPECS.some(
-        (spec) => row[spec.idKey] && !row[spec.sealedKey] && canChangePayment,
-      ),
+    (row) => row.recordId && !row.sealed && canChangeDailyRecord,
   );
 
   const updateRow = (date, patch) => {
@@ -603,52 +554,31 @@ export const LabourSessionRecordsPage = () => {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const attendanceUpdates = [];
-      const paymentUpdates = [];
+      const updates = [];
 
       for (const row of rows) {
         const initial = initialByDate.get(row.date) ?? row;
         if (
-          row.attendanceId &&
-          !row.attendanceSealed &&
-          canChangeAttendance &&
-          isAttendanceDirty(row, initial)
+          !row.recordId ||
+          row.sealed ||
+          !canChangeDailyRecord ||
+          !isRecordDirty(row, initial)
         ) {
-          attendanceUpdates.push({
-            id: row.attendanceId,
-            payload: attendancePatchPayload(row),
-          });
+          continue;
         }
-
-        for (const spec of PAYMENT_SPECS) {
-          if (
-            !row[spec.idKey] ||
-            row[spec.sealedKey] ||
-            !canChangePayment ||
-            !isPaymentDirty(row, initial, spec)
-          ) {
-            continue;
-          }
-          paymentUpdates.push({
-            id: row[spec.idKey],
-            payload: {
-              amount: num(row[spec.key]),
-              note: row[spec.noteKey]?.trim() ? row[spec.noteKey].trim() : null,
-            },
-          });
-        }
+        updates.push({
+          id: row.recordId,
+          payload: toDailyRecordPatchPayload(row),
+        });
       }
 
-      await Promise.all([
-        ...attendanceUpdates.map((item) =>
-          updateLabourAttendance(labourId, item.id, item.payload),
+      await Promise.all(
+        updates.map((item) =>
+          updateLabourDailyRecord(labourId, item.id, item.payload),
         ),
-        ...paymentUpdates.map((item) =>
-          updateLabourPayment(labourId, item.id, item.payload),
-        ),
-      ]);
+      );
 
-      return attendanceUpdates.length + paymentUpdates.length;
+      return updates.length;
     },
   });
 
@@ -662,7 +592,7 @@ export const LabourSessionRecordsPage = () => {
         return;
       }
       await queryClient.invalidateQueries({
-        queryKey: ["labours", labourId],
+        queryKey: ["labours", labourId, "daily-records"],
       });
       setEditing(false);
       toastSuccess("রেকর্ড আপডেট হয়েছে");
@@ -721,8 +651,7 @@ export const LabourSessionRecordsPage = () => {
   if (
     labourQuery.isLoading ||
     sessionQuery.isLoading ||
-    attendanceQuery.isLoading ||
-    paymentQuery.isLoading
+    dailyRecordsQuery.isLoading
   ) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -747,7 +676,7 @@ export const LabourSessionRecordsPage = () => {
     );
   }
 
-  const recordsError = attendanceQuery.error || paymentQuery.error;
+  const recordsError = dailyRecordsQuery.error;
   const attendanceModalLocked =
     !attendanceModal || attendanceLocked(attendanceModal);
 

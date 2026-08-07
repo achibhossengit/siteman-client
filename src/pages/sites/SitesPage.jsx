@@ -55,7 +55,7 @@ export const SitesPage = () => {
   const sitesQuery = useQuery({
     queryKey: ['sites'],
     queryFn: async () => {
-      const { data } = await fetchSites()
+      const { data } = await fetchSites({ all: true })
       return Array.isArray(data) ? data : []
     },
     enabled: canViewSite,

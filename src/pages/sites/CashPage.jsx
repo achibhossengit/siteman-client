@@ -7,8 +7,9 @@ import { Check, Pencil, Trash2, X } from 'lucide-react'
 import {
   createSiteCash,
   deleteSiteCash,
-  fetchBillingCategories,
-  fetchSiteCash,
+  fetchActiveBillingCategories,
+  fetchSiteCashByDate,
+  fetchSiteCashPendingLog,
   updateSiteCash,
 } from '../../api/sites.js'
 import {
@@ -33,7 +34,7 @@ import {
   applyActivitiesToCashRows,
   snapshotFields,
 } from '../../api/types/activity.js'
-import { fetchActivities, reviewActivitiesBulk } from '../../api/activities.js'
+import { fetchActivities, reviewActivities } from '../../api/activities.js'
 
 const MODAL_ID = 'site_cash_modal'
 const TYPE_FILTER_MODAL_ID = 'cash_type_filter_modal'
@@ -350,34 +351,19 @@ export const CashPage = () => {
   }, [editing, creating])
 
   const cashQuery = useQuery({
-    queryKey: [
-      'sites',
-      siteId,
-      'cash',
-      { date, type: typeFilter, billing: billingFilter },
-    ],
+    queryKey: ['sites', siteId, 'cash', date],
     queryFn: async () => {
-      const { data } = await fetchSiteCash(siteId, {
-        date,
-        ...(typeFilter !== 'all' ? { type: typeFilter } : {}),
-        ...(billingFilter !== 'all' && billingFilter !== 'none'
-          ? { billing: billingFilter }
-          : {}),
-      })
-      let rows = Array.isArray(data) ? data : []
-      if (billingFilter === 'none') {
-        rows = rows.filter((row) => row.billing == null)
-      }
-      return rows
+      const { data } = await fetchSiteCashByDate(siteId, date)
+      return data ?? []
     },
     enabled: Boolean(canViewCash && siteId && date),
   })
 
   const billingQuery = useQuery({
-    queryKey: ['sites', siteId, 'billing-categories'],
+    queryKey: ['sites', siteId, 'billing-categories', 'active'],
     queryFn: async () => {
-      const { data } = await fetchBillingCategories(siteId)
-      return Array.isArray(data) ? data : []
+      const { data } = await fetchActiveBillingCategories(siteId)
+      return data ?? []
     },
     enabled: Boolean(canViewCash && siteId),
   })
@@ -398,24 +384,15 @@ export const CashPage = () => {
   })
 
   const cashActivityQueryKey = useMemo(
-    () => [
-      'activities',
-      { site: siteId, business_date: date, entity_type: 'site_cash' },
-    ],
+    () => ['sites', siteId, 'cash', date, 'pending_log'],
     [siteId, date],
   )
 
   const activityCashQuery = useQuery({
     queryKey: cashActivityQueryKey,
     queryFn: async () => {
-      const { data } = await fetchActivities({
-        site: siteId,
-        business_date: date,
-        entity_type: 'site_cash',
-        reviewed: false,
-        paginate: false,
-      })
-      return data
+      const { data } = await fetchSiteCashPendingLog(siteId, date)
+      return data ?? []
     },
     enabled: Boolean(canViewCash && canViewActivityLog && siteId && date),
   })
@@ -437,9 +414,9 @@ export const CashPage = () => {
         business_date: businessDate,
         entity_type: 'site_cash',
         entity_id: selected.id,
-        paginate: false,
+        all: true,
       })
-      return data
+      return data ?? []
     },
     enabled: Boolean(
       canViewCash &&
@@ -466,7 +443,21 @@ export const CashPage = () => {
       .map((log) => Number(log.id))
       .filter((id) => Number.isFinite(id))
 
-  const liveRows = cashQuery.data ?? []
+  const liveRows = useMemo(() => {
+    let rows = cashQuery.data ?? []
+    if (typeFilter !== 'all') {
+      rows = rows.filter((row) => row.type === typeFilter)
+    }
+    if (billingFilter === 'none') {
+      rows = rows.filter((row) => row.billing == null)
+    } else if (billingFilter !== 'all') {
+      rows = rows.filter(
+        (row) => String(row.billing) === String(billingFilter),
+      )
+    }
+    return rows
+  }, [cashQuery.data, typeFilter, billingFilter])
+
   const totals = useMemo(() => {
     let net = 0
     for (const row of liveRows) {
@@ -599,7 +590,7 @@ export const CashPage = () => {
 
     setReviewing(true)
     try {
-      await reviewActivitiesBulk(ids)
+      await reviewActivities(ids)
       exitSelectMode()
       await queryClient.refetchQueries({ queryKey: cashActivityQueryKey })
       await queryClient.invalidateQueries({ queryKey: ['activities', 'list'] })
@@ -766,7 +757,20 @@ export const CashPage = () => {
   }
 
   const billingOptions = billingQuery.data ?? []
-  const activeBillingOptions = billingOptions.filter((b) => b.is_active !== false)
+  const activeBillingOptions = billingOptions
+  const dayBillingExtras = (() => {
+    const known = new Set(billingOptions.map((b) => String(b.id)))
+    const extras = []
+    for (const row of cashQuery.data ?? []) {
+      if (row.billing == null) continue
+      const id = String(row.billing)
+      if (known.has(id)) continue
+      known.add(id)
+      extras.push({ id: row.billing, name: '—' })
+    }
+    return extras
+  })()
+  const filterBillingOptions = [...billingOptions, ...dayBillingExtras]
   const formBillingOptions = (() => {
     const selectedId = selected?.billing
     if (selectedId == null) return activeBillingOptions
@@ -774,16 +778,18 @@ export const CashPage = () => {
       (b) => String(b.id) === String(selectedId),
     )
     if (hasSelected) return activeBillingOptions
-    const current = billingOptions.find(
+    const current = filterBillingOptions.find(
       (b) => String(b.id) === String(selectedId),
     )
-    return current ? [current, ...activeBillingOptions] : activeBillingOptions
+    return current
+      ? [current, ...activeBillingOptions]
+      : [{ id: selectedId, name: '—' }, ...activeBillingOptions]
   })()
 
   const billingFilterOptions = [
     { value: 'all', label: 'বিলিং' },
     { value: 'none', label: NULL_BILLING_LABEL },
-    ...billingOptions.map((b) => ({
+    ...filterBillingOptions.map((b) => ({
       value: String(b.id),
       label: b.name,
     })),
@@ -792,8 +798,8 @@ export const CashPage = () => {
   const billingName = (billingId) => {
     if (billingId == null) return NULL_BILLING_LABEL
     return (
-      billingOptions.find((b) => String(b.id) === String(billingId))?.name ??
-      '—'
+      filterBillingOptions.find((b) => String(b.id) === String(billingId))
+        ?.name ?? '—'
     )
   }
 

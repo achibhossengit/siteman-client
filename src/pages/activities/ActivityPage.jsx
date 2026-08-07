@@ -2,11 +2,8 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
-import { fetchActivities, reviewActivitiesBulk } from '../../api/activities.js'
-import {
-  fetchLabourAttendanceDetail,
-  fetchLabourPaymentDetail,
-} from '../../api/labours.js'
+import { fetchActivities, reviewActivities } from '../../api/activities.js'
+import { fetchLabourDailyRecordDetail } from '../../api/labours.js'
 import {
   fetchPrivateSiteCashDetail,
   fetchSiteCashDetail,
@@ -46,7 +43,12 @@ const dayEndIso = (dateStr) => `${dateStr}T23:59:59.999`
 const FIELD_LABELS_BN = {
   present: 'হাজিরা',
   salary: 'বেতন',
+  wage: 'বেতন',
   extra: 'বাড়তি',
+  extra_earn: 'বাড়তি',
+  fooding_pay: 'ফুডিং',
+  advance_pay: 'অ্যাডভান্স',
+  return_amount: 'রিটার্ন',
   note: 'নোট',
   billing: 'বিলিং',
   billing_id: 'বিলিং',
@@ -178,8 +180,17 @@ const sameDisplay = (a, b) => String(a ?? '') === String(b ?? '')
 const RECORD_FIELD_KEYS = {
   site_cash: ['date', 'type', 'amount', 'note', 'billing'],
   private_site_cash: ['date', 'type', 'amount', 'note', 'billing'],
-  attendance: ['date', 'present', 'salary', 'extra', 'note', 'billing'],
-  labour_payment: ['date', 'type', 'amount', 'note'],
+  daily_record: [
+    'date',
+    'present',
+    'wage',
+    'extra_earn',
+    'fooding_pay',
+    'advance_pay',
+    'return_amount',
+    'note',
+    'billing',
+  ],
 }
 
 const formatRecordValue = (key, value) => {
@@ -223,10 +234,7 @@ const pickRecordEntries = (entityType, data) => {
 const canLoadEntityRecord = (log) => {
   if (!log || log.action === 'deleted') return false
   if (log.entity_id == null || log.entity_id === '') return false
-  if (
-    log.entity_type === 'attendance' ||
-    log.entity_type === 'labour_payment'
-  ) {
+  if (log.entity_type === 'daily_record') {
     return log.labour != null && log.labour !== ''
   }
   if (
@@ -248,12 +256,8 @@ const fetchEntityRecord = async (log) => {
     const { data } = await fetchPrivateSiteCashDetail(log.site, id)
     return data
   }
-  if (log.entity_type === 'attendance') {
-    const { data } = await fetchLabourAttendanceDetail(log.labour, id)
-    return data
-  }
-  if (log.entity_type === 'labour_payment') {
-    const { data } = await fetchLabourPaymentDetail(log.labour, id)
+  if (log.entity_type === 'daily_record') {
+    const { data } = await fetchLabourDailyRecordDetail(log.labour, id)
     return data
   }
   return null
@@ -597,7 +601,6 @@ export const ActivityPage = () => {
     ],
     queryFn: async () => {
       const { data } = await fetchActivities({
-        paginate: true,
         page,
         page_size: PAGE_SIZE,
         ...(siteId && siteId !== SITE_ALL ? { site: siteId } : {}),
@@ -629,7 +632,7 @@ export const ActivityPage = () => {
         business_date: selected.business_date,
         entity_type: selected.entity_type,
         entity_id: selected.entity_id,
-        paginate: false,
+        all: true,
       })
       return data
     },
@@ -758,7 +761,7 @@ export const ActivityPage = () => {
 
     setReviewing(true)
     try {
-      await reviewActivitiesBulk(ids)
+      await reviewActivities(ids)
       setSelectedIds(new Set())
       setSelectMode(false)
       toastSuccess('অডিট সম্পন্ন হয়েছে')

@@ -42,8 +42,7 @@ export const ACTIVITY_ACTION_FILTER_OPTIONS = [
 
 export const ACTIVITY_ENTITY_FILTER_OPTIONS = [
   { value: 'all', label: 'সব অ্যাক্টিভিটি' },
-  { value: 'attendance', label: 'হাজিরা' },
-  { value: 'labour_payment', label: 'পেমেন্ট' },
+  { value: 'daily_record', label: 'হাজিরা' },
   { value: 'site_cash', label: 'ক্যাশ' },
   // { value: 'private_site_cash', label: 'প্রাইভেট ক্যাশ' },
   // { value: 'labour', label: 'লেবার' },
@@ -184,13 +183,6 @@ export const updateFieldDiffs = (logs = []) => {
   return Object.keys(diffs).length ? diffs : null
 }
 
-const paymentTypeFromLog = (log) => {
-  const fields = snapshotFields(log?.changes)
-  const type = fields.type
-  if (type === 'payment' || type === 'return') return type
-  return null
-}
-
 const sortByCreatedAt = (logs) =>
   [...logs].sort((a, b) => {
     const ta = new Date(a.created_at).getTime()
@@ -223,8 +215,95 @@ const strongerTone = (a, b) => {
   return ra >= rb ? a : b
 }
 
-/** Group attendance logs by labour id (day uniqueness). */
-export const groupAttendanceLogs = (logs = []) => {
+/** Hajira-column fields on DailyRecord activity changes. */
+const ATTENDANCE_TONE_KEYS = new Set([
+  'present',
+  'wage',
+  'extra_earn',
+  'billing',
+  'note',
+  'salary',
+  'extra',
+])
+
+/** Payment-column fields on DailyRecord activity changes. */
+const PAYMENT_TONE_KEYS = new Set([
+  'fooding_pay',
+  'advance_pay',
+  'return_amount',
+  'payment',
+  'advance',
+  'return',
+  'amount',
+  'type',
+])
+
+const logTouchesKeys = (log, keys) => {
+  if (log?.action === 'created' || log?.action === 'deleted') return true
+  const changes = log?.changes
+  if (!changes || typeof changes !== 'object' || Array.isArray(changes)) {
+    return false
+  }
+  return Object.keys(changes).some((k) => keys.has(k))
+}
+
+const toneFromKeyedLogs = (logs, keys) =>
+  toneFromLogs((logs ?? []).filter((l) => logTouchesKeys(l, keys)))
+
+const toAttendanceDiffs = (diffs) => {
+  if (!diffs) return null
+  const out = {}
+  for (const key of [
+    'present',
+    'wage',
+    'extra_earn',
+    'billing',
+    'note',
+    'salary',
+    'extra',
+  ]) {
+    if (key in diffs) out[key] = diffs[key]
+  }
+  // UI row still reads salary/extra.
+  if ('wage' in out && !('salary' in out)) out.salary = out.wage
+  if ('extra_earn' in out && !('extra' in out)) out.extra = out.extra_earn
+  return Object.keys(out).length ? out : null
+}
+
+const toPaymentDiffs = (diffs) => {
+  if (!diffs) return null
+  const out = {}
+  if ('fooding_pay' in diffs) {
+    out.fooding_pay = diffs.fooding_pay
+    out.amount = diffs.fooding_pay
+  } else if ('payment' in diffs) {
+    out.payment = diffs.payment
+    out.amount = diffs.payment
+  }
+  if ('advance_pay' in diffs) {
+    out.advance_pay = diffs.advance_pay
+    out.advance = diffs.advance_pay
+  } else if ('advance' in diffs) {
+    out.advance = diffs.advance
+  }
+  return Object.keys(out).length ? out : null
+}
+
+const toReturnDiffs = (diffs) => {
+  if (!diffs) return null
+  const out = {}
+  if ('return_amount' in diffs) {
+    out.return_amount = diffs.return_amount
+    out.amount = diffs.return_amount
+  } else if ('return' in diffs) {
+    out.return = diffs.return
+    out.amount = diffs.return
+  }
+  return Object.keys(out).length ? out : null
+}
+
+/** Group daily_record logs by labour id (day uniqueness). */
+export const groupDailyRecordLogs = (logs = []) => {
   const map = new Map()
   for (const log of logs) {
     const labourId = log.labour != null ? Number(log.labour) : null
@@ -237,48 +316,8 @@ export const groupAttendanceLogs = (logs = []) => {
   return map
 }
 
-/**
- * Group payment logs by labour + type.
- * Key: `${labourId}:${type}` where type is payment|return.
- * Type is taken from snapshot, or inferred via entity_id from live rows / sibling logs.
- */
-export const groupPaymentLogs = (logs = [], liveRows = []) => {
-  const entityToType = new Map()
-
-  for (const row of liveRows) {
-    if (row.paymentId != null) {
-      entityToType.set(Number(row.paymentId), 'payment')
-    }
-    if (row.returnId != null) {
-      entityToType.set(Number(row.returnId), 'return')
-    }
-  }
-
-  for (const log of logs) {
-    const type = paymentTypeFromLog(log)
-    if (type && log.entity_id != null) {
-      entityToType.set(Number(log.entity_id), type)
-    }
-  }
-
-  const map = new Map()
-  for (const log of logs) {
-    const labourId = log.labour != null ? Number(log.labour) : null
-    if (labourId == null || Number.isNaN(labourId)) continue
-    const type =
-      paymentTypeFromLog(log) ??
-      (log.entity_id != null
-        ? entityToType.get(Number(log.entity_id))
-        : null)
-    if (!type) continue
-    const key = `${labourId}:${type}`
-    const list = map.get(key) ?? []
-    list.push(log)
-    map.set(key, list)
-  }
-  for (const [key, list] of map) map.set(key, sortByCreatedAt(list))
-  return map
-}
+/** @deprecated Prefer groupDailyRecordLogs. */
+export const groupAttendanceLogs = groupDailyRecordLogs
 
 const emptyHajiraRow = (labourId, labourName) => ({
   labourId: Number(labourId),
@@ -286,132 +325,137 @@ const emptyHajiraRow = (labourId, labourName) => ({
   defaultAttendance: 0,
   defaultSalary: 0,
   defaultFooding: 0,
+  recordId: null,
+  recordSealed: false,
   attendanceId: null,
   attendanceSealed: false,
+  paymentId: null,
+  paymentSealed: false,
+  advanceId: null,
+  advanceSealed: false,
+  returnId: null,
+  returnSealed: false,
+  recordCreatedAt: null,
+  recordUpdatedAt: null,
   attendanceCreatedAt: null,
   attendanceUpdatedAt: null,
+  paymentCreatedAt: null,
+  paymentUpdatedAt: null,
+  advanceCreatedAt: null,
+  advanceUpdatedAt: null,
+  returnCreatedAt: null,
+  returnUpdatedAt: null,
   present: '',
   salary: '',
   extra: 0,
   extraNote: '',
   billing: '',
-  paymentId: null,
-  paymentSealed: false,
   payment: '',
   paymentNote: '',
-  paymentCreatedAt: null,
-  paymentUpdatedAt: null,
-  returnId: null,
-  returnSealed: false,
+  advance: '',
+  advanceNote: '',
   return: '',
   returnNote: '',
-  returnCreatedAt: null,
-  returnUpdatedAt: null,
 })
 
-const applyAttendanceSnapshot = (row, log) => {
+const applyDailyRecordSnapshot = (row, log) => {
   const fields = snapshotFields(log.changes)
+  const id = log.entity_id ?? row.recordId ?? row.attendanceId
+  const wage =
+    fields.wage != null && fields.wage !== ''
+      ? fields.wage
+      : fields.salary
+  const ts = log.created_at
   return {
     ...row,
-    attendanceId: log.entity_id ?? row.attendanceId,
+    recordId: id,
+    attendanceId: id,
+    paymentId: id,
+    advanceId: id,
+    returnId: id,
     present:
       fields.present == null || fields.present === ''
         ? ''
         : Number(fields.present),
-    salary:
-      fields.salary == null || fields.salary === ''
-        ? ''
-        : Number(fields.salary),
-    extra: Number(fields.extra) || 0,
+    salary: wage == null || wage === '' ? '' : Number(wage),
+    extra: Number(fields.extra_earn ?? fields.extra) || 0,
     extraNote: fields.note ?? '',
     billing:
       fields.billing != null && fields.billing !== ''
         ? String(fields.billing)
         : '',
-    attendanceCreatedAt: log.created_at ?? row.attendanceCreatedAt,
-    attendanceUpdatedAt: log.created_at ?? row.attendanceUpdatedAt,
-  }
-}
-
-const applyPaymentSnapshot = (row, log, type) => {
-  const fields = snapshotFields(log.changes)
-  if (type === 'return') {
-    return {
-      ...row,
-      returnId: log.entity_id ?? row.returnId,
-      return: blankAmount(fields.amount),
-      returnNote: fields.note ?? '',
-      returnCreatedAt: log.created_at ?? row.returnCreatedAt,
-      returnUpdatedAt: log.created_at ?? row.returnUpdatedAt,
-    }
-  }
-  return {
-    ...row,
-    paymentId: log.entity_id ?? row.paymentId,
-    payment: blankAmount(fields.amount),
-    paymentNote: fields.note ?? '',
-    paymentCreatedAt: log.created_at ?? row.paymentCreatedAt,
-    paymentUpdatedAt: log.created_at ?? row.paymentUpdatedAt,
+    payment: blankAmount(
+      fields.fooding_pay ?? fields.payment ?? fields.amount,
+    ),
+    advance: blankAmount(fields.advance_pay ?? fields.advance),
+    return: blankAmount(fields.return_amount ?? fields.return),
+    recordCreatedAt: ts ?? row.recordCreatedAt,
+    recordUpdatedAt: ts ?? row.recordUpdatedAt,
+    attendanceCreatedAt: ts ?? row.attendanceCreatedAt,
+    attendanceUpdatedAt: ts ?? row.attendanceUpdatedAt,
+    paymentCreatedAt: ts ?? row.paymentCreatedAt,
+    paymentUpdatedAt: ts ?? row.paymentUpdatedAt,
+    advanceCreatedAt: ts ?? row.advanceCreatedAt,
+    advanceUpdatedAt: ts ?? row.advanceUpdatedAt,
+    returnCreatedAt: ts ?? row.returnCreatedAt,
+    returnUpdatedAt: ts ?? row.returnUpdatedAt,
   }
 }
 
 /**
  * Attach activity tones to view rows and append deleted-only ghost rows.
  * Does not mutate input rows.
+ * Signature: (rows, dailyRecordLogs). Third arg still accepted and
+ * concatenated for call sites that pass attendance + payment logs.
  */
 export const applyActivitiesToViewRows = (
   rows = [],
-  attendanceLogs = [],
-  paymentLogs = [],
+  dailyRecordLogs = [],
+  paymentLogsCompat,
 ) => {
-  const attendanceByLabour = groupAttendanceLogs(attendanceLogs)
-  const paymentByKey = groupPaymentLogs(paymentLogs, rows)
+  const allLogs =
+    paymentLogsCompat !== undefined
+      ? [...(dailyRecordLogs ?? []), ...(paymentLogsCompat ?? [])]
+      : (dailyRecordLogs ?? [])
 
-  const usedPaymentKeys = new Set()
+  const byLabour = groupDailyRecordLogs(allLogs)
 
   const next = rows.map((row) => {
     const labourId = Number(row.labourId)
-    let attendanceTone = null
-    let paymentTone = null
-    const logs = []
+    const logs = byLabour.get(labourId)
+    if (!logs?.length) return row
 
-    const attLogs = attendanceByLabour.get(labourId)
-    if (attLogs?.length) {
-      logs.push(...attLogs)
-      attendanceTone = toneFromLogs(attLogs)
-    }
-
-    for (const type of ['payment', 'return']) {
-      const key = `${labourId}:${type}`
-      const payLogs = paymentByKey.get(key)
-      if (!payLogs?.length) continue
-      usedPaymentKeys.add(key)
-      logs.push(...payLogs)
-      paymentTone = strongerTone(paymentTone, toneFromLogs(payLogs))
-    }
-
-    const tone = strongerTone(attendanceTone, paymentTone)
+    const attendanceTone = toneFromKeyedLogs(logs, ATTENDANCE_TONE_KEYS)
+    const paymentTone = toneFromKeyedLogs(logs, PAYMENT_TONE_KEYS)
+    const tone =
+      strongerTone(attendanceTone, paymentTone) ?? toneFromLogs(logs)
     if (!tone) return row
+
+    const diffs = updateFieldDiffs(logs)
     return {
       ...row,
       activityTone: tone,
       attendanceTone,
       paymentTone,
       activityLogs: logs,
-      attendanceDiffs: updateFieldDiffs(attLogs),
-      paymentDiffs: updateFieldDiffs(paymentByKey.get(`${labourId}:payment`)),
-      returnDiffs: updateFieldDiffs(paymentByKey.get(`${labourId}:return`)),
+      attendanceDiffs: toAttendanceDiffs(diffs),
+      paymentDiffs: toPaymentDiffs(diffs),
+      returnDiffs: toReturnDiffs(diffs),
     }
   })
 
   const liveLabourIds = new Set(rows.map((r) => Number(r.labourId)))
   const ghosts = []
 
-  for (const [labourId, attLogs] of attendanceByLabour) {
+  for (const [labourId, logs] of byLabour) {
     if (liveLabourIds.has(labourId)) continue
-    const attendanceTone = toneFromLogs(attLogs)
-    if (!attendanceTone) continue
-    const sorted = sortByCreatedAt(attLogs)
+    const attendanceTone = toneFromKeyedLogs(logs, ATTENDANCE_TONE_KEYS)
+    const paymentTone = toneFromKeyedLogs(logs, PAYMENT_TONE_KEYS)
+    const tone =
+      strongerTone(attendanceTone, paymentTone) ?? toneFromLogs(logs)
+    if (!tone) continue
+
+    const sorted = sortByCreatedAt(logs)
     const snapshotLog =
       [...sorted].reverse().find((l) => l.action === 'deleted') ??
       [...sorted].reverse().find((l) => l.action === 'created') ??
@@ -421,77 +465,20 @@ export const applyActivitiesToViewRows = (
       labourId,
       snapshotLog.labour_name || `#${labourId}`,
     )
-    ghost = applyAttendanceSnapshot(ghost, snapshotLog)
-
-    const relatedLogs = [...attLogs]
-    let paymentTone = null
-    let paymentDiffs = null
-    let returnDiffs = null
-
-    for (const type of ['payment', 'return']) {
-      const key = `${labourId}:${type}`
-      const payLogs = paymentByKey.get(key)
-      if (!payLogs?.length) continue
-      usedPaymentKeys.add(key)
-      relatedLogs.push(...payLogs)
-      paymentTone = strongerTone(paymentTone, toneFromLogs(payLogs))
-      const paySorted = sortByCreatedAt(payLogs)
-      const paySnap =
-        [...paySorted].reverse().find((l) => l.action === 'deleted') ??
-        [...paySorted].reverse().find((l) => l.action === 'created') ??
-        paySorted[paySorted.length - 1]
-      ghost = applyPaymentSnapshot(ghost, paySnap, type)
-      if (type === 'payment') paymentDiffs = updateFieldDiffs(payLogs)
-      if (type === 'return') returnDiffs = updateFieldDiffs(payLogs)
-    }
+    ghost = applyDailyRecordSnapshot(ghost, snapshotLog)
+    const diffs = updateFieldDiffs(logs)
 
     ghosts.push({
       ...ghost,
-      activityTone: strongerTone(attendanceTone, paymentTone),
+      activityTone: tone,
       attendanceTone,
       paymentTone,
-      activityLogs: relatedLogs,
-      attendanceDiffs: updateFieldDiffs(attLogs),
-      paymentDiffs,
-      returnDiffs,
+      activityLogs: logs,
+      attendanceDiffs: toAttendanceDiffs(diffs),
+      paymentDiffs: toPaymentDiffs(diffs),
+      returnDiffs: toReturnDiffs(diffs),
       fromActivitySnapshot: true,
     })
-    liveLabourIds.add(labourId)
-  }
-
-  for (const [key, payLogs] of paymentByKey) {
-    if (usedPaymentKeys.has(key)) continue
-    const [labourIdRaw, type] = key.split(':')
-    const labourId = Number(labourIdRaw)
-    if (liveLabourIds.has(labourId)) {
-      // Live row existed but payment group wasn't attached (shouldn't happen).
-      continue
-    }
-    const paymentTone = toneFromLogs(payLogs)
-    if (!paymentTone) continue
-    const sorted = sortByCreatedAt(payLogs)
-    const snapshotLog =
-      [...sorted].reverse().find((l) => l.action === 'deleted') ??
-      [...sorted].reverse().find((l) => l.action === 'created') ??
-      sorted[sorted.length - 1]
-
-    let ghost = emptyHajiraRow(
-      labourId,
-      snapshotLog.labour_name || `#${labourId}`,
-    )
-    ghost = applyPaymentSnapshot(ghost, snapshotLog, type)
-    ghosts.push({
-      ...ghost,
-      activityTone: paymentTone,
-      attendanceTone: null,
-      paymentTone,
-      activityLogs: payLogs,
-      attendanceDiffs: null,
-      paymentDiffs: type === 'payment' ? updateFieldDiffs(payLogs) : null,
-      returnDiffs: type === 'return' ? updateFieldDiffs(payLogs) : null,
-      fromActivitySnapshot: true,
-    })
-    liveLabourIds.add(labourId)
   }
 
   if (!ghosts.length) return next

@@ -1,22 +1,20 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { updateLabourDailyRecord } from "../../api/labours.js";
 import {
-  fetchLabours,
-  updateLabourAttendance,
-  updateLabourPayment,
-} from "../../api/labours.js";
-import {
-  createLabourAttendances,
-  createLabourPayments,
-  fetchBillingCategories,
-  fetchLabourAttendances,
-  fetchLabourPayments,
+  createSiteDailyRecords,
+  fetchActiveBillingCategories,
+  fetchSiteActiveLabour,
+  fetchSiteDailyRecordsByDate,
+  fetchSiteDailyRecordsPendingLog,
 } from "../../api/sites.js";
 import {
   PRESENT_OPTIONS,
   buildHajiraEditRows,
   buildHajiraViewRows,
+  toDailyRecordPayload,
+  toDailyRecordPatchPayload,
 } from "../../api/types/hajira.js";
 import {
   activityCellToneClass,
@@ -25,7 +23,7 @@ import {
   applyActivitiesToViewRows,
   snapshotFields,
 } from "../../api/types/activity.js";
-import { fetchActivities, reviewActivitiesBulk } from "../../api/activities.js";
+import { fetchActivities, reviewActivities } from "../../api/activities.js";
 import { messageForCode, parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
@@ -56,7 +54,9 @@ const MODAL_VIEWS = {
 const ATTENDANCE_LOG_FIELD_LABELS = {
   present: "হাজিরা",
   salary: "বেতন",
+  wage: "বেতন",
   extra: "বাড়তি",
+  extra_earn: "বাড়তি",
   note: "নোট",
   billing: "বিলিং",
   billing_id: "বিলিং",
@@ -65,6 +65,12 @@ const ATTENDANCE_LOG_FIELD_LABELS = {
 
 const PAYMENT_LOG_FIELD_LABELS = {
   amount: "পরিমাণ",
+  fooding_pay: "পেমেন্ট",
+  advance_pay: "অ্যাডভান্স",
+  return_amount: "রিটার্ন",
+  payment: "পেমেন্ট",
+  advance: "অ্যাডভান্স",
+  return: "রিটার্ন",
   note: "নোট",
   type: "ধরন",
   date: "তারিখ",
@@ -72,6 +78,7 @@ const PAYMENT_LOG_FIELD_LABELS = {
 
 const paymentTypeLabel = (value) => {
   if (value === "payment") return "পেমেন্ট";
+  if (value === "advance") return "অ্যাডভান্স";
   if (value === "return") return "রিটার্ন";
   return value == null || value === "" ? "—" : String(value);
 };
@@ -155,7 +162,20 @@ const formatHajiraLogValue = (key, value, billingNameFn) => {
   if (key === "billing" || key === "billing_id") {
     return billingDiffLabel(value, billingNameFn);
   }
-  if (key === "present" || key === "salary" || key === "extra" || key === "amount") {
+  if (
+    key === "present" ||
+    key === "salary" ||
+    key === "wage" ||
+    key === "extra" ||
+    key === "extra_earn" ||
+    key === "amount" ||
+    key === "fooding_pay" ||
+    key === "advance_pay" ||
+    key === "return_amount" ||
+    key === "payment" ||
+    key === "advance" ||
+    key === "return"
+  ) {
     return formatDiffNumber(value);
   }
   if (typeof value === "boolean") return value ? "হ্যাঁ" : "না";
@@ -177,8 +197,9 @@ const summarizeAttendanceLog = (log, billingNameFn) => {
   if (fields.present != null && fields.present !== "") {
     bits.push(formatHajiraLogValue("present", fields.present, billingNameFn));
   }
-  if (fields.extra != null && Number(fields.extra) > 0) {
-    bits.push(`বাড়তি ${formatHajiraLogValue("extra", fields.extra, billingNameFn)}`);
+  const extra = fields.extra_earn ?? fields.extra;
+  if (extra != null && Number(extra) > 0) {
+    bits.push(`বাড়তি ${formatHajiraLogValue("extra", extra, billingNameFn)}`);
   }
   if (fields.billing != null || fields.billing_id != null) {
     bits.push(
@@ -198,8 +219,21 @@ const summarizePaymentLog = (log, billingNameFn) => {
   const fields = snapshotFields(log.changes);
   const bits = [];
   if (fields.type) bits.push(paymentTypeLabel(fields.type));
-  if (fields.amount != null && fields.amount !== "") {
-    bits.push(formatHajiraLogValue("amount", fields.amount, billingNameFn));
+  const payment = fields.fooding_pay ?? fields.payment ?? fields.amount;
+  const advance = fields.advance_pay ?? fields.advance;
+  const ret = fields.return_amount ?? fields.return;
+  if (payment != null && payment !== "") {
+    bits.push(
+      `পেমেন্ট ${formatHajiraLogValue("amount", payment, billingNameFn)}`,
+    );
+  }
+  if (advance != null && advance !== "") {
+    bits.push(
+      `অ্যাডভান্স ${formatHajiraLogValue("amount", advance, billingNameFn)}`,
+    );
+  }
+  if (ret != null && ret !== "") {
+    bits.push(`রিটার্ন ${formatHajiraLogValue("amount", ret, billingNameFn)}`);
   }
   if (fields.note != null && fields.note !== "") bits.push(String(fields.note));
   return bits.length ? bits.join(" · ") : "—";
@@ -585,30 +619,17 @@ const paymentAmountOf = (row) => {
   return Number(row.payment) || 0;
 };
 
+const advanceAmountOf = (row) => {
+  if (row.advance === "" || row.advance == null) return 0;
+  return Number(row.advance) || 0;
+};
+
 const returnAmountOf = (row) => {
   if (row.return === "" || row.return == null) return 0;
   return Number(row.return) || 0;
 };
 
-const attendancePayload = (row, date) => ({
-  labour: row.labourId,
-  date,
-  present: hasPresent(row) ? Number(row.present) : null,
-  salary: row.salary === "" || row.salary == null ? null : Number(row.salary),
-  extra: Number(row.extra) || 0,
-  note: row.extraNote?.trim() ? row.extraNote.trim() : null,
-  billing:
-    row.billing === "" || row.billing == null ? null : Number(row.billing),
-});
-
-const attendancePatchPayload = (row) => ({
-  present: hasPresent(row) ? Number(row.present) : null,
-  salary: row.salary === "" || row.salary == null ? null : Number(row.salary),
-  extra: Number(row.extra) || 0,
-  note: row.extraNote?.trim() ? row.extraNote.trim() : null,
-  billing:
-    row.billing === "" || row.billing == null ? null : Number(row.billing),
-});
+const hasAmount = (value) => value !== "" && value != null;
 
 const isAttendanceDirty = (row, initial) =>
   String(row.present) !== String(initial.present) ||
@@ -617,22 +638,33 @@ const isAttendanceDirty = (row, initial) =>
   String(row.extraNote ?? "") !== String(initial.extraNote ?? "") ||
   String(row.billing ?? "") !== String(initial.billing ?? "");
 
-const hasAttendanceData = (row) =>
-  hasPresent(row) ||
-  hasExtra(row) ||
-  Boolean(row.extraNote?.trim()) ||
-  Boolean(row.billing);
-
 const isPaymentDirty = (row, initial, key) =>
   String(row[key] ?? "") !== String(initial[key] ?? "") ||
   String(row[`${key}Note`] ?? "") !== String(initial[`${key}Note`] ?? "");
 
-const paymentAmount = (row, key) => {
-  const v = row[key];
-  if (v === "" || v == null) return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-};
+const hasAttendanceData = (row) =>
+  hasPresent(row) ||
+  hasExtra(row) ||
+  Boolean(row.extraNote?.trim()) ||
+  Boolean(row.billing) ||
+  hasAmount(row.payment) ||
+  hasAmount(row.advance) ||
+  hasAmount(row.return) ||
+  Boolean(row.paymentNote?.trim()) ||
+  Boolean(row.advanceNote?.trim()) ||
+  Boolean(row.returnNote?.trim());
+
+const recordIdOf = (row) =>
+  row?.recordId ?? row?.attendanceId ?? row?.paymentId ?? null;
+
+const recordSealedOf = (row) =>
+  Boolean(
+    row?.recordSealed ||
+      row?.attendanceSealed ||
+      row?.paymentSealed ||
+      row?.advanceSealed ||
+      row?.returnSealed,
+  );
 
 const HAJIRA_MODAL_ID = "hajira_attendance_modal";
 const PAYMENT_MODAL_ID = "hajira_payment_modal";
@@ -693,6 +725,7 @@ const EARNINGS_FILTER_OPTIONS = [
 
 const PAYMENT_FILTER_OPTIONS = [
   { value: "payment", label: "পেমেন্ট" },
+  { value: "advance", label: "অ্যাডভান্স" },
   { value: "return", label: "রিটার্ন" },
 ];
 
@@ -730,6 +763,14 @@ const PAYMENT_SPECS = [
     label: "পেমেন্ট",
   },
   {
+    key: "advance",
+    noteKey: "advanceNote",
+    idKey: "advanceId",
+    sealedKey: "advanceSealed",
+    type: "advance",
+    label: "অ্যাডভান্স",
+  },
+  {
     key: "return",
     noteKey: "returnNote",
     idKey: "returnId",
@@ -738,6 +779,10 @@ const PAYMENT_SPECS = [
     label: "রিটার্ন",
   },
 ];
+
+const isRecordDirty = (row, initial) =>
+  isAttendanceDirty(row, initial) ||
+  PAYMENT_SPECS.some((spec) => isPaymentDirty(row, initial, spec.key));
 
 /** gray = unchanged, success = create, amber = update */
 const fieldTone = (row, initial, keys, idKey) => {
@@ -759,10 +804,8 @@ export const HajiraPage = () => {
   const { can, profile, isCompanyAdmin } = usePermissions();
   const queryClient = useQueryClient();
 
-  const canAddAttendance = can(PERMS.addAttendance);
-  const canChangeAttendance = can(PERMS.changeAttendance);
-  const canAddPayment = can(PERMS.addLabourPayment);
-  const canChangePayment = can(PERMS.changeLabourPayment);
+  const canAddDailyRecord = can(PERMS.addDailyRecord);
+  const canChangeDailyRecord = can(PERMS.changeDailyRecord);
   const canViewLabour = can(PERMS.viewLabour);
   const canViewActivityLog =
     can(PERMS.viewActivityLog) ||
@@ -792,7 +835,11 @@ export const HajiraPage = () => {
   const [expandedPaymentHistoryId, setExpandedPaymentHistoryId] =
     useState(null);
   const [earningsFilter, setEarningsFilter] = useState("earn");
-  const [paymentFilter, setPaymentFilter] = useState(["payment", "return"]);
+  const [paymentFilter, setPaymentFilter] = useState([
+    "payment",
+    "advance",
+    "return",
+  ]);
   const [billingFilter, setBillingFilter] = useState("all");
   const [hajiraFilter, setHajiraFilter] = useState([
     "present",
@@ -807,89 +854,43 @@ export const HajiraPage = () => {
 
   const showAyColumn = Boolean(isCompanyAdmin) && !editing;
 
-  const attendanceQuery = useQuery({
-    queryKey: ["sites", siteId, "labour-attendances", { date }],
+  const dailyRecordsQuery = useQuery({
+    queryKey: ["sites", siteId, "daily-records", { date }],
     queryFn: async () => {
-      const { data } = await fetchLabourAttendances(siteId, { date });
-      return Array.isArray(data) ? data : [];
-    },
-    enabled: Boolean(siteId && date),
-  });
-
-  const paymentQuery = useQuery({
-    queryKey: ["sites", siteId, "labour-payments", { date }],
-    queryFn: async () => {
-      const { data } = await fetchLabourPayments(siteId, { date });
+      const { data } = await fetchSiteDailyRecordsByDate(siteId, date);
       return Array.isArray(data) ? data : [];
     },
     enabled: Boolean(siteId && date),
   });
 
   const billingQuery = useQuery({
-    queryKey: ["sites", siteId, "billing-categories", { is_active: true }],
+    queryKey: ["sites", siteId, "active-billing"],
     queryFn: async () => {
-      const { data } = await fetchBillingCategories(siteId, {
-        is_active: true,
-      });
+      const { data } = await fetchActiveBillingCategories(siteId);
       return Array.isArray(data) ? data : [];
     },
     enabled: Boolean(siteId),
   });
 
-  const laboursQuery = useQuery({
-    queryKey: ["labours", { current_site: siteId, is_active: true }],
+  const activeLabourQuery = useQuery({
+    queryKey: ["sites", siteId, "active_labour"],
     queryFn: async () => {
-      const { data } = await fetchLabours({
-        current_site: siteId,
-        is_active: true,
-      });
+      const { data } = await fetchSiteActiveLabour(siteId);
       return Array.isArray(data) ? data : [];
     },
     enabled: Boolean(editing && siteId),
   });
 
-  const activityAttendanceQueryKey = useMemo(
-    () => [
-      "activities",
-      { site: siteId, business_date: date, entity_type: "attendance" },
-    ],
+  const pendingLogQueryKey = useMemo(
+    () => ["sites", siteId, "daily-records", date, "pending_log"],
     [siteId, date],
   );
 
-  const activityPaymentQueryKey = useMemo(
-    () => [
-      "activities",
-      { site: siteId, business_date: date, entity_type: "labour_payment" },
-    ],
-    [siteId, date],
-  );
-
-  const activityAttendanceQuery = useQuery({
-    queryKey: activityAttendanceQueryKey,
+  const pendingLogQuery = useQuery({
+    queryKey: pendingLogQueryKey,
     queryFn: async () => {
-      const { data } = await fetchActivities({
-        site: siteId,
-        business_date: date,
-        entity_type: "attendance",
-        reviewed: false,
-        paginate: false,
-      });
-      return data;
-    },
-    enabled: Boolean(!editing && canViewActivityLog && siteId && date),
-  });
-
-  const activityPaymentQuery = useQuery({
-    queryKey: activityPaymentQueryKey,
-    queryFn: async () => {
-      const { data } = await fetchActivities({
-        site: siteId,
-        business_date: date,
-        entity_type: "labour_payment",
-        reviewed: false,
-        paginate: false,
-      });
-      return data;
+      const { data } = await fetchSiteDailyRecordsPendingLog(siteId, date);
+      return Array.isArray(data) ? data : [];
     },
     enabled: Boolean(!editing && canViewActivityLog && siteId && date),
   });
@@ -899,9 +900,7 @@ export const HajiraPage = () => {
       .map((log) => Number(log.id))
       .filter((id) => Number.isFinite(id));
 
-  const canShowPaymentHistory = Boolean(
-    paymentModal?.paymentId || paymentModal?.returnId,
-  );
+  const canShowPaymentHistory = Boolean(recordIdOf(paymentModal));
 
   const attendanceHistoryQuery = useQuery({
     queryKey: [
@@ -909,38 +908,38 @@ export const HajiraPage = () => {
       {
         site: siteId,
         business_date: date,
-        entity_type: "attendance",
-        entity_id: hajiraModal?.attendanceId,
+        entity_type: "daily_record",
+        entity_id: recordIdOf(hajiraModal),
       },
     ],
     queryFn: async () => {
       const { data } = await fetchActivities({
         site: siteId,
         business_date: date,
-        entity_type: "attendance",
-        entity_id: hajiraModal.attendanceId,
-        paginate: false,
+        entity_type: "daily_record",
+        entity_id: recordIdOf(hajiraModal),
+        all: true,
       });
-      return data;
+      return Array.isArray(data) ? data : [];
     },
     enabled: Boolean(
       canViewActivityLog &&
         siteId &&
         date &&
-        hajiraModal?.attendanceId &&
+        recordIdOf(hajiraModal) &&
         !editing &&
         hajiraModalView === MODAL_VIEWS.history,
     ),
   });
 
-  const paymentSlotHistoryQuery = useQuery({
+  const paymentHistoryQuery = useQuery({
     queryKey: [
       "activities",
       {
         site: siteId,
         business_date: date,
-        entity_type: "labour_payment",
-        entity_id: paymentModal?.paymentId,
+        entity_type: "daily_record",
+        entity_id: recordIdOf(paymentModal),
         slot: "payment",
       },
     ],
@@ -948,48 +947,17 @@ export const HajiraPage = () => {
       const { data } = await fetchActivities({
         site: siteId,
         business_date: date,
-        entity_type: "labour_payment",
-        entity_id: paymentModal.paymentId,
-        paginate: false,
+        entity_type: "daily_record",
+        entity_id: recordIdOf(paymentModal),
+        all: true,
       });
-      return data;
+      return Array.isArray(data) ? data : [];
     },
     enabled: Boolean(
       canViewActivityLog &&
         siteId &&
         date &&
-        paymentModal?.paymentId &&
-        !editing &&
-        paymentModalView === MODAL_VIEWS.history,
-    ),
-  });
-
-  const returnSlotHistoryQuery = useQuery({
-    queryKey: [
-      "activities",
-      {
-        site: siteId,
-        business_date: date,
-        entity_type: "labour_payment",
-        entity_id: paymentModal?.returnId,
-        slot: "return",
-      },
-    ],
-    queryFn: async () => {
-      const { data } = await fetchActivities({
-        site: siteId,
-        business_date: date,
-        entity_type: "labour_payment",
-        entity_id: paymentModal.returnId,
-        paginate: false,
-      });
-      return data;
-    },
-    enabled: Boolean(
-      canViewActivityLog &&
-        siteId &&
-        date &&
-        paymentModal?.returnId &&
+        recordIdOf(paymentModal) &&
         !editing &&
         paymentModalView === MODAL_VIEWS.history,
     ),
@@ -1005,27 +973,18 @@ export const HajiraPage = () => {
   }, [attendanceHistoryQuery.data]);
 
   const paymentHistoryLogs = useMemo(() => {
-    const byId = new Map();
-    for (const log of [
-      ...(paymentSlotHistoryQuery.data ?? []),
-      ...(returnSlotHistoryQuery.data ?? []),
-    ]) {
-      if (log?.id == null) continue;
-      byId.set(log.id, log);
-    }
-    return [...byId.values()].sort((a, b) => {
+    const logs = paymentHistoryQuery.data ?? [];
+    return [...logs].sort((a, b) => {
       const ta = new Date(a.created_at).getTime();
       const tb = new Date(b.created_at).getTime();
       return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
     });
-  }, [paymentSlotHistoryQuery.data, returnSlotHistoryQuery.data]);
+  }, [paymentHistoryQuery.data]);
 
   const paymentHistoryLoading =
-    (Boolean(paymentModal?.paymentId) && paymentSlotHistoryQuery.isLoading) ||
-    (Boolean(paymentModal?.returnId) && returnSlotHistoryQuery.isLoading);
+    Boolean(recordIdOf(paymentModal)) && paymentHistoryQuery.isLoading;
 
-  const paymentHistoryError =
-    paymentSlotHistoryQuery.error || returnSlotHistoryQuery.error;
+  const paymentHistoryError = paymentHistoryQuery.error;
 
   const billingOptions = billingQuery.data ?? [];
 
@@ -1081,7 +1040,7 @@ export const HajiraPage = () => {
     setHajiraModal(null);
     setPaymentModal(null);
     setEarningsFilter("earn");
-    setPaymentFilter(["payment", "return"]);
+    setPaymentFilter(["payment", "advance", "return"]);
     setBillingFilter("all");
     setHajiraFilter(["present", "extra", "billing"]);
   }, [siteId, date]);
@@ -1090,51 +1049,39 @@ export const HajiraPage = () => {
     setSelectedIds(new Set());
   }, [earningsFilter, paymentFilter, billingFilter, hajiraFilter]);
 
-  // View mode: map records by labour from attendance/payment only.
+  // View mode: daily records for the day (+ pending activity tones).
   useEffect(() => {
     if (editing) return;
-    if (!attendanceQuery.isSuccess || !paymentQuery.isSuccess) return;
-    let next = buildHajiraViewRows(
-      attendanceQuery.data ?? [],
-      paymentQuery.data ?? [],
-    );
+    if (!dailyRecordsQuery.isSuccess) return;
+    let next = buildHajiraViewRows(dailyRecordsQuery.data ?? []);
     if (canViewActivityLog) {
-      next = applyActivitiesToViewRows(
-        next,
-        activityAttendanceQuery.data ?? [],
-        activityPaymentQuery.data ?? [],
-      );
+      next = applyActivitiesToViewRows(next, pendingLogQuery.data ?? []);
     }
     setRows(cloneRows(next));
     setInitialRows(cloneRows(next));
   }, [
     editing,
     canViewActivityLog,
-    attendanceQuery.isSuccess,
-    paymentQuery.isSuccess,
-    attendanceQuery.data,
-    paymentQuery.data,
-    activityAttendanceQuery.data,
-    activityPaymentQuery.data,
+    dailyRecordsQuery.isSuccess,
+    dailyRecordsQuery.data,
+    pendingLogQuery.data,
   ]);
 
-  // Edit mode: remap already-loaded records onto this site's labours.
+  // Edit mode: remap already-loaded records onto this site's active labours.
   useEffect(() => {
     if (!editing) return;
-    if (!laboursQuery.isSuccess) return;
+    if (!activeLabourQuery.isSuccess) return;
     const next = buildHajiraEditRows(
-      laboursQuery.data ?? [],
-      attendanceQuery.data ?? [],
-      paymentQuery.data ?? [],
+      activeLabourQuery.data ?? [],
+      dailyRecordsQuery.data ?? [],
     );
     setRows(cloneRows(next));
     setInitialRows(cloneRows(next));
   }, [
     editing,
-    laboursQuery.isSuccess,
-    laboursQuery.data,
-    attendanceQuery.data,
-    paymentQuery.data,
+    activeLabourQuery.isSuccess,
+    activeLabourQuery.data,
+    dailyRecordsQuery.data,
   ]);
 
   const updateRow = (labourId, patch) => {
@@ -1157,7 +1104,9 @@ export const HajiraPage = () => {
   );
 
   const viewEarningsFilter = editing ? "earn" : earningsFilter;
-  const viewPaymentFilter = editing ? ["payment", "return"] : paymentFilter;
+  const viewPaymentFilter = editing
+    ? ["payment", "advance", "return"]
+    : paymentFilter;
   const viewBillingFilter = editing ? "all" : billingFilter;
   const viewHajiraFields = editing
     ? ["present", "extra", "billing"]
@@ -1196,20 +1145,29 @@ export const HajiraPage = () => {
     let present = 0;
     let earnings = 0;
     let payment = 0;
+    let advance = 0;
     let ret = 0;
     for (const row of visibleRows) {
       present += hajiraTotalValue(row, viewHajiraFilter);
       earnings += dayEarnings(row, viewEarningsFilter);
-      const pay = paymentAmountOf(row);
-      const rtn = returnAmountOf(row);
-      if (viewPaymentFilter.includes("payment")) payment += pay;
-      if (viewPaymentFilter.includes("return")) ret += rtn;
+      if (viewPaymentFilter.includes("payment")) {
+        payment += paymentAmountOf(row);
+      }
+      if (viewPaymentFilter.includes("advance")) {
+        advance += advanceAmountOf(row);
+      }
+      if (viewPaymentFilter.includes("return")) {
+        ret += returnAmountOf(row);
+      }
     }
-    return { present, earnings, payment, return: ret };
+    return { present, earnings, payment, advance, return: ret };
   }, [visibleRows, viewEarningsFilter, viewPaymentFilter, viewHajiraFilter]);
 
   const showPaymentAmount = (row) =>
     viewPaymentFilter.includes("payment") && paymentAmountOf(row) !== 0;
+
+  const showAdvanceAmount = (row) =>
+    viewPaymentFilter.includes("advance") && advanceAmountOf(row) !== 0;
 
   const showReturnAmount = (row) =>
     viewPaymentFilter.includes("return") && returnAmountOf(row) !== 0;
@@ -1217,13 +1175,11 @@ export const HajiraPage = () => {
   const modalEditable = editing;
 
   const attendanceLocked = (row) =>
-    Boolean(row?.attendanceSealed) ||
-    (row?.attendanceId ? !canChangeAttendance : !canAddAttendance);
+    recordSealedOf(row) ||
+    (recordIdOf(row) ? !canChangeDailyRecord : !canAddDailyRecord);
 
-  /** Each payment slot is its own record, so create/change rights differ per slot. */
-  const paymentSlotLocked = (row, spec) =>
-    Boolean(row?.[spec.sealedKey]) ||
-    (row?.[spec.idKey] ? !canChangePayment : !canAddPayment);
+  /** One sealed daily record — same create/change rights for every payment slot. */
+  const paymentSlotLocked = (row, _spec) => attendanceLocked(row);
 
   const openHajiraModal = (row) => {
     setHajiraModalView(MODAL_VIEWS.detail);
@@ -1236,6 +1192,8 @@ export const HajiraPage = () => {
       extra: row.extra || "",
       note: row.extraNote ?? "",
       billing: row.billing ?? "",
+      recordId: row.recordId ?? row.attendanceId ?? null,
+      recordSealed: row.recordSealed ?? row.attendanceSealed,
       attendanceSealed: row.attendanceSealed,
       attendanceId: row.attendanceId,
       attendanceCreatedAt: row.attendanceCreatedAt ?? null,
@@ -1303,12 +1261,19 @@ export const HajiraPage = () => {
     setPaymentModal({
       labourId: row.labourId,
       labourName: row.labourName,
+      recordId: row.recordId ?? row.paymentId ?? null,
       payment: row.payment,
       paymentNote: row.paymentNote ?? "",
       paymentSealed: row.paymentSealed,
       paymentId: row.paymentId,
       paymentCreatedAt: row.paymentCreatedAt ?? null,
       paymentUpdatedAt: row.paymentUpdatedAt ?? null,
+      advance: row.advance,
+      advanceNote: row.advanceNote ?? "",
+      advanceSealed: row.advanceSealed,
+      advanceId: row.advanceId,
+      advanceCreatedAt: row.advanceCreatedAt ?? null,
+      advanceUpdatedAt: row.advanceUpdatedAt ?? null,
       return: row.return,
       returnNote: row.returnNote ?? "",
       returnSealed: row.returnSealed,
@@ -1399,18 +1364,16 @@ export const HajiraPage = () => {
     setReviewing(true);
     setApiError(null);
     try {
-      await reviewActivitiesBulk(ids);
+      await reviewActivities(ids);
       exitSelectMode();
       const reviewed = new Set(ids.map((id) => Number(id)));
       const dropReviewed = (logs) =>
         (Array.isArray(logs) ? logs : []).filter(
           (log) => !reviewed.has(Number(log?.id)),
         );
-      queryClient.setQueryData(activityAttendanceQueryKey, dropReviewed);
-      queryClient.setQueryData(activityPaymentQueryKey, dropReviewed);
+      queryClient.setQueryData(pendingLogQueryKey, dropReviewed);
       await Promise.all([
-        queryClient.refetchQueries({ queryKey: activityAttendanceQueryKey }),
-        queryClient.refetchQueries({ queryKey: activityPaymentQueryKey }),
+        queryClient.refetchQueries({ queryKey: pendingLogQueryKey }),
         queryClient.invalidateQueries({ queryKey: ["activities", "list"] }),
       ]);
       toastSuccess("অডিট সম্পন্ন হয়েছে");
@@ -1621,106 +1584,60 @@ export const HajiraPage = () => {
   const onCancel = () => {
     setEditing(false);
     setApiError(null);
-    const next = buildHajiraViewRows(
-      attendanceQuery.data ?? [],
-      paymentQuery.data ?? [],
-    );
+    let next = buildHajiraViewRows(dailyRecordsQuery.data ?? []);
+    if (canViewActivityLog) {
+      next = applyActivitiesToViewRows(next, pendingLogQuery.data ?? []);
+    }
     setRows(cloneRows(next));
     setInitialRows(cloneRows(next));
   };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const attendanceCreates = [];
-      const attendanceUpdates = [];
-      const paymentCreates = [];
-      const paymentUpdates = [];
+      const creates = [];
+      const updates = [];
       let blocked = 0;
 
       for (const row of rows) {
         const initial =
           initialRows.find((r) => r.labourId === row.labourId) ?? row;
 
-        if (
-          !row.attendanceSealed &&
-          isAttendanceDirty(row, initial) &&
-          (row.attendanceId || hasAttendanceData(row))
-        ) {
-          if (row.attendanceId) {
-            if (canChangeAttendance) {
-              attendanceUpdates.push({
-                labourId: row.labourId,
-                id: row.attendanceId,
-                payload: attendancePatchPayload(row),
-              });
-            } else {
-              blocked += 1;
-            }
-          } else if (hasAttendanceData(row)) {
-            if (canAddAttendance) {
-              attendanceCreates.push(attendancePayload(row, date));
-            } else {
-              blocked += 1;
-            }
-          }
-        }
+        if (recordSealedOf(row)) continue;
+        if (!isRecordDirty(row, initial)) continue;
 
-        for (const spec of PAYMENT_SPECS) {
-          if (row[spec.sealedKey]) continue;
-          if (!isPaymentDirty(row, initial, spec.key)) continue;
-          const amount = paymentAmount(row, spec.key);
-          const note = row[spec.noteKey]?.trim()
-            ? row[spec.noteKey].trim()
-            : null;
-          const id = row[spec.idKey];
-
-          if (id) {
-            if (!canChangePayment) {
-              blocked += 1;
-              continue;
-            }
-            paymentUpdates.push({
-              labourId: row.labourId,
-              id,
-              payload: { amount: amount ?? 0, note },
-            });
-          } else if (amount != null && amount > 0) {
-            if (!canAddPayment) {
-              blocked += 1;
-              continue;
-            }
-            paymentCreates.push({
-              labour: row.labourId,
-              date,
-              type: spec.type,
-              amount,
-              note,
-            });
+        const recordId = recordIdOf(row);
+        if (recordId) {
+          if (!canChangeDailyRecord) {
+            blocked += 1;
+            continue;
           }
+          updates.push({
+            labourId: row.labourId,
+            id: recordId,
+            payload: toDailyRecordPatchPayload(row),
+          });
+        } else if (hasAttendanceData(row)) {
+          if (!canAddDailyRecord) {
+            blocked += 1;
+            continue;
+          }
+          creates.push(toDailyRecordPayload(row, date));
         }
       }
 
-      if (attendanceCreates.length) {
-        await createLabourAttendances(siteId, attendanceCreates);
-      }
-      if (paymentCreates.length) {
-        await createLabourPayments(siteId, paymentCreates);
+      if (creates.length) {
+        await createSiteDailyRecords(siteId, creates);
       }
 
-      await Promise.all([
-        ...attendanceUpdates.map((item) =>
-          updateLabourAttendance(item.labourId, item.id, item.payload),
+      await Promise.all(
+        updates.map((item) =>
+          updateLabourDailyRecord(item.labourId, item.id, item.payload),
         ),
-        ...paymentUpdates.map((item) =>
-          updateLabourPayment(item.labourId, item.id, item.payload),
-        ),
-      ]);
+      );
 
       return {
-        attendanceCreates: attendanceCreates.length,
-        attendanceUpdates: attendanceUpdates.length,
-        paymentCreates: paymentCreates.length,
-        paymentUpdates: paymentUpdates.length,
+        creates: creates.length,
+        updates: updates.length,
         blocked,
       };
     },
@@ -1733,8 +1650,8 @@ export const HajiraPage = () => {
         initialRows.find((r) => r.labourId === row.labourId) ?? row;
       if (
         !isAttendanceDirty(row, initial) ||
-        row.attendanceSealed ||
-        !(row.attendanceId || hasAttendanceData(row))
+        recordSealedOf(row) ||
+        !(recordIdOf(row) || hasAttendanceData(row))
       ) {
         return false;
       }
@@ -1747,11 +1664,7 @@ export const HajiraPage = () => {
     setSaving(true);
     try {
       const result = await saveMutation.mutateAsync();
-      const total =
-        result.attendanceCreates +
-        result.attendanceUpdates +
-        result.paymentCreates +
-        result.paymentUpdates;
+      const total = result.creates + result.updates;
       if (total === 0) {
         toastInfo(
           result.blocked > 0
@@ -1761,10 +1674,7 @@ export const HajiraPage = () => {
         return;
       }
       await queryClient.invalidateQueries({
-        queryKey: ["sites", siteId, "labour-attendances"],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["sites", siteId, "labour-payments"],
+        queryKey: ["sites", siteId, "daily-records"],
       });
       await queryClient.invalidateQueries({
         queryKey: ["sites", siteId, "daily-reports"],
@@ -1786,9 +1696,8 @@ export const HajiraPage = () => {
   }
 
   const loading =
-    attendanceQuery.isLoading ||
-    paymentQuery.isLoading ||
-    (editing && laboursQuery.isLoading);
+    dailyRecordsQuery.isLoading ||
+    (editing && activeLabourQuery.isLoading);
 
   if (loading) {
     return (
@@ -1799,9 +1708,8 @@ export const HajiraPage = () => {
   }
 
   const loadError =
-    attendanceQuery.error ||
-    paymentQuery.error ||
-    (editing ? laboursQuery.error : null);
+    dailyRecordsQuery.error ||
+    (editing ? activeLabourQuery.error : null);
   if (loadError) {
     return (
       <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
@@ -1952,6 +1860,7 @@ export const HajiraPage = () => {
                   : "";
                 const earn = dayEarnings(row, viewEarningsFilter);
                 const showPay = showPaymentAmount(row);
+                const showAdv = showAdvanceAmount(row);
                 const showRet = showReturnAmount(row);
                 const attendanceLines = attendanceCellLines(
                   row,
@@ -2031,7 +1940,7 @@ export const HajiraPage = () => {
                         className="btn btn-ghost btn-xs h-auto min-h-0 px-1 py-0.5 font-normal text-right leading-tight w-full"
                         onClick={() => openPaymentModal(row)}
                       >
-                        {showPay || showRet ? (
+                        {showPay || showAdv || showRet ? (
                           <span className="block w-full tabular-nums space-y-0.5 text-right">
                             {showPay ? (
                               <span
@@ -2049,6 +1958,24 @@ export const HajiraPage = () => {
                                 }`}
                               >
                                 {formatBnNumber(row.payment)}
+                              </span>
+                            ) : null}
+                            {showAdv ? (
+                              <span
+                                className={`block w-full text-right ${
+                                  paymentActivityTone ||
+                                  (editing
+                                    ? paymentLineTone(
+                                        row,
+                                        initial,
+                                        ["advance", "advanceNote"],
+                                        "advanceId",
+                                        "text-error",
+                                      )
+                                    : "text-error")
+                                }`}
+                              >
+                                {formatBnNumber(row.advance)}
                               </span>
                             ) : null}
                             {showRet ? (
@@ -2100,11 +2027,16 @@ export const HajiraPage = () => {
                   </td>
                 ) : null}
                 <td className="text-right">
-                  {totals.payment || totals.return ? (
+                  {totals.payment || totals.advance || totals.return ? (
                     <span className="block w-full tabular-nums space-y-0.5 text-right">
                       {totals.payment ? (
                         <span className="block w-full text-right text-error">
                           {formatBnNumber(totals.payment)}
+                        </span>
+                      ) : null}
+                      {totals.advance ? (
+                        <span className="block w-full text-right text-error">
+                          {formatBnNumber(totals.advance)}
                         </span>
                       ) : null}
                       {totals.return ? (
@@ -2176,7 +2108,7 @@ export const HajiraPage = () => {
             </button>
           </div>
         </div>
-      ) : canAddAttendance ? (
+      ) : canAddDailyRecord ? (
         <button
           type="button"
           className="btn btn-primary fixed bottom-16 right-4 z-40 shadow-lg"
@@ -2266,7 +2198,15 @@ export const HajiraPage = () => {
                 fieldLabels={ATTENDANCE_LOG_FIELD_LABELS}
                 billingNameFn={billingFullLabel}
                 summarize={summarizeAttendanceLog}
-                snapshotKeys={["present", "salary", "extra", "note", "billing"]}
+                snapshotKeys={[
+                  "present",
+                  "wage",
+                  "salary",
+                  "extra_earn",
+                  "extra",
+                  "note",
+                  "billing",
+                ]}
               />
             ) : hajiraModal ? (
               <div className="space-y-3">
@@ -2585,10 +2525,7 @@ export const HajiraPage = () => {
               <EntityHistoryPanel
                 isLoading={paymentHistoryLoading}
                 error={
-                  paymentSlotHistoryQuery.isError ||
-                  returnSlotHistoryQuery.isError
-                    ? paymentHistoryError
-                    : null
+                  paymentHistoryQuery.isError ? paymentHistoryError : null
                 }
                 logs={paymentHistoryLogs}
                 expandedId={expandedPaymentHistoryId}
@@ -2596,7 +2533,17 @@ export const HajiraPage = () => {
                 fieldLabels={PAYMENT_LOG_FIELD_LABELS}
                 billingNameFn={billingFullLabel}
                 summarize={summarizePaymentLog}
-                snapshotKeys={["type", "amount", "note"]}
+                snapshotKeys={[
+                  "fooding_pay",
+                  "advance_pay",
+                  "return_amount",
+                  "payment",
+                  "advance",
+                  "return",
+                  "amount",
+                  "type",
+                  "note",
+                ]}
               />
             ) : paymentModal ? (
               <div className="space-y-4">
@@ -2616,7 +2563,7 @@ export const HajiraPage = () => {
                   );
                   const amountDiff = diffPairFor(
                     slotDiffs,
-                    "amount",
+                    spec.key === "advance" ? "advance" : "amount",
                     paymentModal[spec.key],
                     formatDiffNumber,
                   );

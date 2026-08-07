@@ -1,15 +1,36 @@
 import { api } from './client.js'
 import { endpoints } from './endpoints.js'
+import { asList, asPage, fetchAllPages } from './pagination.js'
 
-/** GET /users — filters: is_active, is_companyadmin, search. */
-export const fetchUsers = ({ is_active, is_companyadmin, search } = {}) =>
-  api.get(endpoints.users.list, {
-    params: {
-      ...(typeof is_active === 'boolean' ? { is_active } : {}),
-      ...(typeof is_companyadmin === 'boolean' ? { is_companyadmin } : {}),
-      ...(search ? { search } : {}),
-    },
-  })
+/** GET /users — filters: is_active, is_companyadmin, search. Paginated. */
+export const fetchUsers = ({
+  is_active,
+  is_companyadmin,
+  search,
+  page,
+  page_size,
+  all = false,
+} = {}) => {
+  const params = {
+    ...(typeof is_active === 'boolean' ? { is_active } : {}),
+    ...(typeof is_companyadmin === 'boolean' ? { is_companyadmin } : {}),
+    ...(search ? { search } : {}),
+    ...(page != null ? { page } : {}),
+    ...(page_size != null ? { page_size } : {}),
+  }
+  if (all) {
+    return fetchAllPages((p, pageSize) =>
+      api.get(endpoints.users.list, {
+        params: { ...params, page: p, page_size: pageSize },
+      }),
+    ).then((results) => ({ data: results }))
+  }
+  return api.get(endpoints.users.list, { params }).then((res) => ({
+    ...res,
+    data:
+      page != null || page_size != null ? asPage(res.data) : asList(res.data),
+  }))
+}
 
 /** GET /users/{id} */
 export const fetchUserDetail = (userId) =>

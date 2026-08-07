@@ -1,18 +1,44 @@
 import { api } from './client.js'
 import { endpoints } from './endpoints.js'
+import { asList, asPage, fetchAllPages } from './pagination.js'
 
-/** GET /sites — optional filters: is_active, is_closed. */
-export const fetchSites = ({ is_active, is_closed } = {}) =>
-  api.get(endpoints.sites.list, {
-    params: {
-      ...(typeof is_active === 'boolean' ? { is_active } : {}),
-      ...(typeof is_closed === 'boolean' ? { is_closed } : {}),
-    },
-  })
+/** GET /sites — optional filters: is_active, is_closed. Paginated. */
+export const fetchSites = ({
+  is_active,
+  is_closed,
+  page,
+  page_size,
+  all = false,
+} = {}) => {
+  const params = {
+    ...(typeof is_active === 'boolean' ? { is_active } : {}),
+    ...(typeof is_closed === 'boolean' ? { is_closed } : {}),
+    ...(page != null ? { page } : {}),
+    ...(page_size != null ? { page_size } : {}),
+  }
+  if (all) {
+    return fetchAllPages((p, pageSize) =>
+      api.get(endpoints.sites.list, {
+        params: { ...params, page: p, page_size: pageSize },
+      }),
+    ).then((results) => ({ data: results }))
+  }
+  return api.get(endpoints.sites.list, { params }).then((res) => ({
+    ...res,
+    data: page != null || page_size != null ? asPage(res.data) : asList(res.data),
+  }))
+}
 
 /** GET /sites/{id} */
 export const fetchSiteDetail = (siteId) =>
   api.get(endpoints.sites.detail(siteId))
+
+/** GET /sites/{id}/active_labour — unpaginated active labours on site. */
+export const fetchSiteActiveLabour = (siteId) =>
+  api.get(endpoints.sites.activeLabour(siteId)).then((res) => ({
+    ...res,
+    data: asList(res.data),
+  }))
 
 /** POST /sites */
 export const createSite = (payload) => api.post(endpoints.sites.list, payload)
@@ -35,17 +61,53 @@ export const fetchDailyReport = (siteId, date) =>
   })
 
 /**
- * Site cash ledger list.
+ * Site cash ledger list (paginated).
  * GET /sites/{site_pk}/cash — filters: date, type, billing.
  */
-export const fetchSiteCash = (siteId, { date, type, billing } = {}) =>
-  api.get(endpoints.sites.cash(siteId), {
-    params: {
-      ...(date ? { date } : {}),
-      ...(type ? { type } : {}),
-      ...(billing != null && billing !== '' ? { billing } : {}),
-    },
-  })
+export const fetchSiteCash = (
+  siteId,
+  { date, type, billing, page, page_size, all = false } = {},
+) => {
+  const params = {
+    ...(date ? { date } : {}),
+    ...(type ? { type } : {}),
+    ...(billing != null && billing !== '' ? { billing } : {}),
+    ...(page != null ? { page } : {}),
+    ...(page_size != null ? { page_size } : {}),
+  }
+  if (all) {
+    return fetchAllPages((p, pageSize) =>
+      api.get(endpoints.sites.cash(siteId), {
+        params: { ...params, page: p, page_size: pageSize },
+      }),
+    ).then((results) => ({ data: results }))
+  }
+  return api.get(endpoints.sites.cash(siteId), { params }).then((res) => ({
+    ...res,
+    data: asList(res.data),
+  }))
+}
+
+/**
+ * Unpaginated cash entries for one day.
+ * GET /sites/{site_pk}/cash/{cash_date}
+ * OpenAPI may document a singular schema; runtime is a list.
+ */
+export const fetchSiteCashByDate = (siteId, cashDate) =>
+  api.get(endpoints.sites.cashByDate(siteId, cashDate)).then((res) => ({
+    ...res,
+    data: asList(res.data),
+  }))
+
+/**
+ * Unpaginated pending (unreviewed) site-cash activity for a date.
+ * GET /sites/{site_pk}/cash/{cash_date}/pending_log
+ */
+export const fetchSiteCashPendingLog = (siteId, cashDate) =>
+  api.get(endpoints.sites.cashPendingLog(siteId, cashDate)).then((res) => ({
+    ...res,
+    data: asList(res.data),
+  }))
 
 /** GET /sites/{site_pk}/cash/{id} */
 export const fetchSiteCashDetail = (siteId, cashId) =>
@@ -64,20 +126,34 @@ export const deleteSiteCash = (siteId, cashId) =>
   api.delete(endpoints.sites.cashDetail(siteId, cashId))
 
 /**
- * Private site cash ledger list.
+ * Private site cash ledger list (paginated).
  * GET /sites/{site_pk}/private-cash — filters: date, type, billing.
  */
 export const fetchPrivateSiteCash = (
   siteId,
-  { date, type, billing } = {},
-) =>
-  api.get(endpoints.sites.privateCash(siteId), {
-    params: {
-      ...(date ? { date } : {}),
-      ...(type ? { type } : {}),
-      ...(billing != null && billing !== '' ? { billing } : {}),
-    },
-  })
+  { date, type, billing, page, page_size, all = false } = {},
+) => {
+  const params = {
+    ...(date ? { date } : {}),
+    ...(type ? { type } : {}),
+    ...(billing != null && billing !== '' ? { billing } : {}),
+    ...(page != null ? { page } : {}),
+    ...(page_size != null ? { page_size } : {}),
+  }
+  if (all) {
+    return fetchAllPages((p, pageSize) =>
+      api.get(endpoints.sites.privateCash(siteId), {
+        params: { ...params, page: p, page_size: pageSize },
+      }),
+    ).then((results) => ({ data: results }))
+  }
+  return api
+    .get(endpoints.sites.privateCash(siteId), { params })
+    .then((res) => ({
+      ...res,
+      data: asList(res.data),
+    }))
+}
 
 /** GET /sites/{site_pk}/private-cash/{id} */
 export const fetchPrivateSiteCashDetail = (siteId, id) =>
@@ -95,9 +171,40 @@ export const updatePrivateSiteCash = (siteId, id, payload) =>
 export const deletePrivateSiteCash = (siteId, id) =>
   api.delete(endpoints.sites.privateCashDetail(siteId, id))
 
-/** Billing categories for a site (used as cash `billing` options). */
-export const fetchBillingCategories = (siteId, params = {}) =>
-  api.get(endpoints.sites.billingCategories(siteId), { params })
+/** Billing categories for a site (paginated). */
+export const fetchBillingCategories = (
+  siteId,
+  { page, page_size, all = false, ...filters } = {},
+) => {
+  const params = {
+    ...filters,
+    ...(page != null ? { page } : {}),
+    ...(page_size != null ? { page_size } : {}),
+  }
+  if (all) {
+    return fetchAllPages((p, pageSize) =>
+      api.get(endpoints.sites.billingCategories(siteId), {
+        params: { ...params, page: p, page_size: pageSize },
+      }),
+    ).then((results) => ({ data: results }))
+  }
+  return api
+    .get(endpoints.sites.billingCategories(siteId), { params })
+    .then((res) => ({
+      ...res,
+      data: asList(res.data),
+    }))
+}
+
+/**
+ * Unpaginated active billing categories for option lists.
+ * GET /sites/{site_pk}/billing-categories/active-billing
+ */
+export const fetchActiveBillingCategories = (siteId) =>
+  api.get(endpoints.sites.activeBilling(siteId)).then((res) => ({
+    ...res,
+    data: asList(res.data),
+  }))
 
 /** GET /sites/{site_pk}/billing-categories/{id} */
 export const fetchBillingCategoryDetail = (siteId, id) =>
@@ -116,43 +223,60 @@ export const deleteBillingCategory = (siteId, id) =>
   api.delete(endpoints.sites.billingCategoryDetail(siteId, id))
 
 /**
- * Site labour attendances list.
- * GET /sites/{site_pk}/labour-attendances — filters: date, labour, billing, is_sealed.
+ * Site daily records list (paginated).
+ * GET /sites/{site_pk}/daily-records — filters: date, labour, billing, is_sealed.
  */
-export const fetchLabourAttendances = (
+export const fetchSiteDailyRecords = (
   siteId,
-  { date, labour, billing, is_sealed } = {},
-) =>
-  api.get(endpoints.sites.labourAttendances(siteId), {
-    params: {
-      ...(date ? { date } : {}),
-      ...(labour != null && labour !== '' ? { labour } : {}),
-      ...(billing != null && billing !== '' ? { billing } : {}),
-      ...(typeof is_sealed === 'boolean' ? { is_sealed } : {}),
-    },
-  })
-
-/** POST /sites/{site_pk}/labour-attendances — bulk create (array body). */
-export const createLabourAttendances = (siteId, payload) =>
-  api.post(endpoints.sites.labourAttendances(siteId), payload)
+  { date, labour, billing, is_sealed, page, page_size, all = false } = {},
+) => {
+  const params = {
+    ...(date ? { date } : {}),
+    ...(labour != null && labour !== '' ? { labour } : {}),
+    ...(billing != null && billing !== '' ? { billing } : {}),
+    ...(typeof is_sealed === 'boolean' ? { is_sealed } : {}),
+    ...(page != null ? { page } : {}),
+    ...(page_size != null ? { page_size } : {}),
+  }
+  if (all) {
+    return fetchAllPages((p, pageSize) =>
+      api.get(endpoints.sites.dailyRecords(siteId), {
+        params: { ...params, page: p, page_size: pageSize },
+      }),
+    ).then((results) => ({ data: results }))
+  }
+  return api
+    .get(endpoints.sites.dailyRecords(siteId), { params })
+    .then((res) => ({
+      ...res,
+      data: asList(res.data),
+    }))
+}
 
 /**
- * Site labour payments list.
- * GET /sites/{site_pk}/labour-payments — filters: date, labour, type, is_sealed.
+ * Unpaginated daily records for one day (হাজিরা).
+ * GET /sites/{site_pk}/daily-records/{record_date}
  */
-export const fetchLabourPayments = (
-  siteId,
-  { date, labour, type, is_sealed } = {},
-) =>
-  api.get(endpoints.sites.labourPayments(siteId), {
-    params: {
-      ...(date ? { date } : {}),
-      ...(labour != null && labour !== '' ? { labour } : {}),
-      ...(type ? { type } : {}),
-      ...(typeof is_sealed === 'boolean' ? { is_sealed } : {}),
-    },
-  })
+export const fetchSiteDailyRecordsByDate = (siteId, recordDate) =>
+  api
+    .get(endpoints.sites.dailyRecordsByDate(siteId, recordDate))
+    .then((res) => ({
+      ...res,
+      data: asList(res.data),
+    }))
 
-/** POST /sites/{site_pk}/labour-payments — bulk create (array body). */
-export const createLabourPayments = (siteId, payload) =>
-  api.post(endpoints.sites.labourPayments(siteId), payload)
+/**
+ * Unpaginated pending daily-record activity for a date.
+ * GET /sites/{site_pk}/daily-records/{record_date}/pending_log
+ */
+export const fetchSiteDailyRecordsPendingLog = (siteId, recordDate) =>
+  api
+    .get(endpoints.sites.dailyRecordsPendingLog(siteId, recordDate))
+    .then((res) => ({
+      ...res,
+      data: asList(res.data),
+    }))
+
+/** POST /sites/{site_pk}/daily-records — bulk create (array body). */
+export const createSiteDailyRecords = (siteId, payload) =>
+  api.post(endpoints.sites.dailyRecords(siteId), payload)

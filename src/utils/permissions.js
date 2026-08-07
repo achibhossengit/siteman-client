@@ -47,17 +47,11 @@ export const PERMS = {
   changeLabour: 'labours.change_labour',
   deleteLabour: 'labours.delete_labour',
 
-  // labours.LabourPayment
-  viewLabourPayment: 'labours.view_labourpayment',
-  addLabourPayment: 'labours.add_labourpayment',
-  changeLabourPayment: 'labours.change_labourpayment',
-  deleteLabourPayment: 'labours.delete_labourpayment',
-
-  // labours.Attendance
-  viewAttendance: 'labours.view_attendance',
-  addAttendance: 'labours.add_attendance',
-  changeAttendance: 'labours.change_attendance',
-  deleteAttendance: 'labours.delete_attendance',
+  // labours.DailyRecord (merged attendance + labour payment)
+  viewDailyRecord: 'labours.view_dailyrecord',
+  addDailyRecord: 'labours.add_dailyrecord',
+  changeDailyRecord: 'labours.change_dailyrecord',
+  deleteDailyRecord: 'labours.delete_dailyrecord',
 
   // labours.LabourSession
   viewLabourSession: 'labours.view_laboursession',

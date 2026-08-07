@@ -1,6 +1,9 @@
 /**
- * Site labour attendance / payment helpers for হাজিরা.
- * Uses backend snake_case fields as returned by the API.
+ * Site daily-record helpers for হাজিরা.
+ * DailyRecord merges former attendance + labour-payment fields.
+ *
+ * API fields: present, wage, extra_earn, fooding_pay, advance_pay, return_amount, note, billing
+ * UI row keeps some short names (salary/extra/payment) for existing page code.
  */
 
 import { z } from 'zod'
@@ -21,24 +24,9 @@ export const attendanceFormSchema = z.object({
   billing: z.string().optional(),
 })
 
-export const toAttendancePayload = ({
-  present,
-  salary,
-  extra,
-  note,
-  billing,
-  date,
-}) => ({
-  present: Number(present),
-  salary: Number(salary),
-  extra: Number(extra),
-  note: note?.trim() ? note.trim() : null,
-  billing: billing === '' || billing == null ? null : Number(billing),
-  ...(date ? { date } : {}),
-})
-
 const labourIdOf = (row) => {
-  const candidate = row?.labour ?? row?.labour_id ?? null
+  const candidate =
+    row?.labour ?? row?.labour_id ?? row?.labourId ?? null
   if (candidate == null || candidate === '') return null
   if (typeof candidate === 'object') return candidate.id ?? candidate.pk ?? null
   return candidate
@@ -46,96 +34,11 @@ const labourIdOf = (row) => {
 
 const labourNameOf = (row, labourId) => {
   if (row?.labour_name) return row.labour_name
+  if (row?.labourName) return row.labourName
   if (row?.labour && typeof row.labour === 'object' && row.labour.name) {
     return row.labour.name
   }
   return labourId != null ? `#${labourId}` : '—'
-}
-
-const labourKey = (labourId, labourName, fallback) => {
-  if (labourId != null) return `id:${labourId}`
-  if (labourName && labourName !== '—') return `name:${labourName}`
-  return fallback
-}
-
-/**
- * One table row per labour: sum all attendances + payments for that labour.
- * Payment `return` reduces the payment total.
- * Output rows keep snake_case labour fields for the UI.
- */
-export const mergeHajiraRows = (attendances, payments) => {
-  const byLabour = new Map()
-
-  const ensureRow = (labourId, labourName, fallbackKey) => {
-    const key = labourKey(labourId, labourName, fallbackKey)
-    let row = byLabour.get(key)
-    if (!row) {
-      row = {
-        key,
-        labour: labourId,
-        labour_name: labourName || (labourId != null ? `#${labourId}` : '—'),
-        present: 0,
-        extra: 0,
-        billing: null,
-        payment: 0,
-      }
-      byLabour.set(key, row)
-      return row
-    }
-    if (
-      labourName &&
-      labourName !== '—' &&
-      (!row.labour_name || String(row.labour_name).startsWith('#'))
-    ) {
-      row.labour_name = labourName
-    }
-    if (row.labour == null && labourId != null) {
-      row.labour = labourId
-    }
-    return row
-  }
-
-  for (const a of attendances) {
-    const labourId = labourIdOf(a)
-    const labourName = labourNameOf(a, labourId)
-    const row = ensureRow(labourId, labourName, `attendance-${a.id}`)
-    row.present += Number(a.present) || 0
-    row.extra += Number(a.extra) || 0
-    if (row.billing == null && a.billing != null) {
-      row.billing = a.billing
-    }
-  }
-
-  for (const p of payments) {
-    const labourId = labourIdOf(p)
-    const labourName = labourNameOf(p, labourId)
-    const row = ensureRow(labourId, labourName, `payment-${p.id}`)
-    const signed =
-      p.type === 'return' ? -Math.abs(Number(p.amount) || 0) : Math.abs(Number(p.amount) || 0)
-    row.payment += signed
-  }
-
-  return Array.from(byLabour.values())
-}
-
-export const summarizeHajiraRows = (rows) =>
-  rows.reduce(
-    (acc, row) => {
-      acc.present += Number(row.present) || 0
-      acc.extra += Number(row.extra) || 0
-      acc.payment += Number(row.payment) || 0
-      return acc
-    },
-    { present: 0, extra: 0, payment: 0 },
-  )
-
-const pickPayment = (payments, labourId, matcher) => {
-  for (const p of payments) {
-    const id = labourIdOf(p)
-    if (id == null || Number(id) !== Number(labourId)) continue
-    if (matcher(p)) return p
-  }
-  return null
 }
 
 const blankAmount = (value) => {
@@ -144,35 +47,65 @@ const blankAmount = (value) => {
   return Number.isFinite(n) ? n : ''
 }
 
+const numOrZero = (value) => {
+  if (value == null || value === '') return 0
+  const n = Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+
+/** Build API create/patch body from an edit row. */
+export const toDailyRecordPayload = (row, date) => {
+  const note =
+    row.extraNote?.trim() ||
+    row.paymentNote?.trim() ||
+    row.advanceNote?.trim() ||
+    row.returnNote?.trim() ||
+    ''
+  return {
+    labour: row.labourId,
+    ...(date ? { date } : {}),
+    present:
+      row.present === '' || row.present == null ? null : Number(row.present),
+    wage: row.salary === '' || row.salary == null ? null : Number(row.salary),
+    extra_earn: numOrZero(row.extra) || null,
+    fooding_pay:
+      row.payment === '' || row.payment == null ? null : Number(row.payment),
+    advance_pay:
+      row.advance === '' || row.advance == null ? null : Number(row.advance),
+    return_amount:
+      row.return === '' || row.return == null ? null : Number(row.return),
+    note: note ? note : null,
+    billing:
+      row.billing === '' || row.billing == null ? null : Number(row.billing),
+  }
+}
+
+/** Patch body without labour/date. */
+export const toDailyRecordPatchPayload = (row) => {
+  const { labour: _labour, date: _date, ...rest } = toDailyRecordPayload(row)
+  return rest
+}
+
 /**
- * One editable row per active labour. Attendance/payment rows whose labour
- * is not in `labours` are ignored.
+ * One editable row per active labour. Records whose labour is not in
+ * `labours` are ignored.
  */
-export const buildHajiraEditRows = (labours, attendances, payments) => {
+export const buildHajiraEditRows = (labours, records = []) => {
   const labourIds = new Set(labours.map((l) => Number(l.id)))
 
-  const attendanceByLabour = new Map()
-  for (const a of attendances) {
-    const labourId = labourIdOf(a)
+  const recordByLabour = new Map()
+  for (const record of records) {
+    const labourId = labourIdOf(record)
     if (labourId == null || !labourIds.has(Number(labourId))) continue
-    if (!attendanceByLabour.has(Number(labourId))) {
-      attendanceByLabour.set(Number(labourId), a)
+    if (!recordByLabour.has(Number(labourId))) {
+      recordByLabour.set(Number(labourId), record)
     }
   }
 
   return labours.map((labour) => {
     const labourId = Number(labour.id)
-    const attendance = attendanceByLabour.get(labourId) ?? null
-    const payment = pickPayment(
-      payments,
-      labourId,
-      (p) => p.type === 'payment',
-    )
-    const ret = pickPayment(
-      payments,
-      labourId,
-      (p) => p.type === 'return',
-    )
+    const record = recordByLabour.get(labourId) ?? null
+    const sealed = Boolean(record?.is_sealed)
 
     return {
       labourId,
@@ -180,52 +113,63 @@ export const buildHajiraEditRows = (labours, attendances, payments) => {
       defaultAttendance: Number(labour.default_attendance) || 0,
       defaultSalary: Number(labour.default_salary) || 0,
       defaultFooding: Number(labour.default_fooding) || 0,
-      attendanceId: attendance?.id ?? null,
-      attendanceSealed: Boolean(attendance?.is_sealed),
-      attendanceCreatedAt: attendance?.created_at ?? null,
-      attendanceUpdatedAt: attendance?.updated_at ?? null,
+      recordId: record?.id ?? null,
+      recordSealed: sealed,
+      // Legacy aliases used by existing modal/lock helpers
+      attendanceId: record?.id ?? null,
+      attendanceSealed: sealed,
+      paymentId: record?.id ?? null,
+      paymentSealed: sealed,
+      advanceId: record?.id ?? null,
+      advanceSealed: sealed,
+      returnId: record?.id ?? null,
+      returnSealed: sealed,
+      recordCreatedAt: record?.created_at ?? null,
+      recordUpdatedAt: record?.updated_at ?? null,
+      attendanceCreatedAt: record?.created_at ?? null,
+      attendanceUpdatedAt: record?.updated_at ?? null,
+      paymentCreatedAt: record?.created_at ?? null,
+      paymentUpdatedAt: record?.updated_at ?? null,
+      advanceCreatedAt: record?.created_at ?? null,
+      advanceUpdatedAt: record?.updated_at ?? null,
+      returnCreatedAt: record?.created_at ?? null,
+      returnUpdatedAt: record?.updated_at ?? null,
       present:
-        attendance?.present == null || attendance?.present === ''
+        record?.present == null || record?.present === ''
           ? ''
-          : Number(attendance.present),
+          : Number(record.present),
       salary:
-        attendance?.salary == null || attendance?.salary === ''
+        record?.wage == null || record?.wage === ''
           ? ''
-          : Number(attendance.salary),
-      extra: Number(attendance?.extra) || 0,
-      extraNote: attendance?.note ?? '',
+          : Number(record.wage),
+      extra: Number(record?.extra_earn) || 0,
+      extraNote: record?.note ?? '',
       billing:
-        attendance?.billing != null && attendance?.billing !== ''
-          ? String(attendance.billing)
+        record?.billing != null && record?.billing !== ''
+          ? String(record.billing)
           : '',
-      paymentId: payment?.id ?? null,
-      paymentSealed: Boolean(payment?.is_sealed),
-      payment: blankAmount(payment?.amount),
-      paymentNote: payment?.note ?? '',
-      paymentCreatedAt: payment?.created_at ?? null,
-      paymentUpdatedAt: payment?.updated_at ?? null,
-      returnId: ret?.id ?? null,
-      returnSealed: Boolean(ret?.is_sealed),
-      return: blankAmount(ret?.amount),
-      returnNote: ret?.note ?? '',
-      returnCreatedAt: ret?.created_at ?? null,
-      returnUpdatedAt: ret?.updated_at ?? null,
+      payment: blankAmount(record?.fooding_pay),
+      paymentNote: '',
+      advance: blankAmount(record?.advance_pay),
+      advanceNote: '',
+      return: blankAmount(record?.return_amount),
+      returnNote: '',
     }
   })
 }
 
 /**
- * View rows from attendance/payment records only — one row per labour that
- * appears in the records, regardless of labour.current_site.
+ * View rows from daily records only — one row per labour that appears
+ * in the records, regardless of labour.current_site.
  */
-export const buildHajiraViewRows = (attendances, payments) => {
+export const buildHajiraViewRows = (records = []) => {
   const labourMap = new Map()
 
-  const ensureLabour = (row) => {
-    const labourId = labourIdOf(row)
-    if (labourId == null) return
+  for (const record of records) {
+    const labourId = labourIdOf(record)
+    if (labourId == null) continue
     const id = Number(labourId)
-    const name = labourNameOf(row, labourId)
+    const name = labourNameOf(record, labourId)
     const existing = labourMap.get(id)
     if (!existing) {
       labourMap.set(id, {
@@ -235,7 +179,7 @@ export const buildHajiraViewRows = (attendances, payments) => {
         default_salary: 0,
         default_fooding: 0,
       })
-      return
+      continue
     }
     if (
       name &&
@@ -246,11 +190,39 @@ export const buildHajiraViewRows = (attendances, payments) => {
     }
   }
 
-  for (const a of attendances) ensureLabour(a)
-  for (const p of payments) ensureLabour(p)
-
   const labours = [...labourMap.values()].sort((a, b) =>
     String(a.name).localeCompare(String(b.name), 'bn'),
   )
-  return buildHajiraEditRows(labours, attendances, payments)
+  return buildHajiraEditRows(labours, records)
 }
+
+/** @deprecated Prefer buildHajiraViewRows(records). Kept for call-site migration. */
+export const mergeHajiraRows = (records) => {
+  const rows = buildHajiraViewRows(records)
+  return rows.map((row) => ({
+    key: `id:${row.labourId}`,
+    labour: row.labourId,
+    labour_name: row.labourName,
+    present: Number(row.present) || 0,
+    extra: Number(row.extra) || 0,
+    billing: row.billing || null,
+    payment:
+      (Number(row.payment) || 0) +
+      (Number(row.advance) || 0) -
+      (Number(row.return) || 0),
+  }))
+}
+
+export const summarizeHajiraRows = (rows) =>
+  rows.reduce(
+    (acc, row) => {
+      acc.present += Number(row.present) || 0
+      acc.extra += Number(row.extra) || 0
+      acc.payment +=
+        (Number(row.payment) || 0) +
+        (Number(row.advance) || 0) -
+        (Number(row.return) || 0)
+      return acc
+    },
+    { present: 0, extra: 0, payment: 0 },
+  )

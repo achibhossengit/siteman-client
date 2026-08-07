@@ -144,6 +144,7 @@ export const PrivateCashPage = () => {
         ...(billingFilter !== 'all' && billingFilter !== 'none'
           ? { billing: billingFilter }
           : {}),
+        all: true,
       })
       let next = sortByDateDesc(Array.isArray(data) ? data : [])
       if (billingFilter === 'none') {
@@ -157,7 +158,7 @@ export const PrivateCashPage = () => {
   const billingQuery = useQuery({
     queryKey: ['sites', siteId, 'billing-categories'],
     queryFn: async () => {
-      const { data } = await fetchBillingCategories(siteId)
+      const { data } = await fetchBillingCategories(siteId, { all: true })
       return Array.isArray(data) ? data : []
     },
     enabled: Boolean(canView && siteId),

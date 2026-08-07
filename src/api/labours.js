@@ -1,17 +1,38 @@
 import { api } from './client.js'
 import { endpoints } from './endpoints.js'
+import { asList, asPage, fetchAllPages } from './pagination.js'
 
-/** GET /labours — filters: current_site, is_active, search. */
-export const fetchLabours = ({ current_site, is_active, search } = {}) =>
-  api.get(endpoints.labours.list, {
-    params: {
-      ...(current_site != null && current_site !== ''
-        ? { current_site }
-        : {}),
-      ...(typeof is_active === 'boolean' ? { is_active } : {}),
-      ...(search ? { search } : {}),
-    },
-  })
+/** GET /labours — filters: current_site, is_active, search. Paginated. */
+export const fetchLabours = ({
+  current_site,
+  is_active,
+  search,
+  page,
+  page_size,
+  all = false,
+} = {}) => {
+  const params = {
+    ...(current_site != null && current_site !== ''
+      ? { current_site }
+      : {}),
+    ...(typeof is_active === 'boolean' ? { is_active } : {}),
+    ...(search ? { search } : {}),
+    ...(page != null ? { page } : {}),
+    ...(page_size != null ? { page_size } : {}),
+  }
+  if (all) {
+    return fetchAllPages((p, pageSize) =>
+      api.get(endpoints.labours.list, {
+        params: { ...params, page: p, page_size: pageSize },
+      }),
+    ).then((results) => ({ data: results }))
+  }
+  return api.get(endpoints.labours.list, { params }).then((res) => ({
+    ...res,
+    data:
+      page != null || page_size != null ? asPage(res.data) : asList(res.data),
+  }))
+}
 
 /** GET /labours/{id} */
 export const fetchLabourDetail = (labourId) =>
@@ -29,65 +50,85 @@ export const updateLabour = (labourId, payload) =>
 export const deleteLabour = (labourId) =>
   api.delete(endpoints.labours.detail(labourId))
 
-/** GET /labours/{labour_pk}/attendances */
-export const fetchLabourAttendancesByLabour = (
+/**
+ * GET /labours/{labour_pk}/daily-records — filters: date range, site, billing, is_sealed.
+ * Paginated; pass `all: true` to walk pages.
+ */
+export const fetchLabourDailyRecords = (
   labourId,
-  { date, date__gte, date__lte, site, billing, is_sealed } = {},
-) =>
-  api.get(endpoints.labours.attendances(labourId), {
-    params: {
-      ...(date ? { date } : {}),
-      ...(date__gte ? { date__gte } : {}),
-      ...(date__lte ? { date__lte } : {}),
-      ...(site != null && site !== '' ? { site } : {}),
-      ...(billing != null && billing !== '' ? { billing } : {}),
-      ...(typeof is_sealed === 'boolean' ? { is_sealed } : {}),
-    },
-  })
+  {
+    date,
+    date__gte,
+    date__lte,
+    site,
+    billing,
+    is_sealed,
+    page,
+    page_size,
+    all = false,
+  } = {},
+) => {
+  const params = {
+    ...(date ? { date } : {}),
+    ...(date__gte ? { date__gte } : {}),
+    ...(date__lte ? { date__lte } : {}),
+    ...(site != null && site !== '' ? { site } : {}),
+    ...(billing != null && billing !== '' ? { billing } : {}),
+    ...(typeof is_sealed === 'boolean' ? { is_sealed } : {}),
+    ...(page != null ? { page } : {}),
+    ...(page_size != null ? { page_size } : {}),
+  }
+  if (all) {
+    return fetchAllPages((p, pageSize) =>
+      api.get(endpoints.labours.dailyRecords(labourId), {
+        params: { ...params, page: p, page_size: pageSize },
+      }),
+    ).then((results) => ({ data: results }))
+  }
+  return api
+    .get(endpoints.labours.dailyRecords(labourId), { params })
+    .then((res) => ({
+      ...res,
+      data: asList(res.data),
+    }))
+}
 
-/** GET /labours/{labour_pk}/attendances/{id} */
-export const fetchLabourAttendanceDetail = (labourId, attendanceId) =>
-  api.get(endpoints.labours.attendanceDetail(labourId, attendanceId))
+/** GET /labours/{labour_pk}/daily-records/{id} */
+export const fetchLabourDailyRecordDetail = (labourId, recordId) =>
+  api.get(endpoints.labours.dailyRecordDetail(labourId, recordId))
 
-/** PATCH /labours/{labour_pk}/attendances/{id} */
-export const updateLabourAttendance = (labourId, attendanceId, payload) =>
-  api.patch(endpoints.labours.attendanceDetail(labourId, attendanceId), payload)
+/** PATCH /labours/{labour_pk}/daily-records/{id} */
+export const updateLabourDailyRecord = (labourId, recordId, payload) =>
+  api.patch(endpoints.labours.dailyRecordDetail(labourId, recordId), payload)
 
-/** DELETE /labours/{labour_pk}/attendances/{id} */
-export const deleteLabourAttendance = (labourId, attendanceId) =>
-  api.delete(endpoints.labours.attendanceDetail(labourId, attendanceId))
-
-/** GET /labours/{labour_pk}/payments */
-export const fetchLabourPaymentsByLabour = (
-  labourId,
-  { date, date__gte, date__lte, site, type, is_sealed } = {},
-) =>
-  api.get(endpoints.labours.payments(labourId), {
-    params: {
-      ...(date ? { date } : {}),
-      ...(date__gte ? { date__gte } : {}),
-      ...(date__lte ? { date__lte } : {}),
-      ...(site != null && site !== '' ? { site } : {}),
-      ...(type ? { type } : {}),
-      ...(typeof is_sealed === 'boolean' ? { is_sealed } : {}),
-    },
-  })
-
-/** GET /labours/{labour_pk}/payments/{id} */
-export const fetchLabourPaymentDetail = (labourId, paymentId) =>
-  api.get(endpoints.labours.paymentDetail(labourId, paymentId))
-
-/** PATCH /labours/{labour_pk}/payments/{id} */
-export const updateLabourPayment = (labourId, paymentId, payload) =>
-  api.patch(endpoints.labours.paymentDetail(labourId, paymentId), payload)
-
-/** DELETE /labours/{labour_pk}/payments/{id} */
-export const deleteLabourPayment = (labourId, paymentId) =>
-  api.delete(endpoints.labours.paymentDetail(labourId, paymentId))
+/** DELETE /labours/{labour_pk}/daily-records/{id} */
+export const deleteLabourDailyRecord = (labourId, recordId) =>
+  api.delete(endpoints.labours.dailyRecordDetail(labourId, recordId))
 
 /** GET /labours/{labour_pk}/sessions */
-export const fetchLabourSessions = (labourId, params = {}) =>
-  api.get(endpoints.labours.sessions(labourId), { params })
+export const fetchLabourSessions = (
+  labourId,
+  { page, page_size, all = false, ...rest } = {},
+) => {
+  const params = {
+    ...rest,
+    ...(page != null ? { page } : {}),
+    ...(page_size != null ? { page_size } : {}),
+  }
+  if (all) {
+    return fetchAllPages((p, pageSize) =>
+      api.get(endpoints.labours.sessions(labourId), {
+        params: { ...params, page: p, page_size: pageSize },
+      }),
+    ).then((results) => ({ data: results }))
+  }
+  return api
+    .get(endpoints.labours.sessions(labourId), { params })
+    .then((res) => ({
+      ...res,
+      data: asList(res.data),
+    }))
+}
 
 /** POST /labours/{labour_pk}/sessions — close the open period (no payload). */
 export const closeLabourSession = (labourId) =>
