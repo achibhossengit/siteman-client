@@ -910,7 +910,7 @@ export const HajiraPage = () => {
       const { data } = await fetchSiteDailyRecordsPendingLog(siteId, date);
       return Array.isArray(data) ? data : [];
     },
-    enabled: Boolean(!editing && canViewActivityLog && siteId && date),
+    enabled: Boolean(canViewActivityLog && siteId && date),
   });
 
   const activityIdsForRow = (row) =>
@@ -1038,17 +1038,26 @@ export const HajiraPage = () => {
   useEffect(() => {
     if (!editing) return;
     if (!activeLabourQuery.isSuccess) return;
-    const next = buildHajiraEditRows(
+    let next = buildHajiraEditRows(
       activeLabourQuery.data ?? [],
       dailyRecordsQuery.data ?? [],
     );
+    if (canViewActivityLog) {
+      const editLabourIds = new Set(next.map((row) => Number(row.labourId)));
+      next = applyActivitiesToViewRows(
+        next,
+        pendingLogQuery.data ?? [],
+      ).filter((row) => editLabourIds.has(Number(row.labourId)));
+    }
     setRows(cloneRows(next));
     setInitialRows(cloneRows(next));
   }, [
     editing,
+    canViewActivityLog,
     activeLabourQuery.isSuccess,
     activeLabourQuery.data,
     dailyRecordsQuery.data,
+    pendingLogQuery.data,
   ]);
 
   const updateRow = (labourId, patch) => {
@@ -1822,9 +1831,7 @@ export const HajiraPage = () => {
                   billingFullLabel,
                   viewHajiraFields,
                 );
-                const rowToneClass = !editing
-                  ? activityToneClass(row.activityTone)
-                  : "";
+                const rowToneClass = activityToneClass(row.activityTone);
 
                 return (
                   <tr
