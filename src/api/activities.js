@@ -46,6 +46,29 @@ export const fetchActivities = ({
 }
 
 /**
+ * Walk paginated GET /api/v1/activities until `next` is null.
+ */
+export const fetchAllActivities = async (filters = {}) => {
+  const pageSize = filters.page_size ?? 100
+  const results = []
+  let page = 1
+
+  for (;;) {
+    const { data } = await fetchActivities({
+      ...filters,
+      page,
+      page_size: pageSize,
+    })
+    results.push(...(data.results ?? []))
+    if (!data.next) break
+    page += 1
+    if (page > 200) break
+  }
+
+  return results
+}
+
+/**
  * POST /api/v1/activities/review — mark one or more logs reviewed (one-way).
  * Accepts a single id or an array; already-reviewed rows are skipped server-side.
  */

@@ -522,6 +522,54 @@ const cashRowFromSnapshot = (log) => {
 }
 
 /**
+ * Attach activity tones to labour-session daily-record rows (keyed by date).
+ * Matches logs by entity_id (record id) first, then business_date.
+ */
+export const applyActivitiesToSessionRows = (rows = [], logs = []) => {
+  const dailyLogs = (logs ?? []).filter(
+    (log) => !log.entity_type || log.entity_type === 'daily_record',
+  )
+
+  const byEntity = new Map()
+  const byDate = new Map()
+  for (const log of dailyLogs) {
+    const entityId =
+      log.entity_id != null ? Number(log.entity_id) : null
+    if (Number.isFinite(entityId)) {
+      const list = byEntity.get(entityId) ?? []
+      list.push(log)
+      byEntity.set(entityId, list)
+    }
+    if (log.business_date) {
+      const list = byDate.get(log.business_date) ?? []
+      list.push(log)
+      byDate.set(log.business_date, list)
+    }
+  }
+  for (const [key, list] of byEntity) byEntity.set(key, sortByCreatedAt(list))
+  for (const [key, list] of byDate) byDate.set(key, sortByCreatedAt(list))
+
+  return rows.map((row) => {
+    const recordId = row.recordId ?? row.attendanceId
+    let rowLogs =
+      recordId != null ? byEntity.get(Number(recordId)) : null
+    if (!rowLogs?.length && row.date) {
+      rowLogs = byDate.get(row.date)
+    }
+    if (!rowLogs?.length) return row
+
+    const tone = toneFromLogs(rowLogs)
+    if (!tone) return row
+
+    return {
+      ...row,
+      activityTone: tone,
+      activityLogs: rowLogs,
+    }
+  })
+}
+
+/**
  * Attach activity tones to cash rows and append deleted-only ghost rows.
  * Does not mutate input rows. Totals should use live rows only.
  */
