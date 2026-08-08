@@ -18,16 +18,19 @@ export const formatBnSigned = (value, { showPlus = true } = {}) => {
 export const NULL_BILLING_LABEL = 'জেনারেল বিলিং'
 
 /**
- * Compact billing label for narrow table cells.
- * "Basement Nothing to say some" → "BNtss"
+ * Fixed-length label for narrow table cells.
+ * "kalam ahmed khan" → "kalam ah…"
  */
-export const concatBillingName = (name) => {
+export const concatName = (name, maxLen = 10) => {
   if (name == null || name === '') return '—'
-  const parts = String(name).trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '—'
-  if (parts.length === 1) {
-    const word = parts[0]
-    return word.length > 8 ? `${word.slice(0, 6)}…` : word
-  }
-  return parts.map((part) => part[0] ?? '').join('')
+  const text = String(name).trim()
+  if (!text) return '—'
+  if (text.length <= maxLen) return text
+  return `${text.slice(0, maxLen)}…`
 }
+
+/** @see concatName */
+export const concatBillingName = concatName
+
+/** @see concatName */
+export const concatLabourName = concatName
