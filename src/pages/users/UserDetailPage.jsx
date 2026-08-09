@@ -224,7 +224,7 @@ export const UserDetailPage = () => {
         <div className="rounded-box border border-base-300 bg-base-100 overflow-hidden">
           <div className="p-3 border-b border-base-300">
             <span className="label-text font-medium">গ্রুপ</span>
-            <div className="mt-2 flex flex-col gap-1.5 h-24 overflow-y-auto pr-1">
+            <div className="mt-2 flex flex-col gap-1 max-h-40 overflow-y-auto pr-1">
               {assignableGroups.map((g) => {
                 const checked = groupNames.includes(g.name);
                 const optionDisabled = disabled || g.disabled;
@@ -232,14 +232,14 @@ export const UserDetailPage = () => {
                   <label
                     key={g.name}
                     className={[
-                      "label cursor-pointer justify-start gap-3 py-1 min-h-0",
+                      "flex items-center gap-3 py-1.5 cursor-pointer",
                       optionDisabled ? "cursor-default opacity-80" : "",
                     ].join(" ")}
                   >
                     <input
                       type="radio"
                       name="user-group"
-                      className="radio radio-sm radio-primary"
+                      className="radio radio-sm radio-primary shrink-0"
                       disabled={optionDisabled}
                       checked={checked}
                       onChange={() => {
@@ -249,7 +249,7 @@ export const UserDetailPage = () => {
                         });
                       }}
                     />
-                    <span className="label-text">{g.label}</span>
+                    <span className="text-sm leading-snug">{g.label}</span>
                   </label>
                 );
               })}
@@ -263,7 +263,7 @@ export const UserDetailPage = () => {
 
           <div className="p-3">
             <span className="label-text font-medium">দায়িত্বপ্রাপ্ত সাইট</span>
-            <div className="mt-2 flex flex-col gap-1.5 h-24 overflow-y-auto pr-1">
+            <div className="mt-2 flex flex-col gap-1 max-h-40 overflow-y-auto pr-1">
               {editing && sitesQuery.isLoading ? (
                 <div className="flex justify-center py-3">
                   <span className="loading loading-spinner loading-sm" />
@@ -280,13 +280,13 @@ export const UserDetailPage = () => {
                     <label
                       key={id}
                       className={[
-                        "label cursor-pointer justify-start gap-3 py-1 min-h-0",
+                        "flex items-center gap-3 py-1.5 cursor-pointer",
                         disabled ? "cursor-default opacity-80" : "",
                       ].join(" ")}
                     >
                       <input
                         type="checkbox"
-                        className="checkbox checkbox-sm checkbox-primary"
+                        className="checkbox checkbox-sm checkbox-primary shrink-0"
                         disabled={disabled}
                         checked={checked}
                         onChange={() => {
@@ -296,11 +296,13 @@ export const UserDetailPage = () => {
                           });
                         }}
                       />
-                      <span className="label-text truncate">
+                      <span className="text-sm leading-snug truncate min-w-0">
                         {typeof s === "object" ? s.name : `সাইট #${s}`}
                       </span>
                       {s.is_closed ? (
-                        <span className="badge badge-ghost badge-xs">বন্ধ</span>
+                        <span className="badge badge-ghost badge-xs shrink-0">
+                          বন্ধ
+                        </span>
                       ) : null}
                     </label>
                   );
