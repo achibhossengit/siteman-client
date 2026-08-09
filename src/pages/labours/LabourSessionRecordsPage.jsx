@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Pencil, Trash2, X } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { fetchAllActivities } from "../../api/activities.js";
 import {
   deleteLabourDailyRecord,
@@ -1118,7 +1118,6 @@ export const LabourSessionRecordsPage = () => {
                         onClick={cancelModalEdit}
                         disabled={updateMutation.isPending}
                       >
-                        <X className="size-4" strokeWidth={1.75} />
                         বাতিল
                       </button>
                       <button
@@ -1129,10 +1128,8 @@ export const LabourSessionRecordsPage = () => {
                       >
                         {updateMutation.isPending ? (
                           <span className="loading loading-spinner loading-sm" />
-                        ) : (
-                          <Check className="size-4" strokeWidth={2} />
-                        )}
-                        নিশ্চিত করুন
+                        ) : null}
+                        নিশ্চিত
                       </button>
                     </div>
                   </>

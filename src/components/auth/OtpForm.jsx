@@ -24,7 +24,7 @@ export const OtpForm = ({
   expiresAt = 0,
   resendAt = 0,
   error = null,
-  submitLabel = 'নিশ্চিত করুন',
+  submitLabel = 'নিশ্চিত',
   children = null,
 }) => {
   const [expiresLeft, setExpiresLeft] = useState(() => secondsUntil(expiresAt))

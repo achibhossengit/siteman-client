@@ -3,7 +3,7 @@ import { useOutletContext, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Pencil, Plus, Trash2, X } from 'lucide-react'
 import {
   createPrivateSiteCash,
   deletePrivateSiteCash,
@@ -583,8 +583,7 @@ export const PrivateCashPage = () => {
                   onClick={cancelEdit}
                   disabled={busy}
                 >
-                  <X className="size-4" strokeWidth={1.75} />
-                  বাতিল করুন
+                  বাতিল
                 </button>
                 <button
                   type="button"
@@ -597,10 +596,8 @@ export const PrivateCashPage = () => {
                 >
                   {busy ? (
                     <span className="loading loading-spinner loading-sm" />
-                  ) : (
-                    <Check className="size-4" strokeWidth={2} />
-                  )}
-                  নিশ্চিত করুন
+                  ) : null}
+                  নিশ্চিত
                 </button>
               </div>
             ) : isDetailMode ? (

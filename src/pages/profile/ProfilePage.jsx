@@ -260,8 +260,7 @@ export const ProfilePage = () => {
               onClick={cancelEdit}
               disabled={busy}
             >
-              <X className="size-4" strokeWidth={1.75} />
-              বাতিল করুন
+              বাতিল
             </button>
             <button
               type="button"
@@ -274,10 +273,8 @@ export const ProfilePage = () => {
             >
               {busy ? (
                 <span className="loading loading-spinner loading-sm" />
-              ) : (
-                <Check className="size-4" strokeWidth={2} />
-              )}
-              নিশ্চিত করুন
+              ) : null}
+              নিশ্চিত
             </button>
           </div>
         ) : (

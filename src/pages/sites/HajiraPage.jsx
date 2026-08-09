@@ -2095,7 +2095,7 @@ export const HajiraPage = () => {
             onClick={onCancel}
             disabled={saving}
           >
-            বাতিল করুন
+            বাতিল
           </button>
           <button
             type="button"
@@ -2106,7 +2106,7 @@ export const HajiraPage = () => {
             {saving ? (
               <span className="loading loading-spinner loading-sm" />
             ) : null}
-            নিশ্চিত করুন
+            নিশ্চিত
           </button>
         </div>
       ) : selectMode && canChangeActivityLog ? (

@@ -24,8 +24,8 @@ const topLayerTarget = () => {
 export const confirmAction = async ({
   title,
   text,
-  confirmText = 'নিশ্চিত করুন',
-  cancelText = 'বাতিল করুন',
+  confirmText = 'নিশ্চিত',
+  cancelText = 'বাতিল',
   danger = false,
 }) => {
   const target = topLayerTarget()

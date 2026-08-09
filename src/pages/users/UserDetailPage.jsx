@@ -3,7 +3,7 @@ import { useOutletContext, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Pencil, X } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { fetchUserDetail, updateUser } from "../../api/users.js";
 import { fetchSites } from "../../api/sites.js";
 import {
@@ -344,8 +344,7 @@ export const UserDetailPage = () => {
                 onClick={cancelEdit}
                 disabled={busy}
               >
-                <X className="size-4" strokeWidth={1.75} />
-                বাতিল করুন
+                বাতিল
               </button>
               <button
                 type="button"
@@ -358,10 +357,8 @@ export const UserDetailPage = () => {
               >
                 {busy ? (
                   <span className="loading loading-spinner loading-sm" />
-                ) : (
-                  <Check className="size-4" strokeWidth={2} />
-                )}
-                নিশ্চিত করুন
+                ) : null}
+                নিশ্চিত
               </button>
             </div>
           ) : (

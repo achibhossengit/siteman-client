@@ -816,7 +816,7 @@ export const LabourDetailPage = () => {
                 {busy ? (
                   <span className="loading loading-spinner loading-sm" />
                 ) : null}
-                নিশ্চিত করুন
+                নিশ্চিত
               </button>
             </div>
           </form>

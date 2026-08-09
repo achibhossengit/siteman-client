@@ -20,7 +20,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Pencil, Plus, Trash2, X } from 'lucide-react'
 import {
   createBillingCategory,
   deleteBillingCategory,
@@ -597,8 +597,7 @@ export const SiteBillingPage = () => {
                   onClick={cancelEdit}
                   disabled={busy}
                 >
-                  <X className="size-4" strokeWidth={1.75} />
-                  বাতিল করুন
+                  বাতিল
                 </button>
                 <button
                   type="button"
@@ -611,10 +610,8 @@ export const SiteBillingPage = () => {
                 >
                   {busy ? (
                     <span className="loading loading-spinner loading-sm" />
-                  ) : (
-                    <Check className="size-4" strokeWidth={2} />
-                  )}
-                  নিশ্চিত করুন
+                  ) : null}
+                  নিশ্চিত
                 </button>
               </div>
             ) : isDetailMode ? (
