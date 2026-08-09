@@ -20,8 +20,6 @@ import { UserDetailPage } from "../pages/users/UserDetailPage.jsx";
 import { LaboursPage } from "../pages/labours/LaboursPage.jsx";
 import { LabourNewPage } from "../pages/labours/LabourNewPage.jsx";
 import { LabourDetailPage } from "../pages/labours/LabourDetailPage.jsx";
-import { LabourSessionsPage } from "../pages/labours/LabourSessionsPage.jsx";
-import { LabourSessionDetailPage } from "../pages/labours/LabourSessionDetailPage.jsx";
 import { LabourSessionRecordsPage } from "../pages/labours/LabourSessionRecordsPage.jsx";
 import { AppInfoPage } from "../pages/AppInfoPage.jsx";
 import { ActivityPage } from "../pages/activities/ActivityPage.jsx";
@@ -90,11 +88,11 @@ export const AppRouter = () => (
           />
           <Route
             path="/labours/:labourId/sessions/:sessionId"
-            element={<LabourSessionDetailPage />}
+            element={<Navigate to="../.." relative="path" replace />}
           />
           <Route
             path="/labours/:labourId/sessions"
-            element={<LabourSessionsPage />}
+            element={<Navigate to=".." relative="path" replace />}
           />
           <Route path="/labours/:labourId" element={<LabourDetailPage />} />
           <Route path={paths.appInfo} element={<AppInfoPage />} />
