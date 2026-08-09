@@ -2,7 +2,9 @@ import { api } from './client.js'
 import { endpoints } from './endpoints.js'
 import { asList, asPage } from './pagination.js'
 
-/** GET /labours — filters: current_site, is_active, search. Paginated. */
+/** GET /labours — filters: current_site, is_active, search. Paginated.
+ * `current_site: 'unassigned'` → labours with no site (null).
+ */
 export const fetchLabours = ({
   current_site,
   is_active,
@@ -11,13 +13,20 @@ export const fetchLabours = ({
   page_size,
 } = {}) => {
   const params = {
-    ...(current_site != null && current_site !== ''
-      ? { current_site }
-      : {}),
     ...(typeof is_active === 'boolean' ? { is_active } : {}),
     ...(search ? { search } : {}),
     ...(page != null ? { page } : {}),
     ...(page_size != null ? { page_size } : {}),
+  }
+  if (current_site === 'unassigned') {
+    // Backend treats the string "null" as current_site IS NULL.
+    params.current_site = 'null'
+  } else if (
+    current_site != null &&
+    current_site !== '' &&
+    current_site !== 'all'
+  ) {
+    params.current_site = current_site
   }
   return api.get(endpoints.labours.list, { params }).then((res) => ({
     ...res,

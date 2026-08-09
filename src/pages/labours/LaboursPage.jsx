@@ -3,11 +3,6 @@ import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { fetchLabours } from '../../api/labours.js'
-import { fetchSites } from '../../api/sites.js'
-import {
-  labourStatusClass,
-  labourStatusLabel,
-} from '../../api/types/labour.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { ListPagination } from '../../components/ListPagination.jsx'
@@ -17,37 +12,50 @@ import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
 
 const PAGE_SIZE = 20
-const SEARCH_DEBOUNCE_MS = 300
-
-const STATUS_OPTIONS = [
-  { value: 'all', label: 'স্ট্যাটাস' },
-  { value: 'active', label: 'সক্রিয়' },
-  { value: 'inactive', label: 'নিষ্ক্রিয়' },
-]
-
-const statusParams = (status) => {
-  if (status === 'active') return { is_active: true }
-  if (status === 'inactive') return { is_active: false }
-  return {}
-}
+const SEARCH_DEBOUNCE_MS = 400
 
 export const LaboursPage = () => {
   const navigate = useNavigate()
   const { setTitle } = useOutletContext()
-  const { can } = usePermissions()
+  const { can, profile, isCompanyAdmin } = usePermissions()
   const [nameQuery, setNameQuery] = useState('')
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [siteFilter, setSiteFilter] = useState('all')
   const [page, setPage] = useState(1)
 
   const canViewLabour = can(PERMS.viewLabour)
   const canAddLabour = can(PERMS.addLabour)
+
+  const allowedSites = useMemo(() => {
+    const list = Array.isArray(profile?.sites) ? profile.sites : []
+    return list.filter((s) => s && s.id != null)
+  }, [profile?.sites])
+
+  const siteNameById = useMemo(() => {
+    const map = new Map()
+    for (const s of allowedSites) {
+      map.set(Number(s.id), s.name)
+    }
+    return map
+  }, [allowedSites])
+
+  const siteFilterOptions = useMemo(() => {
+    const options = [{ value: 'all', label: 'সব সাইট' }]
+    if (isCompanyAdmin) {
+      options.push({ value: 'unassigned', label: 'বরাদ্দ নেই' })
+    }
+    for (const s of allowedSites) {
+      options.push({ value: String(s.id), label: s.name || `#${s.id}` })
+    }
+    return options
+  }, [allowedSites, isCompanyAdmin])
 
   useEffect(() => {
     setTitle?.('লেবার ম্যানেজ')
     return () => setTitle?.('')
   }, [setTitle])
 
+  // Debounce search: request only after typing stops.
   useEffect(() => {
     const id = setTimeout(() => {
       setSearch(nameQuery.trim())
@@ -57,20 +65,20 @@ export const LaboursPage = () => {
 
   useEffect(() => {
     setPage(1)
-  }, [search, statusFilter])
+  }, [search, siteFilter])
 
   const laboursQuery = useQuery({
     queryKey: [
       'labours',
       'list',
-      { page, page_size: PAGE_SIZE, search, statusFilter },
+      { page, page_size: PAGE_SIZE, search, siteFilter },
     ],
     queryFn: async () => {
       const { data } = await fetchLabours({
         page,
         page_size: PAGE_SIZE,
         ...(search ? { search } : {}),
-        ...statusParams(statusFilter),
+        ...(siteFilter !== 'all' ? { current_site: siteFilter } : {}),
       })
       return data
     },
@@ -78,28 +86,9 @@ export const LaboursPage = () => {
     placeholderData: (previousData) => previousData,
   })
 
-  // Site names for the current labour page (lookup map; not list-paginated UI).
-  const sitesQuery = useQuery({
-    queryKey: ['sites', 'names'],
-    queryFn: async () => {
-      const { data } = await fetchSites({ page: 1, page_size: 100 })
-      return data?.results ?? []
-    },
-    enabled: canViewLabour,
-    staleTime: 60_000,
-  })
-
-  const siteNameById = useMemo(() => {
-    const map = new Map()
-    for (const s of sitesQuery.data ?? []) {
-      map.set(s.id, s.name)
-    }
-    return map
-  }, [sitesQuery.data])
-
   const siteLabel = (id) => {
-    if (id == null) return '—'
-    return siteNameById.get(id) ?? `#${id}`
+    if (id == null || id === '') return '—'
+    return siteNameById.get(Number(id)) ?? `#${id}`
   }
 
   const pageData = laboursQuery.data ?? {
@@ -133,83 +122,82 @@ export const LaboursPage = () => {
     return <ApiErrorAlert error={parseApiError(laboursQuery.error)} />
   }
 
-  const emptyLabel =
-    totalCount === 0 ? 'কোনো লেবার নেই।' : 'কোনো মিল পাওয়া যায়নি।'
+  const emptyLabel = search
+    ? 'কোনো মিল পাওয়া যায়নি।'
+    : siteFilter !== 'all'
+      ? 'এই ফিল্টারে কোনো লেবার নেই।'
+      : 'কোনো লেবার নেই।'
 
   return (
-    <section className="relative min-h-full flex flex-col pb-20">
-      <div className="flex-1 min-h-0 overflow-x-auto">
+    <section className="relative h-full min-h-0 flex flex-col pb-20">
+      <div className="shrink-0 grid grid-cols-2 gap-2 px-2 pt-2 pb-2">
+        <input
+          type="search"
+          className="input input-bordered input-sm w-full min-w-0"
+          placeholder="নাম খুঁজুন"
+          aria-label="নাম খুঁজুন"
+          value={nameQuery}
+          onChange={(e) => setNameQuery(e.target.value)}
+        />
+        <select
+          className="select select-bordered select-sm w-full min-w-0"
+          aria-label="বর্তমান সাইট"
+          value={siteFilter}
+          onChange={(e) => setSiteFilter(e.target.value)}
+        >
+          {siteFilterOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-auto px-2">
         <table className="table table-sm sm:table-md w-full">
-          <thead>
-            <tr className="border-b border-base-300">
+          <thead className="sticky top-0 z-10 bg-base-100">
+            <tr className="border-b-2 border-base-300">
               <th className="w-12">নং</th>
-              <th>
-                <input
-                  type="search"
-                  className="input input-bordered input-sm w-full min-w-0 font-normal"
-                  placeholder="নাম খুঁজুন"
-                  aria-label="নাম খুঁজুন"
-                  value={nameQuery}
-                  onChange={(e) => setNameQuery(e.target.value)}
-                />
-              </th>
-              <th className="hidden sm:table-cell">সাইট</th>
-              <th className="w-28">
-                <select
-                  className="select select-bordered select-sm w-full font-normal"
-                  aria-label="স্ট্যাটাস"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  {STATUS_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </th>
+              <th>নাম</th>
+              <th>বর্তমান সাইট</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={3}
                   className="text-center text-sm text-base-content/60 py-10"
                 >
                   {emptyLabel}
                 </td>
               </tr>
             ) : (
-              rows.map((row, index) => (
-                <tr
-                  key={row.id}
-                  className="border-b border-base-300/70 cursor-pointer hover:bg-base-200/60"
-                  onClick={() => navigate(paths.labourDetail(row.id))}
-                >
-                  <td className="tabular-nums text-base-content/60">
-                    {formatBnNumber(slOffset + index + 1)}
-                  </td>
-                  <td className="font-medium">
-                    <div className="truncate max-w-40 sm:max-w-none">
-                      {row.name}
-                    </div>
-                    <div className="sm:hidden text-xs text-base-content/60 truncate">
-                      {siteLabel(row.current_site)}
-                    </div>
-                  </td>
-                  <td className="hidden sm:table-cell truncate text-sm text-base-content/80 max-w-40">
-                    {siteLabel(row.current_site)}
-                  </td>
-                  <td className="text-right">
-                    <span
-                      className={`badge badge-sm ${labourStatusClass(row)}`}
+              rows.map((row, index) => {
+                const inactive = row.is_active === false
+                return (
+                  <tr
+                    key={row.id}
+                    className="border-b border-base-300/70 cursor-pointer hover:bg-base-200/60"
+                    onClick={() => navigate(paths.labourDetail(row.id))}
+                  >
+                    <td className="tabular-nums text-base-content/60">
+                      {formatBnNumber(slOffset + index + 1)}
+                    </td>
+                    <td
+                      className={`font-medium truncate max-w-48 ${
+                        inactive ? 'text-base-content/40' : ''
+                      }`}
+                      title={row.name}
                     >
-                      {labourStatusLabel(row)}
-                    </span>
-                  </td>
-                </tr>
-              ))
+                      {row.name}
+                    </td>
+                    <td className="truncate text-sm text-base-content/80 max-w-40">
+                      {siteLabel(row.current_site)}
+                    </td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>
