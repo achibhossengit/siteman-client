@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet, useSearchParams } from 'react-router-dom'
 import { DateSelector } from '../components/DateSelector.jsx'
 import { SiteSelector } from '../components/SiteSelector.jsx'
-import { useAuth } from '../providers/AuthProvider.jsx'
+import { useAssignedSites } from '../hooks/useSites.js'
 import {
   readSelectedDate,
   readSelectedSite,
@@ -15,22 +15,26 @@ import {
  * Sticky date + site selectors; shares selection via outlet context.
  */
 export const SiteScopedLayout = () => {
-  const { profile } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
+  // Non-closed sites only; deactivated sites stay selectable for existing data.
+  const { assignedSites: sites } = useAssignedSites({ includeClosed: false })
 
-  // non closed sites; deactivated sites are allowed to be selected,
-  // to see existing data.
-  const sites = useMemo(() => {
-    const list = Array.isArray(profile?.sites) ? profile.sites : []
-    return list.filter((s) => s && s.id != null && s.closed !== false)
-  }, [profile])
-  
   const [siteId, setSiteId] = useState(
-    () => searchParams.get('site') || readSelectedSite() || sites[0]?.id || '',
+    () => searchParams.get('site') || readSelectedSite() || '',
   )
   const [date, setDate] = useState(
     () => searchParams.get('date') || readSelectedDate() || todayIso() || '',
   )
+
+  // When lookup loads, pick a valid site if current selection is missing.
+  useEffect(() => {
+    if (!sites.length) return
+    const stillValid = sites.some((s) => String(s.id) === String(siteId))
+    if (stillValid) return
+    const saved = readSelectedSite()
+    const savedValid = sites.some((s) => String(s.id) === String(saved))
+    setSiteId(String(savedValid ? saved : sites[0].id))
+  }, [sites, siteId])
 
   // Keep URL + sessionStorage in sync with selection.
   useEffect(() => {

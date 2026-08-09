@@ -22,6 +22,7 @@ import {
   PRESENT_OPTIONS,
   toDailyRecordPatchPayload,
 } from "../../api/types/hajira.js";
+import { normalizeSiteIds } from "../../api/types/user.js";
 import { parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import {
@@ -217,10 +218,10 @@ export const LabourSessionRecordsPage = () => {
     can(PERMS.viewActivityLog) ||
     hasPermissionSuffix(profile, "view_activitylog");
 
-  const allowedSiteIds = useMemo(() => {
-    const list = Array.isArray(profile?.sites) ? profile.sites : [];
-    return new Set(list.map((site) => String(site.id)));
-  }, [profile?.sites]);
+  const allowedSiteIds = useMemo(
+    () => new Set(normalizeSiteIds(profile?.sites).map(String)),
+    [profile?.sites],
+  );
 
   const [earningsFilter, setEarningsFilter] = useState("earn");
   const [paymentFilter, setPaymentFilter] = useState([

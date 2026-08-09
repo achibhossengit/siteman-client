@@ -6,6 +6,7 @@ import {
   resolveSiteName,
   SITES_LOOKUP_KEY,
 } from '../api/sitesLookup.js'
+import { normalizeSiteIds } from '../api/types/user.js'
 import { useAuth } from '../providers/AuthProvider.jsx'
 import { hasPermission, PERMS } from '../utils/permissions.js'
 
@@ -49,5 +50,42 @@ export const useSitesLookup = ({ enabled: enabledOpt } = {}) => {
     sites,
     siteNameById,
     getSiteName,
+  }
+}
+
+/**
+ * Profile/user assigned site ids joined with the session sites lookup.
+ * Profile.sites is an array of site ids (not nested site objects).
+ */
+export const useAssignedSites = ({
+  includeClosed = false,
+  enabled,
+} = {}) => {
+  const { profile } = useAuth()
+  const lookup = useSitesLookup({ enabled })
+
+  const assignedIds = useMemo(
+    () => normalizeSiteIds(profile?.sites),
+    [profile?.sites],
+  )
+
+  const assignedIdSet = useMemo(
+    () => new Set(assignedIds.map(Number)),
+    [assignedIds],
+  )
+
+  const assignedSites = useMemo(() => {
+    return lookup.sites.filter((site) => {
+      if (!assignedIdSet.has(Number(site.id))) return false
+      if (!includeClosed && site.is_closed) return false
+      return true
+    })
+  }, [lookup.sites, assignedIdSet, includeClosed])
+
+  return {
+    ...lookup,
+    assignedIds,
+    assignedIdSet,
+    assignedSites,
   }
 }

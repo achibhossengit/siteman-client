@@ -26,6 +26,7 @@ import {
   applyActivitiesToViewRows,
   snapshotFields,
 } from "../../api/types/activity.js";
+import { normalizeSiteIds } from "../../api/types/user.js";
 import { reviewActivities } from "../../api/activities.js";
 import { messageForCode, parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
@@ -923,10 +924,10 @@ export const HajiraPage = () => {
     can(PERMS.changeActivityLog) ||
     hasPermissionSuffix(profile, "change_activitylog");
 
-  const allowedSiteIds = useMemo(() => {
-    const list = Array.isArray(profile?.sites) ? profile.sites : [];
-    return new Set(list.map((site) => String(site.id)));
-  }, [profile?.sites]);
+  const allowedSiteIds = useMemo(
+    () => new Set(normalizeSiteIds(profile?.sites).map(String)),
+    [profile?.sites],
+  );
 
   const canOpenLabourDetail = (row) => {
     if (!canViewLabour || row?.labourId == null) return false;

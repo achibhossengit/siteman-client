@@ -15,6 +15,7 @@ import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { useSitesLookup } from "../../hooks/useSites.js";
 import { toastSuccess } from "../../utils/feedback.js";
 import { groupLabelBn } from "../../utils/permissions.js";
+import { normalizeSiteIds } from "../../api/types/user.js";
 
 const PASSWORD_MODAL_ID = "profile_change_password_modal";
 
@@ -187,7 +188,7 @@ export const ProfilePage = () => {
     ].join(" ");
 
   const groups = Array.isArray(profile.groups) ? profile.groups : [];
-  const sites = Array.isArray(profile.sites) ? profile.sites : [];
+  const siteIds = normalizeSiteIds(profile.sites);
   const companyName =
     typeof profile.company === "object"
       ? profile.company?.name
@@ -330,11 +331,11 @@ export const ProfilePage = () => {
         </div>
         <div className="flex-1">
           <span className="label-text mb-1">দায়িত্বপ্রাপ্ত সাইট</span>
-          {sites.length ? (
+          {siteIds.length ? (
             <div className="flex flex-wrap gap-1.5 mt-1">
-              {sites.map((s) => (
-                <span key={s.id ?? s} className="badge badge-outline">
-                  {getSiteName(s?.id ?? s)}
+              {siteIds.map((id) => (
+                <span key={id} className="badge badge-outline">
+                  {getSiteName(id)}
                 </span>
               ))}
             </div>

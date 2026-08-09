@@ -3954,7 +3954,7 @@ paths:
       description: |-
         Current authenticated user's profile.
 
-        ``GET /profile`` — basic info, groups, permissions, and sites
+        ``GET /profile`` — basic info, groups, permissions, and site ids
         (all company sites for company admins; otherwise assigned sites only).
         ``PATCH /profile`` — update name, email, phone.
         Password changes use ``/auth/password/change`` or reset.
@@ -4086,7 +4086,7 @@ paths:
       description: |-
         Current authenticated user's profile.
 
-        ``GET /profile`` — basic info, groups, permissions, and sites
+        ``GET /profile`` — basic info, groups, permissions, and site ids
         (all company sites for company admins; otherwise assigned sites only).
         ``PATCH /profile`` — update name, email, phone.
         Password changes use ``/auth/password/change`` or reset.
@@ -11434,9 +11434,6 @@ components:
           nullable: true
         site:
           type: integer
-        site_name:
-          type: string
-          readOnly: true
         is_sealed:
           type: boolean
           description: True = immutable; set by work-session seal.
@@ -11453,7 +11450,6 @@ components:
         - created_at
         - id
         - site
-        - site_name
         - updated_at
     EntityTypeEnum:
       enum:

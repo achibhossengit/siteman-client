@@ -22,8 +22,8 @@ import {
 } from '../../api/types/siteCash.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
-import { useAuth } from '../../providers/AuthProvider.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
+import { useAssignedSites } from '../../hooks/useSites.js'
 import { confirmAction, toastApiError, toastSuccess } from '../../utils/feedback.js'
 import { formatBnNumber, NULL_BILLING_LABEL, STATUS_LABEL } from '../../utils/format.js'
 import { PERMS, hasPermissionSuffix } from '../../utils/permissions.js'
@@ -445,12 +445,12 @@ const sameSearchParams = (a, b) => {
 }
 
 export const ActivityPage = () => {
-  const { profile: authProfile } = useAuth()
   const queryClient = useQueryClient()
   const dialogRef = useRef(null)
   const skipPageReset = useRef(true)
   const [searchParams, setSearchParams] = useSearchParams()
   const { can, profile } = usePermissions()
+  const { assignedSites: sites } = useAssignedSites({ includeClosed: false })
 
   const canViewActivityLog =
     can(PERMS.viewActivityLog) ||
@@ -458,11 +458,6 @@ export const ActivityPage = () => {
   const canChangeActivityLog =
     can(PERMS.changeActivityLog) ||
     hasPermissionSuffix(profile, 'change_activitylog')
-
-  const sites = useMemo(() => {
-    const list = Array.isArray(authProfile?.sites) ? authProfile.sites : []
-    return list.filter((s) => s && s.id != null && s.closed !== false)
-  }, [authProfile])
 
   const [siteId, setSiteId] = useState(
     () => readSiteParam(searchParams) || readSelectedSite() || '',

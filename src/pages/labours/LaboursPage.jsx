@@ -7,7 +7,7 @@ import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { ListPagination } from '../../components/ListPagination.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
-import { useSitesLookup } from '../../hooks/useSites.js'
+import { useAssignedSites } from '../../hooks/useSites.js'
 import { formatBnNumber, NULL_SITE_LABEL } from '../../utils/format.js'
 import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
@@ -18,8 +18,10 @@ const SEARCH_DEBOUNCE_MS = 400
 export const LaboursPage = () => {
   const navigate = useNavigate()
   const { setTitle } = useOutletContext()
-  const { can, profile, isCompanyAdmin } = usePermissions()
-  const { getSiteName } = useSitesLookup()
+  const { can, isCompanyAdmin } = usePermissions()
+  const { assignedSites, getSiteName } = useAssignedSites({
+    includeClosed: true,
+  })
   const [nameQuery, setNameQuery] = useState('')
   const [search, setSearch] = useState('')
   const [siteFilter, setSiteFilter] = useState('all')
@@ -28,24 +30,19 @@ export const LaboursPage = () => {
   const canViewLabour = can(PERMS.viewLabour)
   const canAddLabour = can(PERMS.addLabour)
 
-  const allowedSites = useMemo(() => {
-    const list = Array.isArray(profile?.sites) ? profile.sites : []
-    return list.filter((s) => s && s.id != null)
-  }, [profile?.sites])
-
   const siteFilterOptions = useMemo(() => {
     const options = [{ value: 'all', label: 'সব সাইট' }]
     if (isCompanyAdmin) {
       options.push({ value: 'unassigned', label: NULL_SITE_LABEL })
     }
-    for (const s of allowedSites) {
+    for (const s of assignedSites) {
       options.push({
         value: String(s.id),
         label: getSiteName(s.id),
       })
     }
     return options
-  }, [allowedSites, isCompanyAdmin, getSiteName])
+  }, [assignedSites, isCompanyAdmin, getSiteName])
 
   useEffect(() => {
     setTitle?.('লেবার ম্যানেজ')
