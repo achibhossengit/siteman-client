@@ -877,7 +877,7 @@ export const LabourSessionRecordsPage = () => {
           resetModalEditState();
         }}
       >
-        <div className="modal-box max-w-sm h-[min(32rem,85vh)] flex flex-col">
+        <div className="modal-box max-w-sm">
           <form method="dialog">
             <button
               className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
@@ -887,7 +887,7 @@ export const LabourSessionRecordsPage = () => {
             </button>
           </form>
 
-          <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">
+          <h3 className="font-semibold text-base mb-3 pr-8">
             {recordModal && canShowRecordHistory ? (
               <div className="flex items-center gap-3">
                 <button
@@ -928,7 +928,7 @@ export const LabourSessionRecordsPage = () => {
             )}
           </h3>
 
-          <div className="flex-1 min-h-0 overflow-y-auto">
+          <div>
             {recordModal &&
             recordModalView === MODAL_VIEWS.history &&
             canShowRecordHistory ? (

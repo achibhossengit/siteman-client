@@ -2116,7 +2116,7 @@ export const HajiraPage = () => {
           resetModalEditState();
         }}
       >
-        <div className="modal-box max-w-sm h-[min(32rem,85vh)] flex flex-col">
+        <div className="modal-box max-w-sm">
           <form method="dialog">
             <button
               className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
@@ -2126,7 +2126,7 @@ export const HajiraPage = () => {
             </button>
           </form>
 
-          <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">
+          <h3 className="font-semibold text-base mb-3 pr-8">
             {recordModal && canViewActivityLog && canShowRecordHistory ? (
               <div className="flex items-center gap-3">
                 <button
@@ -2167,7 +2167,7 @@ export const HajiraPage = () => {
             )}
           </h3>
 
-          <div className="flex-1 min-h-0 overflow-y-auto">
+          <div>
             {recordModal &&
             recordModalView === MODAL_VIEWS.history &&
             canShowRecordHistory ? (
@@ -2741,7 +2741,7 @@ export const HajiraPage = () => {
       </dialog>
 
       <dialog id={BILLING_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-sm h-[min(28rem,85vh)] flex flex-col">
+        <div className="modal-box max-w-sm">
           <form method="dialog">
             <button
               className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
@@ -2750,8 +2750,8 @@ export const HajiraPage = () => {
               ✕
             </button>
           </form>
-          <h3 className="font-bold text-lg pr-8 shrink-0">বিলিং</h3>
-          <div className="pt-3 flex-1 min-h-0 overflow-y-auto space-y-4">
+          <h3 className="font-bold text-lg pr-8">বিলিং</h3>
+          <div className="pt-3 space-y-4">
             <div>
               <p className="text-sm font-medium mb-2">দেখান</p>
               <div className="menu bg-base-100 w-full p-0">
