@@ -9,9 +9,9 @@ import {
   deleteSiteCash,
   fetchActiveBillingCategories,
   fetchSiteCashByDate,
-  fetchSiteCashPendingLog,
   updateSiteCash,
 } from '../../api/sites.js'
+import { fetchAllActivities, reviewActivities } from '../../api/activities.js'
 import {
   CASH_TYPES,
   cashFormSchema,
@@ -34,7 +34,6 @@ import {
   applyActivitiesToCashRows,
   snapshotFields,
 } from '../../api/types/activity.js'
-import { reviewActivities } from '../../api/activities.js'
 
 const MODAL_ID = 'site_cash_modal'
 const TYPE_FILTER_MODAL_ID = 'cash_type_filter_modal'
@@ -384,20 +383,28 @@ export const CashPage = () => {
   })
 
   const cashActivityQueryKey = useMemo(
-    () => ['sites', siteId, 'cash', date, 'pending_log'],
+    () => [
+      'activities',
+      'pending',
+      { site: siteId, business_date: date, entity_type: 'site_cash' },
+    ],
     [siteId, date],
   )
 
   const activityCashQuery = useQuery({
     queryKey: cashActivityQueryKey,
-    queryFn: async () => {
-      const { data } = await fetchSiteCashPendingLog(siteId, date)
-      return Array.isArray(data) ? data : []
-    },
+    queryFn: () =>
+      fetchAllActivities({
+        site: siteId,
+        business_date: date,
+        entity_type: 'site_cash',
+        reviewed: false,
+        page_size: 100,
+      }),
     enabled: Boolean(canViewCash && canViewActivityLog && siteId && date),
   })
 
-  /** Modal history from day pending_log (dedicated, unpaginated) — not /activities. */
+  /** Modal history from pending (unreviewed) site_cash activities for the day. */
   const historyLogs = useMemo(() => {
     const entityId = selected?.id
     if (entityId == null) return []

@@ -1,29 +1,13 @@
 import { fetchSites } from './sites.js'
+import { fetchAllPages } from './pagination.js'
 import { NULL_SITE_LABEL } from '../utils/format.js'
 
 /** Session-wide site list for id → name lookup (not the paginated Sites page). */
 export const SITES_LOOKUP_KEY = ['sites', 'lookup']
 
-const LOOKUP_PAGE_SIZE = 100
-const LOOKUP_MAX_PAGES = 50
-
 /** Fetch every page of GET /sites for the lookup cache. */
-export const fetchAllSitesLookup = async () => {
-  const results = []
-  let page = 1
-  for (;;) {
-    const { data } = await fetchSites({
-      page,
-      page_size: LOOKUP_PAGE_SIZE,
-    })
-    const chunk = Array.isArray(data?.results) ? data.results : []
-    results.push(...chunk)
-    if (!data?.next) break
-    page += 1
-    if (page > LOOKUP_MAX_PAGES) break
-  }
-  return results
-}
+export const fetchAllSitesLookup = () =>
+  fetchAllPages(({ page, page_size }) => fetchSites({ page, page_size }))
 
 export const buildSiteNameMap = (sites) => {
   const map = new Map()

@@ -4,14 +4,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Trash2 } from "lucide-react";
 import {
   deleteLabourDailyRecord,
+  fetchSiteActiveLabour,
   updateLabourDailyRecord,
 } from "../../api/labours.js";
 import {
   createSiteDailyRecords,
   fetchActiveBillingCategories,
-  fetchSiteActiveLabour,
   fetchSiteDailyRecordsByDate,
-  fetchSiteDailyRecordsPendingLog,
 } from "../../api/sites.js";
 import {
   PRESENT_OPTIONS,
@@ -27,7 +26,7 @@ import {
   snapshotFields,
 } from "../../api/types/activity.js";
 import { normalizeSiteIds } from "../../api/types/user.js";
-import { reviewActivities } from "../../api/activities.js";
+import { fetchAllActivities, reviewActivities } from "../../api/activities.js";
 import { messageForCode, parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
@@ -990,7 +989,7 @@ export const HajiraPage = () => {
   });
 
   const activeLabourQuery = useQuery({
-    queryKey: ["sites", siteId, "active_labour"],
+    queryKey: ["labours", "active", { current_site: siteId }],
     queryFn: async () => {
       const { data } = await fetchSiteActiveLabour(siteId);
       return Array.isArray(data) ? data : [];
@@ -999,16 +998,24 @@ export const HajiraPage = () => {
   });
 
   const pendingLogQueryKey = useMemo(
-    () => ["sites", siteId, "daily-records", date, "pending_log"],
+    () => [
+      "activities",
+      "pending",
+      { site: siteId, business_date: date, entity_type: "daily_record" },
+    ],
     [siteId, date],
   );
 
   const pendingLogQuery = useQuery({
     queryKey: pendingLogQueryKey,
-    queryFn: async () => {
-      const { data } = await fetchSiteDailyRecordsPendingLog(siteId, date);
-      return Array.isArray(data) ? data : [];
-    },
+    queryFn: () =>
+      fetchAllActivities({
+        site: siteId,
+        business_date: date,
+        entity_type: "daily_record",
+        reviewed: false,
+        page_size: 100,
+      }),
     enabled: Boolean(canViewActivityLog && siteId && date),
   });
 
@@ -1026,7 +1033,7 @@ export const HajiraPage = () => {
       return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
     });
 
-  /** Modal history from day pending_log (dedicated, unpaginated) — not /activities. */
+  /** Modal history from pending (unreviewed) daily_record activities for the day. */
   const recordHistoryLogs = useMemo(() => {
     const entityId = recordIdOf(recordModal);
     if (entityId == null) return [];

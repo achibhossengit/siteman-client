@@ -1,6 +1,6 @@
 import { api } from './client.js'
 import { endpoints } from './endpoints.js'
-import { asList, asPage } from './pagination.js'
+import { asList, asPage, fetchAllPages } from './pagination.js'
 
 /** GET /labours — filters: current_site, is_active, search. Paginated.
  * `current_site: 'unassigned'` → labours with no site (null).
@@ -33,6 +33,22 @@ export const fetchLabours = ({
     data:
       page != null || page_size != null ? asPage(res.data) : asList(res.data),
   }))
+}
+
+/**
+ * Active labours assigned to a site.
+ * GET /labours?current_site={id}&is_active=true (all pages).
+ */
+export const fetchSiteActiveLabour = async (siteId) => {
+  const data = await fetchAllPages(({ page, page_size }) =>
+    fetchLabours({
+      current_site: siteId,
+      is_active: true,
+      page,
+      page_size,
+    }),
+  )
+  return { data }
 }
 
 /** GET /labours/{id} */

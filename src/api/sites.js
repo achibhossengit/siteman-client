@@ -1,6 +1,6 @@
 import { api } from './client.js'
 import { endpoints } from './endpoints.js'
-import { asList, asPage } from './pagination.js'
+import { asList, asPage, fetchAllPages } from './pagination.js'
 
 /** GET /sites — optional filters: is_active, is_closed, search. Paginated. */
 export const fetchSites = ({
@@ -28,13 +28,6 @@ export const fetchSites = ({
 export const fetchSiteDetail = (siteId) =>
   api.get(endpoints.sites.detail(siteId))
 
-/** GET /sites/{id}/active_labour — unpaginated active labours on site. */
-export const fetchSiteActiveLabour = (siteId) =>
-  api.get(endpoints.sites.activeLabour(siteId)).then((res) => ({
-    ...res,
-    data: asList(res.data),
-  }))
-
 /** POST /sites */
 export const createSite = (payload) => api.post(endpoints.sites.list, payload)
 
@@ -58,7 +51,6 @@ export const fetchDailyReport = (siteId, date) =>
 /**
  * Site cash ledger list (paginated).
  * GET /sites/{site_pk}/cash — filters: date, type, billing.
- * For a single day use fetchSiteCashByDate instead.
  */
 export const fetchSiteCash = (
   siteId,
@@ -78,25 +70,13 @@ export const fetchSiteCash = (
   }))
 }
 
-/**
- * Unpaginated cash entries for one day.
- * GET /sites/{site_pk}/cash/{cash_date}
- */
-export const fetchSiteCashByDate = (siteId, cashDate) =>
-  api.get(endpoints.sites.cashByDate(siteId, cashDate)).then((res) => ({
-    ...res,
-    data: asList(res.data),
-  }))
-
-/**
- * Unpaginated pending (unreviewed) site-cash activity for a date.
- * GET /sites/{site_pk}/cash/{cash_date}/pending_log
- */
-export const fetchSiteCashPendingLog = (siteId, cashDate) =>
-  api.get(endpoints.sites.cashPendingLog(siteId, cashDate)).then((res) => ({
-    ...res,
-    data: asList(res.data),
-  }))
+/** All cash rows for one day (walks pagination). */
+export const fetchSiteCashByDate = async (siteId, cashDate) => {
+  const data = await fetchAllPages(({ page, page_size }) =>
+    fetchSiteCash(siteId, { date: cashDate, page, page_size }),
+  )
+  return { data }
+}
 
 /** GET /sites/{site_pk}/cash/{id} */
 export const fetchSiteCashDetail = (siteId, cashId) =>
@@ -154,7 +134,7 @@ export const updatePrivateSiteCash = (siteId, id, payload) =>
 export const deletePrivateSiteCash = (siteId, id) =>
   api.delete(endpoints.sites.privateCashDetail(siteId, id))
 
-/** Billing categories for a site (paginated). Prefer active-billing for options. */
+/** Billing categories for a site (paginated). */
 export const fetchBillingCategories = (
   siteId,
   { page, page_size, ...filters } = {},
@@ -174,14 +154,15 @@ export const fetchBillingCategories = (
 }
 
 /**
- * Unpaginated active billing categories for option lists.
- * GET /sites/{site_pk}/billing-categories/active-billing
+ * Active billing categories for option lists.
+ * GET /sites/{site_pk}/billing-categories?is_active=true (all pages).
  */
-export const fetchActiveBillingCategories = (siteId) =>
-  api.get(endpoints.sites.activeBilling(siteId)).then((res) => ({
-    ...res,
-    data: asList(res.data),
-  }))
+export const fetchActiveBillingCategories = async (siteId) => {
+  const data = await fetchAllPages(({ page, page_size }) =>
+    fetchBillingCategories(siteId, { is_active: true, page, page_size }),
+  )
+  return { data }
+}
 
 /** GET /sites/{site_pk}/billing-categories/{id} */
 export const fetchBillingCategoryDetail = (siteId, id) =>
@@ -201,7 +182,7 @@ export const deleteBillingCategory = (siteId, id) =>
 
 /**
  * Site daily records list (paginated).
- * For a single day use fetchSiteDailyRecordsByDate instead.
+ * GET /sites/{site_pk}/daily-records — filters: date, labour, billing, is_sealed.
  */
 export const fetchSiteDailyRecords = (
   siteId,
@@ -224,29 +205,13 @@ export const fetchSiteDailyRecords = (
     }))
 }
 
-/**
- * Unpaginated daily records for one day (হাজিরা).
- * GET /sites/{site_pk}/daily-records/{record_date}
- */
-export const fetchSiteDailyRecordsByDate = (siteId, recordDate) =>
-  api
-    .get(endpoints.sites.dailyRecordsByDate(siteId, recordDate))
-    .then((res) => ({
-      ...res,
-      data: asList(res.data),
-    }))
-
-/**
- * Unpaginated pending daily-record activity for a date.
- * GET /sites/{site_pk}/daily-records/{record_date}/pending_log
- */
-export const fetchSiteDailyRecordsPendingLog = (siteId, recordDate) =>
-  api
-    .get(endpoints.sites.dailyRecordsPendingLog(siteId, recordDate))
-    .then((res) => ({
-      ...res,
-      data: asList(res.data),
-    }))
+/** All daily records for one day (walks pagination). */
+export const fetchSiteDailyRecordsByDate = async (siteId, recordDate) => {
+  const data = await fetchAllPages(({ page, page_size }) =>
+    fetchSiteDailyRecords(siteId, { date: recordDate, page, page_size }),
+  )
+  return { data }
+}
 
 /** POST /sites/{site_pk}/daily-records — bulk create (array body). */
 export const createSiteDailyRecords = (siteId, payload) =>

@@ -22,13 +22,8 @@ export const endpoints = {
   sites: {
     list: '/api/v1/sites',
     detail: (id) => `/api/v1/sites/${id}`,
-    activeLabour: (id) => `/api/v1/sites/${id}/active_labour`,
     dailyReports: (id) => `/api/v1/sites/${id}/daily-reports`,
     cash: (id) => `/api/v1/sites/${id}/cash`,
-    cashByDate: (siteId, cashDate) =>
-      `/api/v1/sites/${siteId}/cash/${cashDate}`,
-    cashPendingLog: (siteId, cashDate) =>
-      `/api/v1/sites/${siteId}/cash/${cashDate}/pending_log`,
     cashDetail: (siteId, cashId) => `/api/v1/sites/${siteId}/cash/${cashId}`,
     privateCash: (id) => `/api/v1/sites/${id}/private-cash`,
     privateCashDetail: (siteId, id) =>
@@ -36,13 +31,7 @@ export const endpoints = {
     billingCategories: (id) => `/api/v1/sites/${id}/billing-categories`,
     billingCategoryDetail: (siteId, id) =>
       `/api/v1/sites/${siteId}/billing-categories/${id}`,
-    activeBilling: (id) =>
-      `/api/v1/sites/${id}/billing-categories/active-billing`,
     dailyRecords: (id) => `/api/v1/sites/${id}/daily-records`,
-    dailyRecordsByDate: (siteId, recordDate) =>
-      `/api/v1/sites/${siteId}/daily-records/${recordDate}`,
-    dailyRecordsPendingLog: (siteId, recordDate) =>
-      `/api/v1/sites/${siteId}/daily-records/${recordDate}/pending_log`,
   },
   users: {
     list: '/api/v1/users',
