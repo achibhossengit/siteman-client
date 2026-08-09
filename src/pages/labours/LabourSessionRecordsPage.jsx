@@ -12,7 +12,6 @@ import {
   fetchLabourSession,
   updateLabourDailyRecord,
 } from "../../api/labours.js";
-import { fetchActiveBillingCategories } from "../../api/sites.js";
 import {
   activityTextToneClass,
   activityToneClass,
@@ -30,6 +29,7 @@ import {
   RECORD_LOG_FIELD_LABELS,
   summarizeDailyRecordLog,
 } from "../../components/DailyRecordHistoryPanel.jsx";
+import { useBillingLookups } from "../../hooks/useBillingLookup.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { useSitesLookup } from "../../hooks/useSites.js";
 import {
@@ -308,17 +308,32 @@ export const LabourSessionRecordsPage = () => {
     return applyActivitiesToSessionRows(base, activitiesQuery.data ?? []);
   }, [dailyRecordsQuery.data, activitiesQuery.data, canViewActivityLog]);
 
-  const billingFullLabel = (id) => {
+  const billingSiteIds = useMemo(() => {
+    const ids = rows.map((row) => row.siteId).filter((id) => id != null && id !== "");
+    if (recordModal?.siteId != null && recordModal.siteId !== "") {
+      ids.push(recordModal.siteId);
+    }
+    return ids;
+  }, [rows, recordModal?.siteId]);
+
+  const { getBillingName, getActiveCategories } = useBillingLookups(
+    billingSiteIds,
+    { enabled: canView },
+  );
+
+  const billingFullLabel = (id, siteId) => {
     if (id == null || id === "") return NULL_BILLING_LABEL;
+    if (siteId != null && siteId !== "") return getBillingName(siteId, id);
     const fromRow = rows.find((row) => String(row.billing) === String(id));
     if (fromRow?.billingName) return fromRow.billingName;
+    if (fromRow?.siteId != null) return getBillingName(fromRow.siteId, id);
     return `#${id}`;
   };
 
   const billingFullLabelForRow = (row) => {
     if (row?.billing == null || row.billing === "") return NULL_BILLING_LABEL;
     if (row.billingName) return row.billingName;
-    return `#${row.billing}`;
+    return getBillingName(row.siteId, row.billing);
   };
 
   const billingLabelForRow = (row) =>
@@ -337,11 +352,11 @@ export const LabourSessionRecordsPage = () => {
       seen.add(value);
       options.push({
         value,
-        label: row.billingName || `#${value}`,
+        label: row.billingName || getBillingName(row.siteId, value),
       });
     }
     return options;
-  }, [rows]);
+  }, [rows, getBillingName]);
 
   const siteFilterOptions = useMemo(() => {
     const options = [{ value: "all", label: "সব সাইট" }];
@@ -444,17 +459,8 @@ export const LabourSessionRecordsPage = () => {
   const canUpdateRecord = recordActionsEnabled && canChangeDailyRecord;
   const canDeleteRecord = recordActionsEnabled && canDeleteDailyRecord;
 
-  const activeBillingQuery = useQuery({
-    queryKey: ["sites", recordModal?.siteId, "active-billing"],
-    queryFn: async () => {
-      const { data } = await fetchActiveBillingCategories(recordModal.siteId);
-      return data;
-    },
-    enabled: Boolean(modalEditing && recordModal?.siteId),
-  });
-
   const billingOptions = useMemo(() => {
-    const opts = [...(activeBillingQuery.data ?? [])];
+    const opts = [...(getActiveCategories(recordModal?.siteId) ?? [])];
     const cur = recordModal?.billing;
     if (
       cur !== "" &&
@@ -463,11 +469,19 @@ export const LabourSessionRecordsPage = () => {
     ) {
       opts.unshift({
         id: cur,
-        name: recordModal?.billingName || billingFullLabel(cur),
+        name:
+          recordModal?.billingName ||
+          billingFullLabel(cur, recordModal?.siteId),
       });
     }
     return opts;
-  }, [activeBillingQuery.data, recordModal?.billing, recordModal?.billingName, rows]);
+  }, [
+    getActiveCategories,
+    recordModal?.siteId,
+    recordModal?.billing,
+    recordModal?.billingName,
+    rows,
+  ]);
 
   const invalidateRecordQueries = async () => {
     await queryClient.invalidateQueries({

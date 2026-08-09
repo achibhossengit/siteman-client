@@ -6,7 +6,6 @@ import { Pencil, Plus, Trash2, X } from 'lucide-react'
 import {
   createPrivateSiteCash,
   deletePrivateSiteCash,
-  fetchActiveBillingCategories,
   fetchPrivateSiteCash,
   updatePrivateSiteCash,
 } from '../../api/sites.js'
@@ -18,6 +17,7 @@ import {
 } from '../../api/types/privateSiteCash.js'
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
+import { useBillingLookup } from '../../hooks/useBillingLookup.js'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import {
   formatBnNumber,
@@ -147,22 +147,18 @@ export const SitePrivateCashPanel = ({
     enabled: Boolean(canView && siteId),
   })
 
-  const billingQuery = useQuery({
-    queryKey: ['sites', siteId, 'active-billing'],
-    queryFn: async () => {
-      const { data } = await fetchActiveBillingCategories(siteId)
-      return Array.isArray(data) ? data : []
-    },
-    enabled: Boolean(canView && siteId),
-  })
+  const {
+    categories: allBillingCategories,
+    activeCategories: billingOptions,
+    getBillingName,
+  } = useBillingLookup(siteId, { enabled: Boolean(canView && siteId) })
 
   const rows = listQuery.data ?? []
-  const billingOptions = billingQuery.data ?? []
 
   const billingFilterOptions = [
     { value: 'all', label: 'বিলিং' },
     { value: 'none', label: NULL_BILLING_LABEL },
-    ...billingOptions.map((b) => ({
+    ...allBillingCategories.map((b) => ({
       value: String(b.id),
       label: b.name,
     })),
@@ -173,13 +169,25 @@ export const SitePrivateCashPanel = ({
     billingFilter,
   )
 
-  const billingName = (billingId) => {
-    if (billingId == null) return NULL_BILLING_LABEL
-    return (
-      billingOptions.find((b) => String(b.id) === String(billingId))?.name ??
-      '—'
+  const billingName = (billingId) => getBillingName(billingId)
+
+  const formBillingOptions = (() => {
+    const selectedId = selected?.billing
+    if (selectedId == null) return billingOptions
+    const hasSelected = billingOptions.some(
+      (b) => String(b.id) === String(selectedId),
     )
-  }
+    if (hasSelected) return billingOptions
+    const current = allBillingCategories.find(
+      (b) => String(b.id) === String(selectedId),
+    )
+    return current
+      ? [current, ...billingOptions]
+      : [
+          { id: selectedId, name: getBillingName(selectedId) },
+          ...billingOptions,
+        ]
+  })()
 
   useEffect(() => {
     if (!editing && !creating) {
@@ -531,7 +539,7 @@ export const SitePrivateCashPanel = ({
                 {...register('billing')}
               >
                 <option value="">{NULL_BILLING_LABEL}</option>
-                {billingOptions.map((opt) => (
+                {formBillingOptions.map((opt) => (
                   <option key={opt.id} value={String(opt.id)}>
                     {opt.name}
                   </option>

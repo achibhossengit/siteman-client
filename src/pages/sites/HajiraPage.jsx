@@ -9,7 +9,6 @@ import {
 } from "../../api/labours.js";
 import {
   createSiteDailyRecords,
-  fetchActiveBillingCategories,
   fetchSiteDailyRecordsByDate,
 } from "../../api/sites.js";
 import {
@@ -29,6 +28,7 @@ import { normalizeSiteIds } from "../../api/types/user.js";
 import { fetchAllActivities, reviewActivities } from "../../api/activities.js";
 import { messageForCode, parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
+import { useBillingLookup } from "../../hooks/useBillingLookup.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { PERMS, hasPermissionSuffix } from "../../utils/permissions.js";
 import {
@@ -979,14 +979,9 @@ export const HajiraPage = () => {
     enabled: Boolean(siteId && date),
   });
 
-  const billingQuery = useQuery({
-    queryKey: ["sites", siteId, "active-billing"],
-    queryFn: async () => {
-      const { data } = await fetchActiveBillingCategories(siteId);
-      return Array.isArray(data) ? data : [];
-    },
-    enabled: Boolean(siteId),
-  });
+  const billingLookup = useBillingLookup(siteId, { enabled: Boolean(siteId) });
+  const billingOptions = billingLookup.activeCategories;
+  const getBillingName = billingLookup.getBillingName;
 
   const activeLabourQuery = useQuery({
     queryKey: ["labours", "active", { current_site: siteId }],
@@ -1043,25 +1038,18 @@ export const HajiraPage = () => {
     return sortLogsDesc(logs);
   }, [pendingLogQuery.data, recordModal]);
 
-  const billingOptions = billingQuery.data ?? [];
-
-  /** Prefer record.billing_name; fall back to active-billing map when editing. */
+  /** Resolve billing name from session lookup (API no longer embeds billing_name). */
   const billingFullLabelForRow = (rowOrId, maybeName) => {
     if (rowOrId != null && typeof rowOrId === "object") {
       const row = rowOrId;
       if (row.billing == null || row.billing === "") return NULL_BILLING_LABEL;
       if (row.billingName) return row.billingName;
-      return (
-        billingOptions.find((b) => String(b.id) === String(row.billing))
-          ?.name ?? `#${row.billing}`
-      );
+      return getBillingName(row.billing);
     }
     const id = rowOrId;
     if (id == null || id === "") return NULL_BILLING_LABEL;
     if (maybeName) return maybeName;
-    return (
-      billingOptions.find((b) => String(b.id) === String(id))?.name ?? `#${id}`
-    );
+    return getBillingName(id);
   };
 
   const billingLabelForRow = (row) =>
@@ -1085,11 +1073,11 @@ export const HajiraPage = () => {
       seen.add(value);
       options.push({
         value,
-        label: row.billingName || `#${value}`,
+        label: row.billingName || getBillingName(value),
       });
     }
     return options;
-  }, [rows]);
+  }, [rows, getBillingName]);
 
   const billingFilterHeaderLabel =
     billingFilter === "all"
@@ -1672,8 +1660,7 @@ export const HajiraPage = () => {
     const selectedName =
       selectedId == null || selectedId === ""
         ? null
-        : (billingOptions.find((b) => String(b.id) === String(selectedId))
-            ?.name ?? null);
+        : getBillingName(selectedId);
     setRows((prev) =>
       prev.map((row) => {
         if (!isBulkTargetRow(row)) return row;

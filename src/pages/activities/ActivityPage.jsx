@@ -27,6 +27,7 @@ import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { useAssignedSites } from '../../hooks/useSites.js'
+import { useBillingLookups } from '../../hooks/useBillingLookup.js'
 import { confirmAction, toastApiError, toastSuccess } from '../../utils/feedback.js'
 import { formatBnNumber, NULL_BILLING_LABEL, STATUS_LABEL } from '../../utils/format.js'
 import { PERMS, hasPermissionSuffix } from '../../utils/permissions.js'
@@ -224,7 +225,7 @@ const RECORD_FIELD_KEYS = {
   ],
 }
 
-const formatRecordValue = (key, value) => {
+const formatRecordValue = (key, value, billingNameFn) => {
   if (value == null || value === '' || value === 'None' || value === 'null') {
     if (key === 'billing' || key === 'billing_id') return NULL_BILLING_LABEL
     return '—'
@@ -238,9 +239,10 @@ const formatRecordValue = (key, value) => {
     if (typeof value === 'object') {
       if (value.name) return String(value.name)
       const id = value.id ?? value.pk
-      return id == null || id === '' ? NULL_BILLING_LABEL : String(id)
+      if (id == null || id === '') return NULL_BILLING_LABEL
+      return billingNameFn ? billingNameFn(id) : `#${id}`
     }
-    return String(value)
+    return billingNameFn ? billingNameFn(value) : `#${value}`
   }
   if (
     key === 'date' ||
@@ -392,7 +394,7 @@ const cashNoteFromLog = (log) => {
 }
 
 /** One-line বিবরণ: update diffs with strikethrough, concatenated. */
-const HistoryBiboron = ({ log }) => {
+const HistoryBiboron = ({ log, billingNameFn }) => {
   if (!log) return '—'
   if (log.action === 'updated') {
     const entries = changeEntries(log.changes).filter((entry) => entry.isDiff)
@@ -403,8 +405,8 @@ const HistoryBiboron = ({ log }) => {
           <Fragment key={entry.key}>
             {index > 0 ? <span className="text-base-content/40"> · </span> : null}
             <ChangePair
-              oldText={formatRecordValue(entry.key, entry.old)}
-              newText={formatRecordValue(entry.key, entry.next)}
+              oldText={formatRecordValue(entry.key, entry.old, billingNameFn)}
+              newText={formatRecordValue(entry.key, entry.next, billingNameFn)}
             />
           </Fragment>
         ))}
@@ -758,6 +760,21 @@ export const ActivityPage = () => {
     return pickRecordEntries(selected.entity_type, recordQuery.data)
   }, [selected, recordQuery.data])
 
+  const activityRows = activitiesQuery.data?.results ?? []
+
+  const billingSiteIds = useMemo(() => {
+    if (siteId && siteId !== SITE_ALL) return [siteId]
+    const ids = activityRows
+      .map((row) => row.site)
+      .filter((id) => id != null && id !== '')
+    if (selected?.site != null && selected.site !== '') ids.push(selected.site)
+    return ids
+  }, [siteId, activityRows, selected?.site])
+
+  const { getBillingName } = useBillingLookups(billingSiteIds, {
+    enabled: Boolean(canViewActivityLog && siteId),
+  })
+
   const openDetail = (row) => {
     setApiError(null)
     setSelected(row)
@@ -863,6 +880,9 @@ export const ActivityPage = () => {
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
   const slOffset = (page - 1) * PAGE_SIZE
   const isLoading = activitiesQuery.isLoading && !activitiesQuery.data
+
+  const billingNameForLog = (log) => (billingId) =>
+    getBillingName(log?.site ?? selected?.site, billingId)
 
   const pendingIds = rows
     .filter((row) => !isRowReviewed(row) && row?.id != null)
@@ -1247,7 +1267,10 @@ export const ActivityPage = () => {
                               </td>
                               <td className="text-sm leading-snug align-middle max-w-0">
                                 <div className="truncate">
-                                  <HistoryBiboron log={log} />
+                                  <HistoryBiboron
+                                    log={log}
+                                    billingNameFn={billingNameForLog(log)}
+                                  />
                                 </div>
                               </td>
                             </tr>
@@ -1329,16 +1352,19 @@ export const ActivityPage = () => {
                                                   oldText={formatRecordValue(
                                                     entry.key,
                                                     entry.old,
+                                                    billingNameForLog(log),
                                                   )}
                                                   newText={formatRecordValue(
                                                     entry.key,
                                                     entry.next,
+                                                    billingNameForLog(log),
                                                   )}
                                                 />
                                               ) : (
                                                 formatRecordValue(
                                                   entry.key,
                                                   entry.value,
+                                                  billingNameForLog(log),
                                                 )
                                               )}
                                             </span>
@@ -1363,7 +1389,11 @@ export const ActivityPage = () => {
                                               {fieldLabel(key)}
                                             </span>
                                             <span className="min-w-0">
-                                              {formatRecordValue(key, value)}
+                                              {formatRecordValue(
+                                                key,
+                                                value,
+                                                billingNameForLog(log),
+                                              )}
                                             </span>
                                           </div>
                                         ))}
@@ -1416,7 +1446,11 @@ export const ActivityPage = () => {
                   <div className="flex flex-col gap-2 py-1">
                     {recordEntries.map(({ key, value }) => (
                       <MetaRow key={key} label={fieldLabel(key)}>
-                        {formatRecordValue(key, value)}
+                        {formatRecordValue(
+                          key,
+                          value,
+                          billingNameForLog(selected),
+                        )}
                       </MetaRow>
                     ))}
                     {recordEntries.length === 0 ? (

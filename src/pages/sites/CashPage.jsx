@@ -7,7 +7,6 @@ import { Pencil, Trash2, X } from 'lucide-react'
 import {
   createSiteCash,
   deleteSiteCash,
-  fetchActiveBillingCategories,
   fetchSiteCashByDate,
   updateSiteCash,
 } from '../../api/sites.js'
@@ -26,6 +25,7 @@ import {
   NULL_BILLING_LABEL,
 } from '../../utils/format.js'
 import { confirmAction, toastApiError, toastSuccess } from '../../utils/feedback.js'
+import { useBillingLookup } from '../../hooks/useBillingLookup.js'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { PERMS, hasPermissionSuffix } from '../../utils/permissions.js'
 import {
@@ -358,14 +358,11 @@ export const CashPage = () => {
     enabled: Boolean(canViewCash && siteId && date),
   })
 
-  const billingQuery = useQuery({
-    queryKey: ['sites', siteId, 'billing-categories', 'active'],
-    queryFn: async () => {
-      const { data } = await fetchActiveBillingCategories(siteId)
-      return data ?? []
-    },
-    enabled: Boolean(canViewCash && siteId),
-  })
+  const {
+    categories: billingOptions,
+    activeCategories: activeBillingOptions,
+    getBillingName,
+  } = useBillingLookup(siteId, { enabled: Boolean(canViewCash && siteId) })
 
   const saveMutation = useMutation({
     mutationFn: (values) => {
@@ -736,8 +733,6 @@ export const CashPage = () => {
     )
   }
 
-  const billingOptions = billingQuery.data ?? []
-  const activeBillingOptions = billingOptions
   const dayBillingExtras = (() => {
     const known = new Set(billingOptions.map((b) => String(b.id)))
     const extras = []
@@ -746,7 +741,7 @@ export const CashPage = () => {
       const id = String(row.billing)
       if (known.has(id)) continue
       known.add(id)
-      extras.push({ id: row.billing, name: '—' })
+      extras.push({ id: row.billing, name: getBillingName(row.billing) })
     }
     return extras
   })()
@@ -763,7 +758,10 @@ export const CashPage = () => {
     )
     return current
       ? [current, ...activeBillingOptions]
-      : [{ id: selectedId, name: '—' }, ...activeBillingOptions]
+      : [
+          { id: selectedId, name: getBillingName(selectedId) },
+          ...activeBillingOptions,
+        ]
   })()
 
   const billingFilterOptions = [
@@ -775,13 +773,7 @@ export const CashPage = () => {
     })),
   ]
 
-  const billingName = (billingId) => {
-    if (billingId == null) return NULL_BILLING_LABEL
-    return (
-      filterBillingOptions.find((b) => String(b.id) === String(billingId))
-        ?.name ?? '—'
-    )
-  }
+  const billingName = (billingId) => getBillingName(billingId)
 
   const disabled = !editing
   const busy = isSubmitting || saveMutation.isPending

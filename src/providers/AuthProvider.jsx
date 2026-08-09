@@ -46,6 +46,14 @@ export const AuthProvider = ({ children }) => {
     setAccessTokenState(null)
     setProfile(null)
     queryClient.removeQueries({ queryKey: SITES_LOOKUP_KEY })
+    // Per-site billing lookup caches: ['sites', siteId, 'billing-categories', 'lookup']
+    queryClient.removeQueries({
+      predicate: (q) =>
+        Array.isArray(q.queryKey) &&
+        q.queryKey[0] === 'sites' &&
+        q.queryKey[2] === 'billing-categories' &&
+        q.queryKey[3] === 'lookup',
+    })
   }, [queryClient])
 
   useEffect(() => {

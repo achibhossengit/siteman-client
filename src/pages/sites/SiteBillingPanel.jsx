@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   DndContext,
   closestCenter,
@@ -23,7 +23,6 @@ import { Pencil, Plus, Trash2, X } from 'lucide-react'
 import {
   createBillingCategory,
   deleteBillingCategory,
-  fetchBillingCategories,
   updateBillingCategory,
 } from '../../api/sites.js'
 import {
@@ -34,6 +33,7 @@ import {
 } from '../../api/types/billingCategory.js'
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
+import { useBillingLookup } from '../../hooks/useBillingLookup.js'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { formatBnNumber } from '../../utils/format.js'
 import { confirmAction, toastSuccess } from '../../utils/feedback.js'
@@ -162,17 +162,10 @@ export const SiteBillingPanel = ({ siteId, showFab = true }) => {
     }),
   )
 
-  const billingQuery = useQuery({
-    queryKey: ['sites', siteId, 'billing-categories'],
-    queryFn: async () => {
-      const { data } = await fetchBillingCategories(siteId, {
-        page: 1,
-        page_size: 100,
-      })
-      return sortByOrder(data?.results ?? [])
-    },
+  const billingLookup = useBillingLookup(siteId, {
     enabled: Boolean(canViewBillingCategory && siteId),
   })
+  const billingQuery = billingLookup
 
   const saveBillingMutation = useMutation({
     mutationFn: (values) => {
@@ -187,8 +180,8 @@ export const SiteBillingPanel = ({ siteId, showFab = true }) => {
   })
 
   useEffect(() => {
-    if (billingQuery.data) setRows(billingQuery.data)
-  }, [billingQuery.data])
+    if (billingLookup.categories) setRows(sortByOrder(billingLookup.categories))
+  }, [billingLookup.categories])
 
   useEffect(() => {
     if (!editingBilling && !creating) {
