@@ -7,8 +7,6 @@ export const paths = {
   sites: '/sites',
   siteNew: '/sites/new',
   siteDetail: (id) => `/sites/${id}`,
-  siteBilling: (id) => `/sites/${id}/billing`,
-  sitePrivateCash: (id) => `/sites/${id}/private-cash`,
   users: '/users',
   userNew: '/users/new',
   userDetail: (id) => `/users/${id}`,
