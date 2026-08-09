@@ -3,7 +3,7 @@ import { useOutletContext } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, KeyRound, Pencil, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useAuth } from "../../providers/AuthProvider.jsx";
 import { updateProfile } from "../../api/profile.js";
 import {
@@ -281,18 +281,16 @@ export const ProfilePage = () => {
           <div className="flex gap-2 mt-2">
             <button
               type="button"
-              className="btn btn-outline flex-1 gap-1.5"
+              className="btn btn-outline flex-1 whitespace-nowrap"
               onClick={openPasswordModal}
             >
-              <KeyRound className="size-4" strokeWidth={1.75} />
-              পাসওয়ার্ড বদলান
+              পাসওয়ার্ড
             </button>
             <button
               type="button"
               className="btn btn-outline btn-primary flex-1"
               onClick={startEdit}
             >
-              <Pencil className="size-4" strokeWidth={1.75} />
               আপডেট
             </button>
           </div>
@@ -430,9 +428,7 @@ export const ProfilePage = () => {
               >
                 {passwordSubmitting ? (
                   <span className="loading loading-spinner loading-sm" />
-                ) : (
-                  <Check className="size-4" strokeWidth={2} />
-                )}
+                ) : null}
                 সেভ
               </button>
             </div>

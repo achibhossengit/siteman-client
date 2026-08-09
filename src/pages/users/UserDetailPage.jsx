@@ -3,7 +3,6 @@ import { useOutletContext, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil } from "lucide-react";
 import { fetchUserDetail, updateUser } from "../../api/users.js";
 import { fetchSites } from "../../api/sites.js";
 import {
@@ -367,7 +366,6 @@ export const UserDetailPage = () => {
               className="btn btn-outline btn-primary w-full mt-1"
               onClick={startEdit}
             >
-              <Pencil className="size-4" strokeWidth={1.75} />
               আপডেট
             </button>
           )
