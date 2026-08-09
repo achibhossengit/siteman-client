@@ -39,7 +39,6 @@ import { confirmAction, toastSuccess } from "../../utils/feedback.js";
 import { PERMS, hasPermissionSuffix } from "../../utils/permissions.js";
 
 const RECORD_MODAL_ID = "session_record_detail_modal";
-const EARNINGS_FILTER_MODAL_ID = "session_record_earnings_filter_modal";
 const PAYMENT_FILTER_MODAL_ID = "session_record_payment_filter_modal";
 const HAJIRA_FILTER_MODAL_ID = "session_record_hajira_filter_modal";
 
@@ -59,6 +58,12 @@ const EARNINGS_FILTER_OPTIONS = [
   { value: "from_present", label: "বেতন" },
   { value: "from_extra", label: "বাড়তি" },
 ];
+
+const nextEarningsFilter = (value) => {
+  const idx = EARNINGS_FILTER_OPTIONS.findIndex((opt) => opt.value === value);
+  const next = EARNINGS_FILTER_OPTIONS[(idx + 1) % EARNINGS_FILTER_OPTIONS.length];
+  return next?.value ?? "earn";
+};
 
 const PAYMENT_FILTER_OPTIONS = [
   { value: "payment", label: "ফুডিং" },
@@ -705,10 +710,9 @@ export const LabourSessionRecordsPage = () => {
                 <button
                   type="button"
                   onClick={() =>
-                    document
-                      .getElementById(EARNINGS_FILTER_MODAL_ID)
-                      ?.showModal()
+                    setEarningsFilter((prev) => nextEarningsFilter(prev))
                   }
+                  title="ক্লিক করে আয় / বেতন / বাড়তি বদলান"
                 >
                   {filterLabel(EARNINGS_FILTER_OPTIONS, earningsFilter)}
                 </button>
@@ -1246,16 +1250,6 @@ export const LabourSessionRecordsPage = () => {
         values={hajiraFilter}
         onChange={setHajiraFilter}
       />
-      <FilterDialog
-        id={EARNINGS_FILTER_MODAL_ID}
-        title="আয় ফিল্টার"
-        options={EARNINGS_FILTER_OPTIONS}
-        value={earningsFilter}
-        onChange={(value) => {
-          setEarningsFilter(value);
-          document.getElementById(EARNINGS_FILTER_MODAL_ID)?.close();
-        }}
-      />
       <MultiFilterDialog
         id={PAYMENT_FILTER_MODAL_ID}
         title="লেনদেন"
@@ -1266,39 +1260,6 @@ export const LabourSessionRecordsPage = () => {
     </div>
   );
 };
-
-const FilterDialog = ({ id, title, options, value, onChange }) => (
-  <dialog id={id} className="modal">
-    <div className="modal-box max-w-xs">
-      <form method="dialog">
-        <button
-          className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-          aria-label="বন্ধ"
-        >
-          ✕
-        </button>
-      </form>
-      <h3 className="font-bold text-lg">{title}</h3>
-      <div className="menu bg-base-100 w-full p-0 pt-3">
-        {options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            className={`btn btn-ghost btn-sm justify-start ${
-              value === option.value ? "btn-active" : ""
-            }`}
-            onClick={() => onChange(option.value)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-    </div>
-    <form method="dialog" className="modal-backdrop">
-      <button type="submit">close</button>
-    </form>
-  </dialog>
-);
 
 const MultiFilterDialog = ({ id, title, options, values, onChange }) => (
   <dialog id={id} className="modal">

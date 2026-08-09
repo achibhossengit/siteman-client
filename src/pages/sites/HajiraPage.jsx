@@ -681,11 +681,9 @@ const recordSealedOf = (row) =>
   );
 
 const RECORD_MODAL_ID = "hajira_record_modal";
-const EARNINGS_FILTER_MODAL_ID = "hajira_earnings_filter_modal";
 const PAYMENT_FILTER_MODAL_ID = "hajira_payment_filter_modal";
 const HAJIRA_FILTER_MODAL_ID = "hajira_hajira_filter_modal";
 const BILLING_FILTER_MODAL_ID = "hajira_billing_filter_modal";
-const LABOUR_FILTER_MODAL_ID = "hajira_labour_filter_modal";
 
 const emptyBulkAttendance = () => ({
   present: "",
@@ -735,22 +733,23 @@ const EARNINGS_FILTER_OPTIONS = [
   { value: "from_extra", label: "বাড়তি" },
 ];
 
+const nextEarningsFilter = (value) => {
+  const idx = EARNINGS_FILTER_OPTIONS.findIndex((opt) => opt.value === value);
+  const next = EARNINGS_FILTER_OPTIONS[(idx + 1) % EARNINGS_FILTER_OPTIONS.length];
+  return next?.value ?? "earn";
+};
+
 const PAYMENT_FILTER_OPTIONS = [
   { value: "payment", label: "ফুডিং" },
   { value: "advance", label: "অ্যাডভান্স" },
   { value: "return", label: "রিটার্ন" },
 ];
 
-const LABOUR_FILTER_OPTIONS = [
-  { value: "all", label: "সব রেকর্ড", shortLabel: "নাম" },
-  { value: "site", label: "এই সাইটের লেবার", shortLabel: "সাইট" },
-];
-
 const filterLabel = (options, value) =>
   options.find((opt) => opt.value === value)?.label ?? options[0]?.label ?? "";
 
 const labourFilterHeaderLabel = (value) =>
-  LABOUR_FILTER_OPTIONS.find((opt) => opt.value === value)?.shortLabel ?? "নাম";
+  value === "site" ? "সাইট" : "নাম";
 
 const displayModalValue = (value) => {
   if (value === "" || value == null) return "—";
@@ -1010,8 +1009,12 @@ export const HajiraPage = () => {
     document.getElementById(BILLING_FILTER_MODAL_ID)?.showModal();
   };
 
-  const openLabourFilterModal = () => {
-    document.getElementById(LABOUR_FILTER_MODAL_ID)?.showModal();
+  const toggleLabourFilter = () => {
+    setLabourFilter((prev) => (prev === "all" ? "site" : "all"));
+  };
+
+  const toggleEarningsFilter = () => {
+    setEarningsFilter((prev) => nextEarningsFilter(prev));
   };
 
   const buildRowsForLabourFilter = (filter) => {
@@ -1805,7 +1808,15 @@ export const HajiraPage = () => {
                 )}
               </th>
               <th>
-                <button type="button" onClick={openLabourFilterModal}>
+                <button
+                  type="button"
+                  onClick={toggleLabourFilter}
+                  title={
+                    labourFilter === "site"
+                      ? "এই সাইটের লেবার (ক্লিক: সব রেকর্ড)"
+                      : "সব রেকর্ড (ক্লিক: এই সাইটের লেবার)"
+                  }
+                >
                   {labourFilterHeaderLabel(labourFilter)}
                 </button>
               </th>
@@ -1818,11 +1829,8 @@ export const HajiraPage = () => {
                 <th className="text-right">
                   <button
                     type="button"
-                    onClick={() =>
-                      document
-                        .getElementById(EARNINGS_FILTER_MODAL_ID)
-                        ?.showModal()
-                    }
+                    onClick={toggleEarningsFilter}
+                    title="ক্লিক করে আয় / বেতন / বাড়তি বদলান"
                   >
                     {filterLabel(EARNINGS_FILTER_OPTIONS, earningsFilter)}
                   </button>
@@ -2815,74 +2823,6 @@ export const HajiraPage = () => {
                 </div>
               </div>
             ) : null}
-          </div>
-        </div>
-        <form method="dialog" className="modal-backdrop">
-          <button type="submit">close</button>
-        </form>
-      </dialog>
-
-      <dialog id={EARNINGS_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-xs">
-          <form method="dialog">
-            <button
-              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-              aria-label="বন্ধ"
-            >
-              ✕
-            </button>
-          </form>
-          <h3 className="font-bold text-lg">আয় ফিল্টার</h3>
-          <div className="menu bg-base-100 w-full p-0 pt-3">
-            {EARNINGS_FILTER_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`btn btn-ghost btn-sm justify-start ${
-                  earningsFilter === opt.value ? "btn-active" : ""
-                }`}
-                onClick={() => {
-                  setEarningsFilter(opt.value);
-                  document.getElementById(EARNINGS_FILTER_MODAL_ID)?.close();
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <form method="dialog" className="modal-backdrop">
-          <button type="submit">close</button>
-        </form>
-      </dialog>
-
-      <dialog id={LABOUR_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-xs">
-          <form method="dialog">
-            <button
-              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-              aria-label="বন্ধ"
-            >
-              ✕
-            </button>
-          </form>
-          <h3 className="font-bold text-lg">নাম ফিল্টার</h3>
-          <div className="menu bg-base-100 w-full p-0 pt-3">
-            {LABOUR_FILTER_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`btn btn-ghost btn-sm justify-start ${
-                  labourFilter === opt.value ? "btn-active" : ""
-                }`}
-                onClick={() => {
-                  setLabourFilter(opt.value);
-                  document.getElementById(LABOUR_FILTER_MODAL_ID)?.close();
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
           </div>
         </div>
         <form method="dialog" className="modal-backdrop">
