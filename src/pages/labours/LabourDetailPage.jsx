@@ -572,25 +572,40 @@ export const LabourDetailPage = () => {
                           </div>
                           <div className="border-t border-base-300 pt-2 flex justify-between gap-3 font-semibold">
                             <span>পাওনা</span>
-                            <span className="text-success">
-                              {formatBnNumber(detail.payable)}
+                            <span
+                              className={
+                                Number(detail.payable) < 0
+                                  ? 'text-error'
+                                  : 'text-success'
+                              }
+                            >
+                              {formatBnNumber(detail.payable ?? 0)}
                             </span>
                           </div>
                           <div className="flex justify-between gap-3">
                             <span className="text-base-content/70">
                               আগের পাওনা
                             </span>
-                            <span className="text-error">
-                              {formatBnSigned(
-                                -Math.abs(detail.previous_payable ?? 0),
-                                { showPlus: false },
-                              )}
+                            <span
+                              className={
+                                Number(detail.previous_payable) < 0
+                                  ? 'text-error'
+                                  : 'text-success'
+                              }
+                            >
+                              {formatBnSigned(detail.previous_payable ?? 0)}
                             </span>
                           </div>
                           <div className="border-t border-base-300 pt-2 flex justify-between gap-3 font-semibold">
                             <span>সর্বমোট পাওনা</span>
-                            <span className="text-success">
-                              {formatBnNumber(detail.cumulative_payable)}
+                            <span
+                              className={
+                                Number(detail.cumulative_payable) < 0
+                                  ? 'text-error'
+                                  : 'text-success'
+                              }
+                            >
+                              {formatBnNumber(detail.cumulative_payable ?? 0)}
                             </span>
                           </div>
 

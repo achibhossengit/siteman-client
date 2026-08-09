@@ -250,21 +250,35 @@ export const LabourSessionDetailPage = () => {
           </div>
           <div className="border-t border-base-300 pt-2 flex justify-between gap-3 font-semibold">
             <span>পাওনা</span>
-            <span className="text-success">
+            <span
+              className={
+                Number(session.payable) < 0 ? 'text-error' : 'text-success'
+              }
+            >
               {formatBnNumber(session.payable)}
             </span>
           </div>
           <div className="flex justify-between gap-3">
             <span className="text-base-content/70">আগের পাওনা</span>
-            <span className="text-error">
-              {formatBnSigned(-Math.abs(session.previous_payable), {
-                showPlus: false,
-              })}
+            <span
+              className={
+                Number(session.previous_payable) < 0
+                  ? 'text-error'
+                  : 'text-success'
+              }
+            >
+              {formatBnSigned(session.previous_payable)}
             </span>
           </div>
           <div className="border-t border-base-300 pt-2 flex justify-between gap-3 font-semibold">
             <span>সর্বমোট পাওনা</span>
-            <span className="text-success">
+            <span
+              className={
+                Number(session.cumulative_payable) < 0
+                  ? 'text-error'
+                  : 'text-success'
+              }
+            >
               {formatBnNumber(session.cumulative_payable)}
             </span>
           </div>
