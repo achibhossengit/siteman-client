@@ -106,10 +106,19 @@ export const buildHajiraEditRows = (labours, records = []) => {
     const labourId = Number(labour.id)
     const record = recordByLabour.get(labourId) ?? null
     const sealed = Boolean(record?.is_sealed)
+    const labourCurrentSite =
+      record?.labour_current_site ??
+      labour.labour_current_site ??
+      labour.current_site ??
+      null
 
     return {
       labourId,
       labourName: labour.name ?? `#${labourId}`,
+      labourCurrentSite:
+        labourCurrentSite == null || labourCurrentSite === ''
+          ? null
+          : Number(labourCurrentSite),
       defaultAttendance: Number(labour.default_attendance) || 0,
       defaultSalary: Number(labour.default_salary) || 0,
       defaultFooding: Number(labour.default_fooding) || 0,
@@ -178,6 +187,7 @@ export const buildHajiraViewRows = (records = []) => {
       labourMap.set(id, {
         id,
         name,
+        labour_current_site: record.labour_current_site ?? null,
         default_attendance: 0,
         default_salary: 0,
         default_fooding: 0,
@@ -190,6 +200,12 @@ export const buildHajiraViewRows = (records = []) => {
       (!existing.name || String(existing.name).startsWith('#'))
     ) {
       existing.name = name
+    }
+    if (
+      existing.labour_current_site == null &&
+      record.labour_current_site != null
+    ) {
+      existing.labour_current_site = record.labour_current_site
     }
   }
 

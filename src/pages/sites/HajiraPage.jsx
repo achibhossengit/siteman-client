@@ -839,6 +839,19 @@ export const HajiraPage = () => {
     can(PERMS.changeActivityLog) ||
     hasPermissionSuffix(profile, "change_activitylog");
 
+  const allowedSiteIds = useMemo(() => {
+    const list = Array.isArray(profile?.sites) ? profile.sites : [];
+    return new Set(list.map((site) => String(site.id)));
+  }, [profile?.sites]);
+
+  const canOpenLabourDetail = (row) => {
+    if (!canViewLabour || row?.labourId == null) return false;
+    if (row.labourCurrentSite == null || row.labourCurrentSite === "") {
+      return false;
+    }
+    return allowedSiteIds.has(String(row.labourCurrentSite));
+  };
+
   const siteId = selectedSiteId || readSelectedSite();
   const date = selectedDate || readSelectedDate() || todayIso();
 
@@ -1022,7 +1035,15 @@ export const HajiraPage = () => {
     const activeLabour = activeLabourQuery.data ?? [];
     let next;
     if (filter === "site") {
-      next = buildHajiraEditRows(activeLabour, records);
+      next = buildHajiraEditRows(activeLabour, records).map((row) => ({
+        ...row,
+        labourCurrentSite:
+          row.labourCurrentSite != null
+            ? row.labourCurrentSite
+            : siteId != null && siteId !== ""
+              ? Number(siteId)
+              : null,
+      }));
       if (canViewActivityLog) {
         const siteLabourIds = new Set(next.map((row) => Number(row.labourId)));
         next = applyActivitiesToViewRows(
@@ -1926,12 +1947,25 @@ export const HajiraPage = () => {
                       className="font-medium whitespace-nowrap"
                       title={row.labourName}
                     >
-                      {canViewLabour && row.labourId != null ? (
+                      {row.labourId != null ? (
                         <Link
                           to={paths.labourDetail(row.labourId)}
-                          className="link link-hover"
-                          title={row.labourName}
-                          onClick={(e) => e.stopPropagation()}
+                          className={
+                            canOpenLabourDetail(row)
+                              ? "link link-hover"
+                              : "text-base-content/60 no-underline pointer-events-none"
+                          }
+                          title={
+                            canOpenLabourDetail(row)
+                              ? row.labourName
+                              : "এই লেবারের সাইটে অনুমতি নেই"
+                          }
+                          aria-disabled={!canOpenLabourDetail(row)}
+                          tabIndex={canOpenLabourDetail(row) ? undefined : -1}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!canOpenLabourDetail(row)) e.preventDefault();
+                          }}
                         >
                           {concatLabourName(row.labourName)}
                         </Link>

@@ -14833,6 +14833,10 @@ components:
         labour_name:
           type: string
           readOnly: true
+        labour_current_site:
+          type: integer
+          readOnly: true
+          nullable: true
         date:
           type: string
           format: date
@@ -14902,6 +14906,7 @@ components:
         - billing_name
         - created_at
         - id
+        - labour_current_site
         - labour_id
         - labour_name
         - updated_at
