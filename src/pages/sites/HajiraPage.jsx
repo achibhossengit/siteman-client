@@ -38,8 +38,10 @@ import {
   NULL_BILLING_LABEL,
 } from "../../utils/format.js";
 import {
+  alertError,
   confirmAction,
   toastApiError,
+  toastError,
   toastInfo,
   toastSuccess,
 } from "../../utils/feedback.js";
@@ -801,6 +803,65 @@ const formatBulkReviewError = (parsed) => {
   return parsed?.message || messageForCode("error");
 };
 
+/** Bulk create attrs like `0.date` → per-row map + leftover general errors. */
+const BULK_CREATE_FIELD_LABELS = {
+  date: "তারিখ",
+  labour: "লেবার",
+  present: "হাজিরা",
+  wage: "বেতন",
+  extra_earn: "বাড়তি",
+  fooding_pay: "ফুডিং",
+  advance_pay: "অ্যাডভান্স",
+  return_amount: "রিটার্ন",
+  note: "নোট",
+  billing: "বিলিং",
+};
+
+const BULK_ROW_FIX_TOAST =
+  "নিচের সমস্যাগুলো ঠিক করে আবার চেষ্টা করুন।";
+
+const formatBulkDailyRecordCreateError = (parsed, createItems = []) => {
+  const errors = Array.isArray(parsed?.errors) ? parsed.errors : [];
+  const rowErrors = {};
+  const generalErrors = [];
+
+  for (const err of errors) {
+    const match = String(err.attr ?? "").match(/^(\d+)(?:\.(.+))?$/);
+    const detail = err.detail || messageForCode(err.code);
+
+    if (!match) {
+      generalErrors.push({ ...err, detail });
+      continue;
+    }
+
+    const index = Number(match[1]);
+    const field = match[2] || null;
+    const item = createItems[index];
+    if (!item) {
+      generalErrors.push({ ...err, detail });
+      continue;
+    }
+
+    const fieldLabel = field
+      ? (BULK_CREATE_FIELD_LABELS[field] ?? field)
+      : null;
+    const rowDetail = fieldLabel ? `${fieldLabel}: ${detail}` : detail;
+    const id = Number(item.labourId);
+    if (!Number.isFinite(id)) {
+      generalErrors.push({ ...err, detail: rowDetail });
+      continue;
+    }
+    if (!rowErrors[id]) rowErrors[id] = [];
+    if (!rowErrors[id].includes(rowDetail)) rowErrors[id].push(rowDetail);
+  }
+
+  return {
+    rowErrors,
+    generalErrors,
+    hasRowErrors: Object.keys(rowErrors).length > 0,
+  };
+};
+
 const PAYMENT_SPECS = [
   {
     key: "payment",
@@ -881,6 +942,8 @@ export const HajiraPage = () => {
   const [rows, setRows] = useState([]);
   const [initialRows, setInitialRows] = useState([]);
   const [apiError, setApiError] = useState(null);
+  const [saveRowErrors, setSaveRowErrors] = useState({});
+  const pendingCreateItemsRef = useRef([]);
   const [saving, setSaving] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
@@ -1116,6 +1179,7 @@ export const HajiraPage = () => {
     setSelectMode(false);
     setSelectedIds(new Set());
     setApiError(null);
+    setSaveRowErrors({});
     setRecordModal(null);
     setRecordModalView(MODAL_VIEWS.detail);
     setModalEditing(false);
@@ -1128,6 +1192,7 @@ export const HajiraPage = () => {
 
   useEffect(() => {
     setSelectedIds(new Set());
+    setSaveRowErrors({});
   }, [earningsFilter, paymentFilter, billingFilter, hajiraFilter, labourFilter]);
 
   // Single-mode row rebuild for current labour filter.
@@ -1703,6 +1768,7 @@ export const HajiraPage = () => {
 
   const onCancel = () => {
     setApiError(null);
+    setSaveRowErrors({});
     const next = buildRowsForLabourFilter(labourFilter);
     setRows(cloneRows(next));
     setInitialRows(cloneRows(next));
@@ -1710,7 +1776,7 @@ export const HajiraPage = () => {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const creates = [];
+      const createItems = [];
       const updates = [];
       let blocked = 0;
 
@@ -1737,13 +1803,22 @@ export const HajiraPage = () => {
             blocked += 1;
             continue;
           }
-          creates.push(toDailyRecordPayload(row, date));
+          createItems.push({
+            labourId: row.labourId,
+            labourName: row.labourName,
+            payload: toDailyRecordPayload(row, date),
+          });
         }
       }
 
-      if (creates.length) {
-        await createSiteDailyRecords(siteId, creates);
+      pendingCreateItemsRef.current = createItems;
+      if (createItems.length) {
+        await createSiteDailyRecords(
+          siteId,
+          createItems.map((item) => item.payload),
+        );
       }
+      pendingCreateItemsRef.current = [];
 
       await Promise.all(
         updates.map((item) =>
@@ -1752,7 +1827,7 @@ export const HajiraPage = () => {
       );
 
       return {
-        creates: creates.length,
+        creates: createItems.length,
         updates: updates.length,
         blocked,
       };
@@ -1761,6 +1836,7 @@ export const HajiraPage = () => {
 
   const onSave = async () => {
     setApiError(null);
+    setSaveRowErrors({});
     const invalidZero = rows.some((row) => {
       const initial =
         initialRows.find((r) => r.labourId === row.labourId) ?? row;
@@ -1797,7 +1873,30 @@ export const HajiraPage = () => {
       });
       toastSuccess("হাজিরা ও পেমেন্ট সেভ হয়েছে");
     } catch (err) {
-      setApiError(parseApiError(err));
+      const parsed = parseApiError(err);
+      const createItems = pendingCreateItemsRef.current ?? [];
+      pendingCreateItemsRef.current = [];
+
+      if (createItems.length) {
+        const { rowErrors, generalErrors, hasRowErrors } =
+          formatBulkDailyRecordCreateError(parsed, createItems);
+
+        if (hasRowErrors) {
+          setSaveRowErrors(rowErrors);
+          toastError(BULK_ROW_FIX_TOAST);
+        }
+
+        if (generalErrors.length) {
+          await alertError({
+            text: generalErrors.map((e) => e.detail).join(" "),
+          });
+        } else if (!hasRowErrors) {
+          await alertError({ text: parsed.message });
+        }
+        return;
+      }
+
+      await alertError({ text: parsed.message });
     } finally {
       setSaving(false);
     }
@@ -1965,13 +2064,20 @@ export const HajiraPage = () => {
                   viewHajiraFields,
                 );
                 const rowToneClass = activityToneClass(row.activityTone);
+                const rowSaveErrors =
+                  saveRowErrors[Number(row.labourId)] ??
+                  saveRowErrors[row.labourId] ??
+                  null;
+                const hasSaveError = Boolean(
+                  rowSaveErrors && rowSaveErrors.length,
+                );
 
                 return (
                   <tr
                     key={row.labourId}
                     className={[
                       "border-b border-base-300/70 cursor-pointer",
-                      rowToneClass,
+                      hasSaveError ? "bg-error/10" : rowToneClass,
                     ]
                       .filter(Boolean)
                       .join(" ")}
@@ -1995,34 +2101,49 @@ export const HajiraPage = () => {
                       )}
                     </td>
                     <td
-                      className="font-medium whitespace-nowrap"
-                      title={row.labourName}
+                      className="font-medium"
+                      title={
+                        hasSaveError
+                          ? rowSaveErrors.join(" · ")
+                          : row.labourName
+                      }
                     >
-                      {row.labourId != null ? (
-                        <Link
-                          to={paths.labourDetail(row.labourId)}
-                          className={
-                            canOpenLabourDetail(row)
-                              ? "link link-hover"
-                              : "text-base-content/60 no-underline pointer-events-none"
-                          }
-                          title={
-                            canOpenLabourDetail(row)
-                              ? row.labourName
-                              : "এই লেবারের সাইটে অনুমতি নেই"
-                          }
-                          aria-disabled={!canOpenLabourDetail(row)}
-                          tabIndex={canOpenLabourDetail(row) ? undefined : -1}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!canOpenLabourDetail(row)) e.preventDefault();
-                          }}
-                        >
-                          {concatLabourName(row.labourName)}
-                        </Link>
-                      ) : (
-                        concatLabourName(row.labourName)
-                      )}
+                      <div className="min-w-0">
+                        <div className="whitespace-nowrap">
+                          {row.labourId != null ? (
+                            <Link
+                              to={paths.labourDetail(row.labourId)}
+                              className={
+                                canOpenLabourDetail(row)
+                                  ? "link link-hover"
+                                  : "text-base-content/60 no-underline pointer-events-none"
+                              }
+                              title={
+                                canOpenLabourDetail(row)
+                                  ? row.labourName
+                                  : "এই লেবারের সাইটে অনুমতি নেই"
+                              }
+                              aria-disabled={!canOpenLabourDetail(row)}
+                              tabIndex={
+                                canOpenLabourDetail(row) ? undefined : -1
+                              }
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!canOpenLabourDetail(row)) e.preventDefault();
+                              }}
+                            >
+                              {concatLabourName(row.labourName)}
+                            </Link>
+                          ) : (
+                            concatLabourName(row.labourName)
+                          )}
+                        </div>
+                        {hasSaveError ? (
+                          <p className="text-xs text-error font-normal whitespace-normal leading-snug mt-0.5 max-w-48 sm:max-w-none">
+                            {rowSaveErrors.join(" · ")}
+                          </p>
+                        ) : null}
+                      </div>
                     </td>
                     <td className={`text-right ${hajiraGroupTone}`}>
                       <span className="block w-full space-y-0.5 text-right leading-tight">

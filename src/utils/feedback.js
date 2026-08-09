@@ -12,6 +12,8 @@ export const toastSuccess = (message, options) => toast.success(message, options
 
 export const toastInfo = (message, options) => toast(message, options)
 
+export const toastError = (message, options) => toast.error(message, options)
+
 // A <dialog> opened with showModal() lives in the browser top layer, which no
 // z-index can beat. Rendering the alert inside that dialog puts it in the same
 // layer so it stays on top of the modal that triggered it.
@@ -19,6 +21,27 @@ const topLayerTarget = () => {
   if (typeof document === 'undefined') return undefined
   const openDialogs = document.querySelectorAll('dialog[open]')
   return openDialogs.length ? openDialogs[openDialogs.length - 1] : undefined
+}
+
+export const alertError = async ({
+  title = 'সমস্যা হয়েছে',
+  text,
+  confirmText = 'ঠিক আছে',
+} = {}) => {
+  const target = topLayerTarget()
+  const message = text || humanizeApiError(null)
+
+  await Swal.fire({
+    target: target ?? 'body',
+    heightAuto: !target,
+    scrollbarPadding: !target,
+    icon: 'error',
+    title,
+    text: message,
+    confirmButtonText: confirmText,
+    confirmButtonColor: 'var(--color-error)',
+    customClass: { popup: 'swal-confirm' },
+  })
 }
 
 export const confirmAction = async ({
