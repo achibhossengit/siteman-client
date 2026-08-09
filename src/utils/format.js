@@ -14,8 +14,19 @@ export const formatBnSigned = (value, { showPlus = true } = {}) => {
   return abs
 }
 
-/** Display label when billing_category is null. */
+/** Shared display identities — keep UI copy consistent. */
+export const STATUS_LABEL = {
+  active: 'চালু',
+  inactive: 'বন্ধ',
+  closed: 'কমপ্লিট',
+  done: 'সম্পন্ন',
+}
+
+/** Display when billing_category is null. */
 export const NULL_BILLING_LABEL = 'জেনারেল বিলিং'
+
+/** Display when labour current_site / site assignment is null. */
+export const NULL_SITE_LABEL = 'সাইট নেই'
 
 /**
  * Fixed-length label for narrow table cells.

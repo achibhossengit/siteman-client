@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { ROLE_NAMES, groupLabelBn } from '../../utils/permissions.js'
+import { STATUS_LABEL } from '../../utils/format.js'
 
 const requiredEmail = z
   .string()
@@ -111,8 +112,8 @@ export const buildGroupSelectOptions = (currentGroups = []) => {
 
 export const userStatusLabel = (user) => {
   if (!user) return '—'
-  if (!user.is_active) return 'নিষ্ক্রিয়'
-  return 'সক্রিয়'
+  if (!user.is_active) return STATUS_LABEL.inactive
+  return STATUS_LABEL.active
 }
 
 export const userStatusClass = (user) => {

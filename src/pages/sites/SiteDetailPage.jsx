@@ -249,7 +249,7 @@ export const SiteDetailPage = () => {
 
       {site.is_closed ? (
         <div className="alert alert-warning text-sm py-2">
-          এই সাইট বন্ধ — পরিবর্তন করা যাবে না।
+          এই সাইট কমপ্লিট — পরিবর্তন করা যাবে না।
         </div>
       ) : null}
 
@@ -268,7 +268,7 @@ export const SiteDetailPage = () => {
           {site.closed_at ? (
             <>
               <span className="mx-1.5 opacity-60">·</span>
-              বন্ধ {formatMetaDate(site.closed_at)}
+              কমপ্লিট {formatMetaDate(site.closed_at)}
             </>
           ) : null}
         </p>
@@ -394,7 +394,7 @@ export const SiteDetailPage = () => {
                 disabled={site.is_closed}
                 {...registerSite('is_active')}
               />
-              <span className="label-text">সক্রিয়</span>
+              <span className="label-text">চালু</span>
             </label>
 
             <div className="flex gap-2 mt-2">

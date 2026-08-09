@@ -13,7 +13,7 @@ import {
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
-import { formatBnNumber } from '../../utils/format.js'
+import { formatBnNumber, NULL_SITE_LABEL } from '../../utils/format.js'
 import { toastSuccess } from '../../utils/feedback.js'
 import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
@@ -126,7 +126,7 @@ export const LabourNewPage = () => {
             className={`select select-bordered w-full ${errors.current_site ? 'select-error' : ''}`}
             {...register('current_site')}
           >
-            <option value="">-------</option>
+            <option value="">{NULL_SITE_LABEL}</option>
             {(sitesQuery.data ?? []).map((s) => (
               <option key={s.id} value={String(s.id)}>
                 {s.name}
@@ -194,7 +194,7 @@ export const LabourNewPage = () => {
             className="toggle toggle-primary"
             {...register('is_active')}
           />
-          <span className="label-text">সক্রিয়</span>
+          <span className="label-text">চালু</span>
         </label>
 
         <div className="flex justify-between gap-2 mt-2">

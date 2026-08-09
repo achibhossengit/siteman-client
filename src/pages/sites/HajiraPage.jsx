@@ -1938,9 +1938,9 @@ export const HajiraPage = () => {
 
   const emptyMessage =
     labourFilter === "labour"
-      ? "এই সাইটে কোনো সক্রিয় লেবার নেই।"
+      ? "এই সাইটে কোনো চালু লেবার নেই।"
       : labourFilter === "name"
-        ? "এই সাইটে কোনো সক্রিয় লেবার নেই এবং অন্য কোনো রেকর্ড নেই।"
+        ? "এই সাইটে কোনো চালু লেবার নেই এবং অন্য কোনো রেকর্ড নেই।"
         : "এই তারিখে কোনো হাজিরা নেই।";
 
   const recordModalLocked = !modalEditable;

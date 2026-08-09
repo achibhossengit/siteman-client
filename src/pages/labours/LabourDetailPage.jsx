@@ -25,7 +25,7 @@ import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { ListPagination } from '../../components/ListPagination.jsx'
 import { DetailMenuButton } from '../../layouts/DetailLayout.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
-import { formatBnNumber, formatBnSigned } from '../../utils/format.js'
+import { formatBnNumber, formatBnSigned, NULL_SITE_LABEL } from '../../utils/format.js'
 import { confirmAction, toastSuccess } from '../../utils/feedback.js'
 import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
@@ -166,7 +166,7 @@ export const LabourDetailPage = () => {
   })()
 
   const siteLabel = (id) => {
-    if (id == null || id === '') return '—'
+    if (id == null || id === '') return NULL_SITE_LABEL
     return siteNameById.get(Number(id)) ?? `#${id}`
   }
 
@@ -728,7 +728,7 @@ export const LabourDetailPage = () => {
                 className={fieldClass(errors.current_site, 'select')}
                 {...register('current_site')}
               >
-                <option value="">-------</option>
+                <option value="">{NULL_SITE_LABEL}</option>
                 {sites.map((s) => (
                   <option key={s.id} value={String(s.id)}>
                     {s.name}
@@ -743,7 +743,7 @@ export const LabourDetailPage = () => {
                 className="toggle toggle-primary"
                 {...register('is_active')}
               />
-              <span className="label-text">সক্রিয়</span>
+              <span className="label-text">চালু</span>
             </label>
 
             <label className="form-control w-full">

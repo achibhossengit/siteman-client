@@ -8,7 +8,7 @@ import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { ListPagination } from '../../components/ListPagination.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
-import { formatBnNumber } from '../../utils/format.js'
+import { formatBnNumber, STATUS_LABEL } from '../../utils/format.js'
 import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
 
@@ -17,9 +17,9 @@ const SEARCH_DEBOUNCE_MS = 400
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'সব স্ট্যাটাস' },
-  { value: 'active', label: 'চালু' },
-  { value: 'inactive', label: 'বন্ধ' },
-  { value: 'closed', label: 'কমপ্লিট' },
+  { value: 'active', label: STATUS_LABEL.active },
+  { value: 'inactive', label: STATUS_LABEL.inactive },
+  { value: 'closed', label: STATUS_LABEL.closed },
 ]
 
 const statusParams = (status) => {

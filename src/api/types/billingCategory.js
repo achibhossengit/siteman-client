@@ -4,6 +4,7 @@
  */
 
 import { z } from 'zod'
+import { STATUS_LABEL } from '../../utils/format.js'
 
 export const billingCategoryFormSchema = z.object({
   name: z
@@ -34,9 +35,9 @@ export const toBillingCategoryPayload = ({
 
 export const billingStatusLabel = (row) => {
   if (!row) return '—'
-  if (row.is_done) return 'সম্পন্ন'
-  if (!row.is_active) return 'নিষ্ক্রিয়'
-  return 'সক্রিয়'
+  if (row.is_done) return STATUS_LABEL.done
+  if (!row.is_active) return STATUS_LABEL.inactive
+  return STATUS_LABEL.active
 }
 
 export const billingStatusClass = (row) => {

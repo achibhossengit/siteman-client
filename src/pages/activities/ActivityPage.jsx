@@ -25,7 +25,7 @@ import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { useAuth } from '../../providers/AuthProvider.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { confirmAction, toastApiError, toastSuccess } from '../../utils/feedback.js'
-import { formatBnNumber, NULL_BILLING_LABEL } from '../../utils/format.js'
+import { formatBnNumber, NULL_BILLING_LABEL, STATUS_LABEL } from '../../utils/format.js'
 import { PERMS, hasPermissionSuffix } from '../../utils/permissions.js'
 import {
   readSelectedSite,
@@ -58,8 +58,8 @@ const FIELD_LABELS_BN = {
   date: 'তারিখ',
   name: 'নাম',
   phone: 'ফোন',
-  active: 'সক্রিয়',
-  closed: 'বন্ধ',
+  active: STATUS_LABEL.active,
+  closed: STATUS_LABEL.closed,
   default_attendance: 'ডিফল্ট হাজিরা',
   current_site: 'বর্তমান সাইট',
 }

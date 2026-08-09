@@ -532,7 +532,7 @@ export const SiteBillingPanel = ({ siteId, showFab = true }) => {
                   })
                 }}
               />
-              <span className="label-text">সক্রিয়</span>
+              <span className="label-text">চালু</span>
             </label>
 
             {!isCreateMode ? (

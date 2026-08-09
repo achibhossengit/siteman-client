@@ -114,7 +114,7 @@ export const SiteNewPage = () => {
             className="toggle toggle-primary"
             {...register('is_active')}
           />
-          <span className="label-text">সক্রিয়</span>
+          <span className="label-text">চালু</span>
         </label>
 
         <div className="flex justify-between gap-2 mt-2">

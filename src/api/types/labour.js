@@ -3,6 +3,7 @@
  */
 
 import { z } from 'zod'
+import { STATUS_LABEL } from '../../utils/format.js'
 
 export const DEFAULT_ATTENDANCE_OPTIONS = [0, 0.5, 1, 1.5, 2, 2.5, 3]
 
@@ -44,8 +45,8 @@ export const toLabourPayload = ({
 
 export const labourStatusLabel = (labour) => {
   if (!labour) return '—'
-  if (!labour.is_active) return 'নিষ্ক্রিয়'
-  return 'সক্রিয়'
+  if (!labour.is_active) return STATUS_LABEL.inactive
+  return STATUS_LABEL.active
 }
 
 export const labourStatusClass = (labour) => {

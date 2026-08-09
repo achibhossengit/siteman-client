@@ -563,7 +563,7 @@ export const SiteBillingPage = () => {
                   setValue('is_active', e.target.checked, { shouldDirty: true })
                 }}
               />
-              <span className="label-text">সক্রিয়</span>
+              <span className="label-text">চালু</span>
             </label>
 
             <label

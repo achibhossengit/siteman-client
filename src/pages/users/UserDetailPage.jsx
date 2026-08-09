@@ -300,7 +300,7 @@ export const UserDetailPage = () => {
                       </span>
                       {s.is_closed ? (
                         <span className="badge badge-ghost badge-xs shrink-0">
-                          বন্ধ
+                          কমপ্লিট
                         </span>
                       ) : null}
                     </label>
@@ -331,7 +331,7 @@ export const UserDetailPage = () => {
               setValue("is_active", e.target.checked, { shouldDirty: true })
             }
           />
-          <span className="label-text">সক্রিয়</span>
+          <span className="label-text">চালু</span>
         </label>
 
         {canChangeUser ? (
