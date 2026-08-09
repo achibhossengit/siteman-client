@@ -3,10 +3,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { fetchUsers } from '../../api/users.js'
-import {
-  userStatusClass,
-  userStatusLabel,
-} from '../../api/types/user.js'
+import { userStatusLabel } from '../../api/types/user.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { ListPagination } from '../../components/ListPagination.jsx'
@@ -16,10 +13,10 @@ import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
 
 const PAGE_SIZE = 20
-const SEARCH_DEBOUNCE_MS = 300
+const SEARCH_DEBOUNCE_MS = 400
 
 const STATUS_OPTIONS = [
-  { value: 'all', label: 'স্ট্যাটাস' },
+  { value: 'all', label: 'সব স্ট্যাটাস' },
   { value: 'active', label: 'সক্রিয়' },
   { value: 'inactive', label: 'নিষ্ক্রিয়' },
 ]
@@ -108,41 +105,45 @@ export const UsersPage = () => {
     return <ApiErrorAlert error={parseApiError(usersQuery.error)} />
   }
 
-  const emptyLabel =
-    totalCount === 0 ? 'কোনো ইউজার নেই।' : 'কোনো মিল পাওয়া যায়নি।'
+  const emptyLabel = search
+    ? 'কোনো মিল পাওয়া যায়নি।'
+    : statusFilter !== 'all'
+      ? 'এই ফিল্টারে কোনো ইউজার নেই।'
+      : 'কোনো ইউজার নেই।'
 
   return (
-    <section className="relative min-h-full flex flex-col pb-20">
-      <div className="flex-1 min-h-0 overflow-x-auto">
+    <section className="relative h-full min-h-0 flex flex-col pb-20">
+      <div className="shrink-0 grid grid-cols-2 gap-2 px-2 pt-2 pb-2">
+        <input
+          type="search"
+          className="input input-bordered input-sm w-full min-w-0"
+          placeholder="নাম বা নম্বর খুঁজুন"
+          aria-label="নাম বা নম্বর খুঁজুন"
+          value={nameQuery}
+          onChange={(e) => setNameQuery(e.target.value)}
+        />
+        <select
+          className="select select-bordered select-sm w-full min-w-0"
+          aria-label="স্ট্যাটাস"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          {STATUS_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-auto px-2">
         <table className="table table-sm sm:table-md w-full">
-          <thead>
-            <tr className="border-b border-base-300">
+          <thead className="sticky top-0 z-10 bg-base-100">
+            <tr className="border-b-2 border-base-300">
               <th className="w-12">নং</th>
-              <th>
-                <input
-                  type="search"
-                  className="input input-bordered input-sm w-full min-w-0 font-normal"
-                  placeholder="নাম খুঁজুন"
-                  aria-label="নাম খুঁজুন"
-                  value={nameQuery}
-                  onChange={(e) => setNameQuery(e.target.value)}
-                />
-              </th>
-              <th className="hidden sm:table-cell">ফোন</th>
-              <th className="w-28">
-                <select
-                  className="select select-bordered select-sm w-full font-normal"
-                  aria-label="স্ট্যাটাস"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  {STATUS_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </th>
+              <th>নাম</th>
+              <th>ফোন</th>
+              <th className="text-right">স্ট্যাটাস</th>
             </tr>
           </thead>
           <tbody>
@@ -156,33 +157,43 @@ export const UsersPage = () => {
                 </td>
               </tr>
             ) : (
-              rows.map((row, index) => (
-                <tr
-                  key={row.id}
-                  className="border-b border-base-300/70 cursor-pointer hover:bg-base-200/60"
-                  onClick={() => navigate(paths.userDetail(row.id))}
-                >
-                  <td className="tabular-nums text-base-content/60">
-                    {formatBnNumber(slOffset + index + 1)}
-                  </td>
-                  <td className="font-medium">
-                    <div className="truncate max-w-40 sm:max-w-none">
+              rows.map((row, index) => {
+                const muted = row.is_active === false
+                return (
+                  <tr
+                    key={row.id}
+                    className="border-b border-base-300/70 cursor-pointer hover:bg-base-200/60"
+                    onClick={() => navigate(paths.userDetail(row.id))}
+                  >
+                    <td className="tabular-nums text-base-content/60">
+                      {formatBnNumber(slOffset + index + 1)}
+                    </td>
+                    <td
+                      className={`font-medium truncate max-w-40 ${
+                        muted ? 'text-base-content/40' : ''
+                      }`}
+                      title={row.name}
+                    >
                       {row.name}
-                    </div>
-                    <div className="sm:hidden text-xs text-base-content/60 tabular-nums truncate">
+                    </td>
+                    <td
+                      className={`tabular-nums text-sm truncate max-w-36 ${
+                        muted ? 'text-base-content/40' : 'text-base-content/80'
+                      }`}
+                      title={row.phone_number || ''}
+                    >
                       {row.phone_number || '—'}
-                    </div>
-                  </td>
-                  <td className="hidden sm:table-cell tabular-nums text-sm text-base-content/80">
-                    {row.phone_number || '—'}
-                  </td>
-                  <td className="text-right">
-                    <span className={`badge badge-sm ${userStatusClass(row)}`}>
+                    </td>
+                    <td
+                      className={`text-right text-sm ${
+                        muted ? 'text-base-content/40' : 'text-base-content/80'
+                      }`}
+                    >
                       {userStatusLabel(row)}
-                    </span>
-                  </td>
-                </tr>
-              ))
+                    </td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>
