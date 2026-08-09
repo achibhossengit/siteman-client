@@ -258,7 +258,7 @@ export const LabourDetailPage = () => {
 
   const onCloseSession = async () => {
     const confirmed = await confirmAction({
-      title: 'চলমান সেশন ক্লোজ করবেন?',
+      title: 'চলমান হিসাব ক্লোজ করবেন?',
       text: 'হাজিরা ও পেমেন্ট সিল হয়ে যাবে।',
       confirmText: 'ক্লোজ করুন',
     })
@@ -269,7 +269,7 @@ export const LabourDetailPage = () => {
       await invalidateSessions()
       await invalidateLabour()
       await invalidateSessionActivities()
-      toastSuccess('সেশন ক্লোজ হয়েছে')
+      toastSuccess('হিসাব ক্লোজ হয়েছে')
     } catch (error) {
       setSessionApiError(parseApiError(error))
     }
@@ -278,7 +278,7 @@ export const LabourDetailPage = () => {
   const onDeleteSession = async (sessionId) => {
     if (sessionId == null) return
     const confirmed = await confirmAction({
-      title: 'সেশন মুছে ফেলবেন?',
+      title: 'হিসাব মুছে ফেলবেন?',
       text: 'এই কাজটি ফিরিয়ে আনা যাবে না।',
       confirmText: 'ডিলিট করুন',
       danger: true,
@@ -290,7 +290,7 @@ export const LabourDetailPage = () => {
       await invalidateSessions()
       await invalidateLabour()
       await invalidateSessionActivities()
-      toastSuccess('সেশন ডিলিট হয়েছে')
+      toastSuccess('হিসাব ডিলিট হয়েছে')
     } catch (error) {
       setSessionApiError(parseApiError(error))
     }
@@ -447,7 +447,7 @@ export const LabourDetailPage = () => {
             <ApiErrorAlert error={parseApiError(sessionsQuery.error)} />
           ) : sessions.length === 0 ? (
             <div className="text-sm text-base-content/60 py-6 text-center">
-              কোনো সেশন নেই।
+              কোনো হিসাব নেই।
             </div>
           ) : (
             <div className="space-y-2">
@@ -518,7 +518,7 @@ export const LabourDetailPage = () => {
                           {locked ? (
                             <div className="alert alert-warning py-2 px-3 text-sm">
                               <Lock className="size-4" strokeWidth={1.75} />
-                              সেশনটি পরিবর্তিত হয়েছে। রেকর্ড ও ডিলিট বন্ধ।
+                              হিসাবটি পরিবর্তিত হয়েছে। রেকর্ড ও ডিলিট বন্ধ।
                             </div>
                           ) : null}
 

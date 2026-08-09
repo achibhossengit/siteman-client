@@ -595,7 +595,7 @@ export const LabourSessionRecordsPage = () => {
     : "";
 
   useEffect(() => {
-    setTitle?.(periodLabel || "সেশন রেকর্ড");
+    setTitle?.(periodLabel || "হিসাব রেকর্ড");
     return () => setTitle?.("");
   }, [setTitle, periodLabel]);
 
@@ -643,7 +643,7 @@ export const LabourSessionRecordsPage = () => {
   if (!session) {
     return (
       <div className="text-sm text-base-content/70 py-8 text-center">
-        সেশন পাওয়া যায়নি।
+        হিসাব পাওয়া যায়নি।
       </div>
     );
   }
@@ -651,7 +651,7 @@ export const LabourSessionRecordsPage = () => {
   if (session.is_modified) {
     return (
       <div className="alert alert-warning text-sm">
-        সেশনটি পরিবর্তিত হয়েছে। রেকর্ড দেখা বন্ধ।
+        হিসাবটি পরিবর্তিত হয়েছে। রেকর্ড দেখা বন্ধ।
       </div>
     );
   }

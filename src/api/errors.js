@@ -76,14 +76,14 @@ export const CODE_COPY = {
   labour_name_exists: 'এই নামে একজন শ্রমিক ইতিমধ্যে আছেন। অন্য নাম দিন।',
   labour_unassigned: 'এই শ্রমিকের সাইট নেই।',
 
-  // Labour sessions
+  // Labour sessions (UI: হিসাব)
   session_no_records: 'সিল করার মতো কোনো রেকর্ড এখন নেই।',
-  session_not_latest: 'শুধু সর্বশেষ সেশনটি মুছে ফেলা যায়।',
-  session_snapshot_mismatch: 'সেশনের তথ্য বদলে গেছে। পেজটি রিফ্রেশ করে আবার চেষ্টা করুন।',
+  session_not_latest: 'শুধু সর্বশেষ হিসাবটি মুছে ফেলা যায়।',
+  session_snapshot_mismatch: 'হিসাবের তথ্য বদলে গেছে। পেজটি রিফ্রেশ করে আবার চেষ্টা করুন।',
 
   // Records
   record_future_date: 'ভবিষ্যতের তারিখ দেওয়া যাবে না। আজ বা আগের তারিখ দিন।',
-  record_date_not_after_last_session: 'শেষ সেশনের পরের তারিখ দিতে হবে।',
+  record_date_not_after_last_session: 'শেষ হিসাবের পরের তারিখ দিতে হবে।',
   record_sealed: 'এই রেকর্ডটি সিল করা আছে, তাই আর পরিবর্তন করা যাবে না।',
   record_unique_constraint_violation: 'এই তারিখের জন্য রেকর্ড ইতিমধ্যে আছে।',
   category_not_allowed: 'নির্বাচিত ক্যাটাগরিটি এখানে ব্যবহার করা যাবে না।',

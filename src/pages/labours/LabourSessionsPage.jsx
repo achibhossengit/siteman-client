@@ -58,7 +58,7 @@ export const LabourSessionsPage = () => {
   const loading = labourQuery.isLoading || sessionsQuery.isLoading
 
   useEffect(() => {
-    setTitle?.('লেবার সেশন')
+    setTitle?.('লেবার হিসাব')
     return () => setTitle?.('')
   }, [setTitle])
 
@@ -104,7 +104,7 @@ export const LabourSessionsPage = () => {
           <tr className="border-b border-base-300">
             <th className="w-10">নং</th>
             <th>সময়কাল</th>
-            <th className="text-right whitespace-nowrap">এই সেশন</th>
+            <th className="text-right whitespace-nowrap">এই হিসাব</th>
             <th className="text-right whitespace-nowrap">মোট পাওনা</th>
           </tr>
         </thead>
@@ -115,7 +115,7 @@ export const LabourSessionsPage = () => {
                 colSpan={4}
                 className="text-center text-sm text-base-content/60 py-8"
               >
-                কোনো সেশন নেই।
+                কোনো হিসাব নেই।
               </td>
             </tr>
           ) : (

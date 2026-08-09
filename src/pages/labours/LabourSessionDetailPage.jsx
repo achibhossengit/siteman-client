@@ -105,7 +105,7 @@ export const LabourSessionDetailPage = () => {
 
   const onCloseSession = async () => {
     const confirmed = await confirmAction({
-      title: "চলমান সেশন ক্লোজ করবেন?",
+      title: "চলমান হিসাব ক্লোজ করবেন?",
       text: "হাজিরা ও পেমেন্ট সিল হয়ে যাবে।",
       confirmText: "ক্লোজ করুন",
     });
@@ -114,7 +114,7 @@ export const LabourSessionDetailPage = () => {
     try {
       const { data } = await closeMutation.mutateAsync();
       await invalidateSessionQueries();
-      toastSuccess("সেশন ক্লোজ হয়েছে");
+      toastSuccess("হিসাব ক্লোজ হয়েছে");
       if (data?.id != null) {
         navigate(paths.labourSessionDetail(labourId, data.id), {
           replace: true,
@@ -130,7 +130,7 @@ export const LabourSessionDetailPage = () => {
   const onDeleteSession = async () => {
     if (resolvedSessionId == null) return;
     const confirmed = await confirmAction({
-      title: "সেশন মুছে ফেলবেন?",
+      title: "হিসাব মুছে ফেলবেন?",
       text: "এই কাজটি ফিরিয়ে আনা যাবে না।",
       confirmText: "ডিলিট করুন",
       danger: true,
@@ -140,7 +140,7 @@ export const LabourSessionDetailPage = () => {
     try {
       await deleteMutation.mutateAsync(resolvedSessionId);
       await invalidateSessionQueries();
-      toastSuccess("সেশন ডিলিট হয়েছে");
+      toastSuccess("হিসাব ডিলিট হয়েছে");
       navigate(paths.labourSessions(labourId), { replace: true });
     } catch (error) {
       setApiError(parseApiError(error));
@@ -148,7 +148,7 @@ export const LabourSessionDetailPage = () => {
   };
 
   useEffect(() => {
-    setTitle?.("সেশন ডিটেইল");
+    setTitle?.("হিসাব ডিটেইল");
     return () => setTitle?.("");
   }, [setTitle]);
 
@@ -190,7 +190,7 @@ export const LabourSessionDetailPage = () => {
   if (!session) {
     return (
       <div className="text-sm text-base-content/70 py-8 text-center">
-        সেশন পাওয়া যায়নি।
+        হিসাব পাওয়া যায়নি।
       </div>
     );
   }
@@ -202,7 +202,7 @@ export const LabourSessionDetailPage = () => {
       {recordsLocked ? (
         <div className="alert alert-warning py-2 px-3 text-sm">
           <Lock className="size-4" strokeWidth={1.75} />
-          সেশনটি পরিবর্তিত হয়েছে। রেকর্ড ও ডিলিট বন্ধ।
+          হিসাবটি পরিবর্তিত হয়েছে। রেকর্ড ও ডিলিট বন্ধ।
         </div>
       ) : null}
 
@@ -310,7 +310,7 @@ export const LabourSessionDetailPage = () => {
               {closeMutation.isPending ? (
                 <span className="loading loading-spinner loading-sm" />
               ) : null}
-              ক্লোজ সেশন
+              হিসাব ক্লোজ করুন
             </button>
           ) : null}
         </div>

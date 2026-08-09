@@ -76,7 +76,7 @@ const FIELD_LABELS_BN = {
   total_return: 'মোট রিটার্ন',
   previous_payable: 'আগের পাওনা',
   total_earnings: 'মোট আয়',
-  payable: 'এই সেশন',
+  payable: 'এই হিসাব',
   cumulative_payable: 'মোট পাওনা',
 }
 
