@@ -2205,9 +2205,15 @@ export const HajiraPage = () => {
                     </td>
                     <td
                       className="text-right text-sm whitespace-nowrap"
-                      title={billingFullLabelForRow(row)}
+                      title={
+                        hasBilling(row) || recordIdOf(row)
+                          ? billingFullLabelForRow(row)
+                          : undefined
+                      }
                     >
-                      {billingLabelForRow(row)}
+                      {hasBilling(row) || recordIdOf(row)
+                        ? billingLabelForRow(row)
+                        : "—"}
                     </td>
                   </tr>
                 );
@@ -2540,7 +2546,7 @@ export const HajiraPage = () => {
                           }));
                         }}
                       >
-                        <option value="">—</option>
+                        <option value="">{NULL_BILLING_LABEL}</option>
                         {(() => {
                           const opts = [...billingOptions];
                           const cur = recordModal.billing;
