@@ -748,8 +748,31 @@ const PAYMENT_FILTER_OPTIONS = [
 const filterLabel = (options, value) =>
   options.find((opt) => opt.value === value)?.label ?? options[0]?.label ?? "";
 
-const labourFilterHeaderLabel = (value) =>
-  value === "site" ? "সাইট" : "নাম";
+const labourFilterHeaderLabel = (value) => {
+  if (value === "record") return "রেকর্ড";
+  if (value === "labour") return "লেবার";
+  return "নাম";
+};
+
+const LABOUR_FILTER_CYCLE = ["name", "record", "labour"];
+
+const nextLabourFilter = (value) => {
+  const i = LABOUR_FILTER_CYCLE.indexOf(value);
+  return LABOUR_FILTER_CYCLE[(i + 1) % LABOUR_FILTER_CYCLE.length];
+};
+
+const labourFilterNeedsActiveLabour = (filter) =>
+  filter === "name" || filter === "labour";
+
+const labourFilterTitle = (value) => {
+  if (value === "record") {
+    return "শুধু রেকর্ড (ক্লিক: লেবার)";
+  }
+  if (value === "labour") {
+    return "সাইটের লেবার (ক্লিক: নাম)";
+  }
+  return "সাইটের লেবার + অন্যান্য রেকর্ড (ক্লিক: রেকর্ড)";
+};
 
 const displayModalValue = (value) => {
   if (value === "" || value == null) return "—";
@@ -866,7 +889,7 @@ export const HajiraPage = () => {
   const [recordModalView, setRecordModalView] = useState(MODAL_VIEWS.detail);
   const [modalEditing, setModalEditing] = useState(false);
   const [expandedHistoryId, setExpandedHistoryId] = useState(null);
-  const [labourFilter, setLabourFilter] = useState("all");
+  const [labourFilter, setLabourFilter] = useState("name");
   const [earningsFilter, setEarningsFilter] = useState("earn");
   const [paymentFilter, setPaymentFilter] = useState([
     "payment",
@@ -1023,27 +1046,40 @@ export const HajiraPage = () => {
   };
 
   const toggleLabourFilter = () => {
-    setLabourFilter((prev) => (prev === "all" ? "site" : "all"));
+    setLabourFilter((prev) => nextLabourFilter(prev));
   };
 
   const toggleEarningsFilter = () => {
     setEarningsFilter((prev) => nextEarningsFilter(prev));
   };
 
+  const withSiteLabourCurrentSite = (list) =>
+    list.map((row) => ({
+      ...row,
+      labourCurrentSite:
+        row.labourCurrentSite != null
+          ? row.labourCurrentSite
+          : siteId != null && siteId !== ""
+            ? Number(siteId)
+            : null,
+    }));
+
   const buildRowsForLabourFilter = (filter) => {
     const records = dailyRecordsQuery.data ?? [];
     const activeLabour = activeLabourQuery.data ?? [];
-    let next;
-    if (filter === "site") {
-      next = buildHajiraEditRows(activeLabour, records).map((row) => ({
-        ...row,
-        labourCurrentSite:
-          row.labourCurrentSite != null
-            ? row.labourCurrentSite
-            : siteId != null && siteId !== ""
-              ? Number(siteId)
-              : null,
-      }));
+
+    if (filter === "record") {
+      let next = buildHajiraViewRows(records);
+      if (canViewActivityLog) {
+        next = applyActivitiesToViewRows(next, pendingLogQuery.data ?? []);
+      }
+      return next;
+    }
+
+    if (filter === "labour") {
+      let next = withSiteLabourCurrentSite(
+        buildHajiraEditRows(activeLabour, records),
+      );
       if (canViewActivityLog) {
         const siteLabourIds = new Set(next.map((row) => Number(row.labourId)));
         next = applyActivitiesToViewRows(
@@ -1051,11 +1087,20 @@ export const HajiraPage = () => {
           pendingLogQuery.data ?? [],
         ).filter((row) => siteLabourIds.has(Number(row.labourId)));
       }
-    } else {
-      next = buildHajiraViewRows(records);
-      if (canViewActivityLog) {
-        next = applyActivitiesToViewRows(next, pendingLogQuery.data ?? []);
-      }
+      return next;
+    }
+
+    // name (default): site labours first, then other records
+    const siteRows = withSiteLabourCurrentSite(
+      buildHajiraEditRows(activeLabour, records),
+    );
+    const siteLabourIds = new Set(siteRows.map((row) => Number(row.labourId)));
+    const otherRows = buildHajiraViewRows(records).filter(
+      (row) => !siteLabourIds.has(Number(row.labourId)),
+    );
+    let next = [...siteRows, ...otherRows];
+    if (canViewActivityLog) {
+      next = applyActivitiesToViewRows(next, pendingLogQuery.data ?? []);
     }
     return next;
   };
@@ -1067,7 +1112,7 @@ export const HajiraPage = () => {
       skipSiteDateResetRef.current = false;
       return;
     }
-    setLabourFilter("all");
+    setLabourFilter("name");
     setSelectMode(false);
     setSelectedIds(new Set());
     setApiError(null);
@@ -1088,7 +1133,12 @@ export const HajiraPage = () => {
   // Single-mode row rebuild for current labour filter.
   useEffect(() => {
     if (!dailyRecordsQuery.isSuccess) return;
-    if (labourFilter !== "all" && !activeLabourQuery.isSuccess) return;
+    if (
+      labourFilterNeedsActiveLabour(labourFilter) &&
+      !activeLabourQuery.isSuccess
+    ) {
+      return;
+    }
     const next = buildRowsForLabourFilter(labourFilter);
     setRows(cloneRows(next));
     setInitialRows(cloneRows(next));
@@ -1763,7 +1813,8 @@ export const HajiraPage = () => {
 
   const loading =
     dailyRecordsQuery.isLoading ||
-    (labourFilter !== "all" && activeLabourQuery.isLoading);
+    (labourFilterNeedsActiveLabour(labourFilter) &&
+      activeLabourQuery.isLoading);
 
   if (loading) {
     return (
@@ -1775,7 +1826,9 @@ export const HajiraPage = () => {
 
   const loadError =
     dailyRecordsQuery.error ||
-    (labourFilter !== "all" ? activeLabourQuery.error : null);
+    (labourFilterNeedsActiveLabour(labourFilter)
+      ? activeLabourQuery.error
+      : null);
   if (loadError) {
     return (
       <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
@@ -1785,9 +1838,11 @@ export const HajiraPage = () => {
   }
 
   const emptyMessage =
-    labourFilter === "site"
+    labourFilter === "labour"
       ? "এই সাইটে কোনো সক্রিয় লেবার নেই।"
-      : "এই তারিখে কোনো হাজিরা নেই।";
+      : labourFilter === "name"
+        ? "এই সাইটে কোনো সক্রিয় লেবার নেই এবং অন্য কোনো রেকর্ড নেই।"
+        : "এই তারিখে কোনো হাজিরা নেই।";
 
   const recordModalLocked = !modalEditable;
 
@@ -1832,11 +1887,7 @@ export const HajiraPage = () => {
                 <button
                   type="button"
                   onClick={toggleLabourFilter}
-                  title={
-                    labourFilter === "site"
-                      ? "এই সাইটের লেবার (ক্লিক: সব রেকর্ড)"
-                      : "সব রেকর্ড (ক্লিক: এই সাইটের লেবার)"
-                  }
+                  title={labourFilterTitle(labourFilter)}
                 >
                   {labourFilterHeaderLabel(labourFilter)}
                 </button>
