@@ -2,11 +2,18 @@ import { api } from './client.js'
 import { endpoints } from './endpoints.js'
 import { asList, asPage } from './pagination.js'
 
-/** GET /sites — optional filters: is_active, is_closed. Paginated. */
-export const fetchSites = ({ is_active, is_closed, page, page_size } = {}) => {
+/** GET /sites — optional filters: is_active, is_closed, search. Paginated. */
+export const fetchSites = ({
+  is_active,
+  is_closed,
+  search,
+  page,
+  page_size,
+} = {}) => {
   const params = {
     ...(typeof is_active === 'boolean' ? { is_active } : {}),
     ...(typeof is_closed === 'boolean' ? { is_closed } : {}),
+    ...(search ? { search } : {}),
     ...(page != null ? { page } : {}),
     ...(page_size != null ? { page_size } : {}),
   }

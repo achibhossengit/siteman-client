@@ -3,10 +3,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { fetchSites } from '../../api/sites.js'
-import {
-  siteStatusClass,
-  siteStatusLabel,
-} from '../../api/types/site.js'
+import { siteStatusLabel } from '../../api/types/site.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { ListPagination } from '../../components/ListPagination.jsx'
@@ -16,12 +13,13 @@ import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
 
 const PAGE_SIZE = 20
+const SEARCH_DEBOUNCE_MS = 400
 
 const STATUS_OPTIONS = [
-  { value: 'all', label: 'স্ট্যাটাস' },
-  { value: 'active', label: 'সক্রিয়' },
-  { value: 'inactive', label: 'নিষ্ক্রিয়' },
-  { value: 'closed', label: 'সমাপ্ত' },
+  { value: 'all', label: 'সব স্ট্যাটাস' },
+  { value: 'active', label: 'চালু' },
+  { value: 'inactive', label: 'বন্ধ' },
+  { value: 'closed', label: 'কমপ্লিট' },
 ]
 
 const statusParams = (status) => {
@@ -31,19 +29,12 @@ const statusParams = (status) => {
   return {}
 }
 
-const matchesName = (name, query) => {
-  const needle = query.trim().toLowerCase()
-  if (!needle) return true
-  return String(name ?? '')
-    .toLowerCase()
-    .includes(needle)
-}
-
 export const SitesPage = () => {
   const navigate = useNavigate()
   const { setTitle } = useOutletContext()
   const { can } = usePermissions()
   const [nameQuery, setNameQuery] = useState('')
+  const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [page, setPage] = useState(1)
 
@@ -56,15 +47,27 @@ export const SitesPage = () => {
   }, [setTitle])
 
   useEffect(() => {
+    const id = setTimeout(() => {
+      setSearch(nameQuery.trim())
+    }, SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(id)
+  }, [nameQuery])
+
+  useEffect(() => {
     setPage(1)
-  }, [statusFilter, nameQuery])
+  }, [search, statusFilter])
 
   const sitesQuery = useQuery({
-    queryKey: ['sites', 'list', { page, page_size: PAGE_SIZE, statusFilter }],
+    queryKey: [
+      'sites',
+      'list',
+      { page, page_size: PAGE_SIZE, search, statusFilter },
+    ],
     queryFn: async () => {
       const { data } = await fetchSites({
         page,
         page_size: PAGE_SIZE,
+        ...(search ? { search } : {}),
         ...statusParams(statusFilter),
       })
       return data
@@ -79,15 +82,10 @@ export const SitesPage = () => {
     next: null,
     previous: null,
   }
-  const pageRows = pageData.results ?? []
+  const rows = pageData.results ?? []
   const totalCount = pageData.count ?? 0
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
   const slOffset = (page - 1) * PAGE_SIZE
-
-  // Sites list has no search param — filter the current page only.
-  const rows = nameQuery.trim()
-    ? pageRows.filter((row) => matchesName(row.name, nameQuery))
-    : pageRows
 
   if (!canViewSite) {
     return (
@@ -109,40 +107,44 @@ export const SitesPage = () => {
     return <ApiErrorAlert error={parseApiError(sitesQuery.error)} />
   }
 
-  const emptyLabel =
-    totalCount === 0 ? 'কোনো সাইট নেই।' : 'কোনো মিল পাওয়া যায়নি।'
+  const emptyLabel = search
+    ? 'কোনো মিল পাওয়া যায়নি।'
+    : statusFilter !== 'all'
+      ? 'এই ফিল্টারে কোনো সাইট নেই।'
+      : 'কোনো সাইট নেই।'
 
   return (
-    <section className="relative min-h-full flex flex-col pb-20">
-      <div className="flex-1 min-h-0 overflow-x-auto">
+    <section className="relative h-full min-h-0 flex flex-col pb-20">
+      <div className="shrink-0 grid grid-cols-2 gap-2 px-2 pt-2 pb-2">
+        <input
+          type="search"
+          className="input input-bordered input-sm w-full min-w-0"
+          placeholder="নাম খুঁজুন"
+          aria-label="নাম খুঁজুন"
+          value={nameQuery}
+          onChange={(e) => setNameQuery(e.target.value)}
+        />
+        <select
+          className="select select-bordered select-sm w-full min-w-0"
+          aria-label="স্ট্যাটাস"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          {STATUS_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-auto px-2">
         <table className="table table-sm sm:table-md w-full">
-          <thead>
-            <tr className="border-b border-base-300">
+          <thead className="sticky top-0 z-10 bg-base-100">
+            <tr className="border-b-2 border-base-300">
               <th className="w-12">নং</th>
-              <th>
-                <input
-                  type="search"
-                  className="input input-bordered input-sm w-full min-w-0 font-normal"
-                  placeholder="নাম খুঁজুন"
-                  aria-label="নাম খুঁজুন"
-                  value={nameQuery}
-                  onChange={(e) => setNameQuery(e.target.value)}
-                />
-              </th>
-              <th className="w-28">
-                <select
-                  className="select select-bordered select-sm w-full font-normal"
-                  aria-label="স্ট্যাটাস"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  {STATUS_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </th>
+              <th>নাম</th>
+              <th className="text-right">স্ট্যাটাস</th>
             </tr>
           </thead>
           <tbody>
@@ -156,27 +158,35 @@ export const SitesPage = () => {
                 </td>
               </tr>
             ) : (
-              rows.map((row, index) => (
-                <tr
-                  key={row.id}
-                  className="border-b border-base-300/70 cursor-pointer hover:bg-base-200/60"
-                  onClick={() => navigate(paths.siteDetail(row.id))}
-                >
-                  <td className="tabular-nums text-base-content/60">
-                    {formatBnNumber(slOffset + index + 1)}
-                  </td>
-                  <td className="font-medium truncate max-w-48 sm:max-w-none">
-                    {row.name}
-                  </td>
-                  <td className="text-right">
-                    <span
-                      className={`badge badge-sm ${siteStatusClass(row)}`}
+              rows.map((row, index) => {
+                const muted = row.is_active === false || row.is_closed
+                return (
+                  <tr
+                    key={row.id}
+                    className="border-b border-base-300/70 cursor-pointer hover:bg-base-200/60"
+                    onClick={() => navigate(paths.siteDetail(row.id))}
+                  >
+                    <td className="tabular-nums text-base-content/60">
+                      {formatBnNumber(slOffset + index + 1)}
+                    </td>
+                    <td
+                      className={`font-medium truncate max-w-48 ${
+                        muted ? 'text-base-content/40' : ''
+                      }`}
+                      title={row.name}
+                    >
+                      {row.name}
+                    </td>
+                    <td
+                      className={`text-right text-sm ${
+                        muted ? 'text-base-content/40' : 'text-base-content/80'
+                      }`}
                     >
                       {siteStatusLabel(row)}
-                    </span>
-                  </td>
-                </tr>
-              ))
+                    </td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>

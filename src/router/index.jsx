@@ -12,8 +12,6 @@ import { CashPage } from "../pages/sites/CashPage.jsx";
 import { SitesPage } from "../pages/sites/SitesPage.jsx";
 import { SiteNewPage } from "../pages/sites/SiteNewPage.jsx";
 import { SiteDetailPage } from "../pages/sites/SiteDetailPage.jsx";
-import { SiteBillingPage } from "../pages/sites/SiteBillingPage.jsx";
-import { PrivateCashPage } from "../pages/sites/PrivateCashPage.jsx";
 import { UsersPage } from "../pages/users/UsersPage.jsx";
 import { UserNewPage } from "../pages/users/UserNewPage.jsx";
 import { UserDetailPage } from "../pages/users/UserDetailPage.jsx";
@@ -71,10 +69,13 @@ export const AppRouter = () => (
           <Route path={paths.profile} element={<ProfilePage />} />
           <Route path={paths.sites} element={<SitesPage />} />
           <Route path={paths.siteNew} element={<SiteNewPage />} />
-          <Route path="/sites/:siteId/billing" element={<SiteBillingPage />} />
+          <Route
+            path="/sites/:siteId/billing"
+            element={<Navigate to=".." relative="path" replace />}
+          />
           <Route
             path="/sites/:siteId/private-cash"
-            element={<PrivateCashPage />}
+            element={<Navigate to=".." relative="path" replace />}
           />
           <Route path="/sites/:siteId" element={<SiteDetailPage />} />
           <Route path={paths.users} element={<UsersPage />} />

@@ -1735,7 +1735,7 @@ paths:
         - in: query
           name: current_site
           schema:
-            type: integer
+            type: string
         - in: query
           name: is_active
           schema:
@@ -2857,11 +2857,6 @@ paths:
         seals the affected records. DELETE only removes the most recent
         session, and only when current records still match its stored snapshot.
       parameters:
-        - in: query
-          name: created_date
-          schema:
-            type: string
-            format: date
         - in: query
           name: end_date
           schema:
@@ -4261,6 +4256,12 @@ paths:
           description: Number of results to return per page.
           schema:
             type: integer
+        - name: search
+          required: false
+          in: query
+          description: A search term.
+          schema:
+            type: string
       tags:
         - sites
       security:
@@ -11755,6 +11756,9 @@ components:
           format: date
           readOnly: true
           nullable: true
+          description:
+            Cached latest labour session end_date; new records must be
+            after this.
         is_active:
           type: boolean
         company:
@@ -11804,6 +11808,9 @@ components:
           type: string
           format: date
           nullable: true
+          description:
+            Cached latest labour session end_date; new records must be
+            after this.
         is_active:
           type: boolean
       required:
@@ -11823,9 +11830,6 @@ components:
           type: string
           format: date
           description: Last sealed record date.
-        created_date:
-          type: string
-          format: date
         present_days:
           type: string
           format: decimal
@@ -12911,9 +12915,9 @@ components:
           description: "* `current_site` - current_site"
         code:
           enum:
-            - invalid_choice
+            - null_characters_not_allowed
           type: string
-          description: "* `invalid_choice` - invalid_choice"
+          description: "* `null_characters_not_allowed` - null_characters_not_allowed"
         detail:
           type: string
       required:
@@ -13181,30 +13185,6 @@ components:
         propertyName: type
         mapping:
           client_error: "#/components/schemas/ParseErrorResponse"
-    LaboursSessionsCreateCreatedDateErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - created_date
-          type: string
-          description: "* `created_date` - created_date"
-        code:
-          enum:
-            - datetime
-            - invalid
-            - "null"
-          type: string
-          description: |-
-            * `datetime` - datetime
-            * `invalid` - invalid
-            * `null` - null
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
     LaboursSessionsCreateEndDateErrorComponent:
       type: object
       properties:
@@ -13236,7 +13216,6 @@ components:
         - $ref: "#/components/schemas/LaboursSessionsCreateNonFieldErrorsErrorComponent"
         - $ref: "#/components/schemas/LaboursSessionsCreateStartDateErrorComponent"
         - $ref: "#/components/schemas/LaboursSessionsCreateEndDateErrorComponent"
-        - $ref: "#/components/schemas/LaboursSessionsCreateCreatedDateErrorComponent"
         - $ref: "#/components/schemas/LaboursSessionsCreatePresentDaysErrorComponent"
         - $ref: "#/components/schemas/LaboursSessionsCreateSalaryEarningsErrorComponent"
         - $ref: "#/components/schemas/LaboursSessionsCreateExtraEarningsErrorComponent"
@@ -13250,7 +13229,6 @@ components:
           non_field_errors: "#/components/schemas/LaboursSessionsCreateNonFieldErrorsErrorComponent"
           start_date: "#/components/schemas/LaboursSessionsCreateStartDateErrorComponent"
           end_date: "#/components/schemas/LaboursSessionsCreateEndDateErrorComponent"
-          created_date: "#/components/schemas/LaboursSessionsCreateCreatedDateErrorComponent"
           present_days: "#/components/schemas/LaboursSessionsCreatePresentDaysErrorComponent"
           salary_earnings: "#/components/schemas/LaboursSessionsCreateSalaryEarningsErrorComponent"
           extra_earnings: "#/components/schemas/LaboursSessionsCreateExtraEarningsErrorComponent"
@@ -13548,25 +13526,6 @@ components:
         propertyName: type
         mapping:
           client_error: "#/components/schemas/ParseErrorResponse"
-    LaboursSessionsListCreatedDateErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - created_date
-          type: string
-          description: "* `created_date` - created_date"
-        code:
-          enum:
-            - invalid
-          type: string
-          description: "* `invalid` - invalid"
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
     LaboursSessionsListEndDateErrorComponent:
       type: object
       properties:
@@ -13588,13 +13547,11 @@ components:
         - detail
     LaboursSessionsListError:
       oneOf:
-        - $ref: "#/components/schemas/LaboursSessionsListCreatedDateErrorComponent"
         - $ref: "#/components/schemas/LaboursSessionsListStartDateErrorComponent"
         - $ref: "#/components/schemas/LaboursSessionsListEndDateErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
-          created_date: "#/components/schemas/LaboursSessionsListCreatedDateErrorComponent"
           start_date: "#/components/schemas/LaboursSessionsListStartDateErrorComponent"
           end_date: "#/components/schemas/LaboursSessionsListEndDateErrorComponent"
     LaboursSessionsListErrorResponse400:
@@ -14123,6 +14080,9 @@ components:
           format: date
           readOnly: true
           nullable: true
+          description:
+            Cached latest labour session end_date; new records must be
+            after this.
         is_active:
           type: boolean
         company:

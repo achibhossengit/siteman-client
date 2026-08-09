@@ -412,17 +412,17 @@ export const LabourDetailPage = () => {
 
       <section className="space-y-2 text-sm">
         <div className="flex justify-between gap-3">
-          <span className="text-base-content/70">নাম</span>
+          <span className="text-base-content/70">লেবারের নাম:</span>
           <span className="font-medium text-right">{labour.name || '—'}</span>
         </div>
         <div className="flex justify-between gap-3">
-          <span className="text-base-content/70">সাইট</span>
+          <span className="text-base-content/70">বর্তমান সাইট:</span>
           <span className="font-medium text-right">
             {siteLabel(labour.current_site)}
           </span>
         </div>
-        <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-sm text-base-content/80">
-          <span>
+        <div className="flex justify-between gap-2">
+          <span className="text-base-content/70">
             হাজিরা:{' '}
             <span className="font-medium text-base-content tabular-nums">
               {formatBnNumber(labour.default_attendance, {
@@ -431,7 +431,7 @@ export const LabourDetailPage = () => {
             </span>
           </span>
           <span className="text-base-content/30">|</span>
-          <span>
+          <span className="text-base-content/70">
             বেতন:{' '}
             <span className="font-medium text-base-content tabular-nums">
               {formatBnNumber(labour.default_salary)}
