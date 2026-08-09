@@ -100,6 +100,7 @@ export const LabourSessionDetailPage = () => {
 
   const invalidateSessionQueries = async () => {
     await queryClient.invalidateQueries({ queryKey: ["labours", labourId] });
+    await queryClient.invalidateQueries({ queryKey: ["activities"] });
   };
 
   const onCloseSession = async () => {

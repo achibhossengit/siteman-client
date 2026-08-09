@@ -198,6 +198,9 @@ export const LabourDetailPage = () => {
   const invalidateSessions = () =>
     queryClient.invalidateQueries({ queryKey: ['labours', labourId, 'sessions'] })
 
+  const invalidateSessionActivities = () =>
+    queryClient.invalidateQueries({ queryKey: ['activities'] })
+
   const openEditModal = () => {
     if (!labour) return
     setApiError(null)
@@ -265,6 +268,7 @@ export const LabourDetailPage = () => {
       await closeSessionMutation.mutateAsync()
       await invalidateSessions()
       await invalidateLabour()
+      await invalidateSessionActivities()
       toastSuccess('সেশন ক্লোজ হয়েছে')
     } catch (error) {
       setSessionApiError(parseApiError(error))
@@ -285,6 +289,7 @@ export const LabourDetailPage = () => {
       await deleteSessionMutation.mutateAsync(sessionId)
       await invalidateSessions()
       await invalidateLabour()
+      await invalidateSessionActivities()
       toastSuccess('সেশন ডিলিট হয়েছে')
     } catch (error) {
       setSessionApiError(parseApiError(error))

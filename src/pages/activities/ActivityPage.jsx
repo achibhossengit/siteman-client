@@ -3,7 +3,10 @@ import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { fetchActivities, reviewActivities } from '../../api/activities.js'
-import { fetchLabourDailyRecordDetail } from '../../api/labours.js'
+import {
+  fetchLabourDailyRecordDetail,
+  fetchLabourSession,
+} from '../../api/labours.js'
 import {
   fetchPrivateSiteCashDetail,
   fetchSiteCashDetail,
@@ -62,6 +65,19 @@ const FIELD_LABELS_BN = {
   closed: STATUS_LABEL.closed,
   default_attendance: 'ডিফল্ট হাজিরা',
   current_site: 'বর্তমান সাইট',
+  start_date: 'শুরু',
+  end_date: 'শেষ',
+  present_days: 'হাজিরা দিন',
+  salary_earnings: 'বেতন আয়',
+  extra_earnings: 'বাড়তি আয়',
+  total_fooding_pay: 'মোট ফুডিং',
+  total_advance_pay: 'মোট অ্যাডভান্স',
+  total_payment: 'মোট পেমেন্ট',
+  total_return: 'মোট রিটার্ন',
+  previous_payable: 'আগের পাওনা',
+  total_earnings: 'মোট আয়',
+  payable: 'এই সেশন',
+  cumulative_payable: 'মোট পাওনা',
 }
 
 const formatDateTimeBn = (iso) => {
@@ -191,6 +207,21 @@ const RECORD_FIELD_KEYS = {
     'note',
     'billing',
   ],
+  labour_session: [
+    'start_date',
+    'end_date',
+    'present_days',
+    'salary_earnings',
+    'extra_earnings',
+    'total_fooding_pay',
+    'total_advance_pay',
+    'total_payment',
+    'total_return',
+    'previous_payable',
+    'total_earnings',
+    'payable',
+    'cumulative_payable',
+  ],
 }
 
 const formatRecordValue = (key, value) => {
@@ -211,8 +242,35 @@ const formatRecordValue = (key, value) => {
     }
     return String(value)
   }
-  if (key === 'date' || key === 'business_date') {
+  if (
+    key === 'date' ||
+    key === 'business_date' ||
+    key === 'start_date' ||
+    key === 'end_date'
+  ) {
     return formatDateBn(value) ?? String(value)
+  }
+  if (
+    key === 'present_days' ||
+    key === 'salary_earnings' ||
+    key === 'extra_earnings' ||
+    key === 'total_fooding_pay' ||
+    key === 'total_advance_pay' ||
+    key === 'total_payment' ||
+    key === 'total_return' ||
+    key === 'previous_payable' ||
+    key === 'total_earnings' ||
+    key === 'payable' ||
+    key === 'cumulative_payable' ||
+    key === 'amount' ||
+    key === 'wage' ||
+    key === 'extra_earn' ||
+    key === 'fooding_pay' ||
+    key === 'advance_pay' ||
+    key === 'return_amount'
+  ) {
+    const n = Number(value)
+    if (Number.isFinite(n)) return formatBnNumber(n)
   }
   return formatChangeValue(value)
 }
@@ -235,6 +293,9 @@ const canLoadEntityRecord = (log) => {
   if (!log || log.action === 'deleted') return false
   if (log.entity_id == null || log.entity_id === '') return false
   if (log.entity_type === 'daily_record') {
+    return log.labour != null && log.labour !== ''
+  }
+  if (log.entity_type === 'labour_session') {
     return log.labour != null && log.labour !== ''
   }
   if (
@@ -260,6 +321,10 @@ const fetchEntityRecord = async (log) => {
     const { data } = await fetchLabourDailyRecordDetail(log.labour, id)
     return data
   }
+  if (log.entity_type === 'labour_session') {
+    const { data } = await fetchLabourSession(log.labour, id)
+    return data
+  }
   return null
 }
 
@@ -267,7 +332,17 @@ const summarizeHistoryLog = (log) => {
   if (!log) return '—'
   const fields = snapshotFields(log.changes)
   const bits = []
-  if (fields.note) bits.push(String(fields.note))
+  if (log.entity_type === 'labour_session') {
+    const start = formatDateBn(fields.start_date)
+    const end = formatDateBn(fields.end_date)
+    if (start || end) bits.push([start, end].filter(Boolean).join(' – '))
+    if (fields.payable != null && fields.payable !== '') {
+      const n = Number(fields.payable)
+      bits.push(
+        Number.isFinite(n) ? formatBnNumber(n) : String(fields.payable),
+      )
+    }
+  } else if (fields.note) bits.push(String(fields.note))
   else if (fields.amount != null && fields.amount !== '') {
     bits.push(String(fields.amount))
   } else if (fields.present != null && fields.present !== '') {
