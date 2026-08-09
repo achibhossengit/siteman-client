@@ -740,10 +740,10 @@ export const LabourSessionRecordsPage = () => {
             ) : (
               visibleRows.map((row, index) => {
                 const earnings = rowEarnings(row, earningsFilter);
-                const showPay =
-                  paymentFilter.includes("payment") && num(row.payment) !== 0;
-                const showAdv =
-                  paymentFilter.includes("advance") && num(row.advance) !== 0;
+                const outflow =
+                  (paymentFilter.includes("payment") ? num(row.payment) : 0) +
+                  (paymentFilter.includes("advance") ? num(row.advance) : 0);
+                const showOutflow = outflow !== 0;
                 const showRet =
                   paymentFilter.includes("return") && num(row.return) !== 0;
                 const attendanceLines = attendanceCellLines(row, hajiraFilter);
@@ -802,16 +802,11 @@ export const LabourSessionRecordsPage = () => {
                       {earnings ? formatBnNumber(earnings) : "—"}
                     </td>
                     <td className="text-right">
-                      {showPay || showAdv || showRet ? (
+                      {showOutflow || showRet ? (
                         <span className="block w-full tabular-nums space-y-0.5 text-right">
-                          {showPay ? (
+                          {showOutflow ? (
                             <span className="block w-full text-right text-error">
-                              {formatBnNumber(row.payment)}
-                            </span>
-                          ) : null}
-                          {showAdv ? (
-                            <span className="block w-full text-right text-error">
-                              {formatBnNumber(row.advance)}
+                              {formatBnNumber(outflow)}
                             </span>
                           ) : null}
                           {showRet ? (
@@ -845,14 +840,9 @@ export const LabourSessionRecordsPage = () => {
                 <td className="text-right">
                   {totals.payment || totals.advance || totals.return ? (
                     <span className="block w-full tabular-nums space-y-0.5 text-right">
-                      {totals.payment ? (
+                      {totals.payment || totals.advance ? (
                         <span className="block w-full text-right text-error">
-                          {formatBnNumber(totals.payment)}
-                        </span>
-                      ) : null}
-                      {totals.advance ? (
-                        <span className="block w-full text-right text-error">
-                          {formatBnNumber(totals.advance)}
+                          {formatBnNumber(totals.payment + totals.advance)}
                         </span>
                       ) : null}
                       {totals.return ? (

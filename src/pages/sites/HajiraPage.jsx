@@ -1,7 +1,11 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useOutletContext, useSearchParams } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { updateLabourDailyRecord } from "../../api/labours.js";
+import { Pencil, Trash2 } from "lucide-react";
+import {
+  deleteLabourDailyRecord,
+  updateLabourDailyRecord,
+} from "../../api/labours.js";
 import {
   createSiteDailyRecords,
   fetchActiveBillingCategories,
@@ -677,13 +681,11 @@ const recordSealedOf = (row) =>
   );
 
 const RECORD_MODAL_ID = "hajira_record_modal";
-const HAJIRA_BULK_MODAL_ID = "hajira_bulk_attendance_modal";
-const PAYMENT_BULK_MODAL_ID = "hajira_bulk_payment_modal";
-const BILLING_BULK_MODAL_ID = "hajira_bulk_billing_modal";
 const EARNINGS_FILTER_MODAL_ID = "hajira_earnings_filter_modal";
 const PAYMENT_FILTER_MODAL_ID = "hajira_payment_filter_modal";
 const HAJIRA_FILTER_MODAL_ID = "hajira_hajira_filter_modal";
 const BILLING_FILTER_MODAL_ID = "hajira_billing_filter_modal";
+const LABOUR_FILTER_MODAL_ID = "hajira_labour_filter_modal";
 
 const emptyBulkAttendance = () => ({
   present: "",
@@ -739,8 +741,22 @@ const PAYMENT_FILTER_OPTIONS = [
   { value: "return", label: "রিটার্ন" },
 ];
 
+const LABOUR_FILTER_OPTIONS = [
+  { value: "all", label: "সব রেকর্ড", shortLabel: "নাম" },
+  { value: "site", label: "এই সাইটের লেবার", shortLabel: "সাইট" },
+];
+
 const filterLabel = (options, value) =>
   options.find((opt) => opt.value === value)?.label ?? options[0]?.label ?? "";
+
+const labourFilterHeaderLabel = (value) =>
+  LABOUR_FILTER_OPTIONS.find((opt) => opt.value === value)?.shortLabel ?? "নাম";
+
+const displayModalValue = (value) => {
+  if (value === "" || value == null) return "—";
+  const n = Number(value);
+  return Number.isFinite(n) ? formatBnNumber(n) : String(value);
+};
 
 /** Bulk review validation: attr ids + missing id details. */
 const formatBulkReviewError = (parsed) => {
@@ -809,14 +825,13 @@ const paymentLineTone = (row, initial, keys, idKey, typeClass) => {
 };
 
 export const HajiraPage = () => {
-  const { date: selectedDate, siteId: selectedSiteId, sites } =
-    useOutletContext();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { date: selectedDate, siteId: selectedSiteId } = useOutletContext();
   const { can, profile, isCompanyAdmin } = usePermissions();
   const queryClient = useQueryClient();
 
   const canAddDailyRecord = can(PERMS.addDailyRecord);
   const canChangeDailyRecord = can(PERMS.changeDailyRecord);
+  const canDeleteDailyRecord = can(PERMS.deleteDailyRecord);
   const canViewLabour = can(PERMS.viewLabour);
   const canViewActivityLog =
     can(PERMS.viewActivityLog) ||
@@ -827,23 +842,6 @@ export const HajiraPage = () => {
 
   const siteId = selectedSiteId || readSelectedSite();
   const date = selectedDate || readSelectedDate() || todayIso();
-  const site = (sites ?? []).find((s) => String(s.id) === String(siteId));
-  const siteInactive = site?.is_active === false;
-
-  const setEditing = (next) => {
-    setSearchParams(
-      (prev) => {
-        const params = new URLSearchParams(prev);
-        if (next) params.set("edit", "1");
-        else params.delete("edit");
-        return params;
-      },
-      { replace: true },
-    );
-  };
-
-  const editParam = searchParams.get("edit") === "1";
-  const editing = editParam && canAddDailyRecord && !siteInactive;
 
   const [rows, setRows] = useState([]);
   const [initialRows, setInitialRows] = useState([]);
@@ -854,7 +852,9 @@ export const HajiraPage = () => {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [recordModal, setRecordModal] = useState(null);
   const [recordModalView, setRecordModalView] = useState(MODAL_VIEWS.detail);
+  const [modalEditing, setModalEditing] = useState(false);
   const [expandedHistoryId, setExpandedHistoryId] = useState(null);
+  const [labourFilter, setLabourFilter] = useState("all");
   const [earningsFilter, setEarningsFilter] = useState("earn");
   const [paymentFilter, setPaymentFilter] = useState([
     "payment",
@@ -870,7 +870,7 @@ export const HajiraPage = () => {
   const [bulkPayment, setBulkPayment] = useState(emptyBulkPayment);
   const [bulkBilling, setBulkBilling] = useState(emptyBulkBilling);
 
-  const showAyColumn = Boolean(isCompanyAdmin) && !editing;
+  const showAyColumn = Boolean(isCompanyAdmin);
 
   const dailyRecordsQuery = useQuery({
     queryKey: ["sites", siteId, "daily-records", { date }],
@@ -887,7 +887,7 @@ export const HajiraPage = () => {
       const { data } = await fetchActiveBillingCategories(siteId);
       return Array.isArray(data) ? data : [];
     },
-    enabled: Boolean(siteId && editing),
+    enabled: Boolean(siteId),
   });
 
   const activeLabourQuery = useQuery({
@@ -896,7 +896,7 @@ export const HajiraPage = () => {
       const { data } = await fetchSiteActiveLabour(siteId);
       return Array.isArray(data) ? data : [];
     },
-    enabled: Boolean(editing && siteId),
+    enabled: Boolean(siteId),
   });
 
   const pendingLogQueryKey = useMemo(
@@ -995,34 +995,61 @@ export const HajiraPage = () => {
             billingFilterOptions.find((o) => o.value === billingFilter)?.label,
           );
 
-  const openHajiraFilterModal = () => {
+  const openHajiraModal = () => {
+    setBulkAttendance(emptyBulkAttendance());
     document.getElementById(HAJIRA_FILTER_MODAL_ID)?.showModal();
   };
 
-  const openBillingFilterModal = () => {
+  const openPaymentModal = () => {
+    setBulkPayment(emptyBulkPayment());
+    document.getElementById(PAYMENT_FILTER_MODAL_ID)?.showModal();
+  };
+
+  const openBillingModal = () => {
+    setBulkBilling(emptyBulkBilling());
     document.getElementById(BILLING_FILTER_MODAL_ID)?.showModal();
   };
 
-  // Drop invalid edit param (no permission / inactive site).
-  useEffect(() => {
-    if (!editParam) return;
-    if (canAddDailyRecord && !siteInactive) return;
-    setEditing(false);
-  }, [editParam, canAddDailyRecord, siteInactive]);
+  const openLabourFilterModal = () => {
+    document.getElementById(LABOUR_FILTER_MODAL_ID)?.showModal();
+  };
 
-  // Exit edit/select mode when site/date changes (not on first mount / refresh).
+  const buildRowsForLabourFilter = (filter) => {
+    const records = dailyRecordsQuery.data ?? [];
+    const activeLabour = activeLabourQuery.data ?? [];
+    let next;
+    if (filter === "site") {
+      next = buildHajiraEditRows(activeLabour, records);
+      if (canViewActivityLog) {
+        const siteLabourIds = new Set(next.map((row) => Number(row.labourId)));
+        next = applyActivitiesToViewRows(
+          next,
+          pendingLogQuery.data ?? [],
+        ).filter((row) => siteLabourIds.has(Number(row.labourId)));
+      }
+    } else {
+      next = buildHajiraViewRows(records);
+      if (canViewActivityLog) {
+        next = applyActivitiesToViewRows(next, pendingLogQuery.data ?? []);
+      }
+    }
+    return next;
+  };
+
+  // Reset filters/select when site/date changes (not on first mount / refresh).
   const skipSiteDateResetRef = useRef(true);
   useEffect(() => {
     if (skipSiteDateResetRef.current) {
       skipSiteDateResetRef.current = false;
       return;
     }
-    setEditing(false);
+    setLabourFilter("all");
     setSelectMode(false);
     setSelectedIds(new Set());
     setApiError(null);
     setRecordModal(null);
     setRecordModalView(MODAL_VIEWS.detail);
+    setModalEditing(false);
     setExpandedHistoryId(null);
     setEarningsFilter("earn");
     setPaymentFilter(["payment", "advance", "return"]);
@@ -1032,49 +1059,22 @@ export const HajiraPage = () => {
 
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [earningsFilter, paymentFilter, billingFilter, hajiraFilter]);
+  }, [earningsFilter, paymentFilter, billingFilter, hajiraFilter, labourFilter]);
 
-  // View mode: daily records for the day (+ pending activity tones).
+  // Single-mode row rebuild for current labour filter.
   useEffect(() => {
-    if (editing) return;
     if (!dailyRecordsQuery.isSuccess) return;
-    let next = buildHajiraViewRows(dailyRecordsQuery.data ?? []);
-    if (canViewActivityLog) {
-      next = applyActivitiesToViewRows(next, pendingLogQuery.data ?? []);
-    }
+    if (labourFilter !== "all" && !activeLabourQuery.isSuccess) return;
+    const next = buildRowsForLabourFilter(labourFilter);
     setRows(cloneRows(next));
     setInitialRows(cloneRows(next));
   }, [
-    editing,
+    labourFilter,
     canViewActivityLog,
     dailyRecordsQuery.isSuccess,
     dailyRecordsQuery.data,
-    pendingLogQuery.data,
-  ]);
-
-  // Edit mode: remap already-loaded records onto this site's active labours.
-  useEffect(() => {
-    if (!editing) return;
-    if (!activeLabourQuery.isSuccess) return;
-    let next = buildHajiraEditRows(
-      activeLabourQuery.data ?? [],
-      dailyRecordsQuery.data ?? [],
-    );
-    if (canViewActivityLog) {
-      const editLabourIds = new Set(next.map((row) => Number(row.labourId)));
-      next = applyActivitiesToViewRows(
-        next,
-        pendingLogQuery.data ?? [],
-      ).filter((row) => editLabourIds.has(Number(row.labourId)));
-    }
-    setRows(cloneRows(next));
-    setInitialRows(cloneRows(next));
-  }, [
-    editing,
-    canViewActivityLog,
     activeLabourQuery.isSuccess,
     activeLabourQuery.data,
-    dailyRecordsQuery.data,
     pendingLogQuery.data,
   ]);
 
@@ -1097,14 +1097,10 @@ export const HajiraPage = () => {
     [rows, initialRows],
   );
 
-  const viewEarningsFilter = editing ? "earn" : earningsFilter;
-  const viewPaymentFilter = editing
-    ? ["payment", "advance", "return"]
-    : paymentFilter;
-  const viewBillingFilter = editing ? "all" : billingFilter;
-  const viewHajiraFields = (
-    editing ? ["present", "extra"] : hajiraFilter
-  ).filter((field) => field !== "billing");
+  const viewEarningsFilter = earningsFilter;
+  const viewPaymentFilter = paymentFilter;
+  const viewBillingFilter = billingFilter;
+  const viewHajiraFields = hajiraFilter.filter((field) => field !== "billing");
   const viewHajiraFilter = viewHajiraFields.includes("present")
     ? "present"
     : viewHajiraFields.includes("salary")
@@ -1157,27 +1153,51 @@ export const HajiraPage = () => {
     return { present, earnings, payment, advance, return: ret };
   }, [visibleRows, viewEarningsFilter, viewPaymentFilter, viewHajiraFilter]);
 
-  const showPaymentAmount = (row) =>
-    viewPaymentFilter.includes("payment") && paymentAmountOf(row) !== 0;
-
-  const showAdvanceAmount = (row) =>
-    viewPaymentFilter.includes("advance") && advanceAmountOf(row) !== 0;
-
   const showReturnAmount = (row) =>
     viewPaymentFilter.includes("return") && returnAmountOf(row) !== 0;
-
-  const modalEditable = editing;
 
   const attendanceLocked = (row) =>
     recordSealedOf(row) ||
     (recordIdOf(row) ? !canChangeDailyRecord : !canAddDailyRecord);
 
-  /** One sealed daily record — same create/change rights for every payment slot. */
-  const paymentSlotLocked = (row, _spec) => attendanceLocked(row);
+  const isCreateModal = Boolean(recordModal && !recordIdOf(recordModal));
+  const modalEditable = Boolean(
+    recordModal &&
+      !recordSealedOf(recordModal) &&
+      (isCreateModal
+        ? canAddDailyRecord
+        : modalEditing && canChangeDailyRecord),
+  );
+
+  const canUpdateRecord = Boolean(
+    recordModal &&
+      recordIdOf(recordModal) &&
+      !recordSealedOf(recordModal) &&
+      canChangeDailyRecord,
+  );
+  const canDeleteRecord = Boolean(
+    recordModal &&
+      recordIdOf(recordModal) &&
+      !recordSealedOf(recordModal) &&
+      canDeleteDailyRecord,
+  );
+
+  const resetModalEditState = () => {
+    setModalEditing(false);
+  };
+
+  const closeRecordModal = () => {
+    document.getElementById(RECORD_MODAL_ID)?.close();
+    setRecordModal(null);
+    setRecordModalView(MODAL_VIEWS.detail);
+    setExpandedHistoryId(null);
+    resetModalEditState();
+  };
 
   const openRecordModal = (row) => {
     setRecordModalView(MODAL_VIEWS.detail);
     setExpandedHistoryId(null);
+    resetModalEditState();
     setRecordModal({
       labourId: row.labourId,
       labourName: row.labourName,
@@ -1205,6 +1225,12 @@ export const HajiraPage = () => {
       returnDiffs: row.returnDiffs ?? null,
     });
     document.getElementById(RECORD_MODAL_ID)?.showModal();
+  };
+
+  const startModalEdit = () => {
+    if (!canUpdateRecord || !recordModal) return;
+    setRecordModalView(MODAL_VIEWS.detail);
+    setModalEditing(true);
   };
 
   const saveRecordModal = () => {
@@ -1235,7 +1261,33 @@ export const HajiraPage = () => {
       return;
     }
     updateRow(recordModal.labourId, next);
-    document.getElementById(RECORD_MODAL_ID)?.close();
+    closeRecordModal();
+  };
+
+  const onDeleteRecord = async () => {
+    if (!canDeleteRecord || !recordModal) return;
+    const recordId = recordIdOf(recordModal);
+    if (recordId == null) return;
+    const confirmed = await confirmAction({
+      title: "রেকর্ড মুছে ফেলবেন?",
+      text: "এই কাজটি ফিরিয়ে আনা যাবে না।",
+      confirmText: "ডিলিট করুন",
+      danger: true,
+    });
+    if (!confirmed) return;
+    try {
+      await deleteLabourDailyRecord(recordModal.labourId, recordId);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["sites", siteId, "daily-records"],
+        }),
+        queryClient.invalidateQueries({ queryKey: pendingLogQueryKey }),
+      ]);
+      toastSuccess("রেকর্ড ডিলিট হয়েছে");
+      closeRecordModal();
+    } catch (err) {
+      toastApiError(parseApiError(err));
+    }
   };
 
   const resetRecordModal = () => {
@@ -1336,17 +1388,14 @@ export const HajiraPage = () => {
     }
   };
 
-  const onStartEdit = () => {
-    exitSelectMode();
-    setApiError(null);
-    setEditing(true);
-  };
+  /** Bulk fills blank fields on unlocked rows (create or change). */
+  const isBulkTargetRow = (row) => !attendanceLocked(row);
 
-  /** Bulk header actions only fill rows that are not saved yet. */
-  const isBulkTargetRow = (row) =>
-    !recordIdOf(row) && !attendanceLocked(row);
+  const showBulkSection = canAddDailyRecord || canChangeDailyRecord;
 
   const isBlank = (value) => value === "" || value == null;
+  /** Extra defaults to 0 on rows — treat 0 as unset for bulk fill. */
+  const isUnsetExtra = (value) => isBlank(value) || Number(value) === 0;
 
   const applyAttendanceDefaults = () => {
     setRows((prev) =>
@@ -1373,24 +1422,9 @@ export const HajiraPage = () => {
     );
   };
 
-  const openHajiraBulkModal = () => {
-    setBulkAttendance(emptyBulkAttendance());
-    document.getElementById(HAJIRA_BULK_MODAL_ID)?.showModal();
-  };
-
-  const openPaymentBulkModal = () => {
-    setBulkPayment(emptyBulkPayment());
-    document.getElementById(PAYMENT_BULK_MODAL_ID)?.showModal();
-  };
-
-  const openBillingBulkModal = () => {
-    setBulkBilling(emptyBulkBilling());
-    document.getElementById(BILLING_BULK_MODAL_ID)?.showModal();
-  };
-
   const onHajiraBulkDefault = () => {
     applyAttendanceDefaults();
-    document.getElementById(HAJIRA_BULK_MODAL_ID)?.close();
+    document.getElementById(HAJIRA_FILTER_MODAL_ID)?.close();
   };
 
   const onHajiraBulkCustom = () => {
@@ -1404,13 +1438,15 @@ export const HajiraPage = () => {
       if (!isBulkTargetRow(row)) return false;
       const next = {
         present:
-          bulkAttendance.present === ""
-            ? row.present
-            : Number(bulkAttendance.present),
+          bulkAttendance.present !== "" && isBlank(row.present)
+            ? Number(bulkAttendance.present)
+            : row.present,
         extra:
-          bulkAttendance.extra === "" || bulkAttendance.extra == null
-            ? row.extra
-            : Number(bulkAttendance.extra),
+          bulkAttendance.extra !== "" &&
+          bulkAttendance.extra != null &&
+          isUnsetExtra(row.extra)
+            ? Number(bulkAttendance.extra)
+            : row.extra,
       };
       return isZeroPresentAndExtra(next);
     });
@@ -1425,26 +1461,30 @@ export const HajiraPage = () => {
         return {
           ...row,
           present:
-            bulkAttendance.present === ""
-              ? row.present
-              : Number(bulkAttendance.present),
+            bulkAttendance.present !== "" && isBlank(row.present)
+              ? Number(bulkAttendance.present)
+              : row.present,
           salary:
-            bulkAttendance.salary === "" || bulkAttendance.salary == null
-              ? row.salary
-              : Number(bulkAttendance.salary),
+            bulkAttendance.salary !== "" &&
+            bulkAttendance.salary != null &&
+            isBlank(row.salary)
+              ? Number(bulkAttendance.salary)
+              : row.salary,
           extra:
-            bulkAttendance.extra === "" || bulkAttendance.extra == null
-              ? row.extra
-              : Number(bulkAttendance.extra),
+            bulkAttendance.extra !== "" &&
+            bulkAttendance.extra != null &&
+            isUnsetExtra(row.extra)
+              ? Number(bulkAttendance.extra)
+              : row.extra,
         };
       }),
     );
-    document.getElementById(HAJIRA_BULK_MODAL_ID)?.close();
+    document.getElementById(HAJIRA_FILTER_MODAL_ID)?.close();
   };
 
   const onPaymentBulkDefault = () => {
     applyPaymentDefaults();
-    document.getElementById(PAYMENT_BULK_MODAL_ID)?.close();
+    document.getElementById(PAYMENT_FILTER_MODAL_ID)?.close();
   };
 
   const onPaymentBulkCustom = () => {
@@ -1455,21 +1495,27 @@ export const HajiraPage = () => {
         return {
           ...row,
           payment:
-            bulkPayment.payment === "" || bulkPayment.payment == null
-              ? row.payment
-              : Number(bulkPayment.payment),
+            bulkPayment.payment !== "" &&
+            bulkPayment.payment != null &&
+            isBlank(row.payment)
+              ? Number(bulkPayment.payment)
+              : row.payment,
           advance:
-            bulkPayment.advance === "" || bulkPayment.advance == null
-              ? row.advance
-              : Number(bulkPayment.advance),
+            bulkPayment.advance !== "" &&
+            bulkPayment.advance != null &&
+            isBlank(row.advance)
+              ? Number(bulkPayment.advance)
+              : row.advance,
           return:
-            bulkPayment.return === "" || bulkPayment.return == null
-              ? row.return
-              : Number(bulkPayment.return),
+            bulkPayment.return !== "" &&
+            bulkPayment.return != null &&
+            isBlank(row.return)
+              ? Number(bulkPayment.return)
+              : row.return,
         };
       }),
     );
-    document.getElementById(PAYMENT_BULK_MODAL_ID)?.close();
+    document.getElementById(PAYMENT_FILTER_MODAL_ID)?.close();
   };
 
   const onBillingBulkCustom = () => {
@@ -1484,6 +1530,7 @@ export const HajiraPage = () => {
     setRows((prev) =>
       prev.map((row) => {
         if (!isBulkTargetRow(row)) return row;
+        if (!isBlank(row.billing)) return row;
         return {
           ...row,
           billing: selectedId,
@@ -1491,7 +1538,7 @@ export const HajiraPage = () => {
         };
       }),
     );
-    document.getElementById(BILLING_BULK_MODAL_ID)?.close();
+    document.getElementById(BILLING_FILTER_MODAL_ID)?.close();
   };
 
   const onHajiraBulkReset = () => {
@@ -1509,7 +1556,7 @@ export const HajiraPage = () => {
       }),
     );
     setBulkAttendance(emptyBulkAttendance());
-    document.getElementById(HAJIRA_BULK_MODAL_ID)?.close();
+    document.getElementById(HAJIRA_FILTER_MODAL_ID)?.close();
   };
 
   const onPaymentBulkReset = () => {
@@ -1529,7 +1576,7 @@ export const HajiraPage = () => {
       }),
     );
     setBulkPayment(emptyBulkPayment());
-    document.getElementById(PAYMENT_BULK_MODAL_ID)?.close();
+    document.getElementById(PAYMENT_FILTER_MODAL_ID)?.close();
   };
 
   const onBillingBulkReset = () => {
@@ -1546,7 +1593,7 @@ export const HajiraPage = () => {
       }),
     );
     setBulkBilling(emptyBulkBilling());
-    document.getElementById(BILLING_BULK_MODAL_ID)?.close();
+    document.getElementById(BILLING_FILTER_MODAL_ID)?.close();
   };
 
   const hasHajiraBulkReset =
@@ -1581,12 +1628,8 @@ export const HajiraPage = () => {
     }) || isBulkBillingDirty(bulkBilling);
 
   const onCancel = () => {
-    setEditing(false);
     setApiError(null);
-    let next = buildHajiraViewRows(dailyRecordsQuery.data ?? []);
-    if (canViewActivityLog) {
-      next = applyActivitiesToViewRows(next, pendingLogQuery.data ?? []);
-    }
+    const next = buildRowsForLabourFilter(labourFilter);
     setRows(cloneRows(next));
     setInitialRows(cloneRows(next));
   };
@@ -1696,7 +1739,7 @@ export const HajiraPage = () => {
 
   const loading =
     dailyRecordsQuery.isLoading ||
-    (editing && activeLabourQuery.isLoading);
+    (labourFilter !== "all" && activeLabourQuery.isLoading);
 
   if (loading) {
     return (
@@ -1708,7 +1751,7 @@ export const HajiraPage = () => {
 
   const loadError =
     dailyRecordsQuery.error ||
-    (editing ? activeLabourQuery.error : null);
+    (labourFilter !== "all" ? activeLabourQuery.error : null);
   if (loadError) {
     return (
       <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
@@ -1717,12 +1760,12 @@ export const HajiraPage = () => {
     );
   }
 
-  const emptyMessage = editing
-    ? "এই সাইটে কোনো সক্রিয় লেবার নেই।"
-    : "এই তারিখে কোনো হাজিরা নেই।";
+  const emptyMessage =
+    labourFilter === "site"
+      ? "এই সাইটে কোনো সক্রিয় লেবার নেই।"
+      : "এই তারিখে কোনো হাজিরা নেই।";
 
-  const recordModalLocked =
-    !modalEditable || !recordModal || attendanceLocked(recordModal);
+  const recordModalLocked = !modalEditable;
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-2">
@@ -1733,7 +1776,7 @@ export const HajiraPage = () => {
           <thead className="sticky top-0 z-10 bg-base-100">
             <tr className="border-b border-base-300 text-sm">
               <th>
-                {!editing && selectMode && canChangeActivityLog ? (
+                {selectMode && canChangeActivityLog ? (
                   <input
                     type="checkbox"
                     className="checkbox checkbox-sm"
@@ -1748,7 +1791,7 @@ export const HajiraPage = () => {
                     aria-label="সব নির্বাচন"
                     onChange={(e) => toggleSelectAll(e.target.checked)}
                   />
-                ) : !editing && canChangeActivityLog ? (
+                ) : canChangeActivityLog ? (
                   <button
                     type="button"
                     className="font-bold"
@@ -1761,20 +1804,15 @@ export const HajiraPage = () => {
                   "নং"
                 )}
               </th>
-              <th>নাম</th>
+              <th>
+                <button type="button" onClick={openLabourFilterModal}>
+                  {labourFilterHeaderLabel(labourFilter)}
+                </button>
+              </th>
               <th className="text-right">
-                {editing ? (
-                  <button type="button" onClick={openHajiraBulkModal}>
-                    হাজিরা
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => openHajiraFilterModal()}
-                  >
-                    হাজিরা
-                  </button>
-                )}
+                <button type="button" onClick={openHajiraModal}>
+                  হাজিরা
+                </button>
               </th>
               {showAyColumn ? (
                 <th className="text-right">
@@ -1791,36 +1829,14 @@ export const HajiraPage = () => {
                 </th>
               ) : null}
               <th className="text-right">
-                {editing ? (
-                  <button type="button" onClick={openPaymentBulkModal}>
-                    লেনদেন
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      document
-                        .getElementById(PAYMENT_FILTER_MODAL_ID)
-                        ?.showModal()
-                    }
-                  >
-                    লেনদেন
-                  </button>
-                )}
+                <button type="button" onClick={openPaymentModal}>
+                  লেনদেন
+                </button>
               </th>
               <th className="text-right">
-                {!editing ? (
-                  <button
-                    type="button"
-                    onClick={openBillingFilterModal}
-                  >
-                    {billingFilterHeaderLabel}
-                  </button>
-                ) : (
-                  <button type="button" onClick={openBillingBulkModal}>
-                    বিলিং
-                  </button>
-                )}
+                <button type="button" onClick={openBillingModal}>
+                  {billingFilterHeaderLabel}
+                </button>
               </th>
             </tr>
           </thead>
@@ -1842,21 +1858,26 @@ export const HajiraPage = () => {
                 const rowSelected =
                   selectable &&
                   rowActivityIds.every((id) => selectedIds.has(id));
-                const hajiraEditTone = editing
-                  ? fieldTone(
-                      row,
-                      initial,
-                      ["present", "salary", "extra", "extraNote", "billing"],
-                      "attendanceId",
-                    )
-                  : "";
-                const hajiraGroupTone = editing
-                  ? hajiraEditTone
-                  : activityTextToneClass(row.activityTone) ||
-                    "text-base-content/70";
+                const hajiraDirtyTone = fieldTone(
+                  row,
+                  initial,
+                  ["present", "salary", "extra", "extraNote", "billing"],
+                  "attendanceId",
+                );
+                const hajiraGroupTone =
+                  hajiraDirtyTone !== "text-base-content/60"
+                    ? hajiraDirtyTone
+                    : activityTextToneClass(row.activityTone) ||
+                      "text-base-content/70";
                 const earn = dayEarnings(row, viewEarningsFilter);
-                const showPay = showPaymentAmount(row);
-                const showAdv = showAdvanceAmount(row);
+                const outflow =
+                  (viewPaymentFilter.includes("payment")
+                    ? paymentAmountOf(row)
+                    : 0) +
+                  (viewPaymentFilter.includes("advance")
+                    ? advanceAmountOf(row)
+                    : 0);
+                const showOutflow = outflow !== 0;
                 const showRet = showReturnAmount(row);
                 const attendanceLines = attendanceCellLines(
                   row,
@@ -1877,7 +1898,7 @@ export const HajiraPage = () => {
                     onClick={() => openRecordModal(row)}
                   >
                     <td className="tabular-nums text-base-content/60">
-                      {!editing && selectMode && canChangeActivityLog ? (
+                      {selectMode && canChangeActivityLog ? (
                         <input
                           type="checkbox"
                           className="checkbox checkbox-sm"
@@ -1933,55 +1954,35 @@ export const HajiraPage = () => {
                       </td>
                     ) : null}
                     <td className="text-right">
-                      {showPay || showAdv || showRet ? (
+                      {showOutflow || showRet ? (
                         <span className="block w-full tabular-nums space-y-0.5 text-right leading-tight">
-                          {showPay ? (
+                          {showOutflow ? (
                             <span
-                              className={`block w-full text-right ${
-                                editing
-                                  ? paymentLineTone(
-                                      row,
-                                      initial,
-                                      ["payment", "paymentNote"],
-                                      "paymentId",
-                                      "text-error",
-                                    )
-                                  : "text-error"
-                              }`}
+                              className={`block w-full text-right ${paymentLineTone(
+                                row,
+                                initial,
+                                [
+                                  "payment",
+                                  "paymentNote",
+                                  "advance",
+                                  "advanceNote",
+                                ],
+                                "paymentId",
+                                "text-error",
+                              )}`}
                             >
-                              {formatBnNumber(row.payment)}
-                            </span>
-                          ) : null}
-                          {showAdv ? (
-                            <span
-                              className={`block w-full text-right ${
-                                editing
-                                  ? paymentLineTone(
-                                      row,
-                                      initial,
-                                      ["advance", "advanceNote"],
-                                      "advanceId",
-                                      "text-error",
-                                    )
-                                  : "text-error"
-                              }`}
-                            >
-                              {formatBnNumber(row.advance)}
+                              {formatBnNumber(outflow)}
                             </span>
                           ) : null}
                           {showRet ? (
                             <span
-                              className={`block w-full text-right ${
-                                editing
-                                  ? paymentLineTone(
-                                      row,
-                                      initial,
-                                      ["return", "returnNote"],
-                                      "returnId",
-                                      "text-success",
-                                    )
-                                  : "text-success"
-                              }`}
+                              className={`block w-full text-right ${paymentLineTone(
+                                row,
+                                initial,
+                                ["return", "returnNote"],
+                                "returnId",
+                                "text-success",
+                              )}`}
                             >
                               {formatBnNumber(row.return)}
                             </span>
@@ -2020,14 +2021,9 @@ export const HajiraPage = () => {
                 <td className="text-right">
                   {totals.payment || totals.advance || totals.return ? (
                     <span className="block w-full tabular-nums space-y-0.5 text-right">
-                      {totals.payment ? (
+                      {totals.payment || totals.advance ? (
                         <span className="block w-full text-right text-error">
-                          {formatBnNumber(totals.payment)}
-                        </span>
-                      ) : null}
-                      {totals.advance ? (
-                        <span className="block w-full text-right text-error">
-                          {formatBnNumber(totals.advance)}
+                          {formatBnNumber(totals.payment + totals.advance)}
                         </span>
                       ) : null}
                       {totals.return ? (
@@ -2049,7 +2045,7 @@ export const HajiraPage = () => {
         </table>
       </div>
 
-      {editing ? (
+      {isDirty ? (
         <div className="fixed bottom-16 right-4 z-40 flex items-center gap-2">
           <button
             type="button"
@@ -2063,7 +2059,7 @@ export const HajiraPage = () => {
             type="button"
             className="btn btn-primary shadow-lg"
             onClick={onSave}
-            disabled={saving || !isDirty || rows.length === 0}
+            disabled={saving || rows.length === 0}
           >
             {saving ? (
               <span className="loading loading-spinner loading-sm" />
@@ -2100,15 +2096,6 @@ export const HajiraPage = () => {
             </button>
           </div>
         </div>
-      ) : canAddDailyRecord ? (
-        <button
-          type="button"
-          className="btn btn-primary fixed bottom-16 right-4 z-40 shadow-lg"
-          onClick={onStartEdit}
-          disabled={!date || siteInactive}
-        >
-          যোগ করুন
-        </button>
       ) : null}
 
       <dialog
@@ -2118,6 +2105,7 @@ export const HajiraPage = () => {
           setRecordModal(null);
           setRecordModalView(MODAL_VIEWS.detail);
           setExpandedHistoryId(null);
+          resetModalEditState();
         }}
       >
         <div className="modal-box max-w-sm h-[min(32rem,85vh)] flex flex-col">
@@ -2131,10 +2119,7 @@ export const HajiraPage = () => {
           </form>
 
           <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">
-            {recordModal &&
-            canViewActivityLog &&
-            !editing &&
-            canShowRecordHistory ? (
+            {recordModal && canViewActivityLog && canShowRecordHistory ? (
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -2143,6 +2128,7 @@ export const HajiraPage = () => {
                       ? "text-primary"
                       : "text-base-content/50 hover:text-base-content"
                   }
+                  disabled={modalEditing}
                   onClick={() => {
                     setRecordModalView(MODAL_VIEWS.detail);
                     setExpandedHistoryId(null);
@@ -2157,6 +2143,7 @@ export const HajiraPage = () => {
                       ? "text-primary"
                       : "text-base-content/50 hover:text-base-content"
                   }
+                  disabled={modalEditing}
                   onClick={() => {
                     setRecordModalView(MODAL_VIEWS.history);
                     setExpandedHistoryId(null);
@@ -2175,7 +2162,6 @@ export const HajiraPage = () => {
           <div className="flex-1 min-h-0 overflow-y-auto">
             {recordModal &&
             recordModalView === MODAL_VIEWS.history &&
-            !editing &&
             canShowRecordHistory ? (
               <EntityHistoryPanel
                 isLoading={pendingLogQuery.isLoading}
@@ -2191,140 +2177,136 @@ export const HajiraPage = () => {
               />
             ) : recordModal ? (
               <div className="space-y-3">
-                <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="form-control w-full min-w-0">
-                      <span className="label-text text-sm">হাজিরা</span>
-                      <select
-                        className="select select-bordered select-sm w-full"
-                        value={recordModal.present}
-                        disabled={recordModalLocked}
-                        onChange={(e) =>
-                          setRecordModal((m) => ({
-                            ...m,
-                            present: e.target.value,
-                          }))
-                        }
-                      >
-                        <option value="">—</option>
-                        {PRESENT_OPTIONS.map((v) => (
-                          <option key={v} value={String(v)}>
-                            {v}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                {modalEditable ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">হাজিরা</span>
+                        <select
+                          className="select select-bordered select-sm w-full"
+                          value={recordModal.present}
+                          disabled={recordModalLocked}
+                          onChange={(e) =>
+                            setRecordModal((m) => ({
+                              ...m,
+                              present: e.target.value,
+                            }))
+                          }
+                        >
+                          <option value="">—</option>
+                          {PRESENT_OPTIONS.map((v) => (
+                            <option key={v} value={String(v)}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
 
-                    <label className="form-control w-full min-w-0">
-                      <span className="label-text text-sm">বেতন</span>
+                      <label className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">বেতন</span>
+                        <input
+                          type="number"
+                          min={0}
+                          className="input input-bordered input-sm w-full tabular-nums"
+                          value={recordModal.salary}
+                          disabled={recordModalLocked}
+                          onChange={(e) =>
+                            setRecordModal((m) => ({
+                              ...m,
+                              salary: numOrEmpty(e.target.value),
+                            }))
+                          }
+                        />
+                      </label>
+
+                      <label className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">বাড়তি</span>
+                        <input
+                          type="number"
+                          min={0}
+                          className="input input-bordered input-sm w-full tabular-nums"
+                          value={recordModal.extra}
+                          disabled={recordModalLocked}
+                          onChange={(e) =>
+                            setRecordModal((m) => ({
+                              ...m,
+                              extra: numOrEmpty(e.target.value),
+                            }))
+                          }
+                        />
+                      </label>
+
+                      <label className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">ফুডিং</span>
+                        <input
+                          type="number"
+                          min={0}
+                          className="input input-bordered input-sm w-full tabular-nums"
+                          value={recordModal.payment}
+                          disabled={recordModalLocked}
+                          onChange={(e) =>
+                            setRecordModal((m) => ({
+                              ...m,
+                              payment: numOrEmpty(e.target.value),
+                            }))
+                          }
+                        />
+                      </label>
+
+                      <label className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">অ্যাডভান্স</span>
+                        <input
+                          type="number"
+                          min={0}
+                          className="input input-bordered input-sm w-full tabular-nums"
+                          value={recordModal.advance}
+                          disabled={recordModalLocked}
+                          onChange={(e) =>
+                            setRecordModal((m) => ({
+                              ...m,
+                              advance: numOrEmpty(e.target.value),
+                            }))
+                          }
+                        />
+                      </label>
+
+                      <label className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">রিটার্ন</span>
+                        <input
+                          type="number"
+                          min={0}
+                          className="input input-bordered input-sm w-full tabular-nums"
+                          value={recordModal.return}
+                          disabled={recordModalLocked}
+                          onChange={(e) =>
+                            setRecordModal((m) => ({
+                              ...m,
+                              return: numOrEmpty(e.target.value),
+                            }))
+                          }
+                        />
+                      </label>
+                    </div>
+
+                    <label className="form-control w-full">
+                      <span className="label-text text-sm">নোট</span>
                       <input
-                        type="number"
-                        min={0}
-                        className="input input-bordered input-sm w-full tabular-nums"
-                        value={recordModal.salary}
+                        type="text"
+                        className="input input-bordered input-sm w-full"
+                        value={recordModal.note}
                         disabled={recordModalLocked}
                         onChange={(e) =>
                           setRecordModal((m) => ({
                             ...m,
-                            salary: numOrEmpty(e.target.value),
+                            note: e.target.value,
                           }))
                         }
+                        maxLength={255}
                       />
                     </label>
 
-                    <label className="form-control w-full min-w-0">
-                      <span className="label-text text-sm">বাড়তি</span>
-                      <input
-                        type="number"
-                        min={0}
-                        className="input input-bordered input-sm w-full tabular-nums"
-                        value={recordModal.extra}
-                        disabled={recordModalLocked}
-                        onChange={(e) =>
-                          setRecordModal((m) => ({
-                            ...m,
-                            extra: numOrEmpty(e.target.value),
-                          }))
-                        }
-                      />
-                    </label>
-
-                    <label className="form-control w-full min-w-0">
-                      <span className="label-text text-sm">ফুডিং</span>
-                      <input
-                        type="number"
-                        min={0}
-                        className="input input-bordered input-sm w-full tabular-nums"
-                        value={recordModal.payment}
-                        disabled={recordModalLocked}
-                        onChange={(e) =>
-                          setRecordModal((m) => ({
-                            ...m,
-                            payment: numOrEmpty(e.target.value),
-                          }))
-                        }
-                      />
-                    </label>
-
-                    <label className="form-control w-full min-w-0">
-                      <span className="label-text text-sm">অ্যাডভান্স</span>
-                      <input
-                        type="number"
-                        min={0}
-                        className="input input-bordered input-sm w-full tabular-nums"
-                        value={recordModal.advance}
-                        disabled={recordModalLocked}
-                        onChange={(e) =>
-                          setRecordModal((m) => ({
-                            ...m,
-                            advance: numOrEmpty(e.target.value),
-                          }))
-                        }
-                      />
-                    </label>
-
-                    <label className="form-control w-full min-w-0">
-                      <span className="label-text text-sm">রিটার্ন</span>
-                      <input
-                        type="number"
-                        min={0}
-                        className="input input-bordered input-sm w-full tabular-nums"
-                        value={recordModal.return}
-                        disabled={recordModalLocked}
-                        onChange={(e) =>
-                          setRecordModal((m) => ({
-                            ...m,
-                            return: numOrEmpty(e.target.value),
-                          }))
-                        }
-                      />
-                    </label>
-                  </div>
-
-                  <label className="form-control w-full">
-                    <span className="label-text text-sm">নোট</span>
-                    <input
-                      type="text"
-                      className="input input-bordered input-sm w-full"
-                      value={recordModal.note}
-                      disabled={recordModalLocked}
-                      onChange={(e) =>
-                        setRecordModal((m) => ({
-                          ...m,
-                          note: e.target.value,
-                        }))
-                      }
-                      maxLength={255}
-                    />
-                  </label>
-
-                  <label className="form-control w-full">
-                    <span className="label-text text-sm">বিলিং</span>
-                    {recordModalLocked ? (
-                      <div className="min-h-8 flex items-center px-1 text-sm">
-                        {billingFullLabelForRow(recordModal)}
-                      </div>
-                    ) : (
+                    <label className="form-control w-full">
+                      <span className="label-text text-sm">বিলিং</span>
                       <select
                         className="select select-bordered select-sm w-full"
                         value={
@@ -2372,10 +2354,8 @@ export const HajiraPage = () => {
                           ));
                         })()}
                       </select>
-                    )}
-                  </label>
+                    </label>
 
-                  {!recordModalLocked ? (
                     <div className="modal-action pt-1 flex-wrap justify-between gap-2">
                       <button
                         type="button"
@@ -2401,15 +2381,106 @@ export const HajiraPage = () => {
                         </button>
                       </div>
                     </div>
-                  ) : null}
-                </>
+                  </>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">হাজিরা</span>
+                        <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                          {recordModal.present === ""
+                            ? "—"
+                            : formatBnNumber(recordModal.present)}
+                        </div>
+                      </div>
+                      <div className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">বেতন</span>
+                        <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                          {displayModalValue(recordModal.salary)}
+                        </div>
+                      </div>
+                      <div className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">বাড়তি</span>
+                        <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                          {displayModalValue(recordModal.extra)}
+                        </div>
+                      </div>
+                      <div className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">ফুডিং</span>
+                        <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                          {displayModalValue(recordModal.payment)}
+                        </div>
+                      </div>
+                      <div className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">অ্যাডভান্স</span>
+                        <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                          {displayModalValue(recordModal.advance)}
+                        </div>
+                      </div>
+                      <div className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">রিটার্ন</span>
+                        <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                          {displayModalValue(recordModal.return)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="form-control w-full">
+                      <span className="label-text text-sm">নোট</span>
+                      <div className="min-h-8 flex items-center px-1 text-sm">
+                        {recordModal.note?.trim() ? recordModal.note : "—"}
+                      </div>
+                    </div>
+                    <div className="form-control w-full">
+                      <span className="label-text text-sm">বিলিং</span>
+                      <div className="min-h-8 flex items-center px-1 text-sm">
+                        {billingFullLabelForRow(recordModal)}
+                      </div>
+                    </div>
+                    {recordIdOf(recordModal) ? (
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-primary btn-sm flex-1"
+                          disabled={!canUpdateRecord}
+                          title={
+                            recordSealedOf(recordModal)
+                              ? "রেকর্ড সিল করা আছে"
+                              : !canChangeDailyRecord
+                                ? "আপডেট অনুমতি নেই"
+                                : undefined
+                          }
+                          onClick={startModalEdit}
+                        >
+                          <Pencil className="size-4" strokeWidth={1.75} />
+                          আপডেট
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-error btn-sm flex-1"
+                          disabled={!canDeleteRecord}
+                          title={
+                            recordSealedOf(recordModal)
+                              ? "রেকর্ড সিল করা আছে"
+                              : !canDeleteDailyRecord
+                                ? "ডিলিট অনুমতি নেই"
+                                : undefined
+                          }
+                          onClick={onDeleteRecord}
+                        >
+                          <Trash2 className="size-4" strokeWidth={1.75} />
+                          ডিলিট
+                        </button>
+                      </div>
+                    ) : null}
+                  </>
+                )}
               </div>
             ) : null}
           </div>
         </div>
       </dialog>
 
-      <dialog id={HAJIRA_BULK_MODAL_ID} className="modal">
+      <dialog id={HAJIRA_FILTER_MODAL_ID} className="modal">
         <div className="modal-box max-w-sm">
           <form method="dialog">
             <button
@@ -2420,89 +2491,118 @@ export const HajiraPage = () => {
             </button>
           </form>
           <h3 className="font-bold text-lg pr-8">হাজিরা</h3>
-          <div className="space-y-3 pt-3">
-            <label className="form-control w-full">
-              <span className="label-text text-sm">হাজিরা</span>
-              <select
-                className="select select-bordered select-sm w-full"
-                value={bulkAttendance.present}
-                onChange={(e) =>
-                  setBulkAttendance((m) => ({
-                    ...m,
-                    present: e.target.value,
-                  }))
-                }
-              >
-                <option value="">—</option>
-                {PRESENT_OPTIONS.map((v) => (
-                  <option key={v} value={String(v)}>
-                    {v}
-                  </option>
+          <div className="space-y-4 pt-3">
+            <div>
+              <p className="text-sm font-medium mb-2">দেখান</p>
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
+                {HAJIRA_FILTER_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="inline-flex items-center gap-2 cursor-pointer text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      className="checkbox checkbox-xs"
+                      checked={hajiraFilter.includes(opt.value)}
+                      onChange={() => {
+                        setHajiraFilter((prev) =>
+                          prev.includes(opt.value)
+                            ? prev.filter((value) => value !== opt.value)
+                            : [...prev, opt.value],
+                        );
+                      }}
+                    />
+                    <span>{opt.label}</span>
+                  </label>
                 ))}
-              </select>
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="form-control w-full min-w-0">
-                <span className="label-text text-sm">বেতন</span>
-                <input
-                  type="number"
-                  min={0}
-                  className="input input-bordered input-sm w-full tabular-nums"
-                  value={bulkAttendance.salary}
-                  onChange={(e) =>
-                    setBulkAttendance((m) => ({
-                      ...m,
-                      salary: numOrEmpty(e.target.value),
-                    }))
-                  }
-                />
-              </label>
-              <label className="form-control w-full min-w-0">
-                <span className="label-text text-sm">বাড়তি</span>
-                <input
-                  type="number"
-                  min={0}
-                  className="input input-bordered input-sm w-full tabular-nums"
-                  value={bulkAttendance.extra}
-                  onChange={(e) =>
-                    setBulkAttendance((m) => ({
-                      ...m,
-                      extra: numOrEmpty(e.target.value),
-                    }))
-                  }
-                />
-              </label>
-            </div>
-            <div className="modal-action pt-1 flex-wrap justify-between gap-2">
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={onHajiraBulkReset}
-                disabled={!hasHajiraBulkReset}
-              >
-                রিসেট
-              </button>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="btn btn-outline btn-sm"
-                  onClick={onHajiraBulkDefault}
-                >
-                  ডিফল্ট সেট
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={onHajiraBulkCustom}
-                  disabled={
-                    !isBulkAttendanceDirty(bulkAttendance) ||
-                    isBulkAttendanceZeroInvalid(bulkAttendance)
-                  }
-                >
-                  কাস্টম সেট
-                </button>
               </div>
             </div>
+            {showBulkSection ? (
+              <div className="space-y-3 border-t border-base-300 pt-3">
+                <label className="form-control w-full">
+                  <span className="label-text text-sm">হাজিরা</span>
+                  <select
+                    className="select select-bordered select-sm w-full"
+                    value={bulkAttendance.present}
+                    onChange={(e) =>
+                      setBulkAttendance((m) => ({
+                        ...m,
+                        present: e.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">—</option>
+                    {PRESENT_OPTIONS.map((v) => (
+                      <option key={v} value={String(v)}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="form-control w-full min-w-0">
+                    <span className="label-text text-sm">বেতন</span>
+                    <input
+                      type="number"
+                      min={0}
+                      className="input input-bordered input-sm w-full tabular-nums"
+                      value={bulkAttendance.salary}
+                      onChange={(e) =>
+                        setBulkAttendance((m) => ({
+                          ...m,
+                          salary: numOrEmpty(e.target.value),
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="form-control w-full min-w-0">
+                    <span className="label-text text-sm">বাড়তি</span>
+                    <input
+                      type="number"
+                      min={0}
+                      className="input input-bordered input-sm w-full tabular-nums"
+                      value={bulkAttendance.extra}
+                      onChange={(e) =>
+                        setBulkAttendance((m) => ({
+                          ...m,
+                          extra: numOrEmpty(e.target.value),
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="modal-action pt-1 flex-wrap justify-between gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={onHajiraBulkReset}
+                    disabled={!hasHajiraBulkReset}
+                  >
+                    রিসেট
+                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={onHajiraBulkDefault}
+                    >
+                      ডিফল্ট সেট
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={onHajiraBulkCustom}
+                      disabled={
+                        !isBulkAttendanceDirty(bulkAttendance) ||
+                        isBulkAttendanceZeroInvalid(bulkAttendance)
+                      }
+                    >
+                      প্রয়োগ
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
         <form method="dialog" className="modal-backdrop">
@@ -2510,7 +2610,7 @@ export const HajiraPage = () => {
         </form>
       </dialog>
 
-      <dialog id={PAYMENT_BULK_MODAL_ID} className="modal">
+      <dialog id={PAYMENT_FILTER_MODAL_ID} className="modal">
         <div className="modal-box max-w-sm">
           <form method="dialog">
             <button
@@ -2521,182 +2621,110 @@ export const HajiraPage = () => {
             </button>
           </form>
           <h3 className="font-bold text-lg pr-8">লেনদেন</h3>
-          <div className="space-y-3 pt-3">
-            <label className="form-control w-full">
-              <span className="label-text text-sm">ফুডিং</span>
-              <input
-                type="number"
-                min={0}
-                className="input input-bordered input-sm w-full tabular-nums"
-                value={bulkPayment.payment}
-                onChange={(e) =>
-                  setBulkPayment((m) => ({
-                    ...m,
-                    payment: numOrEmpty(e.target.value),
-                  }))
-                }
-              />
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="form-control w-full min-w-0">
-                <span className="label-text text-sm">অ্যাডভান্স</span>
-                <input
-                  type="number"
-                  min={0}
-                  className="input input-bordered input-sm w-full tabular-nums"
-                  value={bulkPayment.advance}
-                  onChange={(e) =>
-                    setBulkPayment((m) => ({
-                      ...m,
-                      advance: numOrEmpty(e.target.value),
-                    }))
-                  }
-                />
-              </label>
-              <label className="form-control w-full min-w-0">
-                <span className="label-text text-sm">রিটার্ন</span>
-                <input
-                  type="number"
-                  min={0}
-                  className="input input-bordered input-sm w-full tabular-nums"
-                  value={bulkPayment.return}
-                  onChange={(e) =>
-                    setBulkPayment((m) => ({
-                      ...m,
-                      return: numOrEmpty(e.target.value),
-                    }))
-                  }
-                />
-              </label>
-            </div>
-            <div className="modal-action pt-1 flex-wrap justify-between gap-2">
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={onPaymentBulkReset}
-                disabled={!hasPaymentBulkReset}
-              >
-                রিসেট
-              </button>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="btn btn-outline btn-sm"
-                  onClick={onPaymentBulkDefault}
-                >
-                  ডিফল্ট সেট
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={onPaymentBulkCustom}
-                  disabled={!isBulkPaymentDirty(bulkPayment)}
-                >
-                  কাস্টম সেট
-                </button>
+          <div className="space-y-4 pt-3">
+            <div>
+              <p className="text-sm font-medium mb-2">দেখান</p>
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
+                {PAYMENT_FILTER_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="inline-flex items-center gap-2 cursor-pointer text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      className="checkbox checkbox-xs"
+                      checked={paymentFilter.includes(opt.value)}
+                      onChange={() => {
+                        setPaymentFilter((prev) =>
+                          prev.includes(opt.value)
+                            ? prev.filter((value) => value !== opt.value)
+                            : [...prev, opt.value],
+                        );
+                      }}
+                    />
+                    <span>{opt.label}</span>
+                  </label>
+                ))}
               </div>
             </div>
-          </div>
-        </div>
-        <form method="dialog" className="modal-backdrop">
-          <button type="submit">close</button>
-        </form>
-      </dialog>
-
-      <dialog id={BILLING_BULK_MODAL_ID} className="modal">
-        <div className="modal-box max-w-sm">
-          <form method="dialog">
-            <button
-              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-              aria-label="বন্ধ"
-            >
-              ✕
-            </button>
-          </form>
-          <h3 className="font-bold text-lg pr-8">বিলিং</h3>
-          <div className="space-y-3 pt-3">
-            <label className="form-control w-full">
-              <span className="label-text text-sm">বিলিং</span>
-              <select
-                className="select select-bordered select-sm w-full"
-                value={
-                  bulkBilling.billing == null || bulkBilling.billing === ""
-                    ? ""
-                    : String(bulkBilling.billing)
-                }
-                onChange={(e) =>
-                  setBulkBilling((m) => ({
-                    ...m,
-                    billing: e.target.value,
-                  }))
-                }
-              >
-                <option value="">—</option>
-                <option value="none">{NULL_BILLING_LABEL}</option>
-                {billingOptions.map((b) => (
-                  <option key={b.id} value={String(b.id)}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="modal-action pt-1 flex-wrap justify-between gap-2">
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={onBillingBulkReset}
-                disabled={!hasBillingBulkReset}
-              >
-                রিসেট
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={onBillingBulkCustom}
-                disabled={!isBulkBillingDirty(bulkBilling)}
-              >
-                কাস্টম সেট
-              </button>
-            </div>
-          </div>
-        </div>
-        <form method="dialog" className="modal-backdrop">
-          <button type="submit">close</button>
-        </form>
-      </dialog>
-
-      <dialog id={HAJIRA_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-xs">
-          <form method="dialog">
-            <button
-              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-              aria-label="বন্ধ"
-            >
-              ✕
-            </button>
-          </form>
-          <h3 className="font-bold text-lg">হাজিরা</h3>
-          <div className="pt-3 flex flex-wrap gap-x-4 gap-y-2">
-            {HAJIRA_FILTER_OPTIONS.map((opt) => (
-              <label
-                key={opt.value}
-                className="inline-flex items-center gap-2 cursor-pointer text-sm"
-              >
-                <input
-                  type="checkbox"
-                  className="checkbox checkbox-xs"
-                  checked={hajiraFilter.includes(opt.value)}
-                  onChange={() => {
-                    setHajiraFilter((prev) =>
-                      prev.includes(opt.value)
-                        ? prev.filter((value) => value !== opt.value)
-                        : [...prev, opt.value],
-                    );
-                  }}
-                />
-                <span>{opt.label}</span>
-              </label>
-            ))}
+            {showBulkSection ? (
+              <div className="space-y-3 border-t border-base-300 pt-3">
+                <label className="form-control w-full">
+                  <span className="label-text text-sm">ফুডিং</span>
+                  <input
+                    type="number"
+                    min={0}
+                    className="input input-bordered input-sm w-full tabular-nums"
+                    value={bulkPayment.payment}
+                    onChange={(e) =>
+                      setBulkPayment((m) => ({
+                        ...m,
+                        payment: numOrEmpty(e.target.value),
+                      }))
+                    }
+                  />
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="form-control w-full min-w-0">
+                    <span className="label-text text-sm">অ্যাডভান্স</span>
+                    <input
+                      type="number"
+                      min={0}
+                      className="input input-bordered input-sm w-full tabular-nums"
+                      value={bulkPayment.advance}
+                      onChange={(e) =>
+                        setBulkPayment((m) => ({
+                          ...m,
+                          advance: numOrEmpty(e.target.value),
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="form-control w-full min-w-0">
+                    <span className="label-text text-sm">রিটার্ন</span>
+                    <input
+                      type="number"
+                      min={0}
+                      className="input input-bordered input-sm w-full tabular-nums"
+                      value={bulkPayment.return}
+                      onChange={(e) =>
+                        setBulkPayment((m) => ({
+                          ...m,
+                          return: numOrEmpty(e.target.value),
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="modal-action pt-1 flex-wrap justify-between gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={onPaymentBulkReset}
+                    disabled={!hasPaymentBulkReset}
+                  >
+                    রিসেট
+                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={onPaymentBulkDefault}
+                    >
+                      ডিফল্ট সেট
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={onPaymentBulkCustom}
+                      disabled={!isBulkPaymentDirty(bulkPayment)}
+                    >
+                      প্রয়োগ
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
         <form method="dialog" className="modal-backdrop">
@@ -2705,7 +2733,7 @@ export const HajiraPage = () => {
       </dialog>
 
       <dialog id={BILLING_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-xs h-[min(24rem,80vh)] flex flex-col">
+        <div className="modal-box max-w-sm h-[min(28rem,85vh)] flex flex-col">
           <form method="dialog">
             <button
               className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
@@ -2714,25 +2742,79 @@ export const HajiraPage = () => {
               ✕
             </button>
           </form>
-          <h3 className="font-bold text-lg pr-8 shrink-0">বিলিং ফিল্টার</h3>
-          <div className="pt-3 flex-1 min-h-0 overflow-y-auto">
-            <div className="menu bg-base-100 w-full p-0">
-              {billingFilterOptions.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  className={`btn btn-ghost btn-sm justify-start ${
-                    billingFilter === opt.value ? "btn-active" : ""
-                  }`}
-                  onClick={() => {
-                    setBillingFilter(opt.value);
-                    document.getElementById(BILLING_FILTER_MODAL_ID)?.close();
-                  }}
-                >
-                  {opt.label}
-                </button>
-              ))}
+          <h3 className="font-bold text-lg pr-8 shrink-0">বিলিং</h3>
+          <div className="pt-3 flex-1 min-h-0 overflow-y-auto space-y-4">
+            <div>
+              <p className="text-sm font-medium mb-2">দেখান</p>
+              <div className="menu bg-base-100 w-full p-0">
+                {billingFilterOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    className={`btn btn-ghost btn-sm justify-start ${
+                      billingFilter === opt.value ? "btn-active" : ""
+                    }`}
+                    onClick={() => {
+                      setBillingFilter(opt.value);
+                      if (!showBulkSection) {
+                        document
+                          .getElementById(BILLING_FILTER_MODAL_ID)
+                          ?.close();
+                      }
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
+            {showBulkSection ? (
+              <div className="space-y-3 border-t border-base-300 pt-3">
+                <label className="form-control w-full">
+                  <span className="label-text text-sm">বিলিং</span>
+                  <select
+                    className="select select-bordered select-sm w-full"
+                    value={
+                      bulkBilling.billing == null || bulkBilling.billing === ""
+                        ? ""
+                        : String(bulkBilling.billing)
+                    }
+                    onChange={(e) =>
+                      setBulkBilling((m) => ({
+                        ...m,
+                        billing: e.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">—</option>
+                    <option value="none">{NULL_BILLING_LABEL}</option>
+                    {billingOptions.map((b) => (
+                      <option key={b.id} value={String(b.id)}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="modal-action pt-1 flex-wrap justify-between gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={onBillingBulkReset}
+                    disabled={!hasBillingBulkReset}
+                  >
+                    রিসেট
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={onBillingBulkCustom}
+                    disabled={!isBulkBillingDirty(bulkBilling)}
+                  >
+                    প্রয়োগ
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
         <form method="dialog" className="modal-backdrop">
@@ -2774,7 +2856,7 @@ export const HajiraPage = () => {
         </form>
       </dialog>
 
-      <dialog id={PAYMENT_FILTER_MODAL_ID} className="modal">
+      <dialog id={LABOUR_FILTER_MODAL_ID} className="modal">
         <div className="modal-box max-w-xs">
           <form method="dialog">
             <button
@@ -2784,27 +2866,22 @@ export const HajiraPage = () => {
               ✕
             </button>
           </form>
-          <h3 className="font-bold text-lg">লেনদেন</h3>
-          <div className="flex flex-wrap gap-x-4 gap-y-2 pt-3">
-            {PAYMENT_FILTER_OPTIONS.map((opt) => (
-              <label
+          <h3 className="font-bold text-lg">নাম ফিল্টার</h3>
+          <div className="menu bg-base-100 w-full p-0 pt-3">
+            {LABOUR_FILTER_OPTIONS.map((opt) => (
+              <button
                 key={opt.value}
-                className="inline-flex items-center gap-2 cursor-pointer text-sm"
+                type="button"
+                className={`btn btn-ghost btn-sm justify-start ${
+                  labourFilter === opt.value ? "btn-active" : ""
+                }`}
+                onClick={() => {
+                  setLabourFilter(opt.value);
+                  document.getElementById(LABOUR_FILTER_MODAL_ID)?.close();
+                }}
               >
-                <input
-                  type="checkbox"
-                  className="checkbox checkbox-xs"
-                  checked={paymentFilter.includes(opt.value)}
-                  onChange={() => {
-                    setPaymentFilter((prev) =>
-                      prev.includes(opt.value)
-                        ? prev.filter((value) => value !== opt.value)
-                        : [...prev, opt.value],
-                    );
-                  }}
-                />
-                <span>{opt.label}</span>
-              </label>
+                {opt.label}
+              </button>
             ))}
           </div>
         </div>
