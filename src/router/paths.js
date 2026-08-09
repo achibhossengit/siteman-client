@@ -15,13 +15,8 @@ export const paths = {
   labours: '/labours',
   labourNew: '/labours/new',
   labourDetail: (id) => `/labours/${id}`,
-  labourSessions: (labourId) => `/labours/${labourId}/sessions`,
-  labourSessionDetail: (labourId, sessionId) =>
-    `/labours/${labourId}/sessions/${sessionId}`,
   labourSessionRecords: (labourId, sessionId) =>
     `/labours/${labourId}/sessions/${sessionId}/records`,
-  labourRunningSession: (labourId) => `/labours/${labourId}/sessions/running`,
-  labourLatestSession: (labourId) => `/labours/${labourId}/sessions/latest`,
   appInfo: '/app-info',
   activities: '/activities',
   login: '/login',
