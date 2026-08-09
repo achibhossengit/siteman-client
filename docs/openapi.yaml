@@ -11427,8 +11427,15 @@ components:
           type: integer
           nullable: true
           description: Optional billing category; site may run without categories.
+        billing_name:
+          type: string
+          readOnly: true
+          nullable: true
         site:
           type: integer
+        site_name:
+          type: string
+          readOnly: true
         is_sealed:
           type: boolean
           description: True = immutable; set by work-session seal.
@@ -11441,9 +11448,11 @@ components:
           format: date-time
           readOnly: true
       required:
+        - billing_name
         - created_at
         - id
         - site
+        - site_name
         - updated_at
     EntityTypeEnum:
       enum:
@@ -14705,6 +14714,10 @@ components:
           type: integer
           nullable: true
           description: Optional billing category; nullable for all types.
+        billing_name:
+          type: string
+          readOnly: true
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -14715,6 +14728,7 @@ components:
           readOnly: true
       required:
         - amount
+        - billing_name
         - created_at
         - id
         - type
@@ -14869,6 +14883,10 @@ components:
           type: integer
           nullable: true
           description: Optional billing category; site may run without categories.
+        billing_name:
+          type: string
+          readOnly: true
+          nullable: true
         is_sealed:
           type: boolean
           description: True = immutable; set by work-session seal.
@@ -14881,6 +14899,7 @@ components:
           format: date-time
           readOnly: true
       required:
+        - billing_name
         - created_at
         - id
         - labour_id

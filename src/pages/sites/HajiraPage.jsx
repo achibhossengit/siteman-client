@@ -887,7 +887,7 @@ export const HajiraPage = () => {
       const { data } = await fetchActiveBillingCategories(siteId);
       return Array.isArray(data) ? data : [];
     },
-    enabled: Boolean(siteId),
+    enabled: Boolean(siteId && editing),
   });
 
   const activeLabourQuery = useQuery({
@@ -939,43 +939,61 @@ export const HajiraPage = () => {
 
   const billingOptions = billingQuery.data ?? [];
 
-  const billingLabelById = useMemo(() => {
-    const map = new Map();
-    for (const b of billingOptions) map.set(String(b.id), b.name);
-    return map;
-  }, [billingOptions]);
-
-  const billingFullLabel = (id) => {
+  /** Prefer record.billing_name; fall back to active-billing map when editing. */
+  const billingFullLabelForRow = (rowOrId, maybeName) => {
+    if (rowOrId != null && typeof rowOrId === "object") {
+      const row = rowOrId;
+      if (row.billing == null || row.billing === "") return NULL_BILLING_LABEL;
+      if (row.billingName) return row.billingName;
+      return (
+        billingOptions.find((b) => String(b.id) === String(row.billing))
+          ?.name ?? `#${row.billing}`
+      );
+    }
+    const id = rowOrId;
     if (id == null || id === "") return NULL_BILLING_LABEL;
-    return billingLabelById.get(String(id)) ?? `#${id}`;
+    if (maybeName) return maybeName;
+    return (
+      billingOptions.find((b) => String(b.id) === String(id))?.name ?? `#${id}`
+    );
   };
 
-  const billingLabel = (id) => {
-    if (id == null || id === "") return concatBillingName(NULL_BILLING_LABEL);
-    const full = billingLabelById.get(String(id));
-    if (!full) return `#${id}`;
-    return concatBillingName(full);
-  };
+  const billingLabelForRow = (row) =>
+    concatBillingName(billingFullLabelForRow(row));
 
-  const billingFilterOptions = useMemo(
-    () => [
+  const billingFullLabel = (id, name) => billingFullLabelForRow(id, name);
+
+  const billingLabel = (id, name) =>
+    concatBillingName(billingFullLabel(id, name));
+
+  const billingFilterOptions = useMemo(() => {
+    const options = [
       { value: "all", label: "সব" },
- 
       { value: "none", label: NULL_BILLING_LABEL },
-      ...billingOptions.map((b) => ({
-        value: String(b.id),
-        label: b.name,
-      })),
-    ],
-    [billingOptions],
-  );
+    ];
+    const seen = new Set();
+    for (const row of rows) {
+      if (row.billing == null || row.billing === "") continue;
+      const value = String(row.billing);
+      if (seen.has(value)) continue;
+      seen.add(value);
+      options.push({
+        value,
+        label: row.billingName || `#${value}`,
+      });
+    }
+    return options;
+  }, [rows]);
 
   const billingFilterHeaderLabel =
     billingFilter === "all"
       ? "বিলিং"
       : billingFilter === "none"
         ? NULL_BILLING_LABEL
-        : billingLabel(billingFilter);
+        : billingLabel(
+            billingFilter,
+            billingFilterOptions.find((o) => o.value === billingFilter)?.label,
+          );
 
   const openHajiraFilterModal = () => {
     document.getElementById(HAJIRA_FILTER_MODAL_ID)?.showModal();
@@ -1168,6 +1186,7 @@ export const HajiraPage = () => {
       extra: row.extra || "",
       note: row.extraNote ?? "",
       billing: row.billing ?? "",
+      billingName: row.billingName ?? null,
       payment: row.payment,
       advance: row.advance,
       return: row.return,
@@ -1200,6 +1219,10 @@ export const HajiraPage = () => {
           : Number(recordModal.extra),
       extraNote: recordModal.note ?? "",
       billing: recordModal.billing ?? "",
+      billingName:
+        recordModal.billing == null || recordModal.billing === ""
+          ? null
+          : (recordModal.billingName ?? null),
       payment: numOrEmpty(recordModal.payment),
       advance: numOrEmpty(recordModal.advance),
       return: numOrEmpty(recordModal.return),
@@ -1226,6 +1249,7 @@ export const HajiraPage = () => {
       extra: initial.extra || "",
       note: initial.extraNote ?? "",
       billing: initial.billing ?? "",
+      billingName: initial.billingName ?? null,
       payment: initial.payment,
       advance: initial.advance,
       return: initial.return,
@@ -1450,13 +1474,20 @@ export const HajiraPage = () => {
 
   const onBillingBulkCustom = () => {
     if (!isBulkBillingDirty(bulkBilling)) return;
+    const selectedId =
+      bulkBilling.billing === "none" ? null : bulkBilling.billing;
+    const selectedName =
+      selectedId == null || selectedId === ""
+        ? null
+        : (billingOptions.find((b) => String(b.id) === String(selectedId))
+            ?.name ?? null);
     setRows((prev) =>
       prev.map((row) => {
         if (!isBulkTargetRow(row)) return row;
         return {
           ...row,
-          billing:
-            bulkBilling.billing === "none" ? null : bulkBilling.billing,
+          billing: selectedId,
+          billingName: selectedName,
         };
       }),
     );
@@ -1510,6 +1541,7 @@ export const HajiraPage = () => {
         return {
           ...row,
           billing: initial.billing,
+          billingName: initial.billingName ?? null,
         };
       }),
     );
@@ -1828,7 +1860,7 @@ export const HajiraPage = () => {
                 const showRet = showReturnAmount(row);
                 const attendanceLines = attendanceCellLines(
                   row,
-                  billingFullLabel,
+                  (id) => billingFullLabelForRow(row),
                   viewHajiraFields,
                 );
                 const rowToneClass = activityToneClass(row.activityTone);
@@ -1963,9 +1995,9 @@ export const HajiraPage = () => {
                     </td>
                     <td
                       className="text-right text-sm whitespace-nowrap"
-                      title={billingFullLabel(row.billing)}
+                      title={billingFullLabelForRow(row)}
                     >
-                      {billingLabel(row.billing)}
+                      {billingLabelForRow(row)}
                     </td>
                   </tr>
                 );
@@ -2290,7 +2322,7 @@ export const HajiraPage = () => {
                     <span className="label-text text-sm">বিলিং</span>
                     {recordModalLocked ? (
                       <div className="min-h-8 flex items-center px-1 text-sm">
-                        {billingFullLabel(recordModal.billing)}
+                        {billingFullLabelForRow(recordModal)}
                       </div>
                     ) : (
                       <select
@@ -2302,12 +2334,20 @@ export const HajiraPage = () => {
                             : String(recordModal.billing)
                         }
                         disabled={recordModalLocked}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const nextId = e.target.value;
+                          const opt = billingOptions.find(
+                            (b) => String(b.id) === String(nextId),
+                          );
                           setRecordModal((m) => ({
                             ...m,
-                            billing: e.target.value,
-                          }))
-                        }
+                            billing: nextId,
+                            billingName:
+                              nextId === ""
+                                ? null
+                                : (opt?.name ?? m.billingName ?? null),
+                          }));
+                        }}
                       >
                         <option value="">—</option>
                         {(() => {
@@ -2320,7 +2360,9 @@ export const HajiraPage = () => {
                           ) {
                             opts.unshift({
                               id: cur,
-                              name: billingFullLabel(cur),
+                              name:
+                                recordModal.billingName ||
+                                billingFullLabel(cur),
                             });
                           }
                           return opts.map((b) => (

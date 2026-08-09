@@ -148,6 +148,9 @@ export const buildHajiraEditRows = (labours, records = []) => {
         record?.billing != null && record?.billing !== ''
           ? String(record.billing)
           : '',
+      billingName: record?.billing_name ?? null,
+      siteId: record?.site ?? null,
+      siteName: record?.site_name ?? null,
       payment: blankAmount(record?.fooding_pay),
       paymentNote: '',
       advance: blankAmount(record?.advance_pay),

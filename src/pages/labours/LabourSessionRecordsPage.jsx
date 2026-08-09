@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, Pencil, Trash2, X } from "lucide-react";
 import { fetchAllActivities } from "../../api/activities.js";
 import {
+  deleteLabourDailyRecord,
   fetchLabourDailyRecords,
   fetchLabourDetail,
   fetchLabourLatestSession,
   fetchLabourRunningSession,
   fetchLabourSession,
+  updateLabourDailyRecord,
 } from "../../api/labours.js";
 import { fetchActiveBillingCategories } from "../../api/sites.js";
 import {
@@ -15,6 +18,10 @@ import {
   activityToneClass,
   applyActivitiesToSessionRows,
 } from "../../api/types/activity.js";
+import {
+  PRESENT_OPTIONS,
+  toDailyRecordPatchPayload,
+} from "../../api/types/hajira.js";
 import { parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import {
@@ -28,12 +35,12 @@ import {
   formatBnNumber,
   NULL_BILLING_LABEL,
 } from "../../utils/format.js";
+import { confirmAction, toastSuccess } from "../../utils/feedback.js";
 import { PERMS, hasPermissionSuffix } from "../../utils/permissions.js";
 
 const RECORD_MODAL_ID = "session_record_detail_modal";
 const EARNINGS_FILTER_MODAL_ID = "session_record_earnings_filter_modal";
 const PAYMENT_FILTER_MODAL_ID = "session_record_payment_filter_modal";
-const BILLING_FILTER_MODAL_ID = "session_record_billing_filter_modal";
 const HAJIRA_FILTER_MODAL_ID = "session_record_hajira_filter_modal";
 
 const MODAL_VIEWS = {
@@ -107,6 +114,7 @@ const buildRows = (records) => {
     rows.push({
       date: record.date,
       siteId: record.site ?? null,
+      siteName: record.site_name ?? null,
       recordId,
       sealed,
       attendanceId: recordId,
@@ -122,6 +130,7 @@ const buildRows = (records) => {
         record.billing == null || record.billing === ""
           ? ""
           : String(record.billing),
+      billingName: record.billing_name ?? null,
       payment: numOrEmpty(record.fooding_pay),
       advance: numOrEmpty(record.advance_pay),
       return: numOrEmpty(record.return_amount),
@@ -191,13 +200,21 @@ const fetchAllLabourDailyRecords = async (labourId, rangeParams) => {
 export const LabourSessionRecordsPage = () => {
   const { labourId, sessionId } = useParams();
   const { setTitle, setHeaderMenu } = useOutletContext();
+  const queryClient = useQueryClient();
   const { can, profile } = usePermissions();
   const isRunningRoute = sessionId === "running";
   const isLatestRoute = sessionId === "latest";
   const canView = can(PERMS.viewLabourSession);
+  const canChangeDailyRecord = can(PERMS.changeDailyRecord);
+  const canDeleteDailyRecord = can(PERMS.deleteDailyRecord);
   const canViewActivityLog =
     can(PERMS.viewActivityLog) ||
     hasPermissionSuffix(profile, "view_activitylog");
+
+  const allowedSiteIds = useMemo(() => {
+    const list = Array.isArray(profile?.sites) ? profile.sites : [];
+    return new Set(list.map((site) => String(site.id)));
+  }, [profile?.sites]);
 
   const [earningsFilter, setEarningsFilter] = useState("earn");
   const [paymentFilter, setPaymentFilter] = useState([
@@ -206,9 +223,13 @@ export const LabourSessionRecordsPage = () => {
     "return",
   ]);
   const [billingFilter, setBillingFilter] = useState("all");
+  const [siteFilter, setSiteFilter] = useState("all");
   const [hajiraFilter, setHajiraFilter] = useState(["present", "extra"]);
   const [recordModal, setRecordModal] = useState(null);
   const [recordModalView, setRecordModalView] = useState(MODAL_VIEWS.detail);
+  const [modalEditing, setModalEditing] = useState(false);
+  const [modalSnapshot, setModalSnapshot] = useState(null);
+  const [modalApiError, setModalApiError] = useState(null);
   const [expandedHistoryId, setExpandedHistoryId] = useState(null);
 
   const labourQuery = useQuery({
@@ -280,92 +301,72 @@ export const LabourSessionRecordsPage = () => {
     return applyActivitiesToSessionRows(base, activitiesQuery.data ?? []);
   }, [dailyRecordsQuery.data, activitiesQuery.data, canViewActivityLog]);
 
-  const usedSiteIds = useMemo(
-    () => [
-      ...new Set(
-        rows
-          .map((row) => row.siteId)
-          .filter((siteId) => siteId != null && siteId !== "")
-          .map(String),
-      ),
-    ],
-    [rows],
-  );
-
-  const billingQueries = useQueries({
-    queries: usedSiteIds.map((siteId) => ({
-      queryKey: ["sites", siteId, "billing-categories", "active"],
-      queryFn: async () => {
-        const { data } = await fetchActiveBillingCategories(siteId);
-        return Array.isArray(data) ? data : [];
-      },
-      enabled: Boolean(siteId),
-    })),
-  });
-
-  const billingBySite = useMemo(() => {
-    const result = new Map();
-    usedSiteIds.forEach((siteId, index) => {
-      result.set(siteId, billingQueries[index]?.data ?? []);
-    });
-    return result;
-  }, [usedSiteIds, billingQueries]);
-
-  const billingNameById = useMemo(() => {
-    const result = new Map();
-    for (const options of billingBySite.values()) {
-      for (const option of options) {
-        result.set(String(option.id), option.name);
-      }
-    }
-    return result;
-  }, [billingBySite]);
-
   const billingFullLabel = (id) => {
     if (id == null || id === "") return NULL_BILLING_LABEL;
-    return billingNameById.get(String(id)) ?? `#${id}`;
+    const fromRow = rows.find((row) => String(row.billing) === String(id));
+    if (fromRow?.billingName) return fromRow.billingName;
+    return `#${id}`;
   };
 
-  const billingLabel = (id) => {
-    if (id == null || id === "") return concatBillingName(NULL_BILLING_LABEL);
-    const full = billingNameById.get(String(id));
-    if (!full) return `#${id}`;
-    return concatBillingName(full);
+  const billingFullLabelForRow = (row) => {
+    if (row?.billing == null || row.billing === "") return NULL_BILLING_LABEL;
+    if (row.billingName) return row.billingName;
+    return `#${row.billing}`;
   };
+
+  const billingLabelForRow = (row) =>
+    concatBillingName(billingFullLabelForRow(row));
 
   const billingFilterOptions = useMemo(() => {
     const options = [
-      { value: "all", label: "সব" },
+      { value: "all", label: "সব বিলিং" },
       { value: "none", label: NULL_BILLING_LABEL },
     ];
     const seen = new Set();
-    for (const siteOptions of billingBySite.values()) {
-      for (const option of siteOptions) {
-        const value = String(option.id);
-        if (seen.has(value)) continue;
-        seen.add(value);
-        options.push({ value, label: option.name });
-      }
+    for (const row of rows) {
+      if (row.billing == null || row.billing === "") continue;
+      const value = String(row.billing);
+      if (seen.has(value)) continue;
+      seen.add(value);
+      options.push({
+        value,
+        label: row.billingName || `#${value}`,
+      });
     }
     return options;
-  }, [billingBySite]);
+  }, [rows]);
 
-  const billingFilterHeaderLabel =
-    billingFilter === "all"
-      ? "বিলিং"
-      : billingFilter === "none"
-        ? NULL_BILLING_LABEL
-        : billingLabel(billingFilter);
+  const siteFilterOptions = useMemo(() => {
+    const options = [{ value: "all", label: "সব সাইট" }];
+    const seen = new Set();
+    for (const row of rows) {
+      if (row.siteId == null || row.siteId === "") continue;
+      const value = String(row.siteId);
+      if (seen.has(value)) continue;
+      seen.add(value);
+      options.push({
+        value,
+        label: row.siteName || `#${value}`,
+      });
+    }
+    return options;
+  }, [rows]);
 
   const visibleRows = useMemo(() => {
-    if (billingFilter === "all") return rows;
-    if (billingFilter === "none") {
-      return rows.filter((row) => row.billing == null || row.billing === "");
-    }
-    return rows.filter(
-      (row) => String(row.billing ?? "") === String(billingFilter),
-    );
-  }, [rows, billingFilter]);
+    return rows.filter((row) => {
+      if (
+        siteFilter !== "all" &&
+        String(row.siteId ?? "") !== String(siteFilter)
+      ) {
+        return false;
+      }
+      if (billingFilter === "all") return true;
+      if (billingFilter === "none") {
+        return row.billing == null || row.billing === "";
+      }
+      return String(row.billing ?? "") === String(billingFilter);
+    });
+  }, [rows, siteFilter, billingFilter]);
 
   const totals = useMemo(
     () =>
@@ -423,22 +424,157 @@ export const LabourSessionRecordsPage = () => {
     canViewActivityLog && recordModal?.recordId,
   );
 
+  const isSiteAllowed = (siteId) => {
+    if (siteId == null || siteId === "") return false;
+    return allowedSiteIds.has(String(siteId));
+  };
+
+  const recordActionsEnabled = Boolean(
+    recordModal?.recordId &&
+      !recordModal?.sealed &&
+      isSiteAllowed(recordModal?.siteId),
+  );
+  const canUpdateRecord = recordActionsEnabled && canChangeDailyRecord;
+  const canDeleteRecord = recordActionsEnabled && canDeleteDailyRecord;
+
+  const activeBillingQuery = useQuery({
+    queryKey: ["sites", recordModal?.siteId, "active-billing"],
+    queryFn: async () => {
+      const { data } = await fetchActiveBillingCategories(recordModal.siteId);
+      return data;
+    },
+    enabled: Boolean(modalEditing && recordModal?.siteId),
+  });
+
+  const billingOptions = useMemo(() => {
+    const opts = [...(activeBillingQuery.data ?? [])];
+    const cur = recordModal?.billing;
+    if (
+      cur !== "" &&
+      cur != null &&
+      !opts.some((b) => String(b.id) === String(cur))
+    ) {
+      opts.unshift({
+        id: cur,
+        name: recordModal?.billingName || billingFullLabel(cur),
+      });
+    }
+    return opts;
+  }, [activeBillingQuery.data, recordModal?.billing, recordModal?.billingName, rows]);
+
+  const invalidateRecordQueries = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: ["labours", labourId, "daily-records"],
+    });
+    await queryClient.invalidateQueries({
+      queryKey: ["activities", "session-records", labourId],
+    });
+    await queryClient.invalidateQueries({
+      queryKey: ["labours", labourId, "session-detail", sessionId],
+    });
+  };
+
+  const updateMutation = useMutation({
+    mutationFn: ({ recordId, payload }) =>
+      updateLabourDailyRecord(labourId, recordId, payload),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (recordId) => deleteLabourDailyRecord(labourId, recordId),
+  });
+
+  const closeRecordModal = () => {
+    document.getElementById(RECORD_MODAL_ID)?.close();
+  };
+
+  const resetModalEditState = () => {
+    setModalEditing(false);
+    setModalSnapshot(null);
+    setModalApiError(null);
+  };
+
   const openRecordModal = (row) => {
     setRecordModalView(MODAL_VIEWS.detail);
     setExpandedHistoryId(null);
+    resetModalEditState();
     setRecordModal({
       date: row.date,
       recordId: row.recordId,
-      present: row.present === "" || row.present == null ? "" : String(row.present),
+      sealed: Boolean(row.sealed),
+      siteId: row.siteId,
+      siteName: row.siteName,
+      present:
+        row.present === "" || row.present == null ? "" : String(row.present),
       salary: row.salary,
       extra: row.extra || "",
       note: row.extraNote ?? "",
       billing: row.billing ?? "",
+      billingName: row.billingName ?? null,
       payment: row.payment,
       advance: row.advance,
       return: row.return,
     });
     document.getElementById(RECORD_MODAL_ID)?.showModal();
+  };
+
+  const startModalEdit = () => {
+    if (!canUpdateRecord || !recordModal) return;
+    setModalApiError(null);
+    setModalSnapshot({ ...recordModal });
+    setModalEditing(true);
+  };
+
+  const cancelModalEdit = () => {
+    if (modalSnapshot) setRecordModal(modalSnapshot);
+    resetModalEditState();
+  };
+
+  const saveModalEdit = async () => {
+    if (!canUpdateRecord || !recordModal?.recordId) return;
+    setModalApiError(null);
+    try {
+      await updateMutation.mutateAsync({
+        recordId: recordModal.recordId,
+        payload: toDailyRecordPatchPayload({
+          labourId,
+          present: recordModal.present,
+          salary: recordModal.salary,
+          extra: recordModal.extra,
+          extraNote: recordModal.note,
+          billing: recordModal.billing,
+          payment: recordModal.payment,
+          advance: recordModal.advance,
+          return: recordModal.return,
+        }),
+      });
+      await invalidateRecordQueries();
+      toastSuccess("রেকর্ড আপডেট হয়েছে");
+      resetModalEditState();
+      closeRecordModal();
+    } catch (error) {
+      setModalApiError(parseApiError(error));
+    }
+  };
+
+  const onDeleteRecord = async () => {
+    if (!canDeleteRecord || !recordModal?.recordId) return;
+    const confirmed = await confirmAction({
+      title: "রেকর্ড মুছে ফেলবেন?",
+      text: "এই কাজটি ফিরিয়ে আনা যাবে না।",
+      confirmText: "ডিলিট করুন",
+      danger: true,
+    });
+    if (!confirmed) return;
+    setModalApiError(null);
+    try {
+      await deleteMutation.mutateAsync(recordModal.recordId);
+      await invalidateRecordQueries();
+      toastSuccess("রেকর্ড ডিলিট হয়েছে");
+      resetModalEditState();
+      closeRecordModal();
+    } catch (error) {
+      setModalApiError(parseApiError(error));
+    }
   };
 
   const displayValue = (value) => {
@@ -522,9 +658,36 @@ export const LabourSessionRecordsPage = () => {
         <ApiErrorAlert error={parseApiError(recordsError)} />
       ) : null}
 
+      <div className="flex justify-between items-center gap-2 shrink-0">
+        <select
+          className="select select-bordered select-sm min-w-36"
+          value={billingFilter}
+          onChange={(e) => setBillingFilter(e.target.value)}
+          aria-label="বিলিং ফিল্টার"
+        >
+          {billingFilterOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <select
+          className="select select-bordered select-sm min-w-36"
+          value={siteFilter}
+          onChange={(e) => setSiteFilter(e.target.value)}
+          aria-label="সাইট ফিল্টার"
+        >
+          {siteFilterOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="flex-1 min-h-0 overflow-auto">
-        <table className="table table-sm sm:table-md w-full">
-          <thead className="sticky top-0 z-10 bg-base-100">
+        <table className="table table-sm sm:table-md w-full bg-transparent [&_th]:px-0 [&_td]:px-0">
+          <thead className="sticky top-0 z-10 bg-base-200">
             <tr className="border-b border-base-300 text-sm">
               <th>নং</th>
               <th>তারিখ</th>
@@ -562,25 +725,13 @@ export const LabourSessionRecordsPage = () => {
                   লেনদেন
                 </button>
               </th>
-              <th className="text-right">
-                <button
-                  type="button"
-                  onClick={() =>
-                    document
-                      .getElementById(BILLING_FILTER_MODAL_ID)
-                      ?.showModal()
-                  }
-                >
-                  {billingFilterHeaderLabel}
-                </button>
-              </th>
             </tr>
           </thead>
           <tbody>
             {visibleRows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={5}
                   className="text-center text-sm text-base-content/60 py-10"
                 >
                   কোনো রেকর্ড পাওয়া যায়নি।
@@ -599,10 +750,11 @@ export const LabourSessionRecordsPage = () => {
                 const hajiraTone =
                   activityTextToneClass(row.activityTone) ||
                   "text-base-content/70";
+                const billingText = billingLabelForRow(row);
 
                 return (
                   <tr
-                    key={row.date}
+                    key={`${row.date}-${row.siteId ?? ""}-${row.recordId ?? index}`}
                     className={[
                       "border-b border-base-300/70 cursor-pointer",
                       activityToneClass(row.activityTone),
@@ -614,7 +766,19 @@ export const LabourSessionRecordsPage = () => {
                     <td className="tabular-nums text-base-content/60">
                       {formatBnNumber(index + 1)}
                     </td>
-                    <td className="whitespace-nowrap">{formatDate(row.date)}</td>
+                    <td className="whitespace-nowrap">
+                      <span className="block leading-tight">
+                        <span>{formatDate(row.date)}</span>
+                        {row.siteName ? (
+                          <span
+                            className="block text-xs text-base-content/60 truncate max-w-28"
+                            title={row.siteName}
+                          >
+                            {row.siteName}
+                          </span>
+                        ) : null}
+                      </span>
+                    </td>
                     <td className={`text-right ${hajiraTone}`}>
                       <span className="block w-full space-y-0.5 text-right leading-tight">
                         {attendanceLines.map((line) => (
@@ -626,6 +790,12 @@ export const LabourSessionRecordsPage = () => {
                             {line.value}
                           </span>
                         ))}
+                        <span
+                          className="block w-full truncate text-right text-xs text-base-content/60"
+                          title={billingFullLabelForRow(row)}
+                        >
+                          {billingText}
+                        </span>
                       </span>
                     </td>
                     <td className="text-right tabular-nums">
@@ -655,12 +825,6 @@ export const LabourSessionRecordsPage = () => {
                           —
                         </span>
                       )}
-                    </td>
-                    <td
-                      className="text-right text-sm whitespace-nowrap"
-                      title={billingFullLabel(row.billing)}
-                    >
-                      {billingLabel(row.billing)}
                     </td>
                   </tr>
                 );
@@ -703,7 +867,6 @@ export const LabourSessionRecordsPage = () => {
                     </span>
                   )}
                 </td>
-                <td className="text-right text-base-content/60">—</td>
               </tr>
             </tfoot>
           ) : null}
@@ -717,6 +880,7 @@ export const LabourSessionRecordsPage = () => {
           setRecordModal(null);
           setRecordModalView(MODAL_VIEWS.detail);
           setExpandedHistoryId(null);
+          resetModalEditState();
         }}
       >
         <div className="modal-box max-w-sm h-[min(32rem,85vh)] flex flex-col">
@@ -739,6 +903,7 @@ export const LabourSessionRecordsPage = () => {
                       ? "text-primary"
                       : "text-base-content/50 hover:text-base-content"
                   }
+                  disabled={modalEditing}
                   onClick={() => {
                     setRecordModalView(MODAL_VIEWS.detail);
                     setExpandedHistoryId(null);
@@ -753,6 +918,7 @@ export const LabourSessionRecordsPage = () => {
                       ? "text-primary"
                       : "text-base-content/50 hover:text-base-content"
                   }
+                  disabled={modalEditing}
                   onClick={() => {
                     setRecordModalView(MODAL_VIEWS.history);
                     setExpandedHistoryId(null);
@@ -784,64 +950,296 @@ export const LabourSessionRecordsPage = () => {
               />
             ) : recordModal ? (
               <div className="space-y-3">
-                <div className="text-sm text-base-content/60">
-                  তারিখ:{" "}
-                  <span className="text-base-content font-medium">
-                    {formatDate(recordModal.date)}
-                  </span>
+                {modalApiError ? (
+                  <ApiErrorAlert error={modalApiError} />
+                ) : null}
+                <div className="text-sm text-base-content/60 space-y-0.5">
+                  <div>
+                    তারিখ:{" "}
+                    <span className="text-base-content font-medium">
+                      {formatDate(recordModal.date)}
+                    </span>
+                  </div>
+                  {recordModal.siteName ? (
+                    <div>
+                      সাইট:{" "}
+                      <span className="text-base-content font-medium">
+                        {recordModal.siteName}
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="form-control w-full min-w-0">
-                    <span className="label-text text-sm">হাজিরা</span>
-                    <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
-                      {recordModal.present === ""
-                        ? "—"
-                        : formatBnNumber(recordModal.present)}
+
+                {modalEditing ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">হাজিরা</span>
+                        <select
+                          className="select select-bordered select-sm w-full"
+                          value={recordModal.present}
+                          onChange={(e) =>
+                            setRecordModal((m) => ({
+                              ...m,
+                              present: e.target.value,
+                            }))
+                          }
+                        >
+                          <option value="">—</option>
+                          {PRESENT_OPTIONS.map((v) => (
+                            <option key={v} value={String(v)}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">বেতন</span>
+                        <input
+                          type="number"
+                          min={0}
+                          className="input input-bordered input-sm w-full tabular-nums"
+                          value={recordModal.salary}
+                          onChange={(e) =>
+                            setRecordModal((m) => ({
+                              ...m,
+                              salary: numOrEmpty(e.target.value),
+                            }))
+                          }
+                        />
+                      </label>
+                      <label className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">বাড়তি</span>
+                        <input
+                          type="number"
+                          min={0}
+                          className="input input-bordered input-sm w-full tabular-nums"
+                          value={recordModal.extra}
+                          onChange={(e) =>
+                            setRecordModal((m) => ({
+                              ...m,
+                              extra: numOrEmpty(e.target.value),
+                            }))
+                          }
+                        />
+                      </label>
+                      <label className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">ফুডিং</span>
+                        <input
+                          type="number"
+                          min={0}
+                          className="input input-bordered input-sm w-full tabular-nums"
+                          value={recordModal.payment}
+                          onChange={(e) =>
+                            setRecordModal((m) => ({
+                              ...m,
+                              payment: numOrEmpty(e.target.value),
+                            }))
+                          }
+                        />
+                      </label>
+                      <label className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">অ্যাডভান্স</span>
+                        <input
+                          type="number"
+                          min={0}
+                          className="input input-bordered input-sm w-full tabular-nums"
+                          value={recordModal.advance}
+                          onChange={(e) =>
+                            setRecordModal((m) => ({
+                              ...m,
+                              advance: numOrEmpty(e.target.value),
+                            }))
+                          }
+                        />
+                      </label>
+                      <label className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">রিটার্ন</span>
+                        <input
+                          type="number"
+                          min={0}
+                          className="input input-bordered input-sm w-full tabular-nums"
+                          value={recordModal.return}
+                          onChange={(e) =>
+                            setRecordModal((m) => ({
+                              ...m,
+                              return: numOrEmpty(e.target.value),
+                            }))
+                          }
+                        />
+                      </label>
                     </div>
-                  </div>
-                  <div className="form-control w-full min-w-0">
-                    <span className="label-text text-sm">বেতন</span>
-                    <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
-                      {displayValue(recordModal.salary)}
+                    <label className="form-control w-full">
+                      <span className="label-text text-sm">নোট</span>
+                      <input
+                        type="text"
+                        className="input input-bordered input-sm w-full"
+                        value={recordModal.note}
+                        maxLength={255}
+                        onChange={(e) =>
+                          setRecordModal((m) => ({
+                            ...m,
+                            note: e.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="form-control w-full">
+                      <span className="label-text text-sm">বিলিং</span>
+                      <select
+                        className="select select-bordered select-sm w-full"
+                        value={
+                          recordModal.billing == null ||
+                          recordModal.billing === ""
+                            ? ""
+                            : String(recordModal.billing)
+                        }
+                        onChange={(e) => {
+                          const nextId = e.target.value;
+                          const opt = billingOptions.find(
+                            (b) => String(b.id) === String(nextId),
+                          );
+                          setRecordModal((m) => ({
+                            ...m,
+                            billing: nextId,
+                            billingName:
+                              nextId === ""
+                                ? null
+                                : (opt?.name ?? m.billingName ?? null),
+                          }));
+                        }}
+                      >
+                        <option value="">—</option>
+                        {billingOptions.map((b) => (
+                          <option key={b.id} value={String(b.id)}>
+                            {b.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm flex-1"
+                        onClick={cancelModalEdit}
+                        disabled={updateMutation.isPending}
+                      >
+                        <X className="size-4" strokeWidth={1.75} />
+                        বাতিল
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm flex-1"
+                        onClick={saveModalEdit}
+                        disabled={updateMutation.isPending}
+                      >
+                        {updateMutation.isPending ? (
+                          <span className="loading loading-spinner loading-sm" />
+                        ) : (
+                          <Check className="size-4" strokeWidth={2} />
+                        )}
+                        নিশ্চিত করুন
+                      </button>
                     </div>
-                  </div>
-                  <div className="form-control w-full min-w-0">
-                    <span className="label-text text-sm">বাড়তি</span>
-                    <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
-                      {displayValue(recordModal.extra)}
+                  </>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">হাজিরা</span>
+                        <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                          {recordModal.present === ""
+                            ? "—"
+                            : formatBnNumber(recordModal.present)}
+                        </div>
+                      </div>
+                      <div className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">বেতন</span>
+                        <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                          {displayValue(recordModal.salary)}
+                        </div>
+                      </div>
+                      <div className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">বাড়তি</span>
+                        <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                          {displayValue(recordModal.extra)}
+                        </div>
+                      </div>
+                      <div className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">ফুডিং</span>
+                        <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                          {displayValue(recordModal.payment)}
+                        </div>
+                      </div>
+                      <div className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">অ্যাডভান্স</span>
+                        <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                          {displayValue(recordModal.advance)}
+                        </div>
+                      </div>
+                      <div className="form-control w-full min-w-0">
+                        <span className="label-text text-sm">রিটার্ন</span>
+                        <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                          {displayValue(recordModal.return)}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="form-control w-full min-w-0">
-                    <span className="label-text text-sm">ফুডিং</span>
-                    <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
-                      {displayValue(recordModal.payment)}
+                    <div className="form-control w-full">
+                      <span className="label-text text-sm">নোট</span>
+                      <div className="min-h-8 flex items-center px-1 text-sm">
+                        {recordModal.note?.trim() ? recordModal.note : "—"}
+                      </div>
                     </div>
-                  </div>
-                  <div className="form-control w-full min-w-0">
-                    <span className="label-text text-sm">অ্যাডভান্স</span>
-                    <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
-                      {displayValue(recordModal.advance)}
+                    <div className="form-control w-full">
+                      <span className="label-text text-sm">বিলিং</span>
+                      <div className="min-h-8 flex items-center px-1 text-sm">
+                        {billingFullLabelForRow(recordModal)}
+                      </div>
                     </div>
-                  </div>
-                  <div className="form-control w-full min-w-0">
-                    <span className="label-text text-sm">রিটার্ন</span>
-                    <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
-                      {displayValue(recordModal.return)}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-primary btn-sm flex-1"
+                        disabled={!canUpdateRecord}
+                        title={
+                          recordModal.sealed
+                            ? "রেকর্ড সিল করা আছে"
+                            : !isSiteAllowed(recordModal.siteId)
+                              ? "এই সাইটে অনুমতি নেই"
+                              : !canChangeDailyRecord
+                                ? "আপডেট অনুমতি নেই"
+                                : undefined
+                        }
+                        onClick={startModalEdit}
+                      >
+                        <Pencil className="size-4" strokeWidth={1.75} />
+                        আপডেট
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-error btn-sm flex-1"
+                        disabled={!canDeleteRecord || deleteMutation.isPending}
+                        title={
+                          recordModal.sealed
+                            ? "রেকর্ড সিল করা আছে"
+                            : !isSiteAllowed(recordModal.siteId)
+                              ? "এই সাইটে অনুমতি নেই"
+                              : !canDeleteDailyRecord
+                                ? "ডিলিট অনুমতি নেই"
+                                : undefined
+                        }
+                        onClick={onDeleteRecord}
+                      >
+                        {deleteMutation.isPending ? (
+                          <span className="loading loading-spinner loading-sm" />
+                        ) : (
+                          <Trash2 className="size-4" strokeWidth={1.75} />
+                        )}
+                        ডিলিট
+                      </button>
                     </div>
-                  </div>
-                </div>
-                <div className="form-control w-full">
-                  <span className="label-text text-sm">নোট</span>
-                  <div className="min-h-8 flex items-center px-1 text-sm">
-                    {recordModal.note?.trim() ? recordModal.note : "—"}
-                  </div>
-                </div>
-                <div className="form-control w-full">
-                  <span className="label-text text-sm">বিলিং</span>
-                  <div className="min-h-8 flex items-center px-1 text-sm">
-                    {billingFullLabel(recordModal.billing)}
-                  </div>
-                </div>
+                  </>
+                )}
               </div>
             ) : null}
           </div>
@@ -874,16 +1272,6 @@ export const LabourSessionRecordsPage = () => {
         options={PAYMENT_FILTER_OPTIONS}
         values={paymentFilter}
         onChange={setPaymentFilter}
-      />
-      <FilterDialog
-        id={BILLING_FILTER_MODAL_ID}
-        title="বিলিং ফিল্টার"
-        options={billingFilterOptions}
-        value={billingFilter}
-        onChange={(value) => {
-          setBillingFilter(value);
-          document.getElementById(BILLING_FILTER_MODAL_ID)?.close();
-        }}
       />
     </div>
   );
