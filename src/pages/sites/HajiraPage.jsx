@@ -751,9 +751,9 @@ const filterLabel = (options, value) =>
   options.find((opt) => opt.value === value)?.label ?? options[0]?.label ?? "";
 
 const labourFilterHeaderLabel = (value) => {
-  if (value === "record") return "রেকর্ড";
-  if (value === "labour") return "লেবার";
-  return "নাম";
+  if (value === "record") return "শুধু রেকর্ড";
+  if (value === "labour") return "শুধু লেবার";
+  return "সব";
 };
 
 const LABOUR_FILTER_CYCLE = ["name", "record", "labour"];
@@ -765,16 +765,6 @@ const nextLabourFilter = (value) => {
 
 const labourFilterNeedsActiveLabour = (filter) =>
   filter === "name" || filter === "labour";
-
-const labourFilterTitle = (value) => {
-  if (value === "record") {
-    return "শুধু রেকর্ড (ক্লিক: লেবার)";
-  }
-  if (value === "labour") {
-    return "সাইটের লেবার (ক্লিক: নাম)";
-  }
-  return "সাইটের লেবার + অন্যান্য রেকর্ড (ক্লিক: রেকর্ড)";
-};
 
 const displayModalValue = (value) => {
   if (value === "" || value == null) return "—";
@@ -1981,7 +1971,6 @@ export const HajiraPage = () => {
                 <button
                   type="button"
                   onClick={toggleLabourFilter}
-                  title={labourFilterTitle(labourFilter)}
                 >
                   {labourFilterHeaderLabel(labourFilter)}
                 </button>
