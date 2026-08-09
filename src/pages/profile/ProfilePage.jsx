@@ -12,6 +12,7 @@ import {
 } from "../../api/types/user.js";
 import { parseApiError, applyFieldErrors } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
+import { useSitesLookup } from "../../hooks/useSites.js";
 import { toastSuccess } from "../../utils/feedback.js";
 import { groupLabelBn } from "../../utils/permissions.js";
 
@@ -43,6 +44,7 @@ const emptyPasswordValues = {
 export const ProfilePage = () => {
   const { setTitle } = useOutletContext();
   const { profile, setProfile, bootstrapProfile, changePassword } = useAuth();
+  const { getSiteName } = useSitesLookup();
   const passwordDialogRef = useRef(null);
 
   const [editing, setEditing] = useState(false);
@@ -332,7 +334,7 @@ export const ProfilePage = () => {
             <div className="flex flex-wrap gap-1.5 mt-1">
               {sites.map((s) => (
                 <span key={s.id ?? s} className="badge badge-outline">
-                  {s?.name}
+                  {getSiteName(s?.id ?? s)}
                 </span>
               ))}
             </div>

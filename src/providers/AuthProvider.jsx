@@ -6,18 +6,25 @@ import {
   useMemo,
   useState,
 } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { bindAuthTokenAccessors } from '../api/client.js'
 import * as authApi from '../api/auth.js'
 import * as profileApi from '../api/profile.js'
+import {
+  fetchAllSitesLookup,
+  SITES_LOOKUP_KEY,
+} from '../api/sitesLookup.js'
 import {
   clearAccessToken,
   readAccessToken,
   writeAccessToken,
 } from '../utils/authToken.js'
+import { hasPermission, PERMS } from '../utils/permissions.js'
 
 const AuthContext = createContext(null)
 
 export const AuthProvider = ({ children }) => {
+  const queryClient = useQueryClient()
   const [accessToken, setAccessTokenState] = useState(() => readAccessToken())
   const [profile, setProfile] = useState(null)
   const [bootstrapping, setBootstrapping] = useState(true)
@@ -114,6 +121,21 @@ export const AuthProvider = ({ children }) => {
       cancelled = true
     }
   }, [refreshSession, bootstrapProfile, clearSession])
+
+  // Session-wide sites lookup: prefetch after login; drop on logout.
+  useEffect(() => {
+    if (!accessToken || !profile) {
+      queryClient.removeQueries({ queryKey: SITES_LOOKUP_KEY })
+      return
+    }
+    if (!hasPermission(profile, PERMS.viewSite)) return
+    queryClient.prefetchQuery({
+      queryKey: SITES_LOOKUP_KEY,
+      queryFn: fetchAllSitesLookup,
+      staleTime: Infinity,
+      gcTime: Infinity,
+    })
+  }, [accessToken, profile, queryClient])
 
   const value = useMemo(
     () => ({

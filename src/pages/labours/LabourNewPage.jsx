@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createLabour } from '../../api/labours.js'
-import { fetchSites } from '../../api/sites.js'
 import {
   DEFAULT_ATTENDANCE_OPTIONS,
   labourFormSchema,
@@ -13,6 +12,7 @@ import {
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
+import { useSitesLookup } from '../../hooks/useSites.js'
 import { formatBnNumber, NULL_SITE_LABEL } from '../../utils/format.js'
 import { toastSuccess } from '../../utils/feedback.js'
 import { PERMS } from '../../utils/permissions.js'
@@ -35,6 +35,9 @@ export const LabourNewPage = () => {
   const [apiError, setApiError] = useState(null)
 
   const canAddLabour = can(PERMS.addLabour)
+  const { sites, isLoading: sitesLoading } = useSitesLookup({
+    enabled: canAddLabour,
+  })
 
   useEffect(() => {
     setTitle?.('নতুন লেবার')
@@ -50,15 +53,6 @@ export const LabourNewPage = () => {
   } = useForm({
     resolver: zodResolver(labourFormSchema),
     defaultValues: emptyValues,
-  })
-
-  const sitesQuery = useQuery({
-    queryKey: ['sites'],
-    queryFn: async () => {
-      const { data } = await fetchSites({ page: 1, page_size: 100 })
-      return Array.isArray(data?.results) ? data.results : []
-    },
-    enabled: canAddLabour,
   })
 
   const mutation = useMutation({
@@ -127,12 +121,17 @@ export const LabourNewPage = () => {
             {...register('current_site')}
           >
             <option value="">{NULL_SITE_LABEL}</option>
-            {(sitesQuery.data ?? []).map((s) => (
+            {sites.map((s) => (
               <option key={s.id} value={String(s.id)}>
                 {s.name}
               </option>
             ))}
           </select>
+          {sitesLoading ? (
+            <span className="label-text-alt text-base-content/55 mt-1">
+              সাইট লোড হচ্ছে…
+            </span>
+          ) : null}
         </label>
 
         <label className="form-control w-full">

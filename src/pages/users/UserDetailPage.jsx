@@ -4,7 +4,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchUserDetail, updateUser } from "../../api/users.js";
-import { fetchSites } from "../../api/sites.js";
 import {
   buildGroupSelectOptions,
   toSingleGroupNames,
@@ -16,6 +15,7 @@ import { parseApiError, applyFieldErrors } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { DetailMenuButton } from "../../layouts/DetailLayout.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
+import { useSitesLookup } from "../../hooks/useSites.js";
 import { toastSuccess } from "../../utils/feedback.js";
 import { PERMS } from "../../utils/permissions.js";
 
@@ -61,14 +61,12 @@ export const UserDetailPage = () => {
     enabled: Boolean(canViewUser && userId),
   });
 
-  // Fetch all sites only when entering edit mode.
-  const sitesQuery = useQuery({
-    queryKey: ["sites"],
-    queryFn: async () => {
-      const { data } = await fetchSites({ page: 1, page_size: 100 });
-      return Array.isArray(data?.results) ? data.results : [];
-    },
-    enabled: Boolean(canViewUser && editing),
+  const {
+    sites: allSites,
+    getSiteName,
+    isLoading: sitesLoading,
+  } = useSitesLookup({
+    enabled: canViewUser,
   });
 
   const user = detailQuery.data;
@@ -183,8 +181,13 @@ export const UserDetailPage = () => {
 
   const disabled = !editing;
   const busy = isSubmitting || mutation.isPending;
-  const assignedSites = Array.isArray(user.sites) ? user.sites : [];
-  const siteOptions = editing ? (sitesQuery.data ?? []) : assignedSites;
+  const assignedSiteIds = normalizeSiteIds(user.sites);
+  const siteOptions = editing
+    ? allSites
+    : assignedSiteIds.map((id) => {
+        const full = allSites.find((s) => Number(s.id) === Number(id));
+        return full ?? { id };
+      });
 
   return (
     <div className="max-w-lg mx-auto">
@@ -263,7 +266,7 @@ export const UserDetailPage = () => {
           <div className="p-3">
             <span className="label-text font-medium">দায়িত্বপ্রাপ্ত সাইট</span>
             <div className="mt-2 flex flex-col gap-1 max-h-40 overflow-y-auto pr-1">
-              {editing && sitesQuery.isLoading ? (
+              {editing && sitesLoading ? (
                 <div className="flex justify-center py-3">
                   <span className="loading loading-spinner loading-sm" />
                 </div>
@@ -296,7 +299,7 @@ export const UserDetailPage = () => {
                         }}
                       />
                       <span className="text-sm leading-snug truncate min-w-0">
-                        {typeof s === "object" ? s.name : `সাইট #${s}`}
+                        {getSiteName(id)}
                       </span>
                       {s.is_closed ? (
                         <span className="badge badge-ghost badge-xs shrink-0">
@@ -348,7 +351,7 @@ export const UserDetailPage = () => {
               <button
                 type="button"
                 className="btn btn-primary flex-1"
-                disabled={!confirmReady || busy || sitesQuery.isLoading}
+                disabled={!confirmReady || busy || sitesLoading}
                 onClick={(e) => {
                   if (!confirmReady) return;
                   return onConfirm(e);

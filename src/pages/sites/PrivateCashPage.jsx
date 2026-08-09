@@ -9,7 +9,6 @@ import {
   deletePrivateSiteCash,
   fetchActiveBillingCategories,
   fetchPrivateSiteCash,
-  fetchSiteDetail,
   updatePrivateSiteCash,
 } from '../../api/sites.js'
 import {
@@ -21,6 +20,7 @@ import {
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
+import { useSitesLookup } from '../../hooks/useSites.js'
 import {
   formatBnNumber,
   formatBnSigned,
@@ -107,6 +107,7 @@ export const PrivateCashPage = () => {
   const canAdd = can(PERMS.addPrivateSiteCash)
   const canChange = can(PERMS.changePrivateSiteCash)
   const canDelete = can(PERMS.deletePrivateSiteCash)
+  const { sites, getSiteName } = useSitesLookup({ enabled: canView })
 
   const isCreateMode = creating
   const isDetailMode = Boolean(selected) && !creating
@@ -120,15 +121,6 @@ export const PrivateCashPage = () => {
   } = useForm({
     resolver: zodResolver(privateCashFormSchema),
     defaultValues: emptyValues,
-  })
-
-  const siteQuery = useQuery({
-    queryKey: ['sites', siteId],
-    queryFn: async () => {
-      const { data } = await fetchSiteDetail(siteId)
-      return data
-    },
-    enabled: Boolean(canView && siteId),
   })
 
   const listQuery = useQuery({
@@ -165,8 +157,10 @@ export const PrivateCashPage = () => {
     enabled: Boolean(canView && siteId),
   })
 
-  const siteName = siteQuery.data?.name
-  const siteInactive = siteQuery.data?.is_active === false
+  const siteName =
+    siteId != null && siteId !== '' ? getSiteName(siteId) : ''
+  const cachedSite = sites.find((s) => String(s.id) === String(siteId))
+  const siteInactive = cachedSite?.is_active === false
   const rows = listQuery.data ?? []
   const billingOptions = billingQuery.data ?? []
 
@@ -337,7 +331,7 @@ export const PrivateCashPage = () => {
     )
   }
 
-  if (listQuery.isLoading || siteQuery.isLoading) {
+  if (listQuery.isLoading) {
     return (
       <div className="flex justify-center py-16">
         <span className="loading loading-spinner loading-lg text-primary" />
@@ -347,10 +341,6 @@ export const PrivateCashPage = () => {
 
   if (listQuery.isError) {
     return <ApiErrorAlert error={parseApiError(listQuery.error)} />
-  }
-
-  if (siteQuery.isError) {
-    return <ApiErrorAlert error={parseApiError(siteQuery.error)} />
   }
 
   const disabled = !editing

@@ -14,7 +14,6 @@ import {
   fetchLabourSessions,
   updateLabour,
 } from '../../api/labours.js'
-import { fetchSites } from '../../api/sites.js'
 import {
   DEFAULT_ATTENDANCE_OPTIONS,
   labourFormSchema,
@@ -25,6 +24,7 @@ import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { ListPagination } from '../../components/ListPagination.jsx'
 import { DetailMenuButton } from '../../layouts/DetailLayout.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
+import { useSitesLookup } from '../../hooks/useSites.js'
 import { formatBnNumber, formatBnSigned, NULL_SITE_LABEL } from '../../utils/format.js'
 import { confirmAction, toastSuccess } from '../../utils/feedback.js'
 import { PERMS } from '../../utils/permissions.js'
@@ -103,6 +103,8 @@ export const LabourDetailPage = () => {
   const canCloseSession = can(PERMS.addLabourSession)
   const canDeleteSession = can(PERMS.deleteLabourSession)
 
+  const { sites, getSiteName } = useSitesLookup({ enabled: canViewLabour })
+
   const {
     register,
     handleSubmit,
@@ -123,15 +125,6 @@ export const LabourDetailPage = () => {
     enabled: Boolean(canViewLabour && labourId),
   })
 
-  const sitesQuery = useQuery({
-    queryKey: ['sites'],
-    queryFn: async () => {
-      const { data } = await fetchSites({ page: 1, page_size: 100 })
-      return Array.isArray(data?.results) ? data.results : []
-    },
-    enabled: canViewLabour,
-  })
-
   const sessionsQuery = useQuery({
     queryKey: ['labours', labourId, 'sessions', { page, page_size: PAGE_SIZE }],
     queryFn: async () => {
@@ -146,7 +139,6 @@ export const LabourDetailPage = () => {
   })
 
   const labour = detailQuery.data
-  const sites = sitesQuery.data ?? []
   const sessionsPage = sessionsQuery.data ?? {
     results: [],
     count: 0,
@@ -157,18 +149,7 @@ export const LabourDetailPage = () => {
   const totalCount = sessionsPage.count ?? 0
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE) || 1)
 
-  const siteNameById = (() => {
-    const map = new Map()
-    for (const s of sites) {
-      if (s?.id != null) map.set(Number(s.id), s.name)
-    }
-    return map
-  })()
-
-  const siteLabel = (id) => {
-    if (id == null || id === '') return NULL_SITE_LABEL
-    return siteNameById.get(Number(id)) ?? `#${id}`
-  }
+  const siteLabel = (id) => getSiteName(id)
 
   useEffect(() => {
     const keys = sessions.map(sessionKeyOf)

@@ -30,6 +30,7 @@ import {
   summarizeDailyRecordLog,
 } from "../../components/DailyRecordHistoryPanel.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
+import { useSitesLookup } from "../../hooks/useSites.js";
 import {
   concatBillingName,
   formatBnNumber,
@@ -119,7 +120,6 @@ const buildRows = (records) => {
     rows.push({
       date: record.date,
       siteId: record.site ?? null,
-      siteName: record.site_name ?? null,
       recordId,
       sealed,
       attendanceId: recordId,
@@ -210,6 +210,7 @@ export const LabourSessionRecordsPage = () => {
   const isRunningRoute = sessionId === "running";
   const isLatestRoute = sessionId === "latest";
   const canView = can(PERMS.viewLabourSession);
+  const { getSiteName } = useSitesLookup({ enabled: canView });
   const canChangeDailyRecord = can(PERMS.changeDailyRecord);
   const canDeleteDailyRecord = can(PERMS.deleteDailyRecord);
   const canViewActivityLog =
@@ -351,11 +352,11 @@ export const LabourSessionRecordsPage = () => {
       seen.add(value);
       options.push({
         value,
-        label: row.siteName || `#${value}`,
+        label: getSiteName(row.siteId),
       });
     }
     return options;
-  }, [rows]);
+  }, [rows, getSiteName]);
 
   const visibleRows = useMemo(() => {
     return rows.filter((row) => {
@@ -507,7 +508,6 @@ export const LabourSessionRecordsPage = () => {
       recordId: row.recordId,
       sealed: Boolean(row.sealed),
       siteId: row.siteId,
-      siteName: row.siteName,
       present:
         row.present === "" || row.present == null ? "" : String(row.present),
       salary: row.salary,
@@ -773,12 +773,12 @@ export const LabourSessionRecordsPage = () => {
                     <td className="whitespace-nowrap">
                       <span className="block leading-tight">
                         <span>{formatDate(row.date)}</span>
-                        {row.siteName ? (
+                        {row.siteId != null && row.siteId !== "" ? (
                           <span
                             className="block text-xs text-base-content/60 truncate max-w-28"
-                            title={row.siteName}
+                            title={getSiteName(row.siteId)}
                           >
-                            {row.siteName}
+                            {getSiteName(row.siteId)}
                           </span>
                         ) : null}
                       </span>
@@ -954,11 +954,11 @@ export const LabourSessionRecordsPage = () => {
                       {formatDate(recordModal.date)}
                     </span>
                   </div>
-                  {recordModal.siteName ? (
+                  {recordModal.siteId != null && recordModal.siteId !== "" ? (
                     <div>
                       সাইট:{" "}
                       <span className="text-base-content font-medium">
-                        {recordModal.siteName}
+                        {getSiteName(recordModal.siteId)}
                       </span>
                     </div>
                   ) : null}

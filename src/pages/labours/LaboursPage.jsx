@@ -7,6 +7,7 @@ import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { ListPagination } from '../../components/ListPagination.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
+import { useSitesLookup } from '../../hooks/useSites.js'
 import { formatBnNumber, NULL_SITE_LABEL } from '../../utils/format.js'
 import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
@@ -18,6 +19,7 @@ export const LaboursPage = () => {
   const navigate = useNavigate()
   const { setTitle } = useOutletContext()
   const { can, profile, isCompanyAdmin } = usePermissions()
+  const { getSiteName } = useSitesLookup()
   const [nameQuery, setNameQuery] = useState('')
   const [search, setSearch] = useState('')
   const [siteFilter, setSiteFilter] = useState('all')
@@ -31,24 +33,19 @@ export const LaboursPage = () => {
     return list.filter((s) => s && s.id != null)
   }, [profile?.sites])
 
-  const siteNameById = useMemo(() => {
-    const map = new Map()
-    for (const s of allowedSites) {
-      map.set(Number(s.id), s.name)
-    }
-    return map
-  }, [allowedSites])
-
   const siteFilterOptions = useMemo(() => {
     const options = [{ value: 'all', label: 'সব সাইট' }]
     if (isCompanyAdmin) {
       options.push({ value: 'unassigned', label: NULL_SITE_LABEL })
     }
     for (const s of allowedSites) {
-      options.push({ value: String(s.id), label: s.name || `#${s.id}` })
+      options.push({
+        value: String(s.id),
+        label: getSiteName(s.id),
+      })
     }
     return options
-  }, [allowedSites, isCompanyAdmin])
+  }, [allowedSites, isCompanyAdmin, getSiteName])
 
   useEffect(() => {
     setTitle?.('লেবার ম্যানেজ')
@@ -86,10 +83,7 @@ export const LaboursPage = () => {
     placeholderData: (previousData) => previousData,
   })
 
-  const siteLabel = (id) => {
-    if (id == null || id === '') return NULL_SITE_LABEL
-    return siteNameById.get(Number(id)) ?? `#${id}`
-  }
+  const siteLabel = (id) => getSiteName(id)
 
   const pageData = laboursQuery.data ?? {
     results: [],

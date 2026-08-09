@@ -25,7 +25,6 @@ import {
   createBillingCategory,
   deleteBillingCategory,
   fetchBillingCategories,
-  fetchSiteDetail,
   updateBillingCategory,
 } from '../../api/sites.js'
 import {
@@ -37,6 +36,7 @@ import {
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
+import { useSitesLookup } from '../../hooks/useSites.js'
 import { formatBnNumber } from '../../utils/format.js'
 import { confirmAction, toastSuccess } from '../../utils/feedback.js'
 import { PERMS } from '../../utils/permissions.js'
@@ -134,6 +134,7 @@ export const SiteBillingPage = () => {
   const canAdd = can(PERMS.addBillingCategory)
   const canChange = can(PERMS.changeBillingCategory)
   const canDelete = can(PERMS.deleteBillingCategory)
+  const { getSiteName } = useSitesLookup({ enabled: canView })
 
   const isCreateMode = creating
   const isDetailMode = Boolean(selected) && !creating
@@ -164,15 +165,6 @@ export const SiteBillingPage = () => {
     }),
   )
 
-  const siteQuery = useQuery({
-    queryKey: ['sites', siteId],
-    queryFn: async () => {
-      const { data } = await fetchSiteDetail(siteId)
-      return data
-    },
-    enabled: Boolean(canView && siteId),
-  })
-
   const listQuery = useQuery({
     queryKey: ['sites', siteId, 'billing-categories'],
     queryFn: async () => {
@@ -185,7 +177,8 @@ export const SiteBillingPage = () => {
     enabled: Boolean(canView && siteId),
   })
 
-  const siteName = siteQuery.data?.name
+  const siteName =
+    siteId != null && siteId !== '' ? getSiteName(siteId) : ''
 
   useEffect(() => {
     if (listQuery.data) setRows(listQuery.data)
@@ -399,7 +392,7 @@ export const SiteBillingPage = () => {
     )
   }
 
-  if (listQuery.isLoading || siteQuery.isLoading) {
+  if (listQuery.isLoading) {
     return (
       <div className="flex justify-center py-16">
         <span className="loading loading-spinner loading-lg text-primary" />
@@ -409,10 +402,6 @@ export const SiteBillingPage = () => {
 
   if (listQuery.isError) {
     return <ApiErrorAlert error={parseApiError(listQuery.error)} />
-  }
-
-  if (siteQuery.isError) {
-    return <ApiErrorAlert error={parseApiError(siteQuery.error)} />
   }
 
   const disabled = !editing
