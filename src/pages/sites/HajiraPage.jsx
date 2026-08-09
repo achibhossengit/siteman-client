@@ -2787,26 +2787,21 @@ export const HajiraPage = () => {
           <h3 className="font-bold text-lg pr-8">বিলিং</h3>
           <div className="pt-3 space-y-4">
             <div>
-              <p className="text-sm font-medium mb-2">দেখান</p>
-              <div className="menu bg-base-100 w-full p-0">
+              <div className="flex flex-col gap-2">
                 {billingFilterOptions.map((opt) => (
-                  <button
+                  <label
                     key={opt.value}
-                    type="button"
-                    className={`btn btn-ghost btn-sm justify-start ${
-                      billingFilter === opt.value ? "btn-active" : ""
-                    }`}
-                    onClick={() => {
-                      setBillingFilter(opt.value);
-                      if (!showBulkSection) {
-                        document
-                          .getElementById(BILLING_FILTER_MODAL_ID)
-                          ?.close();
-                      }
-                    }}
+                    className="inline-flex items-center gap-2 cursor-pointer text-sm"
                   >
-                    {opt.label}
-                  </button>
+                    <input
+                      type="radio"
+                      name="hajira_billing_filter"
+                      className="radio radio-xs"
+                      checked={billingFilter === opt.value}
+                      onChange={() => setBillingFilter(opt.value)}
+                    />
+                    <span>{opt.label}</span>
+                  </label>
                 ))}
               </div>
             </div>
