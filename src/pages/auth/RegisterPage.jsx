@@ -16,20 +16,27 @@ import {
 
 const schema = z.object({
   name: z.string().min(2, 'নাম দিন'),
-  phone_number: z.string().min(8, 'ফোন নম্বর দিন'),
+  phone_number: z
+    .string()
+    .regex(/^\d{11}$/, '১১ ডিজিটের ফোন নম্বর দিন'),
   email: z.string().trim().email('সঠিক ইমেইল দিন'),
   company_name: z.string().min(2, 'কোম্পানির নাম দিন'),
-  password: z.string().min(6, 'কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড'),
+  password: z
+    .string()
+    .min(6, 'কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড')
+    .max(20, 'পাসওয়ার্ড সর্বোচ্চ ২০ অক্ষরের হতে পারে'),
 })
 
 export const RegisterPage = () => {
   const navigate = useNavigate()
   const [apiError, setApiError] = useState(null)
+  const [showPassword, setShowPassword] = useState(false)
 
   const {
     register,
     handleSubmit,
     setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(schema),
@@ -41,6 +48,13 @@ export const RegisterPage = () => {
       password: '',
     },
   })
+
+  const phoneNumber = watch('phone_number')
+  const password = watch('password')
+  const canSubmit =
+    /^\d{11}$/.test(phoneNumber ?? '') &&
+    (password?.length ?? 0) >= 6 &&
+    (password?.length ?? 0) <= 20
 
   const onSubmit = handleSubmit(async (values) => {
     if (REGISTRATION_DISABLED) return
@@ -73,7 +87,7 @@ export const RegisterPage = () => {
   return (
     <div className="card bg-base-100 shadow-sm border border-base-300">
       <form className="card-body gap-3" onSubmit={onSubmit} noValidate>
-        <h1 className="card-title justify-center text-xl">ঠিকাদার হিসেবে রেজিস্ট্রেশন করুন</h1>
+        <h1 className="card-title justify-center text-xl">রেজিস্ট্রেশন করুন</h1>
         {REGISTRATION_DISABLED ? (
           <div role="status" className="alert alert-warning">
             <span>{REGISTRATION_DISABLED_MESSAGE}</span>
@@ -86,6 +100,7 @@ export const RegisterPage = () => {
           <span className="label-text mb-1">নাম</span>
           <input
             className={`input input-bordered w-full ${errors.name ? 'input-error' : ''}`}
+            placeholder="আপনার নাম দিন"
             disabled={REGISTRATION_DISABLED}
             {...register('name')}
           />
@@ -100,8 +115,10 @@ export const RegisterPage = () => {
           <span className="label-text mb-1">ফোন নম্বর</span>
           <input
             type="tel"
+            inputMode="numeric"
+            maxLength={11}
             className={`input input-bordered w-full ${errors.phone_number ? 'input-error' : ''}`}
-            placeholder="+8801..."
+            placeholder="১১ ডিজিটের ফোন নম্বর দিন"
             disabled={REGISTRATION_DISABLED}
             {...register('phone_number')}
           />
@@ -117,6 +134,7 @@ export const RegisterPage = () => {
           <input
             type="email"
             className={`input input-bordered w-full ${errors.email ? 'input-error' : ''}`}
+            placeholder="ইমেইল ঠিকানা দিন"
             disabled={REGISTRATION_DISABLED}
             {...register('email')}
           />
@@ -131,6 +149,7 @@ export const RegisterPage = () => {
           <span className="label-text mb-1">কোম্পানির নাম</span>
           <input
             className={`input input-bordered w-full ${errors.company_name ? 'input-error' : ''}`}
+            placeholder="কোম্পানির নাম দিন"
             disabled={REGISTRATION_DISABLED}
             {...register('company_name')}
           />
@@ -144,9 +163,11 @@ export const RegisterPage = () => {
         <label className="form-control w-full">
           <span className="label-text mb-1">পাসওয়ার্ড</span>
           <input
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             autoComplete="new-password"
+            maxLength={20}
             className={`input input-bordered w-full ${errors.password ? 'input-error' : ''}`}
+            placeholder="কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড দিন"
             disabled={REGISTRATION_DISABLED}
             {...register('password')}
           />
@@ -157,10 +178,21 @@ export const RegisterPage = () => {
           ) : null}
         </label>
 
+        <div className="flex items-center justify-start text-sm">
+          <button
+            type="button"
+            className="link link-hover text-base-content/70"
+            disabled={REGISTRATION_DISABLED}
+            onClick={() => setShowPassword((prev) => !prev)}
+          >
+            {showPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
+          </button>
+        </div>
+
         <button
           type="submit"
           className="btn btn-primary w-full"
-          disabled={REGISTRATION_DISABLED || isSubmitting}
+          disabled={REGISTRATION_DISABLED || !canSubmit || isSubmitting}
         >
           {isSubmitting ? (
             <span className="loading loading-spinner loading-sm" />

@@ -63,8 +63,10 @@ export const PasswordResetPage = () => {
           <span className="label-text mb-1">ফোন নম্বর</span>
           <input
             type="tel"
+            inputMode="numeric"
+            maxLength={11}
             className={`input input-bordered w-full ${errors.phone_number ? 'input-error' : ''}`}
-            placeholder="+8801..."
+            placeholder="১১ ডিজিটের ফোন নম্বর দিন"
             {...register('phone_number')}
           />
           {errors.phone_number ? (

@@ -116,7 +116,9 @@ export const PasswordResetConfirmPage = () => {
             <input
               type="password"
               autoComplete="new-password"
+              maxLength={20}
               className={`input input-bordered w-full ${passwordError ? "input-error" : ""}`}
+              placeholder="নতুন পাসওয়ার্ড দিন (কমপক্ষে ৬ অক্ষর)"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
             />

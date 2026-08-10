@@ -10,8 +10,13 @@ import { toastSuccess } from "../../utils/feedback.js";
 import { paths } from "../../router/paths.js";
 
 const schema = z.object({
-  phone_number: z.string().min(8, "ফোন নম্বর দিন"),
-  password: z.string().min(1, "পাসওয়ার্ড দিন"),
+  phone_number: z
+    .string()
+    .regex(/^\d{11}$/, "১১ ডিজিটের ফোন নম্বর দিন"),
+  password: z
+    .string()
+    .min(1, "পাসওয়ার্ড দিন")
+    .max(20, "পাসওয়ার্ড সর্বোচ্চ ২০ অক্ষরের হতে পারে"),
 });
 
 export const LoginPage = () => {
@@ -19,6 +24,7 @@ export const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [apiError, setApiError] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const successBanner = location.state?.registered
     ? "নিবন্ধন সম্পন্ন — এখন লগইন করুন"
@@ -35,11 +41,19 @@ export const LoginPage = () => {
     register,
     handleSubmit,
     setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(schema),
     defaultValues: { phone_number: "", password: "" },
   });
+
+  const phoneNumber = watch("phone_number");
+  const password = watch("password");
+  const canSubmit =
+    /^\d{11}$/.test(phoneNumber ?? "") &&
+    (password?.length ?? 0) >= 1 &&
+    (password?.length ?? 0) <= 20;
 
   const onSubmit = handleSubmit(async (values) => {
     setApiError(null);
@@ -58,7 +72,7 @@ export const LoginPage = () => {
       <form className="card-body gap-3" onSubmit={onSubmit} noValidate>
         <h1 className="card-title justify-center text-2xl">লগইন</h1>
         <p className="text-center text-sm text-base-content/70 -mt-1">
-           ফোন নম্বর ও পাসওয়ার্ড দিয়ে প্রবেশ করুন
+          ফোন নম্বর ও পাসওয়ার্ড দিয়ে প্রবেশ করুন
         </p>
 
         <ApiErrorAlert error={apiError} />
@@ -67,9 +81,11 @@ export const LoginPage = () => {
           <span className="label-text mb-1">ফোন নম্বর</span>
           <input
             type="tel"
+            inputMode="numeric"
             autoComplete="username"
+            maxLength={11}
             className={`input input-bordered w-full ${errors.phone_number ? "input-error" : ""}`}
-            placeholder="+8801..."
+            placeholder="১১ ডিজিটের ফোন নম্বর দিন"
             {...register("phone_number")}
           />
           {errors.phone_number ? (
@@ -82,9 +98,11 @@ export const LoginPage = () => {
         <label className="form-control w-full">
           <span className="label-text mb-1">পাসওয়ার্ড</span>
           <input
-            type="password"
+            type={showPassword ? "text" : "password"}
             autoComplete="current-password"
+            maxLength={20}
             className={`input input-bordered w-full ${errors.password ? "input-error" : ""}`}
+            placeholder="পাসওয়ার্ড দিন"
             {...register("password")}
           />
           {errors.password ? (
@@ -93,14 +111,27 @@ export const LoginPage = () => {
             </span>
           ) : null}
         </label>
-        <Link to={paths.passwordReset} className="link link-hover text-base-content/70">
-          পাসওয়ার্ড ভুলে গেছেন?
-        </Link>
+
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <button
+            type="button"
+            className="link link-hover text-base-content/70"
+            onClick={() => setShowPassword((prev) => !prev)}
+          >
+            {showPassword ? "পাসওয়ার্ড লুকান" : "পাসওয়ার্ড দেখুন"}
+          </button>
+          <Link
+            to={paths.passwordReset}
+            className="link link-hover text-base-content/70"
+          >
+            পাসওয়ার্ড ভুলে গেছেন?
+          </Link>
+        </div>
 
         <button
           type="submit"
           className="btn btn-primary w-full"
-          disabled={isSubmitting}
+          disabled={!canSubmit || isSubmitting}
         >
           {isSubmitting ? (
             <span className="loading loading-spinner loading-sm" />
@@ -111,10 +142,9 @@ export const LoginPage = () => {
 
         <div className="flex flex-col gap-1 text-right text-sm pt-1">
           <Link to={paths.register} className="link link-hover text-base-content/70">
-          ঠিকাদার হলে আগে রেজিস্ট্রেশন করুন?
+            ঠিকাদার হলে আগে রেজিস্ট্রেশন করুন?
           </Link>
         </div>
-   
       </form>
     </div>
   );
