@@ -16,6 +16,7 @@ import { ThemeToggle } from '../components/ThemeToggle.jsx'
 import { useAuth } from '../providers/AuthProvider.jsx'
 import { usePermissions } from '../hooks/usePermissions.js'
 import { useTheme } from '../providers/ThemeProvider.jsx'
+import { confirmAction } from '../utils/feedback.js'
 import { groupLabelBn, hasPermissionSuffix, PERMS } from '../utils/permissions.js'
 import { THEME_DARK } from '../utils/theme.js'
 import { paths } from '../router/paths.js'
@@ -210,6 +211,15 @@ export const OthersPage = () => {
   const [loggingOut, setLoggingOut] = useState(false)
 
   const onLogout = async () => {
+    if (loggingOut) return
+    const ok = await confirmAction({
+      title: 'লগ আউট করবেন?',
+      text: 'আপনি অ্যাপ থেকে সাইন আউট হয়ে যাবেন।',
+      confirmText: 'লগ আউট',
+      danger: true,
+    })
+    if (!ok) return
+
     setLoggingOut(true)
     try {
       await logout()
