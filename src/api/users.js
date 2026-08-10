@@ -28,7 +28,7 @@ export const fetchUsers = ({
 export const fetchUserDetail = (userId) =>
   api.get(endpoints.users.detail(userId))
 
-/** POST /users — create (password system-generated). */
+/** POST /users — create with admin-set initial password. */
 export const createUser = (payload) => api.post(endpoints.users.list, payload)
 
 /** PATCH /users/{id} */

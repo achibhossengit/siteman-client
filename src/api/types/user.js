@@ -26,7 +26,10 @@ export const userCreateSchema = z.object({
     .trim()
     .min(8, 'ফোন নম্বর দিন')
     .max(14, 'ফোন নম্বর একটু ছোট করুন'),
-  email: requiredEmail,
+  password: z
+    .string()
+    .min(6, 'কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড')
+    .max(20, 'পাসওয়ার্ড সর্বোচ্চ ২০ অক্ষরের হতে পারে'),
 })
 
 /** Admin user PATCH — only is_active + assignment replace. Single group only. */
@@ -36,12 +39,24 @@ export const userAdminUpdateSchema = z.object({
   sites: z.array(z.number().int()),
 })
 
-export const profileUpdateSchema = userCreateSchema
+export const profileUpdateSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, 'নাম দিন')
+    .max(255, 'নাম একটু ছোট করুন'),
+  phone_number: z
+    .string()
+    .trim()
+    .min(8, 'ফোন নম্বর দিন')
+    .max(14, 'ফোন নম্বর একটু ছোট করুন'),
+  email: requiredEmail,
+})
 
-export const toUserCreatePayload = ({ name, phone_number, email }) => ({
+export const toUserCreatePayload = ({ name, phone_number, password }) => ({
   name: String(name ?? '').trim(),
   phone_number: String(phone_number ?? '').trim(),
-  email: email?.trim() ? email.trim() : null,
+  password: String(password ?? ''),
 })
 
 export const toUserAdminUpdatePayload = ({ is_active, groups, sites }) => ({

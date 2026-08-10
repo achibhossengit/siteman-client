@@ -18,7 +18,7 @@ import { paths } from '../../router/paths.js'
 const emptyValues = {
   name: '',
   phone_number: '',
-  email: '',
+  password: '',
 }
 
 export const UserNewPage = () => {
@@ -27,6 +27,7 @@ export const UserNewPage = () => {
   const queryClient = useQueryClient()
   const { can } = usePermissions()
   const [apiError, setApiError] = useState(null)
+  const [showPassword, setShowPassword] = useState(false)
 
   const canAddUser = can(PERMS.addUser)
 
@@ -89,8 +90,8 @@ export const UserNewPage = () => {
       <ApiErrorAlert error={apiError} className="mb-3" />
 
       <p className="text-sm text-base-content/70 mb-3">
-        পাসওয়ার্ড সিস্টেম থেকে তৈরি হবে। ইউজার ফরগট-পাসওয়ার্ড দিয়ে সেট করতে
-        পারবে।
+        প্রাথমিক পাসওয়ার্ড এখানে সেট করুন এবং ইউজারকে জানিয়ে দিন। পরে ইউজার
+        নিজে পাসওয়ার্ড বদলাতে পারবে।
       </p>
 
       <form className="flex flex-col gap-3" onSubmit={onSubmit} noValidate>
@@ -126,19 +127,31 @@ export const UserNewPage = () => {
         </label>
 
         <label className="form-control w-full">
-          <span className="label-text mb-1">ইমেইল</span>
+          <span className="label-text mb-1">পাসওয়ার্ড</span>
           <input
-            type="email"
-            className={`input input-bordered w-full ${errors.email ? 'input-error' : ''}`}
-            maxLength={254}
-            {...register('email')}
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="new-password"
+            maxLength={20}
+            className={`input input-bordered w-full ${errors.password ? 'input-error' : ''}`}
+            placeholder="কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড"
+            {...register('password')}
           />
-          {errors.email ? (
+          {errors.password ? (
             <span className="label-text-alt text-error mt-1">
-              {errors.email.message}
+              {errors.password.message}
             </span>
           ) : null}
         </label>
+
+        <div className="flex items-center justify-start text-sm">
+          <button
+            type="button"
+            className="link link-hover text-base-content/70"
+            onClick={() => setShowPassword((prev) => !prev)}
+          >
+            {showPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
+          </button>
+        </div>
 
         <div className="flex justify-between gap-2 mt-2">
           <button

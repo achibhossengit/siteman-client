@@ -7929,7 +7929,8 @@ paths:
       description: |-
         Company-scoped user management.
 
-        PATCH only updates ``is_active`` and replaces assigned ``groups`` and ``sites``.
+        POST accepts an initial ``password`` so the admin can share credentials;
+        PATCH cannot change passwords (only ``is_active``, ``groups``, ``sites``).
         DELETE hard-deletes the user (``UserSite`` cascades; activity actor FKs null).
       parameters:
         - in: query
@@ -8099,7 +8100,8 @@ paths:
       description: |-
         Company-scoped user management.
 
-        PATCH only updates ``is_active`` and replaces assigned ``groups`` and ``sites``.
+        POST accepts an initial ``password`` so the admin can share credentials;
+        PATCH cannot change passwords (only ``is_active``, ``groups``, ``sites``).
         DELETE hard-deletes the user (``UserSite`` cascades; activity actor FKs null).
       tags:
         - users
@@ -8255,7 +8257,8 @@ paths:
       description: |-
         Company-scoped user management.
 
-        PATCH only updates ``is_active`` and replaces assigned ``groups`` and ``sites``.
+        POST accepts an initial ``password`` so the admin can share credentials;
+        PATCH cannot change passwords (only ``is_active``, ``groups``, ``sites``).
         DELETE hard-deletes the user (``UserSite`` cascades; activity actor FKs null).
       parameters:
         - in: path
@@ -8405,7 +8408,8 @@ paths:
       description: |-
         Company-scoped user management.
 
-        PATCH only updates ``is_active`` and replaces assigned ``groups`` and ``sites``.
+        POST accepts an initial ``password`` so the admin can share credentials;
+        PATCH cannot change passwords (only ``is_active``, ``groups``, ``sites``).
         DELETE hard-deletes the user (``UserSite`` cascades; activity actor FKs null).
       parameters:
         - in: path
@@ -8566,7 +8570,8 @@ paths:
       description: |-
         Company-scoped user management.
 
-        PATCH only updates ``is_active`` and replaces assigned ``groups`` and ``sites``.
+        POST accepts an initial ``password`` so the admin can share credentials;
+        PATCH cannot change passwords (only ``is_active``, ``groups``, ``sites``).
         DELETE hard-deletes the user (``UserSite`` cascades; activity actor FKs null).
       parameters:
         - in: path
@@ -10521,10 +10526,6 @@ components:
           type: integer
           nullable: true
           description: Optional billing category; site may run without categories.
-        billing_name:
-          type: string
-          readOnly: true
-          nullable: true
         site:
           type: integer
         is_sealed:
@@ -10539,7 +10540,6 @@ components:
           format: date-time
           readOnly: true
       required:
-        - billing_name
         - created_at
         - id
         - site
@@ -13307,8 +13307,6 @@ components:
           maxLength: 255
         phone_number:
           type: string
-          description: BD phone, normalized to +8801XXXXXXXXX.
-          maxLength: 14
         email:
           type: string
           format: email
@@ -13567,7 +13565,6 @@ components:
           enum:
             - blank
             - invalid
-            - max_length
             - "null"
             - null_characters_not_allowed
             - required
@@ -13576,7 +13573,6 @@ components:
           description: |-
             * `blank` - blank
             * `invalid` - invalid
-            * `max_length` - max_length
             * `null` - null
             * `null_characters_not_allowed` - null_characters_not_allowed
             * `required` - required
@@ -13763,10 +13759,6 @@ components:
           type: integer
           nullable: true
           description: Optional billing category; nullable for all types.
-        billing_name:
-          type: string
-          readOnly: true
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -13777,7 +13769,6 @@ components:
           readOnly: true
       required:
         - amount
-        - billing_name
         - created_at
         - id
         - type
@@ -13936,10 +13927,6 @@ components:
           type: integer
           nullable: true
           description: Optional billing category; site may run without categories.
-        billing_name:
-          type: string
-          readOnly: true
-          nullable: true
         is_sealed:
           type: boolean
           description: True = immutable; set by work-session seal.
@@ -13952,7 +13939,6 @@ components:
           format: date-time
           readOnly: true
       required:
-        - billing_name
         - created_at
         - id
         - labour_current_site
@@ -16015,6 +16001,12 @@ components:
         * `cost` - Cost
     UserCreate:
       type: object
+      description: |-
+        Create a company user with an initial password set by the admin.
+
+        Password is write-only and create-only. Updates go through
+        ``UserUpdateSerializer``, which does not accept password — users change
+        their own password via ``/auth/password/change`` or reset.
       properties:
         id:
           type: integer
@@ -16024,12 +16016,9 @@ components:
           maxLength: 255
         phone_number:
           type: string
-          description: BD phone, normalized to +8801XXXXXXXXX.
-          maxLength: 14
-        email:
+        password:
           type: string
-          format: email
-          maxLength: 254
+          writeOnly: true
         is_active:
           type: boolean
           readOnly: true
@@ -16053,11 +16042,11 @@ components:
       required:
         - company
         - created_at
-        - email
         - id
         - is_active
         - is_companyadmin
         - name
+        - password
         - phone_number
         - updated_at
     UserList:
@@ -16071,8 +16060,7 @@ components:
           maxLength: 255
         phone_number:
           type: string
-          description: BD phone, normalized to +8801XXXXXXXXX.
-          maxLength: 14
+          readOnly: true
         email:
           type: string
           format: email
@@ -16103,8 +16091,6 @@ components:
           maxLength: 255
         phone_number:
           type: string
-          description: BD phone, normalized to +8801XXXXXXXXX.
-          maxLength: 14
         email:
           type: string
           format: email
@@ -16161,51 +16147,19 @@ components:
             type: integer
       required:
         - id
-    UsersCreateEmailErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - email
-          type: string
-          description: "* `email` - email"
-        code:
-          enum:
-            - blank
-            - invalid
-            - max_length
-            - "null"
-            - null_characters_not_allowed
-            - required
-            - surrogate_characters_not_allowed
-          type: string
-          description: |-
-            * `blank` - blank
-            * `invalid` - invalid
-            * `max_length` - max_length
-            * `null` - null
-            * `null_characters_not_allowed` - null_characters_not_allowed
-            * `required` - required
-            * `surrogate_characters_not_allowed` - surrogate_characters_not_allowed
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
     UsersCreateError:
       oneOf:
         - $ref: "#/components/schemas/UsersCreateNonFieldErrorsErrorComponent"
         - $ref: "#/components/schemas/UsersCreateNameErrorComponent"
         - $ref: "#/components/schemas/UsersCreatePhoneNumberErrorComponent"
-        - $ref: "#/components/schemas/UsersCreateEmailErrorComponent"
+        - $ref: "#/components/schemas/UsersCreatePasswordErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
           non_field_errors: "#/components/schemas/UsersCreateNonFieldErrorsErrorComponent"
           name: "#/components/schemas/UsersCreateNameErrorComponent"
           phone_number: "#/components/schemas/UsersCreatePhoneNumberErrorComponent"
-          email: "#/components/schemas/UsersCreateEmailErrorComponent"
+          password: "#/components/schemas/UsersCreatePasswordErrorComponent"
     UsersCreateErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/UsersCreateValidationError"
@@ -16271,6 +16225,36 @@ components:
         - attr
         - code
         - detail
+    UsersCreatePasswordErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - password
+          type: string
+          description: "* `password` - password"
+        code:
+          enum:
+            - blank
+            - invalid
+            - "null"
+            - null_characters_not_allowed
+            - required
+            - surrogate_characters_not_allowed
+          type: string
+          description: |-
+            * `blank` - blank
+            * `invalid` - invalid
+            * `null` - null
+            * `null_characters_not_allowed` - null_characters_not_allowed
+            * `required` - required
+            * `surrogate_characters_not_allowed` - surrogate_characters_not_allowed
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
     UsersCreatePhoneNumberErrorComponent:
       type: object
       properties:
@@ -16283,7 +16267,6 @@ components:
           enum:
             - blank
             - invalid
-            - max_length
             - "null"
             - null_characters_not_allowed
             - required
@@ -16292,7 +16275,6 @@ components:
           description: |-
             * `blank` - blank
             * `invalid` - invalid
-            * `max_length` - max_length
             * `null` - null
             * `null_characters_not_allowed` - null_characters_not_allowed
             * `required` - required
