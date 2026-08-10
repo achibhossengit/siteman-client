@@ -1603,18 +1603,33 @@ export const HajiraPage = () => {
     setRows((prev) =>
       prev.map((row) => {
         if (!isBulkTargetRow(row)) return row;
+
+        const applyingPresent =
+          bulkAttendance.present !== "" && isBlank(row.present);
+        const nextPresent = applyingPresent
+          ? Number(bulkAttendance.present)
+          : row.present;
+
+        let nextSalary = row.salary;
+        if (
+          bulkAttendance.salary !== "" &&
+          bulkAttendance.salary != null &&
+          isBlank(row.salary)
+        ) {
+          nextSalary = Number(bulkAttendance.salary);
+        } else if (
+          applyingPresent &&
+          isBlank(row.salary) &&
+          (bulkAttendance.salary === "" || bulkAttendance.salary == null) &&
+          !isBlank(row.defaultSalary)
+        ) {
+          nextSalary = Number(row.defaultSalary);
+        }
+
         return {
           ...row,
-          present:
-            bulkAttendance.present !== "" && isBlank(row.present)
-              ? Number(bulkAttendance.present)
-              : row.present,
-          salary:
-            bulkAttendance.salary !== "" &&
-            bulkAttendance.salary != null &&
-            isBlank(row.salary)
-              ? Number(bulkAttendance.salary)
-              : row.salary,
+          present: nextPresent,
+          salary: nextSalary,
         };
       }),
     );
@@ -1858,12 +1873,16 @@ export const HajiraPage = () => {
         );
         return;
       }
-      await queryClient.invalidateQueries({
-        queryKey: ["sites", siteId, "daily-records"],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["sites", siteId, "daily-reports"],
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["sites", siteId, "daily-records"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["sites", siteId, "daily-reports"],
+        }),
+        queryClient.invalidateQueries({ queryKey: pendingLogQueryKey }),
+        queryClient.invalidateQueries({ queryKey: ["activities", "list"] }),
+      ]);
       toastSuccess("হাজিরা ও পেমেন্ট সেভ হয়েছে");
     } catch (err) {
       const parsed = parseApiError(err);
@@ -1937,6 +1956,8 @@ export const HajiraPage = () => {
         : "এই তারিখে কোনো হাজিরা নেই।";
 
   const recordModalLocked = !modalEditable;
+  const salaryFieldEnabled =
+    Boolean(recordModal) && !recordModalLocked && hasPresent(recordModal);
   const billingFieldEnabled =
     Boolean(recordModal) &&
     !recordModalLocked &&
@@ -1946,6 +1967,9 @@ export const HajiraPage = () => {
     setRecordModal((m) => {
       if (!m) return m;
       const next = { ...m, ...patch };
+      if (!hasPresent(next)) {
+        next.salary = "";
+      }
       if (!canSetBillingOnRow(next)) {
         next.billing = "";
         next.billingName = null;
@@ -2414,9 +2438,25 @@ export const HajiraPage = () => {
                           className="select select-bordered select-sm w-full"
                           value={recordModal.present}
                           disabled={recordModalLocked}
-                          onChange={(e) =>
-                            patchRecordModal({ present: e.target.value })
-                          }
+                          onChange={(e) => {
+                            const present = e.target.value;
+                            if (present === "") {
+                              patchRecordModal({ present: "", salary: "" });
+                              return;
+                            }
+                            const row = rows.find(
+                              (r) => r.labourId === recordModal.labourId,
+                            );
+                            const fillingFromEmpty = !hasPresent(recordModal);
+                            patchRecordModal({
+                              present,
+                              ...(fillingFromEmpty
+                                ? {
+                                    salary: numOrEmpty(row?.defaultSalary),
+                                  }
+                                : {}),
+                            });
+                          }}
                         >
                           <option value="">—</option>
                           {PRESENT_OPTIONS.map((v) => (
@@ -2434,12 +2474,11 @@ export const HajiraPage = () => {
                           min={0}
                           className="input input-bordered input-sm w-full tabular-nums"
                           value={recordModal.salary}
-                          disabled={recordModalLocked}
+                          disabled={!salaryFieldEnabled}
                           onChange={(e) =>
-                            setRecordModal((m) => ({
-                              ...m,
+                            patchRecordModal({
                               salary: numOrEmpty(e.target.value),
-                            }))
+                            })
                           }
                         />
                       </label>
@@ -2744,12 +2783,14 @@ export const HajiraPage = () => {
                     <select
                       className="select select-bordered select-sm w-full"
                       value={bulkAttendance.present}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const present = e.target.value;
                         setBulkAttendance((m) => ({
                           ...m,
-                          present: e.target.value,
-                        }))
-                      }
+                          present,
+                          ...(present === "" ? { salary: "" } : {}),
+                        }));
+                      }}
                     >
                       <option value="">—</option>
                       {PRESENT_OPTIONS.map((v) => (
@@ -2766,6 +2807,7 @@ export const HajiraPage = () => {
                       min={0}
                       className="input input-bordered input-sm w-full tabular-nums"
                       value={bulkAttendance.salary}
+                      disabled={bulkAttendance.present === ""}
                       onChange={(e) =>
                         setBulkAttendance((m) => ({
                           ...m,
