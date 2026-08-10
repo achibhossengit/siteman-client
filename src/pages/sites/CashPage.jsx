@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Trash2, X } from 'lucide-react'
+import { Pencil, Plus, Trash2, X } from 'lucide-react'
 import {
   createSiteCash,
   deleteSiteCash,
@@ -986,11 +986,12 @@ export const CashPage = () => {
           ) : canAddCash ? (
             <button
               type="button"
-              className="btn btn-primary shadow-lg"
+              className="btn btn-primary btn-circle btn-lg shadow-lg"
               onClick={openCreate}
               disabled={!date || siteInactive}
+              aria-label="নতুন ক্যাশ"
             >
-              + নতুন ক্যাশ
+              <Plus className="size-7" strokeWidth={2} />
             </button>
           ) : null}
         </div>
