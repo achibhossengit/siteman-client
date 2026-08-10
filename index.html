@@ -6,7 +6,7 @@
     <link rel="apple-touch-icon" href="/logo.png" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#FC6D4D" />
+    <meta name="theme-color" content="#fafafa" />
     <title>সাইট ম্যানেজার</title>
     <script>
       (function () {
@@ -17,10 +17,12 @@
             preference === 'siteman-dark' ||
             (preference === 'system' &&
               window.matchMedia('(prefers-color-scheme: dark)').matches)
-          document.documentElement.setAttribute(
-            'data-theme',
-            dark ? 'siteman-dark' : 'siteman',
-          )
+          var theme = dark ? 'siteman-dark' : 'siteman'
+          document.documentElement.setAttribute('data-theme', theme)
+          var meta = document.querySelector('meta[name="theme-color"]')
+          if (meta) {
+            meta.setAttribute('content', dark ? '#1c1b20' : '#fafafa')
+          }
         } catch (e) {
           document.documentElement.setAttribute('data-theme', 'siteman')
         }

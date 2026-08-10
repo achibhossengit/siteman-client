@@ -3,6 +3,8 @@
   "short_name": "সাইট ম্যান",
   "start_url": "/",
   "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#fafafa",
   "icons": [
     {
       "src": "/logo.png",

@@ -1,43 +1,65 @@
-import { Link, NavLink } from "react-router-dom";
-import { BrandLogo } from "./BrandLogo.jsx";
-import { useAuth } from "../providers/AuthProvider.jsx";
-import { paths } from "../router/paths.js";
+import { Link, NavLink } from 'react-router-dom'
+import { BrandLogo } from './BrandLogo.jsx'
+import { useAuth } from '../providers/AuthProvider.jsx'
+import { paths } from '../router/paths.js'
 
 /**
  * Shared top chrome: brand + auth actions (login/register or profile).
  */
 export const AppHeader = () => {
-  const { isAuthenticated, profile } = useAuth();
+  const { isAuthenticated, profile } = useAuth()
+
+  const companyName =
+    typeof profile?.company === 'object'
+      ? profile.company?.name
+      : profile?.company
+  const userName = profile?.name?.trim() || ''
 
   return (
-    <header
-      className={`bg-base-100 border-b border-base-300 w-full sticky top-0 z-30 h-14`}
-    >
-      <div className="max-w-5xl mx-auto w-full flex justify-between items-stretch px-2 py-1.5">
-        <div>
+    <header className="bg-base-100 border-b border-base-300 w-full sticky top-0 z-30 h-14">
+      <div className="max-w-5xl mx-auto w-full flex justify-between items-center gap-2 px-2 py-1.5">
+        <div className="flex items-end gap-2 min-w-0">
           <BrandLogo />
+          <p className="text-md sm:text-lg font-medium text-base-content leading-normal">
+            সাইটম্যান
+          </p>
         </div>
-        <div className="flex items-center gap-1 sm:gap-2">
+
+        <div className="flex items-center gap-2 min-w-0 shrink-0">
           {isAuthenticated ? (
-            <Link
-              to={paths.profile}
-              className="avatar placeholder"
-              aria-label="প্রোফাইল"
-              title={profile?.name || "প্রোফাইল"}
-            >
-              <div className="bg-neutral text-neutral-content w-8 rounded-full">
-                <img src="/user.png" alt="" className="object-cover" />
-              </div>
-            </Link>
+            <>
+              {companyName || userName ? (
+                <div className="min-w-0 leading-tight text-right">
+                  {companyName ? (
+                    <p className="text-sm font-medium text-base-content truncate max-w-28 sm:max-w-44">
+                      {companyName}
+                    </p>
+                  ) : null}
+                  {userName ? (
+                    <p className="text-xs text-base-content/55 truncate max-w-28 sm:max-w-44">
+                      {userName}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+              <Link
+                to={paths.profile}
+                className="avatar placeholder shrink-0"
+                aria-label="প্রোফাইল"
+                title={userName || companyName || 'প্রোফাইল'}
+              >
+                <div className="bg-neutral text-neutral-content w-10 h-10 rounded-full">
+                  <img src="/user.png" alt="" className="object-cover" />
+                </div>
+              </Link>
+            </>
           ) : (
-            <div className="flex items-center gap-1.5">
-              <NavLink to={paths.login} className="btn btn-primary btn-sm">
-                লগইন
-              </NavLink>
-            </div>
+            <NavLink to={paths.login} className="btn btn-primary btn-sm">
+              লগইন করুন
+            </NavLink>
           )}
         </div>
       </div>
     </header>
-  );
-};
+  )
+}
