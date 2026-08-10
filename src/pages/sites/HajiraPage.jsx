@@ -690,37 +690,28 @@ const BILLING_FILTER_MODAL_ID = "hajira_billing_filter_modal";
 const emptyBulkAttendance = () => ({
   present: "",
   salary: "",
-  extra: "",
 });
 
 const emptyBulkPayment = () => ({
   payment: "",
-  advance: "",
-  return: "",
 });
 
 const emptyBulkBilling = () => ({
-  billing: "",
+  billing: "none",
 });
 
 const isBulkAttendanceDirty = (form) =>
-  form.present !== "" ||
-  (form.salary !== "" && form.salary != null) ||
-  (form.extra !== "" && form.extra != null);
+  form.present !== "" || (form.salary !== "" && form.salary != null);
 
 const isBulkPaymentDirty = (form) =>
-  (form.payment !== "" && form.payment != null) ||
-  (form.advance !== "" && form.advance != null) ||
-  (form.return !== "" && form.return != null);
+  form.payment !== "" && form.payment != null;
 
 const isBulkBillingDirty = (form) =>
   form.billing !== "" && form.billing != null;
 
 const isBulkAttendanceZeroInvalid = (form) => {
   if (form.present === "" || form.present == null) return false;
-  return (
-    Number(form.present) === 0 && (Number(form.extra) || 0) === 0
-  );
+  return Number(form.present) === 0;
 };
 
 const HAJIRA_FILTER_OPTIONS = [
@@ -949,7 +940,7 @@ export const HajiraPage = () => {
     "advance",
     "return",
   ]);
-  const [billingFilter, setBillingFilter] = useState("all");
+  const [billingFilter, setBillingFilter] = useState(["all"]);
   const [hajiraFilter, setHajiraFilter] = useState([
     "present",
     "extra",
@@ -1069,15 +1060,37 @@ export const HajiraPage = () => {
     return options;
   }, [rows, getBillingName]);
 
-  const billingFilterHeaderLabel =
-    billingFilter === "all"
-      ? "বিলিং"
-      : billingFilter === "none"
-        ? NULL_BILLING_LABEL
-        : billingLabel(
-            billingFilter,
-            billingFilterOptions.find((o) => o.value === billingFilter)?.label,
-          );
+  const billingFilterHeaderLabel = (() => {
+    if (
+      !Array.isArray(billingFilter) ||
+      billingFilter.length === 0 ||
+      billingFilter.includes("all")
+    ) {
+      return "বিলিং";
+    }
+    if (billingFilter.length === 1) {
+      const only = billingFilter[0];
+      if (only === "none") return NULL_BILLING_LABEL;
+      return billingLabel(
+        only,
+        billingFilterOptions.find((o) => o.value === only)?.label,
+      );
+    }
+    return "বিলিং";
+  })();
+
+  const toggleBillingFilter = (value) => {
+    setBillingFilter((prev) => {
+      const current = Array.isArray(prev) ? prev : ["all"];
+      if (value === "all") return ["all"];
+      const withoutAll = current.filter((v) => v !== "all");
+      if (withoutAll.includes(value)) {
+        const next = withoutAll.filter((v) => v !== value);
+        return next.length ? next : ["all"];
+      }
+      return [...withoutAll, value];
+    });
+  };
 
   const openHajiraModal = () => {
     setBulkAttendance(emptyBulkAttendance());
@@ -1172,7 +1185,7 @@ export const HajiraPage = () => {
     setExpandedHistoryId(null);
     setEarningsFilter("earn");
     setPaymentFilter(["payment", "advance", "return"]);
-    setBillingFilter("all");
+    setBillingFilter(["all"]);
     setHajiraFilter(["present", "extra"]);
   }, [siteId, date]);
 
@@ -1235,13 +1248,15 @@ export const HajiraPage = () => {
         : "present";
 
   const visibleRows = useMemo(() => {
-    if (viewBillingFilter === "all") return rows;
-    if (viewBillingFilter === "none") {
-      return rows.filter((row) => row.billing == null || row.billing === "");
-    }
-    return rows.filter(
-      (row) => String(row.billing ?? "") === String(viewBillingFilter),
-    );
+    const selected = Array.isArray(viewBillingFilter)
+      ? viewBillingFilter
+      : [viewBillingFilter];
+    if (selected.length === 0 || selected.includes("all")) return rows;
+    return rows.filter((row) => {
+      const isNone = row.billing == null || row.billing === "";
+      if (isNone) return selected.includes("none");
+      return selected.some((v) => String(v) === String(row.billing));
+    });
   }, [rows, viewBillingFilter]);
 
   const pendingIds = useMemo(() => {
@@ -1566,12 +1581,7 @@ export const HajiraPage = () => {
           bulkAttendance.present !== "" && isBlank(row.present)
             ? Number(bulkAttendance.present)
             : row.present,
-        extra:
-          bulkAttendance.extra !== "" &&
-          bulkAttendance.extra != null &&
-          isUnsetExtra(row.extra)
-            ? Number(bulkAttendance.extra)
-            : row.extra,
+        extra: row.extra,
       };
       return isZeroPresentAndExtra(next);
     });
@@ -1595,12 +1605,6 @@ export const HajiraPage = () => {
             isBlank(row.salary)
               ? Number(bulkAttendance.salary)
               : row.salary,
-          extra:
-            bulkAttendance.extra !== "" &&
-            bulkAttendance.extra != null &&
-            isUnsetExtra(row.extra)
-              ? Number(bulkAttendance.extra)
-              : row.extra,
         };
       }),
     );
@@ -1625,18 +1629,6 @@ export const HajiraPage = () => {
             isBlank(row.payment)
               ? Number(bulkPayment.payment)
               : row.payment,
-          advance:
-            bulkPayment.advance !== "" &&
-            bulkPayment.advance != null &&
-            isBlank(row.advance)
-              ? Number(bulkPayment.advance)
-              : row.advance,
-          return:
-            bulkPayment.return !== "" &&
-            bulkPayment.return != null &&
-            isBlank(row.return)
-              ? Number(bulkPayment.return)
-              : row.return,
         };
       }),
     );
@@ -2697,7 +2689,6 @@ export const HajiraPage = () => {
           <h3 className="font-bold text-lg pr-8">হাজিরা</h3>
           <div className="space-y-4 pt-3">
             <div>
-              <p className="text-sm font-medium mb-2">দেখান</p>
               <div className="flex flex-wrap gap-x-4 gap-y-2">
                 {HAJIRA_FILTER_OPTIONS.map((opt) => (
                   <label
@@ -2723,27 +2714,27 @@ export const HajiraPage = () => {
             </div>
             {showBulkSection ? (
               <div className="space-y-3 border-t border-base-300 pt-3">
-                <label className="form-control w-full">
-                  <span className="label-text text-sm">হাজিরা</span>
-                  <select
-                    className="select select-bordered select-sm w-full"
-                    value={bulkAttendance.present}
-                    onChange={(e) =>
-                      setBulkAttendance((m) => ({
-                        ...m,
-                        present: e.target.value,
-                      }))
-                    }
-                  >
-                    <option value="">—</option>
-                    {PRESENT_OPTIONS.map((v) => (
-                      <option key={v} value={String(v)}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                </label>
                 <div className="grid grid-cols-2 gap-3">
+                  <label className="form-control w-full min-w-0">
+                    <span className="label-text text-sm">হাজিরা</span>
+                    <select
+                      className="select select-bordered select-sm w-full"
+                      value={bulkAttendance.present}
+                      onChange={(e) =>
+                        setBulkAttendance((m) => ({
+                          ...m,
+                          present: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">—</option>
+                      {PRESENT_OPTIONS.map((v) => (
+                        <option key={v} value={String(v)}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <label className="form-control w-full min-w-0">
                     <span className="label-text text-sm">বেতন</span>
                     <input
@@ -2755,21 +2746,6 @@ export const HajiraPage = () => {
                         setBulkAttendance((m) => ({
                           ...m,
                           salary: numOrEmpty(e.target.value),
-                        }))
-                      }
-                    />
-                  </label>
-                  <label className="form-control w-full min-w-0">
-                    <span className="label-text text-sm">বাড়তি</span>
-                    <input
-                      type="number"
-                      min={0}
-                      className="input input-bordered input-sm w-full tabular-nums"
-                      value={bulkAttendance.extra}
-                      onChange={(e) =>
-                        setBulkAttendance((m) => ({
-                          ...m,
-                          extra: numOrEmpty(e.target.value),
                         }))
                       }
                     />
@@ -2868,38 +2844,6 @@ export const HajiraPage = () => {
                     }
                   />
                 </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="form-control w-full min-w-0">
-                    <span className="label-text text-sm">অ্যাডভান্স</span>
-                    <input
-                      type="number"
-                      min={0}
-                      className="input input-bordered input-sm w-full tabular-nums"
-                      value={bulkPayment.advance}
-                      onChange={(e) =>
-                        setBulkPayment((m) => ({
-                          ...m,
-                          advance: numOrEmpty(e.target.value),
-                        }))
-                      }
-                    />
-                  </label>
-                  <label className="form-control w-full min-w-0">
-                    <span className="label-text text-sm">রিটার্ন</span>
-                    <input
-                      type="number"
-                      min={0}
-                      className="input input-bordered input-sm w-full tabular-nums"
-                      value={bulkPayment.return}
-                      onChange={(e) =>
-                        setBulkPayment((m) => ({
-                          ...m,
-                          return: numOrEmpty(e.target.value),
-                        }))
-                      }
-                    />
-                  </label>
-                </div>
                 <div className="modal-action pt-1 flex-wrap justify-between gap-2">
                   <button
                     type="button"
@@ -2956,11 +2900,14 @@ export const HajiraPage = () => {
                     className="inline-flex items-center gap-2 cursor-pointer text-sm"
                   >
                     <input
-                      type="radio"
-                      name="hajira_billing_filter"
-                      className="radio radio-xs"
-                      checked={billingFilter === opt.value}
-                      onChange={() => setBillingFilter(opt.value)}
+                      type="checkbox"
+                      className="checkbox checkbox-xs"
+                      checked={
+                        Array.isArray(billingFilter)
+                          ? billingFilter.includes(opt.value)
+                          : billingFilter === opt.value
+                      }
+                      onChange={() => toggleBillingFilter(opt.value)}
                     />
                     <span>{opt.label}</span>
                   </label>
@@ -2975,7 +2922,7 @@ export const HajiraPage = () => {
                     className="select select-bordered select-sm w-full"
                     value={
                       bulkBilling.billing == null || bulkBilling.billing === ""
-                        ? ""
+                        ? "none"
                         : String(bulkBilling.billing)
                     }
                     onChange={(e) =>
@@ -2985,7 +2932,6 @@ export const HajiraPage = () => {
                       }))
                     }
                   >
-                    <option value="">—</option>
                     <option value="none">{NULL_BILLING_LABEL}</option>
                     {billingOptions.map((b) => (
                       <option key={b.id} value={String(b.id)}>
