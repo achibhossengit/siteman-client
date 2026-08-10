@@ -142,7 +142,6 @@ export const UsersPage = () => {
             <tr className="border-b-2 border-base-300">
               <th className="w-12">নং</th>
               <th>নাম</th>
-              <th>ফোন</th>
               <th className="text-right">স্ট্যাটাস</th>
             </tr>
           </thead>
@@ -150,7 +149,7 @@ export const UsersPage = () => {
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={3}
                   className="text-center text-sm text-base-content/60 py-10"
                 >
                   {emptyLabel}
@@ -169,20 +168,19 @@ export const UsersPage = () => {
                       {formatBnNumber(slOffset + index + 1)}
                     </td>
                     <td
-                      className={`font-medium truncate max-w-40 ${
-                        muted ? 'text-base-content/40' : ''
-                      }`}
-                      title={row.name}
+                      className={`max-w-56 ${muted ? 'text-base-content/40' : ''}`}
+                      title={[row.name, row.phone_number]
+                        .filter(Boolean)
+                        .join(' · ')}
                     >
-                      {row.name}
-                    </td>
-                    <td
-                      className={`tabular-nums text-sm truncate max-w-36 ${
-                        muted ? 'text-base-content/40' : 'text-base-content/80'
-                      }`}
-                      title={row.phone_number || ''}
-                    >
-                      {row.phone_number || '—'}
+                      <div className="font-medium truncate">{row.name}</div>
+                      <div
+                        className={`tabular-nums text-xs truncate ${
+                          muted ? '' : 'text-base-content/60'
+                        }`}
+                      >
+                        {row.phone_number || '—'}
+                      </div>
                     </td>
                     <td
                       className={`text-right text-sm ${
