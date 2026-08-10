@@ -647,6 +647,14 @@ const returnAmountOf = (row) => {
 
 const hasAmount = (value) => value !== "" && value != null;
 
+/** Billing can be set only when attendance / extra / fooding / advance / return has data. */
+const canSetBillingOnRow = (row) =>
+  hasPresent(row) ||
+  hasExtra(row) ||
+  hasAmount(row.payment) ||
+  hasAmount(row.advance) ||
+  hasAmount(row.return);
+
 const isAttendanceDirty = (row, initial) =>
   String(row.present) !== String(initial.present) ||
   String(row.salary) !== String(initial.salary) ||
@@ -1375,6 +1383,7 @@ export const HajiraPage = () => {
 
   const saveRecordModal = () => {
     if (!recordModal || !modalEditable || attendanceLocked(recordModal)) return;
+    const billingAllowed = canSetBillingOnRow(recordModal);
     const next = {
       present:
         recordModal.present === "" ? "" : Number(recordModal.present),
@@ -1384,11 +1393,12 @@ export const HajiraPage = () => {
           ? 0
           : Number(recordModal.extra),
       extraNote: recordModal.note ?? "",
-      billing: recordModal.billing ?? "",
-      billingName:
-        recordModal.billing == null || recordModal.billing === ""
+      billing: billingAllowed ? (recordModal.billing ?? "") : "",
+      billingName: billingAllowed
+        ? recordModal.billing == null || recordModal.billing === ""
           ? null
-          : (recordModal.billingName ?? null),
+          : (recordModal.billingName ?? null)
+        : null,
       payment: numOrEmpty(recordModal.payment),
       advance: numOrEmpty(recordModal.advance),
       return: numOrEmpty(recordModal.return),
@@ -1635,25 +1645,31 @@ export const HajiraPage = () => {
     document.getElementById(PAYMENT_FILTER_MODAL_ID)?.close();
   };
 
-  const onBillingBulkCustom = () => {
-    if (!isBulkBillingDirty(bulkBilling)) return;
-    const selectedId =
-      bulkBilling.billing === "none" ? null : bulkBilling.billing;
+  const onBillingBulkCustom = (billingValue = bulkBilling.billing) => {
+    if (billingValue === "" || billingValue == null) return;
+    const selectedId = billingValue === "none" ? null : billingValue;
     const selectedName =
       selectedId == null || selectedId === ""
         ? null
         : getBillingName(selectedId);
+    const nextBilling =
+      selectedId == null || selectedId === "" ? "" : String(selectedId);
+
     setRows((prev) =>
       prev.map((row) => {
         if (!isBulkTargetRow(row)) return row;
+        // Only brand-new rows (no saved record yet)
+        if (recordIdOf(row)) return row;
+        if (!canSetBillingOnRow(row)) return row;
         if (!isBlank(row.billing)) return row;
         return {
           ...row,
-          billing: selectedId,
+          billing: nextBilling,
           billingName: selectedName,
         };
       }),
     );
+    setBulkBilling({ billing: billingValue });
     document.getElementById(BILLING_FILTER_MODAL_ID)?.close();
   };
 
@@ -1921,6 +1937,22 @@ export const HajiraPage = () => {
         : "এই তারিখে কোনো হাজিরা নেই।";
 
   const recordModalLocked = !modalEditable;
+  const billingFieldEnabled =
+    Boolean(recordModal) &&
+    !recordModalLocked &&
+    canSetBillingOnRow(recordModal);
+
+  const patchRecordModal = (patch) => {
+    setRecordModal((m) => {
+      if (!m) return m;
+      const next = { ...m, ...patch };
+      if (!canSetBillingOnRow(next)) {
+        next.billing = "";
+        next.billingName = null;
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-2">
@@ -2383,10 +2415,7 @@ export const HajiraPage = () => {
                           value={recordModal.present}
                           disabled={recordModalLocked}
                           onChange={(e) =>
-                            setRecordModal((m) => ({
-                              ...m,
-                              present: e.target.value,
-                            }))
+                            patchRecordModal({ present: e.target.value })
                           }
                         >
                           <option value="">—</option>
@@ -2424,10 +2453,9 @@ export const HajiraPage = () => {
                           value={recordModal.extra}
                           disabled={recordModalLocked}
                           onChange={(e) =>
-                            setRecordModal((m) => ({
-                              ...m,
+                            patchRecordModal({
                               extra: numOrEmpty(e.target.value),
-                            }))
+                            })
                           }
                         />
                       </label>
@@ -2441,10 +2469,9 @@ export const HajiraPage = () => {
                           value={recordModal.payment}
                           disabled={recordModalLocked}
                           onChange={(e) =>
-                            setRecordModal((m) => ({
-                              ...m,
+                            patchRecordModal({
                               payment: numOrEmpty(e.target.value),
-                            }))
+                            })
                           }
                         />
                       </label>
@@ -2458,10 +2485,9 @@ export const HajiraPage = () => {
                           value={recordModal.advance}
                           disabled={recordModalLocked}
                           onChange={(e) =>
-                            setRecordModal((m) => ({
-                              ...m,
+                            patchRecordModal({
                               advance: numOrEmpty(e.target.value),
-                            }))
+                            })
                           }
                         />
                       </label>
@@ -2475,10 +2501,9 @@ export const HajiraPage = () => {
                           value={recordModal.return}
                           disabled={recordModalLocked}
                           onChange={(e) =>
-                            setRecordModal((m) => ({
-                              ...m,
+                            patchRecordModal({
                               return: numOrEmpty(e.target.value),
-                            }))
+                            })
                           }
                         />
                       </label>
@@ -2511,20 +2536,19 @@ export const HajiraPage = () => {
                             ? ""
                             : String(recordModal.billing)
                         }
-                        disabled={recordModalLocked}
+                        disabled={!billingFieldEnabled}
                         onChange={(e) => {
                           const nextId = e.target.value;
                           const opt = billingOptions.find(
                             (b) => String(b.id) === String(nextId),
                           );
-                          setRecordModal((m) => ({
-                            ...m,
+                          patchRecordModal({
                             billing: nextId,
                             billingName:
                               nextId === ""
                                 ? null
-                                : (opt?.name ?? m.billingName ?? null),
-                          }));
+                                : (opt?.name ?? recordModal.billingName ?? null),
+                          });
                         }}
                       >
                         <option value="">{NULL_BILLING_LABEL}</option>
@@ -2777,7 +2801,7 @@ export const HajiraPage = () => {
                         isBulkAttendanceZeroInvalid(bulkAttendance)
                       }
                     >
-                      প্রয়োগ
+                      সেট করুন
                     </button>
                   </div>
                 </div>
@@ -2803,7 +2827,6 @@ export const HajiraPage = () => {
           <h3 className="font-bold text-lg pr-8">লেনদেন</h3>
           <div className="space-y-4 pt-3">
             <div>
-              <p className="text-sm font-medium mb-2">দেখান</p>
               <div className="flex flex-wrap gap-x-4 gap-y-2">
                 {PAYMENT_FILTER_OPTIONS.map((opt) => (
                   <label
@@ -2867,7 +2890,7 @@ export const HajiraPage = () => {
                       onClick={onPaymentBulkCustom}
                       disabled={!isBulkPaymentDirty(bulkPayment)}
                     >
-                      প্রয়োগ
+                      সেট করুন
                     </button>
                   </div>
                 </div>
@@ -2916,31 +2939,26 @@ export const HajiraPage = () => {
             </div>
             {showBulkSection ? (
               <div className="space-y-3 border-t border-base-300 pt-3">
-                <label className="form-control w-full">
-                  <span className="label-text text-sm">বিলিং</span>
-                  <select
-                    className="select select-bordered select-sm w-full"
-                    value={
-                      bulkBilling.billing == null || bulkBilling.billing === ""
-                        ? "none"
-                        : String(bulkBilling.billing)
-                    }
-                    onChange={(e) =>
-                      setBulkBilling((m) => ({
-                        ...m,
-                        billing: e.target.value,
-                      }))
-                    }
+                <div className="flex flex-col gap-1">
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm justify-start font-normal"
+                    onClick={() => onBillingBulkCustom("none")}
                   >
-                    <option value="none">{NULL_BILLING_LABEL}</option>
-                    {billingOptions.map((b) => (
-                      <option key={b.id} value={String(b.id)}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="modal-action pt-1 flex-wrap justify-between gap-2">
+                    {NULL_BILLING_LABEL}
+                  </button>
+                  {billingOptions.map((b) => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      className="btn btn-ghost btn-sm justify-start font-normal"
+                      onClick={() => onBillingBulkCustom(String(b.id))}
+                    >
+                      {b.name}
+                    </button>
+                  ))}
+                </div>
+                <div className="modal-action pt-1">
                   <button
                     type="button"
                     className="btn btn-ghost btn-sm"
@@ -2948,14 +2966,6 @@ export const HajiraPage = () => {
                     disabled={!hasBillingBulkReset}
                   >
                     রিসেট
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={onBillingBulkCustom}
-                    disabled={!isBulkBillingDirty(bulkBilling)}
-                  >
-                    প্রয়োগ
                   </button>
                 </div>
               </div>
