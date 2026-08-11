@@ -1423,10 +1423,7 @@ export const HajiraPage = () => {
       advanceNote: "",
       returnNote: "",
     };
-    if (lacksMeaningfulDayValue(next)) {
-      toastInfo(MEANINGFUL_DAY_VALUE_MESSAGE);
-      return;
-    }
+    if (lacksMeaningfulDayValue(next)) return;
     updateRow(recordModal.labourId, next);
     closeRecordModal();
   };
@@ -2001,6 +1998,11 @@ export const HajiraPage = () => {
     Boolean(recordModal) &&
     !recordModalLocked &&
     canSetBillingOnRow(recordModal);
+  const recordModalCanSet =
+    Boolean(recordModal) &&
+    modalEditable &&
+    !attendanceLocked(recordModal) &&
+    hasMeaningfulDayValue(recordModal);
 
   const patchRecordModal = (patch) => {
     setRecordModal((m) => {
@@ -2607,7 +2609,7 @@ export const HajiraPage = () => {
                         type="text"
                         className="input input-bordered input-sm w-full"
                         value={recordModal.note}
-                        disabled={recordModalLocked}
+                        disabled={recordModalLocked || !recordModalCanSet}
                         onChange={(e) =>
                           setRecordModal((m) => ({
                             ...m,
@@ -2688,6 +2690,12 @@ export const HajiraPage = () => {
                           type="button"
                           className="btn btn-primary btn-sm"
                           onClick={saveRecordModal}
+                          disabled={!recordModalCanSet}
+                          title={
+                            recordModalCanSet
+                              ? undefined
+                              : MEANINGFUL_DAY_VALUE_MESSAGE
+                          }
                         >
                           সেট করুন
                         </button>

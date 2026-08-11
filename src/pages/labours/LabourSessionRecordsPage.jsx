@@ -37,7 +37,7 @@ import {
   formatBnNumber,
   NULL_BILLING_LABEL,
 } from "../../utils/format.js";
-import { confirmAction, toastInfo, toastSuccess } from "../../utils/feedback.js";
+import { confirmAction, toastSuccess } from "../../utils/feedback.js";
 import { PERMS, hasPermissionSuffix } from "../../utils/permissions.js";
 
 const RECORD_MODAL_ID = "session_record_detail_modal";
@@ -590,10 +590,7 @@ export const LabourSessionRecordsPage = () => {
       advance: recordModal.advance,
       return: recordModal.return,
     };
-    if (!hasMeaningfulDayValue(payloadRow)) {
-      toastInfo(MEANINGFUL_DAY_VALUE_MESSAGE);
-      return;
-    }
+    if (!hasMeaningfulDayValue(payloadRow)) return;
     setModalApiError(null);
     try {
       await updateMutation.mutateAsync({
@@ -1136,6 +1133,7 @@ export const LabourSessionRecordsPage = () => {
                         className="input input-bordered input-sm w-full"
                         value={recordModal.note}
                         maxLength={255}
+                        disabled={!hasMeaningfulDayValue(recordModal)}
                         onChange={(e) =>
                           setRecordModal((m) => ({
                             ...m,
@@ -1190,7 +1188,15 @@ export const LabourSessionRecordsPage = () => {
                         type="button"
                         className="btn btn-primary btn-sm flex-1"
                         onClick={saveModalEdit}
-                        disabled={updateMutation.isPending}
+                        disabled={
+                          updateMutation.isPending ||
+                          !hasMeaningfulDayValue(recordModal)
+                        }
+                        title={
+                          hasMeaningfulDayValue(recordModal)
+                            ? undefined
+                            : MEANINGFUL_DAY_VALUE_MESSAGE
+                        }
                       >
                         {updateMutation.isPending ? (
                           <span className="loading loading-spinner loading-sm" />
