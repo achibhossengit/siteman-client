@@ -9,9 +9,10 @@ import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { paths } from '../../router/paths.js'
 import { toastSuccess } from '../../utils/feedback.js'
 import { OTP_STORAGE, saveOtpSession } from '../../utils/otpSession.js'
+import { bdPhoneNumberSchema } from '../../utils/phone.js'
 
 const schema = z.object({
-  phone_number: z.string().min(8, 'ফোন নম্বর দিন'),
+  phone_number: bdPhoneNumberSchema,
 })
 
 export const PasswordResetPage = () => {
@@ -66,7 +67,7 @@ export const PasswordResetPage = () => {
             inputMode="numeric"
             maxLength={11}
             className={`input input-bordered w-full ${errors.phone_number ? 'input-error' : ''}`}
-            placeholder="১১ ডিজিটের ফোন নম্বর দিন"
+            placeholder="০১XXXXXXXXX"
             {...register('phone_number')}
           />
           {errors.phone_number ? (

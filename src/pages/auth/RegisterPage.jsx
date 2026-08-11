@@ -5,10 +5,12 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { register as registerApi } from '../../api/auth.js'
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
+import { passwordCreateSchema } from '../../api/types/user.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { paths } from '../../router/paths.js'
 import { toastSuccess } from '../../utils/feedback.js'
 import { OTP_STORAGE, saveOtpSession } from '../../utils/otpSession.js'
+import { bdPhoneNumberSchema, isBdPhoneNumber } from '../../utils/phone.js'
 import {
   REGISTRATION_DISABLED,
   REGISTRATION_DISABLED_MESSAGE,
@@ -16,15 +18,10 @@ import {
 
 const schema = z.object({
   name: z.string().min(2, 'নাম দিন'),
-  phone_number: z
-    .string()
-    .regex(/^\d{11}$/, '১১ ডিজিটের ফোন নম্বর দিন'),
+  phone_number: bdPhoneNumberSchema,
   email: z.string().trim().email('সঠিক ইমেইল দিন'),
   company_name: z.string().min(2, 'কোম্পানির নাম দিন'),
-  password: z
-    .string()
-    .min(6, 'কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড')
-    .max(20, 'পাসওয়ার্ড সর্বোচ্চ ২০ অক্ষরের হতে পারে'),
+  password: passwordCreateSchema,
 })
 
 export const RegisterPage = () => {
@@ -52,9 +49,8 @@ export const RegisterPage = () => {
   const phoneNumber = watch('phone_number')
   const password = watch('password')
   const canSubmit =
-    /^\d{11}$/.test(phoneNumber ?? '') &&
-    (password?.length ?? 0) >= 6 &&
-    (password?.length ?? 0) <= 20
+    isBdPhoneNumber(phoneNumber ?? '') &&
+    passwordCreateSchema.safeParse(password ?? '').success
 
   const onSubmit = handleSubmit(async (values) => {
     if (REGISTRATION_DISABLED) return
@@ -118,7 +114,7 @@ export const RegisterPage = () => {
             inputMode="numeric"
             maxLength={11}
             className={`input input-bordered w-full ${errors.phone_number ? 'input-error' : ''}`}
-            placeholder="১১ ডিজিটের ফোন নম্বর দিন"
+            placeholder="০১XXXXXXXXX"
             disabled={REGISTRATION_DISABLED}
             {...register('phone_number')}
           />
@@ -167,7 +163,7 @@ export const RegisterPage = () => {
             autoComplete="new-password"
             maxLength={20}
             className={`input input-bordered w-full ${errors.password ? 'input-error' : ''}`}
-            placeholder="কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড দিন"
+            placeholder="কমপক্ষে ৮ অক্ষর (শুধু সংখ্যা নয়)"
             disabled={REGISTRATION_DISABLED}
             {...register('password')}
           />

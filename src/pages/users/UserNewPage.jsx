@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createUser } from '../../api/users.js'
 import {
+  passwordCreateSchema,
   toUserCreatePayload,
   userCreateSchema,
 } from '../../api/types/user.js'
@@ -12,6 +13,7 @@ import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { toastSuccess } from '../../utils/feedback.js'
+import { BD_PHONE_MESSAGE, isBdPhoneNumber } from '../../utils/phone.js'
 import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
 
@@ -19,6 +21,24 @@ const emptyValues = {
   name: '',
   phone_number: '',
   password: '',
+}
+
+/** Only show hints while invalid — valid fields stay quiet like নাম. */
+const phoneLiveHint = (raw) => {
+  const value = String(raw ?? '').trim()
+  if (!value) return null
+  if (!/^\d*$/.test(value)) return 'শুধু সংখ্যা দিন'
+  if (value.length < 11) return `১১ ডিজিট দিন (${value.length}/১১)`
+  if (!isBdPhoneNumber(value)) return BD_PHONE_MESSAGE
+  return null
+}
+
+const passwordLiveHint = (raw) => {
+  const value = String(raw ?? '')
+  if (!value) return null
+  const parsed = passwordCreateSchema.safeParse(value)
+  if (parsed.success) return null
+  return parsed.error.issues?.[0]?.message || 'সঠিক পাসওয়ার্ড দিন'
 }
 
 export const UserNewPage = () => {
@@ -41,15 +61,33 @@ export const UserNewPage = () => {
     handleSubmit,
     reset,
     setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(userCreateSchema),
     defaultValues: emptyValues,
   })
 
+  const watched = watch()
+  const phoneHint = useMemo(
+    () => phoneLiveHint(watched.phone_number),
+    [watched.phone_number],
+  )
+  const passwordHint = useMemo(
+    () => passwordLiveHint(watched.password),
+    [watched.password],
+  )
+  const formReady = useMemo(
+    () => userCreateSchema.safeParse(watched).success,
+    [watched],
+  )
+
   const mutation = useMutation({
     mutationFn: (values) => createUser(toUserCreatePayload(values)),
   })
+
+  const busy = isSubmitting || mutation.isPending
+  const saveDisabled = busy || !formReady
 
   const saveUser = async (values, { createAnother }) => {
     setApiError(null)
@@ -59,6 +97,7 @@ export const UserNewPage = () => {
       toastSuccess('ইউজার তৈরি হয়েছে')
       if (createAnother) {
         reset(emptyValues)
+        setShowPassword(false)
       } else {
         navigate(paths.users, { replace: true })
       }
@@ -102,6 +141,7 @@ export const UserNewPage = () => {
             className={`input input-bordered w-full ${errors.name ? 'input-error' : ''}`}
             maxLength={255}
             autoFocus
+            placeholder="ইউজারের নাম দিন"
             {...register('name')}
           />
           {errors.name ? (
@@ -115,11 +155,17 @@ export const UserNewPage = () => {
           <span className="label-text mb-1">ফোন নম্বর</span>
           <input
             type="tel"
-            className={`input input-bordered w-full ${errors.phone_number ? 'input-error' : ''}`}
-            maxLength={14}
+            inputMode="numeric"
+            className={`input input-bordered w-full ${
+              errors.phone_number || phoneHint ? 'input-error' : ''
+            }`}
+            maxLength={11}
+            placeholder="০১XXXXXXXXX"
             {...register('phone_number')}
           />
-          {errors.phone_number ? (
+          {phoneHint ? (
+            <span className="label-text-alt text-error mt-1">{phoneHint}</span>
+          ) : errors.phone_number ? (
             <span className="label-text-alt text-error mt-1">
               {errors.phone_number.message}
             </span>
@@ -132,11 +178,17 @@ export const UserNewPage = () => {
             type={showPassword ? 'text' : 'password'}
             autoComplete="new-password"
             maxLength={20}
-            className={`input input-bordered w-full ${errors.password ? 'input-error' : ''}`}
-            placeholder="কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড"
+            className={`input input-bordered w-full ${
+              errors.password || passwordHint ? 'input-error' : ''
+            }`}
+            placeholder="কমপক্ষে ৮ অক্ষর (শুধু সংখ্যা নয়)"
             {...register('password')}
           />
-          {errors.password ? (
+          {passwordHint ? (
+            <span className="label-text-alt text-error mt-1">
+              {passwordHint}
+            </span>
+          ) : errors.password ? (
             <span className="label-text-alt text-error mt-1">
               {errors.password.message}
             </span>
@@ -157,7 +209,7 @@ export const UserNewPage = () => {
           <button
             type="button"
             className="btn btn-outline btn-primary flex-1"
-            disabled={isSubmitting || mutation.isPending}
+            disabled={saveDisabled}
             onClick={onSaveAndCreateAnother}
           >
             আরেকটি
@@ -165,9 +217,9 @@ export const UserNewPage = () => {
           <button
             type="submit"
             className="btn btn-primary flex-1"
-            disabled={isSubmitting || mutation.isPending}
+            disabled={saveDisabled}
           >
-            {isSubmitting || mutation.isPending ? (
+            {busy ? (
               <span className="loading loading-spinner loading-sm" />
             ) : (
               'সংরক্ষণ'

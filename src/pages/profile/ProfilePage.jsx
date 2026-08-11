@@ -8,6 +8,7 @@ import { useAuth } from "../../providers/AuthProvider.jsx";
 import { updateProfile } from "../../api/profile.js";
 import {
   profileUpdateSchema,
+  passwordCreateSchema,
   toProfileUpdatePayload,
 } from "../../api/types/user.js";
 import { parseApiError, applyFieldErrors } from "../../api/errors.js";
@@ -28,8 +29,8 @@ const toFormValues = (profile) => ({
 const passwordSchema = z
   .object({
     current_password: z.string().min(1, "বর্তমান পাসওয়ার্ড দিন"),
-    new_password: z.string().min(6, "কমপক্ষে ৬ অক্ষর"),
-    confirm_password: z.string().min(6, "পাসওয়ার্ড নিশ্চিত করুন"),
+    new_password: passwordCreateSchema,
+    confirm_password: z.string().min(1, "পাসওয়ার্ড নিশ্চিত করুন"),
   })
   .refine((v) => v.new_password === v.confirm_password, {
     message: "পাসওয়ার্ড মিলছে না",

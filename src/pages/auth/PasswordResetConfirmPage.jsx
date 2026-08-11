@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { passwordResetConfirm, passwordResetResendOtp } from "../../api/auth.js";
+import { passwordCreateSchema } from "../../api/types/user.js";
 import { parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { OtpForm } from "../../components/auth/OtpForm.jsx";
@@ -39,8 +40,12 @@ export const PasswordResetConfirmPage = () => {
     setOtpError(null);
     setPasswordError(null);
 
-    if (newPassword.length < 6) {
-      setPasswordError("কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড");
+    const passwordCheck = passwordCreateSchema.safeParse(newPassword);
+    if (!passwordCheck.success) {
+      setPasswordError(
+        passwordCheck.error.issues?.[0]?.message ||
+          "সঠিক পাসওয়ার্ড দিন",
+      );
       return;
     }
 
@@ -118,7 +123,7 @@ export const PasswordResetConfirmPage = () => {
               autoComplete="new-password"
               maxLength={20}
               className={`input input-bordered w-full ${passwordError ? "input-error" : ""}`}
-              placeholder="নতুন পাসওয়ার্ড দিন (কমপক্ষে ৬ অক্ষর)"
+              placeholder="নতুন পাসওয়ার্ড দিন (কমপক্ষে ৮ অক্ষর)"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
             />

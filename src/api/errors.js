@@ -1,3 +1,5 @@
+import { BD_PHONE_MESSAGE } from '../utils/phone.js'
+
 /**
  * Parse drf_standardized_errors shape:
  * `{ type, errors: [{ code, detail, attr }] }`
@@ -129,11 +131,19 @@ export const parseApiError = (error) => {
 
   const errors = rawErrors.map((item) => {
     const code = item?.code || 'error'
+    const rawDetail = item?.detail ?? null
+    let detail = messageForCode(code, rawDetail)
+    if (
+      item?.attr === 'phone_number' &&
+      /bangladeshi phone/i.test(String(rawDetail ?? ''))
+    ) {
+      detail = BD_PHONE_MESSAGE
+    }
     return {
       code,
-      detail: messageForCode(code, item?.detail),
+      detail,
       attr: item?.attr ?? null,
-      rawDetail: item?.detail ?? null,
+      rawDetail,
     }
   })
 

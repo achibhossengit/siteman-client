@@ -8,11 +8,10 @@ import { parseApiError, applyFieldErrors } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { toastSuccess } from "../../utils/feedback.js";
 import { paths } from "../../router/paths.js";
+import { bdPhoneNumberSchema, isBdPhoneNumber } from "../../utils/phone.js";
 
 const schema = z.object({
-  phone_number: z
-    .string()
-    .regex(/^\d{11}$/, "১১ ডিজিটের ফোন নম্বর দিন"),
+  phone_number: bdPhoneNumberSchema,
   password: z
     .string()
     .min(1, "পাসওয়ার্ড দিন")
@@ -51,7 +50,7 @@ export const LoginPage = () => {
   const phoneNumber = watch("phone_number");
   const password = watch("password");
   const canSubmit =
-    /^\d{11}$/.test(phoneNumber ?? "") &&
+    isBdPhoneNumber(phoneNumber ?? "") &&
     (password?.length ?? 0) >= 1 &&
     (password?.length ?? 0) <= 20;
 
@@ -85,7 +84,7 @@ export const LoginPage = () => {
             autoComplete="username"
             maxLength={11}
             className={`input input-bordered w-full ${errors.phone_number ? "input-error" : ""}`}
-            placeholder="১১ ডিজিটের ফোন নম্বর দিন"
+            placeholder="০১XXXXXXXXX"
             {...register("phone_number")}
           />
           {errors.phone_number ? (

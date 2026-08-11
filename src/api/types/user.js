@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { ROLE_NAMES, groupLabelBn } from '../../utils/permissions.js'
 import { STATUS_LABEL } from '../../utils/format.js'
+import { bdPhoneNumberSchema } from '../../utils/phone.js'
 
 const requiredEmail = z
   .string()
@@ -8,6 +9,15 @@ const requiredEmail = z
   .min(1, 'ইমেইল দিন')
   .email('সঠিক ইমেইল দিন')
   .max(254)
+
+/** Matches Django password validators used by the API. */
+export const passwordCreateSchema = z
+  .string()
+  .min(8, 'পাসওয়ার্ডটি আরও একটু লম্বা হলে ভালো হয়।')
+  .max(20, 'পাসওয়ার্ড সর্বোচ্চ ২০ অক্ষরের হতে পারে')
+  .refine((value) => !/^\d+$/.test(value), {
+    message: 'শুধু সংখ্যা দিয়ে পাসওয়ার্ড করা যাবে না। অক্ষরও যোগ করুন।',
+  })
 
 /** Groups that can be newly assigned (Company Admin is not assignable). */
 export const ASSIGNABLE_GROUP_NAMES = [
@@ -21,15 +31,8 @@ export const userCreateSchema = z.object({
     .trim()
     .min(1, 'নাম দিন')
     .max(255, 'নাম একটু ছোট করুন'),
-  phone_number: z
-    .string()
-    .trim()
-    .min(8, 'ফোন নম্বর দিন')
-    .max(14, 'ফোন নম্বর একটু ছোট করুন'),
-  password: z
-    .string()
-    .min(6, 'কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড')
-    .max(20, 'পাসওয়ার্ড সর্বোচ্চ ২০ অক্ষরের হতে পারে'),
+  phone_number: bdPhoneNumberSchema,
+  password: passwordCreateSchema,
 })
 
 /** Admin user PATCH — only is_active + assignment replace. Single group only. */
@@ -45,11 +48,7 @@ export const profileUpdateSchema = z.object({
     .trim()
     .min(1, 'নাম দিন')
     .max(255, 'নাম একটু ছোট করুন'),
-  phone_number: z
-    .string()
-    .trim()
-    .min(8, 'ফোন নম্বর দিন')
-    .max(14, 'ফোন নম্বর একটু ছোট করুন'),
+  phone_number: bdPhoneNumberSchema,
   email: requiredEmail,
 })
 
