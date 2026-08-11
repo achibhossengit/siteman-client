@@ -5,13 +5,10 @@ export const paths = {
   cash: '/cash',
   others: '/others',
   sites: '/sites',
-  siteNew: '/sites/new',
   siteDetail: (id) => `/sites/${id}`,
   users: '/users',
-  userNew: '/users/new',
   userDetail: (id) => `/users/${id}`,
   labours: '/labours',
-  labourNew: '/labours/new',
   labourDetail: (id) => `/labours/${id}`,
   labourSessionRecords: (labourId, sessionId) =>
     `/labours/${labourId}/sessions/${sessionId}/records`,

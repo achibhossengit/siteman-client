@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
@@ -11,6 +11,7 @@ import { useAssignedSites } from '../../hooks/useSites.js'
 import { formatBnNumber, NULL_SITE_LABEL } from '../../utils/format.js'
 import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
+import { LabourCreateModal } from './LabourCreateModal.jsx'
 
 const PAGE_SIZE = 20
 const SEARCH_DEBOUNCE_MS = 400
@@ -19,6 +20,7 @@ export const LaboursPage = () => {
   const navigate = useNavigate()
   const { setTitle } = useOutletContext()
   const { can, isCompanyAdmin } = usePermissions()
+  const createModalRef = useRef(null)
   const { assignedSites, getSiteName } = useAssignedSites({
     includeClosed: true,
   })
@@ -204,14 +206,17 @@ export const LaboursPage = () => {
       />
 
       {canAddLabour ? (
-        <button
-          type="button"
-          className="btn btn-primary btn-circle btn-lg fixed bottom-4 right-4 z-40 shadow-lg"
-          aria-label="নতুন লেবার"
-          onClick={() => navigate(paths.labourNew)}
-        >
-          <Plus className="size-7" strokeWidth={2} />
-        </button>
+        <>
+          <button
+            type="button"
+            className="btn btn-primary btn-circle btn-lg fixed bottom-4 right-4 z-40 shadow-lg"
+            aria-label="নতুন লেবার"
+            onClick={() => createModalRef.current?.open()}
+          >
+            <Plus className="size-7" strokeWidth={2} />
+          </button>
+          <LabourCreateModal ref={createModalRef} />
+        </>
       ) : null}
     </section>
   )

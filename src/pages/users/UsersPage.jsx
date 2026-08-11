@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
@@ -11,6 +11,7 @@ import { usePermissions } from '../../hooks/usePermissions.js'
 import { formatBnNumber, STATUS_LABEL } from '../../utils/format.js'
 import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
+import { UserCreateModal } from './UserCreateModal.jsx'
 
 const PAGE_SIZE = 20
 const SEARCH_DEBOUNCE_MS = 400
@@ -31,6 +32,7 @@ export const UsersPage = () => {
   const navigate = useNavigate()
   const { setTitle } = useOutletContext()
   const { can } = usePermissions()
+  const createModalRef = useRef(null)
   const [nameQuery, setNameQuery] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -207,14 +209,17 @@ export const UsersPage = () => {
       />
 
       {canAddUser ? (
-        <button
-          type="button"
-          className="btn btn-primary btn-circle btn-lg fixed bottom-4 right-4 z-40 shadow-lg"
-          aria-label="নতুন ইউজার"
-          onClick={() => navigate(paths.userNew)}
-        >
-          <Plus className="size-7" strokeWidth={2} />
-        </button>
+        <>
+          <button
+            type="button"
+            className="btn btn-primary btn-circle btn-lg fixed bottom-4 right-4 z-40 shadow-lg"
+            aria-label="নতুন ইউজার"
+            onClick={() => createModalRef.current?.open()}
+          >
+            <Plus className="size-7" strokeWidth={2} />
+          </button>
+          <UserCreateModal ref={createModalRef} />
+        </>
       ) : null}
     </section>
   )
