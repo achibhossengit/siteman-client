@@ -196,7 +196,7 @@ export const ProfilePage = () => {
       : profile.company;
 
   return (
-    <div className="max-w-lg mx-auto">
+    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto">
       <ApiErrorAlert error={apiError} className="mb-3" />
 
       <form

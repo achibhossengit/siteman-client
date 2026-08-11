@@ -453,7 +453,7 @@ export const LabourDetailPage = () => {
     ].join(' ')
 
   return (
-    <div className="max-w-lg mx-auto space-y-4">
+    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto space-y-4">
       <ApiErrorAlert error={apiError} />
 
       <section className="space-y-2 text-sm">

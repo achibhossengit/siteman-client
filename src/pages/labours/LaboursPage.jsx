@@ -122,8 +122,8 @@ export const LaboursPage = () => {
       : 'কোনো লেবার নেই।'
 
   return (
-    <section className="relative h-full min-h-0 flex flex-col pb-20">
-      <div className="shrink-0 grid grid-cols-2 gap-2 px-2 pt-2 pb-2">
+    <section className="relative flex-1 min-h-0 flex flex-col">
+      <div className="shrink-0 grid grid-cols-2 gap-2 pb-2">
         <input
           type="search"
           className="input input-bordered input-sm w-full min-w-0"
@@ -146,9 +146,9 @@ export const LaboursPage = () => {
         </select>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-auto px-2">
+      <div className="flex-1 min-h-0 overflow-auto">
         <table className="table table-sm sm:table-md w-full">
-          <thead className="sticky top-0 z-10 bg-base-100">
+          <thead className="sticky top-0 z-10 bg-base-200">
             <tr className="border-b-2 border-base-300">
               <th className="w-12">নং</th>
               <th>নাম</th>
@@ -194,22 +194,23 @@ export const LaboursPage = () => {
             )}
           </tbody>
         </table>
-      </div>
 
-      <ListPagination
-        page={page}
-        totalPages={totalPages}
-        totalCount={totalCount}
-        pageSize={PAGE_SIZE}
-        isFetching={laboursQuery.isFetching}
-        onPageChange={setPage}
-      />
+        <ListPagination
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          pageSize={PAGE_SIZE}
+          isFetching={laboursQuery.isFetching}
+          onPageChange={setPage}
+        />
+        <div className="h-20" aria-hidden />
+      </div>
 
       {canAddLabour ? (
         <>
           <button
             type="button"
-            className="btn btn-primary btn-circle btn-lg fixed bottom-4 right-4 z-40 shadow-lg"
+            className="btn btn-primary btn-circle btn-lg absolute bottom-4 right-4 z-40 shadow-lg"
             aria-label="নতুন লেবার"
             onClick={() => createModalRef.current?.open()}
           >

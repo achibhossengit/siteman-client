@@ -25,7 +25,7 @@ export const AppInfoPage = () => {
   }, [setTitle])
 
   return (
-    <div className="max-w-lg mx-auto flex flex-col gap-4">
+    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
       <section className="card bg-base-100 border border-base-300">
         <div className="card-body items-center text-center gap-3 py-8">
           <img

@@ -244,7 +244,7 @@ export const SiteDetailPage = () => {
   const privateOpen = openSection === 'private'
 
   return (
-    <div className="max-w-lg mx-auto space-y-4 relative pb-20">
+    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto space-y-4 relative pb-20">
       <ApiErrorAlert error={siteApiError} />
 
       {site.is_closed ? (

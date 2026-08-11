@@ -678,7 +678,7 @@ export const LabourSessionRecordsPage = () => {
     activitiesQuery.isLoading
   ) {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center">
         <span className="loading loading-spinner loading-lg text-primary" />
       </div>
     );
@@ -703,7 +703,7 @@ export const LabourSessionRecordsPage = () => {
   const recordsError = dailyRecordsQuery.error || activitiesQuery.error;
 
   return (
-    <div className="h-full min-h-0 flex flex-col gap-2">
+    <div className="flex-1 min-h-0 flex flex-col gap-2">
       {recordsError ? (
         <ApiErrorAlert error={parseApiError(recordsError)} />
       ) : null}
