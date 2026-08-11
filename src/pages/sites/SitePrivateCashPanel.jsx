@@ -116,11 +116,23 @@ export const SitePrivateCashPanel = ({
     handleSubmit,
     reset,
     setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(privateCashFormSchema),
     defaultValues: emptyValues,
   })
+
+  const watchedNote = watch('note')
+  const watchedAmount = watch('amount')
+  const watchedDate = watch('date')
+  const noteReady = String(watchedNote ?? '').trim().length > 0
+  const amountReady = (() => {
+    const n = Number(watchedAmount)
+    return Number.isFinite(n) && Number.isInteger(n) && n > 0
+  })()
+  const formReady =
+    noteReady && amountReady && String(watchedDate ?? '').trim().length > 0
 
   const listQuery = useQuery({
     queryKey: [
@@ -332,13 +344,16 @@ export const SitePrivateCashPanel = ({
 
   const disabled = !editing
   const busy = isSubmitting || saveMutation.isPending
-  const fieldClass = (hasError, kind = 'input') =>
+  const amountDisabled = disabled || !noteReady
+  const detailsDisabled = disabled || !amountReady
+  const saveDisabled = !confirmReady || !formReady || busy
+  const fieldClass = (hasError, kind = 'input', isDisabled = disabled) =>
     [
       kind === 'select'
         ? 'select select-bordered w-full'
         : 'input input-bordered w-full',
       hasError ? (kind === 'select' ? 'select-error' : 'input-error') : '',
-      disabled ? 'bg-base-200' : '',
+      isDisabled ? 'bg-base-200' : '',
     ].join(' ')
 
   return (
@@ -455,7 +470,7 @@ export const SitePrivateCashPanel = ({
             className="flex flex-col gap-3"
             onSubmit={(e) => {
               e.preventDefault()
-              if (!confirmReady) return
+              if (saveDisabled) return
               return onConfirm(e)
             }}
             noValidate
@@ -483,8 +498,8 @@ export const SitePrivateCashPanel = ({
                 inputMode="numeric"
                 min={1}
                 step={1}
-                className={fieldClass(errors.amount)}
-                disabled={disabled}
+                className={fieldClass(errors.amount, 'input', amountDisabled)}
+                disabled={amountDisabled}
                 {...register('amount')}
               />
               {errors.amount ? (
@@ -498,8 +513,8 @@ export const SitePrivateCashPanel = ({
               <label className="form-control w-full">
                 <span className="label-text mb-1">ধরন</span>
                 <select
-                  className={fieldClass(errors.type, 'select')}
-                  disabled={disabled}
+                  className={fieldClass(errors.type, 'select', detailsDisabled)}
+                  disabled={detailsDisabled}
                   {...register('type')}
                 >
                   {PRIVATE_CASH_TYPES.map((opt) => (
@@ -519,8 +534,8 @@ export const SitePrivateCashPanel = ({
                 <span className="label-text mb-1">তারিখ</span>
                 <input
                   type="date"
-                  className={fieldClass(errors.date)}
-                  disabled={disabled}
+                  className={fieldClass(errors.date, 'input', detailsDisabled)}
+                  disabled={detailsDisabled}
                   {...register('date')}
                 />
                 {errors.date ? (
@@ -534,8 +549,8 @@ export const SitePrivateCashPanel = ({
             <label className="form-control w-full">
               <span className="label-text mb-1">বিলিং ক্যাটাগরি</span>
               <select
-                className={fieldClass(errors.billing, 'select')}
-                disabled={disabled}
+                className={fieldClass(errors.billing, 'select', detailsDisabled)}
+                disabled={detailsDisabled}
                 {...register('billing')}
               >
                 <option value="">{NULL_BILLING_LABEL}</option>
@@ -565,9 +580,9 @@ export const SitePrivateCashPanel = ({
                 <button
                   type="button"
                   className="btn btn-primary flex-1"
-                  disabled={!confirmReady || busy}
+                  disabled={saveDisabled}
                   onClick={(e) => {
-                    if (!confirmReady) return
+                    if (saveDisabled) return
                     return onConfirm(e)
                   }}
                 >

@@ -315,11 +315,21 @@ export const CashPage = () => {
     handleSubmit,
     reset,
     setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(cashFormSchema),
     defaultValues: emptyValues,
   })
+
+  const watchedNote = watch('note')
+  const watchedAmount = watch('amount')
+  const noteReady = String(watchedNote ?? '').trim().length > 0
+  const amountReady = (() => {
+    const n = Number(watchedAmount)
+    return Number.isFinite(n) && Number.isInteger(n) && n > 0
+  })()
+  const formReady = noteReady && amountReady
 
   useEffect(() => {
     setTypeFilter('all')
@@ -777,15 +787,18 @@ export const CashPage = () => {
 
   const disabled = !editing
   const busy = isSubmitting || saveMutation.isPending
+  const amountDisabled = disabled || !noteReady
+  const detailsDisabled = disabled || !amountReady
+  const saveDisabled = !confirmReady || !formReady || busy || siteInactive
   const isSnapshotDetail = Boolean(selected?.fromActivitySnapshot)
 
-  const fieldClass = (hasError, kind = 'input') =>
+  const fieldClass = (hasError, kind = 'input', isDisabled = disabled) =>
     [
       kind === 'select'
         ? 'select select-bordered w-full'
         : 'input input-bordered w-full',
       hasError ? (kind === 'select' ? 'select-error' : 'input-error') : '',
-      disabled ? 'bg-base-200' : '',
+      isDisabled ? 'bg-base-200' : '',
     ].join(' ')
 
   return (
@@ -1265,7 +1278,7 @@ export const CashPage = () => {
             className="flex flex-col gap-3"
             onSubmit={(e) => {
               e.preventDefault()
-              if (!confirmReady) return
+              if (saveDisabled) return
               return onConfirm(e)
             }}
             noValidate
@@ -1293,8 +1306,8 @@ export const CashPage = () => {
                 inputMode="numeric"
                 min={1}
                 step={1}
-                className={fieldClass(errors.amount)}
-                disabled={disabled}
+                className={fieldClass(errors.amount, 'input', amountDisabled)}
+                disabled={amountDisabled}
                 {...register('amount')}
               />
               {errors.amount ? (
@@ -1307,8 +1320,8 @@ export const CashPage = () => {
             <label className="form-control w-full">
               <span className="label-text mb-1">ধরন</span>
               <select
-                className={fieldClass(errors.type, 'select')}
-                disabled={disabled}
+                className={fieldClass(errors.type, 'select', detailsDisabled)}
+                disabled={detailsDisabled}
                 {...register('type')}
               >
                 {CASH_TYPES.map((t) => (
@@ -1327,8 +1340,8 @@ export const CashPage = () => {
             <label className="form-control w-full">
               <span className="label-text mb-1">বিলিং ক্যাটাগরি</span>
               <select
-                className={fieldClass(errors.billing, 'select')}
-                disabled={disabled}
+                className={fieldClass(errors.billing, 'select', detailsDisabled)}
+                disabled={detailsDisabled}
                 {...register('billing')}
               >
                   <option value="">{NULL_BILLING_LABEL}</option>
@@ -1346,7 +1359,7 @@ export const CashPage = () => {
                   <button
                     type="button"
                     className="btn btn-outline btn-primary flex-1"
-                    disabled={!confirmReady || busy || siteInactive}
+                    disabled={saveDisabled}
                     onClick={onSaveAndCreateAnother}
                   >
                     {busy ? (
@@ -1368,9 +1381,9 @@ export const CashPage = () => {
                 <button
                   type="button"
                   className="btn btn-primary flex-1"
-                  disabled={!confirmReady || busy || siteInactive}
+                  disabled={saveDisabled}
                   onClick={(e) => {
-                    if (!confirmReady) return
+                    if (saveDisabled) return
                     return onConfirm(e)
                   }}
                 >
