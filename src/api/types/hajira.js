@@ -47,12 +47,6 @@ const blankAmount = (value) => {
   return Number.isFinite(n) ? n : ''
 }
 
-const numOrZero = (value) => {
-  if (value == null || value === '') return 0
-  const n = Number(value)
-  return Number.isFinite(n) ? n : 0
-}
-
 /** Build API create/patch body from an edit row. */
 export const toDailyRecordPayload = (row, date) => {
   const note =
@@ -67,7 +61,8 @@ export const toDailyRecordPayload = (row, date) => {
     present:
       row.present === '' || row.present == null ? null : Number(row.present),
     wage: row.salary === '' || row.salary == null ? null : Number(row.salary),
-    extra_earn: numOrZero(row.extra) || null,
+    extra_earn:
+      row.extra === '' || row.extra == null ? null : Number(row.extra) || null,
     fooding_pay:
       row.payment === '' || row.payment == null ? null : Number(row.payment),
     advance_pay:
@@ -151,7 +146,12 @@ export const buildHajiraEditRows = (labours, records = []) => {
         record?.wage == null || record?.wage === ''
           ? ''
           : Number(record.wage),
-      extra: Number(record?.extra_earn) || 0,
+      extra:
+        record == null
+          ? ''
+          : record.extra_earn == null || record.extra_earn === ''
+            ? ''
+            : Number(record.extra_earn) || 0,
       extraNote: record?.note ?? '',
       billing:
         record?.billing != null && record?.billing !== ''

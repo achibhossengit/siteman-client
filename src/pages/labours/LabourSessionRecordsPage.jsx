@@ -37,7 +37,7 @@ import {
   formatBnNumber,
   NULL_BILLING_LABEL,
 } from "../../utils/format.js";
-import { confirmAction, toastSuccess } from "../../utils/feedback.js";
+import { confirmAction, toastInfo, toastSuccess } from "../../utils/feedback.js";
 import { PERMS, hasPermissionSuffix } from "../../utils/permissions.js";
 
 const RECORD_MODAL_ID = "session_record_detail_modal";
@@ -130,7 +130,7 @@ const buildRows = (records) => {
           : Number(record.present),
       salary:
         record.wage == null || record.wage === "" ? "" : Number(record.wage),
-      extra: num(record.extra_earn),
+      extra: numOrEmpty(record.extra_earn),
       extraNote: record.note ?? "",
       billing:
         record.billing == null || record.billing === ""
@@ -147,14 +147,31 @@ const buildRows = (records) => {
 };
 
 const hasPresent = (row) => row.present !== "" && row.present != null;
-const hasExtra = (row) => num(row.extra) > 0;
+const hasExtra = (row) => row.extra !== "" && row.extra != null;
+const hasAmount = (value) => value !== "" && value != null;
+const amountPositive = (value) => {
+  if (value === "" || value == null) return false;
+  return Number(value) > 0;
+};
 
-const presentEarnings = (row) =>
-  (hasPresent(row) ? Number(row.present) : 0) * num(row.salary);
+const hasMeaningfulDayValue = (row) =>
+  (hasPresent(row) && Number(row.present) > 0) ||
+  amountPositive(row.extra) ||
+  amountPositive(row.payment) ||
+  amountPositive(row.advance) ||
+  amountPositive(row.return);
+
+const MEANINGFUL_DAY_VALUE_MESSAGE =
+  "হাজিরা, বাড়তি, ফুডিং, অ্যাডভান্স বা রিটার্নের অন্তত একটি মান ০-এর বেশি দিন।";
+
+const presentEarnings = (row) => {
+  if (!hasPresent(row) || Number(row.present) === 0) return 0;
+  return Number(row.present) * num(row.salary);
+};
 
 const rowEarnings = (row, filter = "earn") => {
   const fromPresent = presentEarnings(row);
-  const fromExtra = num(row.extra);
+  const fromExtra = amountPositive(row.extra) ? Number(row.extra) : 0;
   if (filter === "from_present") return fromPresent;
   if (filter === "from_extra") return fromExtra;
   return fromPresent + fromExtra;
@@ -168,7 +185,9 @@ const attendanceCellLines = (row, selectedFields) => {
   if (
     selectedFields.includes("salary") &&
     row.salary !== "" &&
-    row.salary != null
+    row.salary != null &&
+    hasPresent(row) &&
+    Number(row.present) !== 0
   ) {
     lines.push({ key: "salary", value: formatBnNumber(row.salary) });
   }
@@ -179,10 +198,10 @@ const attendanceCellLines = (row, selectedFields) => {
 };
 
 const hajiraTotalValue = (row, hajiraFields) => {
-  if (hajiraFields.includes("present")) return num(row.present);
+  if (hajiraFields.includes("present")) return hasPresent(row) ? num(row.present) : 0;
   if (hajiraFields.includes("salary")) return num(row.salary);
-  if (hajiraFields.includes("extra")) return num(row.extra);
-  return num(row.present);
+  if (hajiraFields.includes("extra")) return hasExtra(row) ? num(row.extra) : 0;
+  return hasPresent(row) ? num(row.present) : 0;
 };
 
 const fetchAllLabourDailyRecords = async (labourId, rangeParams) => {
@@ -524,9 +543,14 @@ export const LabourSessionRecordsPage = () => {
       sealed: Boolean(row.sealed),
       siteId: row.siteId,
       present:
-        row.present === "" || row.present == null ? "" : String(row.present),
-      salary: row.salary,
-      extra: row.extra || "",
+        row.present === "" || row.present == null ? "0" : String(row.present),
+      salary:
+        row.present === "" ||
+        row.present == null ||
+        Number(row.present) === 0
+          ? ""
+          : row.salary,
+      extra: row.extra === "" || row.extra == null ? "" : row.extra,
       note: row.extraNote ?? "",
       billing: row.billing ?? "",
       billingName: row.billingName ?? null,
@@ -551,21 +575,30 @@ export const LabourSessionRecordsPage = () => {
 
   const saveModalEdit = async () => {
     if (!canUpdateRecord || !recordModal?.recordId) return;
+    const present =
+      recordModal.present === "" || recordModal.present == null
+        ? 0
+        : Number(recordModal.present);
+    const payloadRow = {
+      labourId,
+      present,
+      salary: present === 0 ? "" : recordModal.salary,
+      extra: recordModal.extra,
+      extraNote: recordModal.note,
+      billing: recordModal.billing,
+      payment: recordModal.payment,
+      advance: recordModal.advance,
+      return: recordModal.return,
+    };
+    if (!hasMeaningfulDayValue(payloadRow)) {
+      toastInfo(MEANINGFUL_DAY_VALUE_MESSAGE);
+      return;
+    }
     setModalApiError(null);
     try {
       await updateMutation.mutateAsync({
         recordId: recordModal.recordId,
-        payload: toDailyRecordPatchPayload({
-          labourId,
-          present: recordModal.present,
-          salary: recordModal.salary,
-          extra: recordModal.extra,
-          extraNote: recordModal.note,
-          billing: recordModal.billing,
-          payment: recordModal.payment,
-          advance: recordModal.advance,
-          return: recordModal.return,
-        }),
+        payload: toDailyRecordPatchPayload(payloadRow),
       });
       await invalidateRecordQueries();
       toastSuccess("রেকর্ড আপডেট হয়েছে");
@@ -759,12 +792,23 @@ export const LabourSessionRecordsPage = () => {
             ) : (
               visibleRows.map((row, index) => {
                 const earnings = rowEarnings(row, earningsFilter);
-                const outflow =
-                  (paymentFilter.includes("payment") ? num(row.payment) : 0) +
-                  (paymentFilter.includes("advance") ? num(row.advance) : 0);
-                const showOutflow = outflow !== 0;
+                const paymentPart = paymentFilter.includes("payment")
+                  ? hasAmount(row.payment)
+                    ? num(row.payment)
+                    : null
+                  : null;
+                const advancePart = paymentFilter.includes("advance")
+                  ? hasAmount(row.advance)
+                    ? num(row.advance)
+                    : null
+                  : null;
+                const outflowParts = [paymentPart, advancePart].filter(
+                  (v) => v != null,
+                );
+                const showOutflow = outflowParts.length > 0;
+                const outflow = outflowParts.reduce((sum, n) => sum + n, 0);
                 const showRet =
-                  paymentFilter.includes("return") && num(row.return) !== 0;
+                  paymentFilter.includes("return") && hasAmount(row.return);
                 const attendanceLines = attendanceCellLines(row, hajiraFilter);
                 const hajiraTone =
                   activityTextToneClass(row.activityTone) ||
@@ -986,15 +1030,21 @@ export const LabourSessionRecordsPage = () => {
                         <span className="label-text text-sm">হাজিরা</span>
                         <select
                           className="select select-bordered select-sm w-full"
-                          value={recordModal.present}
-                          onChange={(e) =>
+                          value={
+                            recordModal.present === "" ||
+                            recordModal.present == null
+                              ? "0"
+                              : String(recordModal.present)
+                          }
+                          onChange={(e) => {
+                            const present = e.target.value;
                             setRecordModal((m) => ({
                               ...m,
-                              present: e.target.value,
-                            }))
-                          }
+                              present,
+                              ...(Number(present) === 0 ? { salary: "" } : {}),
+                            }));
+                          }}
                         >
-                          <option value="">—</option>
                           {PRESENT_OPTIONS.map((v) => (
                             <option key={v} value={String(v)}>
                               {v}
@@ -1009,6 +1059,7 @@ export const LabourSessionRecordsPage = () => {
                           min={0}
                           className="input input-bordered input-sm w-full tabular-nums"
                           value={recordModal.salary}
+                          disabled={Number(recordModal.present) === 0}
                           onChange={(e) =>
                             setRecordModal((m) => ({
                               ...m,

@@ -557,21 +557,30 @@ const numOrEmpty = (value) => {
 
 const hasPresent = (row) => row.present !== "" && row.present != null;
 
-const hasExtra = (row) => Number(row.extra) > 0;
+const hasExtra = (row) => row.extra !== "" && row.extra != null;
 
 const hasBilling = (row) => row.billing !== "" && row.billing != null;
 
-/** present=0 with extra=0 is not a valid attendance. */
-const isZeroPresentAndExtra = (row) => {
-  if (!hasPresent(row)) return false;
-  return Number(row.present) === 0 && (Number(row.extra) || 0) === 0;
+const amountPositive = (value) => {
+  if (value === "" || value == null) return false;
+  return Number(value) > 0;
 };
 
-const ZERO_PRESENT_EXTRA_MESSAGE =
-  "হাজিরা ও বাড়তি দুটোই ০ হতে পারে না।";
+/** Backend: at least one of present/extra/fooding/advance/return must be non-zero. */
+const hasMeaningfulDayValue = (row) =>
+  (hasPresent(row) && Number(row.present) > 0) ||
+  amountPositive(row.extra) ||
+  amountPositive(row.payment) ||
+  amountPositive(row.advance) ||
+  amountPositive(row.return);
+
+const lacksMeaningfulDayValue = (row) => !hasMeaningfulDayValue(row);
+
+const MEANINGFUL_DAY_VALUE_MESSAGE =
+  "হাজিরা, বাড়তি, ফুডিং, অ্যাডভান্স বা রিটার্নের অন্তত একটি মান ০-এর বেশি দিন।";
 
 const presentEarnings = (row) => {
-  if (!hasPresent(row)) return 0;
+  if (!hasPresent(row) || Number(row.present) === 0) return 0;
   const salary =
     row.salary === "" || row.salary == null ? 0 : Number(row.salary);
   return Number(row.present) * salary;
@@ -579,7 +588,7 @@ const presentEarnings = (row) => {
 
 const dayEarnings = (row, earningsFilter = "earn") => {
   const fromPresent = presentEarnings(row);
-  const fromExtra = Number(row.extra) || 0;
+  const fromExtra = amountPositive(row.extra) ? Number(row.extra) : 0;
   if (earningsFilter === "from_present") return fromPresent;
   if (earningsFilter === "from_extra") return fromExtra;
   return fromPresent + fromExtra;
@@ -589,7 +598,9 @@ const hajiraTotalValue = (row, hajiraFilter = "hajira") => {
   if (hajiraFilter === "salary") {
     return row.salary !== "" && row.salary != null ? Number(row.salary) || 0 : 0;
   }
-  if (hajiraFilter === "extra") return Number(row.extra) || 0;
+  if (hajiraFilter === "extra") {
+    return row.extra !== "" && row.extra != null ? Number(row.extra) || 0 : 0;
+  }
   return hasPresent(row) ? Number(row.present) || 0 : 0;
 };
 
@@ -605,7 +616,9 @@ const attendanceCellLines = (row, billingNameFn, selectedFields) => {
   if (
     selectedFields.includes("salary") &&
     row.salary !== "" &&
-    row.salary != null
+    row.salary != null &&
+    hasPresent(row) &&
+    Number(row.present) !== 0
   ) {
     lines.push({
       key: "salary",
@@ -647,18 +660,13 @@ const returnAmountOf = (row) => {
 
 const hasAmount = (value) => value !== "" && value != null;
 
-/** Billing can be set only when attendance / extra / fooding / advance / return has data. */
-const canSetBillingOnRow = (row) =>
-  hasPresent(row) ||
-  hasExtra(row) ||
-  hasAmount(row.payment) ||
-  hasAmount(row.advance) ||
-  hasAmount(row.return);
+/** Billing only when at least one meaningful day value exists. */
+const canSetBillingOnRow = (row) => hasMeaningfulDayValue(row);
 
 const isAttendanceDirty = (row, initial) =>
   String(row.present) !== String(initial.present) ||
   String(row.salary) !== String(initial.salary) ||
-  Number(row.extra) !== Number(initial.extra) ||
+  String(row.extra ?? "") !== String(initial.extra ?? "") ||
   String(row.extraNote ?? "") !== String(initial.extraNote ?? "") ||
   String(row.billing ?? "") !== String(initial.billing ?? "");
 
@@ -667,13 +675,9 @@ const isPaymentDirty = (row, initial, key) =>
   String(row[`${key}Note`] ?? "") !== String(initial[`${key}Note`] ?? "");
 
 const hasAttendanceData = (row) =>
-  hasPresent(row) ||
-  hasExtra(row) ||
+  hasMeaningfulDayValue(row) ||
   Boolean(row.extraNote?.trim()) ||
   Boolean(row.billing) ||
-  hasAmount(row.payment) ||
-  hasAmount(row.advance) ||
-  hasAmount(row.return) ||
   Boolean(row.paymentNote?.trim()) ||
   Boolean(row.advanceNote?.trim()) ||
   Boolean(row.returnNote?.trim());
@@ -696,7 +700,7 @@ const HAJIRA_FILTER_MODAL_ID = "hajira_hajira_filter_modal";
 const BILLING_FILTER_MODAL_ID = "hajira_billing_filter_modal";
 
 const emptyBulkAttendance = () => ({
-  present: "",
+  present: "0",
   salary: "",
 });
 
@@ -709,7 +713,8 @@ const emptyBulkBilling = () => ({
 });
 
 const isBulkAttendanceDirty = (form) =>
-  form.present !== "" || (form.salary !== "" && form.salary != null);
+  String(form.present) !== "0" ||
+  (form.salary !== "" && form.salary != null);
 
 const isBulkPaymentDirty = (form) =>
   form.payment !== "" && form.payment != null;
@@ -1302,7 +1307,7 @@ export const HajiraPage = () => {
   }, [visibleRows, viewEarningsFilter, viewPaymentFilter, viewHajiraFilter]);
 
   const showReturnAmount = (row) =>
-    viewPaymentFilter.includes("return") && returnAmountOf(row) !== 0;
+    viewPaymentFilter.includes("return") && hasAmount(row.return);
 
   const attendanceLocked = (row) =>
     recordSealedOf(row) ||
@@ -1349,9 +1354,14 @@ export const HajiraPage = () => {
     setRecordModal({
       labourId: row.labourId,
       labourName: row.labourName,
-      present: row.present === "" ? "" : String(row.present),
-      salary: row.salary,
-      extra: row.extra || "",
+      present: row.present === "" || row.present == null ? "0" : String(row.present),
+      salary:
+        row.present === "" ||
+        row.present == null ||
+        Number(row.present) === 0
+          ? ""
+          : row.salary,
+      extra: row.extra === "" || row.extra == null ? "" : row.extra,
       note: row.extraNote ?? "",
       billing: row.billing ?? "",
       billingName: row.billingName ?? null,
@@ -1386,11 +1396,18 @@ export const HajiraPage = () => {
     const billingAllowed = canSetBillingOnRow(recordModal);
     const next = {
       present:
-        recordModal.present === "" ? "" : Number(recordModal.present),
-      salary: numOrEmpty(recordModal.salary),
+        recordModal.present === "" || recordModal.present == null
+          ? 0
+          : Number(recordModal.present),
+      salary:
+        recordModal.present === "" ||
+        recordModal.present == null ||
+        Number(recordModal.present) === 0
+          ? ""
+          : numOrEmpty(recordModal.salary),
       extra:
         recordModal.extra === "" || recordModal.extra == null
-          ? 0
+          ? ""
           : Number(recordModal.extra),
       extraNote: recordModal.note ?? "",
       billing: billingAllowed ? (recordModal.billing ?? "") : "",
@@ -1406,8 +1423,8 @@ export const HajiraPage = () => {
       advanceNote: "",
       returnNote: "",
     };
-    if (isZeroPresentAndExtra(next)) {
-      toastInfo(ZERO_PRESENT_EXTRA_MESSAGE);
+    if (lacksMeaningfulDayValue(next)) {
+      toastInfo(MEANINGFUL_DAY_VALUE_MESSAGE);
       return;
     }
     updateRow(recordModal.labourId, next);
@@ -1446,9 +1463,14 @@ export const HajiraPage = () => {
     if (!initial) return;
     setRecordModal({
       ...recordModal,
-      present: initial.present === "" ? "" : String(initial.present),
-      salary: initial.salary,
-      extra: initial.extra || "",
+      present: initial.present === "" || initial.present == null ? "0" : String(initial.present),
+      salary:
+        initial.present === "" ||
+        initial.present == null ||
+        Number(initial.present) === 0
+          ? ""
+          : initial.salary,
+      extra: initial.extra === "" || initial.extra == null ? "" : initial.extra,
       note: initial.extraNote ?? "",
       billing: initial.billing ?? "",
       billingName: initial.billingName ?? null,
@@ -1551,10 +1573,19 @@ export const HajiraPage = () => {
     setRows((prev) =>
       prev.map((row) => {
         if (!isBulkTargetRow(row)) return row;
+        const present = isBlank(row.present)
+          ? row.defaultAttendance
+          : row.present;
+        const salary =
+          Number(present) === 0
+            ? ""
+            : isBlank(row.salary)
+              ? row.defaultSalary
+              : row.salary;
         return {
           ...row,
-          present: isBlank(row.present) ? row.defaultAttendance : row.present,
-          salary: isBlank(row.salary) ? row.defaultSalary : row.salary,
+          present,
+          salary,
         };
       }),
     );
@@ -1580,7 +1611,7 @@ export const HajiraPage = () => {
   const onHajiraBulkCustom = () => {
     if (!isBulkAttendanceDirty(bulkAttendance)) return;
     if (isBulkAttendanceZeroInvalid(bulkAttendance)) {
-      toastInfo(ZERO_PRESENT_EXTRA_MESSAGE);
+      toastInfo(MEANINGFUL_DAY_VALUE_MESSAGE);
       return;
     }
 
@@ -1592,11 +1623,14 @@ export const HajiraPage = () => {
             ? Number(bulkAttendance.present)
             : row.present,
         extra: row.extra,
+        payment: row.payment,
+        advance: row.advance,
+        return: row.return,
       };
-      return isZeroPresentAndExtra(next);
+      return lacksMeaningfulDayValue(next);
     });
     if (customWouldBeInvalid) {
-      toastInfo(ZERO_PRESENT_EXTRA_MESSAGE);
+      toastInfo(MEANINGFUL_DAY_VALUE_MESSAGE);
       return;
     }
 
@@ -1611,7 +1645,9 @@ export const HajiraPage = () => {
           : row.present;
 
         let nextSalary = row.salary;
-        if (
+        if (Number(nextPresent) === 0) {
+          nextSalary = "";
+        } else if (
           bulkAttendance.salary !== "" &&
           bulkAttendance.salary != null &&
           isBlank(row.salary)
@@ -1751,7 +1787,7 @@ export const HajiraPage = () => {
       return (
         String(row.present) !== String(initial.present) ||
         String(row.salary) !== String(initial.salary) ||
-        Number(row.extra) !== Number(initial.extra)
+        String(row.extra ?? "") !== String(initial.extra ?? "")
       );
     }) || isBulkAttendanceDirty(bulkAttendance);
 
@@ -1855,10 +1891,10 @@ export const HajiraPage = () => {
       ) {
         return false;
       }
-      return isZeroPresentAndExtra(row);
+      return lacksMeaningfulDayValue(row);
     });
     if (invalidZero) {
-      toastInfo(ZERO_PRESENT_EXTRA_MESSAGE);
+      toastInfo(MEANINGFUL_DAY_VALUE_MESSAGE);
       return;
     }
     setSaving(true);
@@ -1957,7 +1993,10 @@ export const HajiraPage = () => {
 
   const recordModalLocked = !modalEditable;
   const salaryFieldEnabled =
-    Boolean(recordModal) && !recordModalLocked && hasPresent(recordModal);
+    Boolean(recordModal) &&
+    !recordModalLocked &&
+    hasPresent(recordModal) &&
+    Number(recordModal.present) !== 0;
   const billingFieldEnabled =
     Boolean(recordModal) &&
     !recordModalLocked &&
@@ -1967,7 +2006,7 @@ export const HajiraPage = () => {
     setRecordModal((m) => {
       if (!m) return m;
       const next = { ...m, ...patch };
-      if (!hasPresent(next)) {
+      if (!hasPresent(next) || Number(next.present) === 0) {
         next.salary = "";
       }
       if (!canSetBillingOnRow(next)) {
@@ -2081,14 +2120,21 @@ export const HajiraPage = () => {
                     : activityTextToneClass(row.activityTone) ||
                       "text-base-content/70";
                 const earn = dayEarnings(row, viewEarningsFilter);
-                const outflow =
-                  (viewPaymentFilter.includes("payment")
+                const paymentPart = viewPaymentFilter.includes("payment")
+                  ? hasAmount(row.payment)
                     ? paymentAmountOf(row)
-                    : 0) +
-                  (viewPaymentFilter.includes("advance")
+                    : null
+                  : null;
+                const advancePart = viewPaymentFilter.includes("advance")
+                  ? hasAmount(row.advance)
                     ? advanceAmountOf(row)
-                    : 0);
-                const showOutflow = outflow !== 0;
+                    : null
+                  : null;
+                const outflowParts = [paymentPart, advancePart].filter(
+                  (v) => v != null,
+                );
+                const showOutflow = outflowParts.length > 0;
+                const outflow = outflowParts.reduce((sum, n) => sum + n, 0);
                 const showRet = showReturnAmount(row);
                 const attendanceLines = attendanceCellLines(
                   row,
@@ -2436,21 +2482,29 @@ export const HajiraPage = () => {
                         <span className="label-text text-sm">হাজিরা</span>
                         <select
                           className="select select-bordered select-sm w-full"
-                          value={recordModal.present}
+                          value={
+                            recordModal.present === "" ||
+                            recordModal.present == null
+                              ? "0"
+                              : String(recordModal.present)
+                          }
                           disabled={recordModalLocked}
                           onChange={(e) => {
                             const present = e.target.value;
-                            if (present === "") {
-                              patchRecordModal({ present: "", salary: "" });
-                              return;
-                            }
                             const row = rows.find(
                               (r) => r.labourId === recordModal.labourId,
                             );
-                            const fillingFromEmpty = !hasPresent(recordModal);
+                            const presentNum = Number(present);
+                            if (presentNum === 0) {
+                              patchRecordModal({ present, salary: "" });
+                              return;
+                            }
+                            const fillingFromZeroOrEmpty =
+                              !hasPresent(recordModal) ||
+                              Number(recordModal.present) === 0;
                             patchRecordModal({
                               present,
-                              ...(fillingFromEmpty
+                              ...(fillingFromZeroOrEmpty
                                 ? {
                                     salary: numOrEmpty(row?.defaultSalary),
                                   }
@@ -2458,7 +2512,6 @@ export const HajiraPage = () => {
                             });
                           }}
                         >
-                          <option value="">—</option>
                           {PRESENT_OPTIONS.map((v) => (
                             <option key={v} value={String(v)}>
                               {v}
@@ -2782,17 +2835,21 @@ export const HajiraPage = () => {
                     <span className="label-text text-sm">হাজিরা</span>
                     <select
                       className="select select-bordered select-sm w-full"
-                      value={bulkAttendance.present}
+                      value={
+                        bulkAttendance.present === "" ||
+                        bulkAttendance.present == null
+                          ? "0"
+                          : String(bulkAttendance.present)
+                      }
                       onChange={(e) => {
                         const present = e.target.value;
                         setBulkAttendance((m) => ({
                           ...m,
                           present,
-                          ...(present === "" ? { salary: "" } : {}),
+                          ...(Number(present) === 0 ? { salary: "" } : {}),
                         }));
                       }}
                     >
-                      <option value="">—</option>
                       {PRESENT_OPTIONS.map((v) => (
                         <option key={v} value={String(v)}>
                           {v}
@@ -2807,7 +2864,7 @@ export const HajiraPage = () => {
                       min={0}
                       className="input input-bordered input-sm w-full tabular-nums"
                       value={bulkAttendance.salary}
-                      disabled={bulkAttendance.present === ""}
+                      disabled={Number(bulkAttendance.present) === 0}
                       onChange={(e) =>
                         setBulkAttendance((m) => ({
                           ...m,
