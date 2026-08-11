@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -6,38 +6,51 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createLabour } from '../../api/labours.js'
 import {
   DEFAULT_ATTENDANCE_OPTIONS,
-  labourFormSchema,
+  LABOUR_FORM_DEFAULTS,
+  createLabourFormSchema,
   toLabourPayload,
 } from '../../api/types/labour.js'
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
-import { useSitesLookup } from '../../hooks/useSites.js'
+import { useAssignedSites, useSitesLookup } from '../../hooks/useSites.js'
 import { formatBnNumber, NULL_SITE_LABEL } from '../../utils/format.js'
 import { toastSuccess } from '../../utils/feedback.js'
 import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
 
-const emptyValues = {
-  name: '',
-  current_site: '',
-  default_attendance: 1,
-  default_salary: 0,
-  default_fooding: 0,
-  is_active: true,
-}
-
 export const LabourNewPage = () => {
   const navigate = useNavigate()
   const { setTitle } = useOutletContext()
   const queryClient = useQueryClient()
-  const { can } = usePermissions()
+  const { can, isCompanyAdmin } = usePermissions()
   const [apiError, setApiError] = useState(null)
 
   const canAddLabour = can(PERMS.addLabour)
-  const { sites, isLoading: sitesLoading } = useSitesLookup({
-    enabled: canAddLabour,
+  const requireSite = !isCompanyAdmin
+
+  const { sites: allSites, isLoading: sitesLoading } = useSitesLookup({
+    enabled: canAddLabour && isCompanyAdmin,
   })
+  const { assignedSites, isLoading: assignedLoading } = useAssignedSites({
+    includeClosed: true,
+    enabled: canAddLabour && !isCompanyAdmin,
+  })
+
+  const siteOptions = isCompanyAdmin ? allSites : assignedSites
+  const sitesBusy = isCompanyAdmin ? sitesLoading : assignedLoading
+  const showUnassignedOption = isCompanyAdmin || siteOptions.length === 0
+
+  const initialSite = useMemo(() => {
+    if (isCompanyAdmin) return ''
+    if (assignedSites.length === 0) return ''
+    return String(assignedSites[0].id)
+  }, [isCompanyAdmin, assignedSites])
+
+  const schema = useMemo(
+    () => createLabourFormSchema({ requireSite }),
+    [requireSite],
+  )
 
   useEffect(() => {
     setTitle?.('নতুন লেবার')
@@ -49,14 +62,40 @@ export const LabourNewPage = () => {
     handleSubmit,
     reset,
     setError,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({
-    resolver: zodResolver(labourFormSchema),
-    defaultValues: emptyValues,
+    resolver: zodResolver(schema),
+    defaultValues: {
+      ...LABOUR_FORM_DEFAULTS,
+      current_site: initialSite,
+    },
   })
+
+  useEffect(() => {
+    setValue('current_site', initialSite)
+  }, [initialSite, setValue])
+
+  const watched = watch()
+  const formReady = useMemo(() => {
+    const parsed = schema.safeParse({
+      ...watched,
+      is_active: Boolean(watched.is_active),
+    })
+    return parsed.success
+  }, [watched, schema])
 
   const mutation = useMutation({
     mutationFn: (values) => createLabour(toLabourPayload(values)),
+  })
+
+  const busy = isSubmitting || mutation.isPending
+  const saveDisabled = busy || !formReady
+
+  const blankForm = () => ({
+    ...LABOUR_FORM_DEFAULTS,
+    current_site: initialSite,
   })
 
   const saveLabour = async (values, { createAnother }) => {
@@ -66,7 +105,7 @@ export const LabourNewPage = () => {
       await queryClient.invalidateQueries({ queryKey: ['labours'] })
       toastSuccess('লেবার তৈরি হয়েছে')
       if (createAnother) {
-        reset(emptyValues)
+        reset(blankForm())
       } else {
         navigate(paths.labours, { replace: true })
       }
@@ -120,16 +159,23 @@ export const LabourNewPage = () => {
             className={`select select-bordered w-full ${errors.current_site ? 'select-error' : ''}`}
             {...register('current_site')}
           >
-            <option value="">{NULL_SITE_LABEL}</option>
-            {sites.map((s) => (
+            {showUnassignedOption ? (
+              <option value="">{NULL_SITE_LABEL}</option>
+            ) : null}
+            {siteOptions.map((s) => (
               <option key={s.id} value={String(s.id)}>
                 {s.name}
               </option>
             ))}
           </select>
-          {sitesLoading ? (
+          {sitesBusy ? (
             <span className="label-text-alt text-base-content/55 mt-1">
               সাইট লোড হচ্ছে…
+            </span>
+          ) : null}
+          {errors.current_site ? (
+            <span className="label-text-alt text-error mt-1">
+              {errors.current_site.message}
             </span>
           ) : null}
         </label>
@@ -158,7 +204,7 @@ export const LabourNewPage = () => {
           <input
             type="number"
             inputMode="numeric"
-            min={0}
+            min={1}
             step={1}
             className={`input input-bordered w-full ${errors.default_salary ? 'input-error' : ''}`}
             {...register('default_salary')}
@@ -200,7 +246,7 @@ export const LabourNewPage = () => {
           <button
             type="button"
             className="btn btn-outline btn-primary flex-1"
-            disabled={isSubmitting || mutation.isPending}
+            disabled={saveDisabled}
             onClick={onSaveAndCreateAnother}
           >
             আরেকটি
@@ -208,9 +254,9 @@ export const LabourNewPage = () => {
           <button
             type="submit"
             className="btn btn-primary flex-1"
-            disabled={isSubmitting || mutation.isPending}
+            disabled={saveDisabled}
           >
-            {isSubmitting || mutation.isPending ? (
+            {busy ? (
               <span className="loading loading-spinner loading-sm" />
             ) : (
               'সংরক্ষণ'

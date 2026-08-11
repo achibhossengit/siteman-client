@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -16,7 +16,9 @@ import {
 } from '../../api/labours.js'
 import {
   DEFAULT_ATTENDANCE_OPTIONS,
-  labourFormSchema,
+  LABOUR_FORM_DEFAULTS,
+  createLabourFormSchema,
+  normalizeDefaultAttendance,
   toLabourPayload,
 } from '../../api/types/labour.js'
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
@@ -24,7 +26,7 @@ import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { ListPagination } from '../../components/ListPagination.jsx'
 import { DetailMenuButton } from '../../layouts/DetailLayout.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
-import { useSitesLookup } from '../../hooks/useSites.js'
+import { useAssignedSites, useSitesLookup } from '../../hooks/useSites.js'
 import { formatBnNumber, formatBnSigned, NULL_SITE_LABEL } from '../../utils/format.js'
 import { confirmAction, toastSuccess } from '../../utils/feedback.js'
 import { PERMS } from '../../utils/permissions.js'
@@ -33,15 +35,42 @@ import { paths } from '../../router/paths.js'
 const PAGE_SIZE = 3
 const EDIT_MODAL_ID = 'labour-edit-modal'
 
-const toFormValues = (labour) => ({
-  name: labour?.name ?? '',
-  current_site: labour?.current_site != null ? String(labour.current_site) : '',
-  // API may send "2.50"; select options use "2.5" — normalize via Number.
-  default_attendance: String(Number(labour?.default_attendance ?? 1)),
-  default_salary: labour?.default_salary ?? 0,
-  default_fooding: labour?.default_fooding ?? 0,
-  is_active: labour?.is_active ?? true,
-})
+const toFormValues = (labour, { isCompanyAdmin, assignedSites } = {}) => {
+  if (!labour) {
+    return {
+      ...LABOUR_FORM_DEFAULTS,
+      current_site: isCompanyAdmin
+        ? ''
+        : assignedSites?.[0]
+          ? String(assignedSites[0].id)
+          : '',
+    }
+  }
+
+  let current_site =
+    labour.current_site != null ? String(labour.current_site) : ''
+
+  if (!isCompanyAdmin) {
+    const allowed = new Set((assignedSites ?? []).map((s) => String(s.id)))
+    if (current_site && allowed.size && !allowed.has(current_site)) {
+      current_site = assignedSites[0] ? String(assignedSites[0].id) : ''
+    } else if (!current_site && assignedSites?.length) {
+      current_site = String(assignedSites[0].id)
+    }
+  }
+
+  return {
+    name: labour.name ?? '',
+    current_site,
+    default_attendance: String(
+      normalizeDefaultAttendance(labour.default_attendance ?? 1),
+    ),
+    default_salary: labour.default_salary ?? LABOUR_FORM_DEFAULTS.default_salary,
+    default_fooding:
+      labour.default_fooding ?? LABOUR_FORM_DEFAULTS.default_fooding,
+    is_active: labour.is_active ?? true,
+  }
+}
 
 const formatPeriodDate = (iso) => {
   if (!iso) return '—'
@@ -89,7 +118,7 @@ export const LabourDetailPage = () => {
   const navigate = useNavigate()
   const { setTitle, setHeaderMenu } = useOutletContext()
   const queryClient = useQueryClient()
-  const { can } = usePermissions()
+  const { can, isCompanyAdmin } = usePermissions()
   const editDialogRef = useRef(null)
   const [apiError, setApiError] = useState(null)
   const [sessionApiError, setSessionApiError] = useState(null)
@@ -102,19 +131,49 @@ export const LabourDetailPage = () => {
   const canViewSessions = can(PERMS.viewLabourSession)
   const canCloseSession = can(PERMS.addLabourSession)
   const canDeleteSession = can(PERMS.deleteLabourSession)
+  const requireSite = !isCompanyAdmin
 
-  const { sites, getSiteName } = useSitesLookup({ enabled: canViewLabour })
+  const { sites: allSites, getSiteName } = useSitesLookup({
+    enabled: canViewLabour,
+  })
+  const { assignedSites } = useAssignedSites({
+    includeClosed: true,
+    enabled: canViewLabour && !isCompanyAdmin,
+  })
+
+  const siteOptions = isCompanyAdmin ? allSites : assignedSites
+  const showUnassignedOption = isCompanyAdmin || siteOptions.length === 0
+
+  const schema = useMemo(
+    () => createLabourFormSchema({ requireSite }),
+    [requireSite],
+  )
+
+  const formDefaults = useMemo(
+    () => toFormValues(null, { isCompanyAdmin, assignedSites }),
+    [isCompanyAdmin, assignedSites],
+  )
 
   const {
     register,
     handleSubmit,
     reset,
     setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({
-    resolver: zodResolver(labourFormSchema),
-    defaultValues: toFormValues(null),
+    resolver: zodResolver(schema),
+    defaultValues: formDefaults,
   })
+
+  const watched = watch()
+  const formReady = useMemo(() => {
+    const parsed = schema.safeParse({
+      ...watched,
+      is_active: Boolean(watched.is_active),
+    })
+    return parsed.success
+  }, [watched, schema])
 
   const detailQuery = useQuery({
     queryKey: ['labours', labourId],
@@ -204,7 +263,7 @@ export const LabourDetailPage = () => {
   const openEditModal = () => {
     if (!labour) return
     setApiError(null)
-    reset(toFormValues(labour))
+    reset(toFormValues(labour, { isCompanyAdmin, assignedSites }))
     editDialogRef.current?.showModal()
   }
 
@@ -214,7 +273,7 @@ export const LabourDetailPage = () => {
 
   const onEditModalClose = () => {
     setApiError(null)
-    reset(toFormValues(labour))
+    reset(toFormValues(labour, { isCompanyAdmin, assignedSites }))
   }
 
   const onDeleteLabour = async () => {
@@ -245,7 +304,7 @@ export const LabourDetailPage = () => {
     setApiError(null)
     try {
       const { data } = await updateMutation.mutateAsync(values)
-      reset(toFormValues(data))
+      reset(toFormValues(data, { isCompanyAdmin, assignedSites }))
       await invalidateLabour()
       closeEditModal()
       toastSuccess('লেবার আপডেট হয়েছে')
@@ -352,8 +411,8 @@ export const LabourDetailPage = () => {
   ])
 
   useEffect(() => {
-    if (labour) reset(toFormValues(labour))
-  }, [labour, reset])
+    if (labour) reset(toFormValues(labour, { isCompanyAdmin, assignedSites }))
+  }, [labour, reset, isCompanyAdmin, assignedSites])
 
   if (!canViewLabour) {
     return (
@@ -384,6 +443,7 @@ export const LabourDetailPage = () => {
   }
 
   const busy = isSubmitting || updateMutation.isPending
+  const saveDisabled = busy || !formReady
   const fieldClass = (hasError, kind = 'input') =>
     [
       kind === 'select'
@@ -729,13 +789,20 @@ export const LabourDetailPage = () => {
                 className={fieldClass(errors.current_site, 'select')}
                 {...register('current_site')}
               >
-                <option value="">{NULL_SITE_LABEL}</option>
-                {sites.map((s) => (
+                {showUnassignedOption ? (
+                  <option value="">{NULL_SITE_LABEL}</option>
+                ) : null}
+                {siteOptions.map((s) => (
                   <option key={s.id} value={String(s.id)}>
                     {s.name}
                   </option>
                 ))}
               </select>
+              {errors.current_site ? (
+                <span className="label-text-alt text-error mt-1">
+                  {errors.current_site.message}
+                </span>
+              ) : null}
             </label>
 
             <label className="label cursor-pointer justify-start gap-3 py-2">
@@ -771,7 +838,7 @@ export const LabourDetailPage = () => {
               <input
                 type="number"
                 inputMode="numeric"
-                min={0}
+                min={1}
                 step={1}
                 className={fieldClass(errors.default_salary)}
                 {...register('default_salary')}
@@ -812,7 +879,7 @@ export const LabourDetailPage = () => {
               <button
                 type="submit"
                 className="btn btn-primary flex-1"
-                disabled={busy}
+                disabled={saveDisabled}
               >
                 {busy ? (
                   <span className="loading loading-spinner loading-sm" />
