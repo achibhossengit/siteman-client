@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import {
   Activity,
@@ -8,6 +8,7 @@ import {
   Scale,
   Users,
   Wallet,
+  X,
 } from 'lucide-react'
 
 const APP_FULL_NAME = 'সাইট ম্যানেজার'
@@ -49,11 +50,43 @@ const DEVELOPER_NAME = 'আছিব হোসেন'
 
 export const AppInfoPage = () => {
   const { setTitle } = useOutletContext()
+  const [showPortfolio, setShowPortfolio] = useState(false)
 
   useEffect(() => {
-    setTitle?.('অ্যাপ তথ্য')
+    setTitle?.(showPortfolio ? DEVELOPER_NAME : 'অ্যাপ তথ্য')
     return () => setTitle?.('')
-  }, [setTitle])
+  }, [setTitle, showPortfolio])
+
+  if (showPortfolio) {
+    return (
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <div className="shrink-0 flex items-center justify-end gap-1 pb-2">
+          <a
+            href={LINKS.portfolio}
+            target="_blank"
+            rel="noreferrer"
+            className="btn btn-ghost btn-square btn-sm"
+            aria-label="নতুন ট্যাবে খুলুন"
+          >
+            <ExternalLink className="size-4" strokeWidth={1.75} />
+          </a>
+          <button
+            type="button"
+            className="btn btn-ghost btn-square btn-sm"
+            aria-label="বন্ধ"
+            onClick={() => setShowPortfolio(false)}
+          >
+            <X className="size-4" strokeWidth={1.75} />
+          </button>
+        </div>
+        <iframe
+          src={LINKS.portfolio}
+          title={DEVELOPER_NAME}
+          className="flex-1 min-h-0 w-full rounded-box border border-base-300 bg-base-100"
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
@@ -103,7 +136,14 @@ export const AppInfoPage = () => {
       </section>
 
       <p className="text-center text-xs text-base-content/50">
-        © {new Date().getFullYear()} {APP_FULL_NAME} - <a href="https://achibhossen.me" target="_blank" rel="noreferrer" className="link link-hover text-xs text-base-content/50">{DEVELOPER_NAME}</a>
+        © {new Date().getFullYear()} {APP_FULL_NAME} -{' '}
+        <button
+          type="button"
+          className="link link-hover text-xs text-base-content/50"
+          onClick={() => setShowPortfolio(true)}
+        >
+          {DEVELOPER_NAME}
+        </button>
       </p>
     </div>
   )
