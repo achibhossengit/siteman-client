@@ -25,6 +25,7 @@ import {
   NULL_BILLING_LABEL,
 } from '../../utils/format.js'
 import { confirmAction, toastApiError, toastSuccess } from '../../utils/feedback.js'
+import { SHOW_BILLING, visibleFieldItems } from '../../config/features.js'
 import { useBillingLookup } from '../../hooks/useBillingLookup.js'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { PERMS, hasPermissionSuffix } from '../../utils/permissions.js'
@@ -145,7 +146,7 @@ const summarizeCashActivity = (log, billingNameFn) => {
     fields.note != null && fields.note !== '' ? String(fields.note) : '—'
   const type = fields.type ? cashTypeLabel(fields.type) : null
   const billing =
-    fields.billing != null || fields.billing_id != null
+    SHOW_BILLING && (fields.billing != null || fields.billing_id != null)
       ? formatLogValue(
           'billing',
           fields.billing ?? fields.billing_id,
@@ -159,7 +160,9 @@ const summarizeCashActivity = (log, billingNameFn) => {
 const CashHistoryBiboron = ({ log, billingNameFn }) => {
   if (!log) return '—'
   if (log.action === 'updated') {
-    const entries = cashChangeEntries(log.changes).filter((e) => e.isDiff)
+    const entries = visibleFieldItems(
+      cashChangeEntries(log.changes).filter((e) => e.isDiff),
+    )
     if (!entries.length) return '—'
     return (
       <span className="inline">
@@ -269,7 +272,7 @@ const colgroup = (
   <colgroup>
     <col className="w-12" />
     <col />
-    <col className="w-28 sm:w-36" />
+    {SHOW_BILLING ? <col className="w-28 sm:w-36" /> : null}
     <col className="w-24 sm:w-32" />
   </colgroup>
 )
@@ -435,9 +438,9 @@ export const CashPage = () => {
     if (typeFilter !== 'all') {
       rows = rows.filter((row) => row.type === typeFilter)
     }
-    if (billingFilter === 'none') {
+    if (SHOW_BILLING && billingFilter === 'none') {
       rows = rows.filter((row) => row.billing == null)
-    } else if (billingFilter !== 'all') {
+    } else if (SHOW_BILLING && billingFilter !== 'all') {
       rows = rows.filter(
         (row) => String(row.billing) === String(billingFilter),
       )
@@ -462,8 +465,8 @@ export const CashPage = () => {
     return next.filter((row) => {
       if (!row.fromActivitySnapshot) return true
       if (typeFilter !== 'all' && row.type !== typeFilter) return false
-      if (billingFilter === 'none') return row.billing == null
-      if (billingFilter !== 'all') {
+      if (SHOW_BILLING && billingFilter === 'none') return row.billing == null
+      if (SHOW_BILLING && billingFilter !== 'all') {
         return String(row.billing) === String(billingFilter)
       }
       return true
@@ -838,18 +841,20 @@ export const CashPage = () => {
                 )}
               </th>
               <th>বিবরণ</th>
-              <th>
-                <button
-                  type="button"
-                  onClick={() =>
-                    document
-                      .getElementById(BILLING_FILTER_MODAL_ID)
-                      ?.showModal()
-                  }
-                >
-                  {filterLabel(billingFilterOptions, billingFilter)}
-                </button>
-              </th>
+              {SHOW_BILLING ? (
+                <th>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      document
+                        .getElementById(BILLING_FILTER_MODAL_ID)
+                        ?.showModal()
+                    }
+                  >
+                    {filterLabel(billingFilterOptions, billingFilter)}
+                  </button>
+                </th>
+              ) : null}
               <th className="text-right">
                 <button
                   type="button"
@@ -872,7 +877,7 @@ export const CashPage = () => {
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={SHOW_BILLING ? 4 : 3}
                   className="text-center text-base-content/60 py-10"
                 >
                   এই তারিখে কোনো ক্যাশ এন্ট্রি নেই।
@@ -929,9 +934,11 @@ export const CashPage = () => {
                       )}
                     </td>
                     <td className="truncate">{row.note || '—'}</td>
-                    <td className="max-w-0 truncate text-base-content/80">
-                      {billingName(row.billing)}
-                    </td>
+                    {SHOW_BILLING ? (
+                      <td className="max-w-0 truncate text-base-content/80">
+                        {billingName(row.billing)}
+                      </td>
+                    ) : null}
                     <td
                       className={`text-right tabular-nums font-medium ${className}`}
                     >
@@ -947,7 +954,7 @@ export const CashPage = () => {
               <tr className="font-medium border-t border-base-300">
                 <td />
                 <td className="whitespace-nowrap">Total</td>
-                <td />
+                {SHOW_BILLING ? <td /> : null}
                 <td
                   className={`text-right tabular-nums ${
                     totals.net < 0
@@ -1094,7 +1101,9 @@ export const CashPage = () => {
                       const open = expandedHistoryId === log.id
                       const reviewed = Boolean(log.reviewed_at)
                       const fields = snapshotFields(log.changes)
-                      const logChanges = cashChangeEntries(log.changes)
+                      const logChanges = visibleFieldItems(
+                        cashChangeEntries(log.changes),
+                      )
                       return (
                         <Fragment key={log.id}>
                           <tr
@@ -1248,6 +1257,7 @@ export const CashPage = () => {
                                           {cashTypeLabel(fields.type)}
                                         </span>
                                       </div>
+                                      {SHOW_BILLING ? (
                                       <div className="flex gap-1.5">
                                         <span className="w-16 shrink-0 text-base-content/60">
                                           বিলিং
@@ -1260,6 +1270,7 @@ export const CashPage = () => {
                                           )}
                                         </span>
                                       </div>
+                                      ) : null}
                                     </>
                                   )}
                                 </div>
@@ -1339,6 +1350,7 @@ export const CashPage = () => {
               </label>
             </div>
 
+            {SHOW_BILLING ? (
             <label className="form-control w-full">
               <span className="label-text mb-1">বিলিং ক্যাটাগরি</span>
               <select
@@ -1354,6 +1366,9 @@ export const CashPage = () => {
                   ))}
                 </select>
             </label>
+            ) : (
+              <input type="hidden" {...register('billing')} />
+            )}
 
             {editing ? (
               <div className="modal-action mt-2 justify-stretch gap-2">
@@ -1473,6 +1488,7 @@ export const CashPage = () => {
         </div>
       </dialog>
 
+      {SHOW_BILLING ? (
       <dialog id={BILLING_FILTER_MODAL_ID} className="modal">
         <div className="modal-box max-w-xs max-h-[min(32rem,85vh)] overflow-y-auto">
           <form method="dialog">
@@ -1507,6 +1523,7 @@ export const CashPage = () => {
           <button type="button" tabIndex={-1} aria-hidden="true" />
         </div>
       </dialog>
+      ) : null}
     </section>
   )
 }

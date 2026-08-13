@@ -17,6 +17,7 @@ import {
 } from '../../api/types/privateSiteCash.js'
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
+import { SHOW_BILLING } from '../../config/features.js'
 import { useBillingLookup } from '../../hooks/useBillingLookup.js'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import {
@@ -139,19 +140,19 @@ export const SitePrivateCashPanel = ({
       'sites',
       siteId,
       'private-cash',
-      { type: typeFilter, billing: billingFilter },
+      { type: typeFilter, billing: SHOW_BILLING ? billingFilter : 'all' },
     ],
     queryFn: async () => {
       const { data } = await fetchPrivateSiteCash(siteId, {
         ...(typeFilter !== 'all' ? { type: typeFilter } : {}),
-        ...(billingFilter !== 'all' && billingFilter !== 'none'
+        ...(SHOW_BILLING && billingFilter !== 'all' && billingFilter !== 'none'
           ? { billing: billingFilter }
           : {}),
         page: 1,
         page_size: 100,
       })
       let next = sortByDateDesc(data?.results ?? [])
-      if (billingFilter === 'none') {
+      if (SHOW_BILLING && billingFilter === 'none') {
         next = next.filter((row) => row.billing == null)
       }
       return next
@@ -364,18 +365,20 @@ export const SitePrivateCashPanel = ({
             <tr className="border-b border-base-300">
               <th className="w-12">নং</th>
               <th className="w-20">তারিখ</th>
-              <th>
-                <button
-                  type="button"
-                  onClick={() =>
-                    document
-                      .getElementById(BILLING_FILTER_MODAL_ID)
-                      ?.showModal()
-                  }
-                >
-                  {billingFilterHeaderLabel}
-                </button>
-              </th>
+              {SHOW_BILLING ? (
+                <th>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      document
+                        .getElementById(BILLING_FILTER_MODAL_ID)
+                        ?.showModal()
+                    }
+                  >
+                    {billingFilterHeaderLabel}
+                  </button>
+                </th>
+              ) : null}
               <th className="w-28 sm:w-36 text-right">
                 <button
                   type="button"
@@ -392,7 +395,7 @@ export const SitePrivateCashPanel = ({
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={SHOW_BILLING ? 4 : 3}
                   className="text-center text-sm text-base-content/60 py-10"
                 >
                   কোনো প্রাইভেট হিসাব নেই।
@@ -413,9 +416,11 @@ export const SitePrivateCashPanel = ({
                     <td className="tabular-nums text-base-content/70 whitespace-nowrap">
                       {formatListDate(row.date)}
                     </td>
-                    <td className="truncate max-w-28 sm:max-w-none">
-                      {billingName(row.billing)}
-                    </td>
+                    {SHOW_BILLING ? (
+                      <td className="truncate max-w-28 sm:max-w-none">
+                        {billingName(row.billing)}
+                      </td>
+                    ) : null}
                     <td
                       className={`text-right tabular-nums font-medium ${className}`}
                     >
@@ -546,6 +551,7 @@ export const SitePrivateCashPanel = ({
               </label>
             </div>
 
+            {SHOW_BILLING ? (
             <label className="form-control w-full">
               <span className="label-text mb-1">বিলিং ক্যাটাগরি</span>
               <select
@@ -566,6 +572,9 @@ export const SitePrivateCashPanel = ({
                 </span>
               ) : null}
             </label>
+            ) : (
+              <input type="hidden" {...register('billing')} />
+            )}
 
             {editing ? (
               <div className="modal-action mt-2 justify-stretch gap-2">
@@ -664,6 +673,7 @@ export const SitePrivateCashPanel = ({
         </div>
       </dialog>
 
+      {SHOW_BILLING ? (
       <dialog id={BILLING_FILTER_MODAL_ID} className="modal">
         <div className="modal-box max-w-xs max-h-[min(32rem,85vh)] overflow-y-auto">
           <form method="dialog">
@@ -698,6 +708,7 @@ export const SitePrivateCashPanel = ({
           <button type="button" tabIndex={-1} aria-hidden="true" />
         </div>
       </dialog>
+      ) : null}
     </div>
   )
 }

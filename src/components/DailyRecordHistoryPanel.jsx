@@ -6,6 +6,7 @@ import {
 } from "../api/types/activity.js";
 import { parseApiError } from "../api/errors.js";
 import { ApiErrorAlert } from "./ApiErrorAlert.jsx";
+import { SHOW_BILLING, visibleFieldItems } from "../config/features.js";
 import { formatBnNumber, NULL_BILLING_LABEL } from "../utils/format.js";
 
 export const RECORD_LOG_FIELD_LABELS = {
@@ -39,8 +40,10 @@ const RECORD_HISTORY_FIELDS = [
   { key: "billing", aliases: ["billing", "billing_id"], kind: "text" },
 ];
 
+const VISIBLE_HISTORY_FIELDS = visibleFieldItems(RECORD_HISTORY_FIELDS);
+
 const HISTORY_KEY_TO_CANON = Object.fromEntries(
-  RECORD_HISTORY_FIELDS.flatMap((field) =>
+  VISIBLE_HISTORY_FIELDS.flatMap((field) =>
     field.aliases.map((alias) => [alias, field.key]),
   ),
 );
@@ -127,7 +130,7 @@ const pickHistoryFieldValue = (fields, aliases) => {
 };
 
 const historyRowsFromSnapshot = (fields) =>
-  RECORD_HISTORY_FIELDS.map((field) => ({
+  VISIBLE_HISTORY_FIELDS.map((field) => ({
     key: field.key,
     kind: field.kind,
     value: pickHistoryFieldValue(fields, field.aliases),
@@ -158,7 +161,7 @@ const historyRowsFromUpdates = (entries) => {
   for (const entry of entries) {
     const canon = HISTORY_KEY_TO_CANON[entry.key];
     if (!canon || byCanon.has(canon)) continue;
-    const field = RECORD_HISTORY_FIELDS.find((f) => f.key === canon);
+    const field = VISIBLE_HISTORY_FIELDS.find((f) => f.key === canon);
     byCanon.set(canon, {
       key: canon,
       kind: field?.kind ?? "text",
@@ -168,7 +171,7 @@ const historyRowsFromUpdates = (entries) => {
       value: entry.value,
     });
   }
-  return RECORD_HISTORY_FIELDS.map((f) => byCanon.get(f.key)).filter(Boolean);
+  return VISIBLE_HISTORY_FIELDS.map((f) => byCanon.get(f.key)).filter(Boolean);
 };
 
 const formatLogDateTimeBn = (iso) => {
@@ -256,7 +259,7 @@ export const summarizeDailyRecordLog = (log, billingNameFn) => {
   if (ret != null && ret !== "") {
     bits.push(`রিটার্ন ${formatLogValue("amount", ret, billingNameFn)}`);
   }
-  if (fields.billing != null || fields.billing_id != null) {
+  if (SHOW_BILLING && (fields.billing != null || fields.billing_id != null)) {
     bits.push(
       formatLogValue(
         "billing",
@@ -272,7 +275,9 @@ export const summarizeDailyRecordLog = (log, billingNameFn) => {
 const HistoryBiboron = ({ log, billingNameFn, summarize }) => {
   if (!log) return "—";
   if (log.action === "updated") {
-    const entries = activityChangeEntries(log.changes).filter((e) => e.isDiff);
+    const entries = visibleFieldItems(
+      activityChangeEntries(log.changes).filter((e) => e.isDiff),
+    );
     if (!entries.length) return "—";
     return (
       <span className="inline">

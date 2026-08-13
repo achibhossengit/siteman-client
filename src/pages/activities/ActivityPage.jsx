@@ -25,6 +25,7 @@ import {
 } from '../../api/types/siteCash.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
+import { SHOW_BILLING, isBillingFieldKey, visibleFieldItems, visibleFieldKeys } from '../../config/features.js'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { useAssignedSites } from '../../hooks/useSites.js'
 import { useBillingLookups } from '../../hooks/useBillingLookup.js'
@@ -281,12 +282,13 @@ const pickRecordEntries = (entityType, data) => {
   if (!data || typeof data !== 'object') return []
   const keys = RECORD_FIELD_KEYS[entityType]
   const source = keys?.length
-    ? keys.filter((key) => data[key] !== undefined)
+    ? visibleFieldKeys(keys.filter((key) => data[key] !== undefined))
     : Object.keys(data).filter(
         (key) =>
           !['id', 'created_at', 'updated_at', 'site', 'labour', 'is_sealed'].includes(
             key,
-          ),
+          ) &&
+          (SHOW_BILLING || !isBillingFieldKey(key)),
       )
   return source.map((key) => ({ key, value: data[key] }))
 }
@@ -397,7 +399,9 @@ const cashNoteFromLog = (log) => {
 const HistoryBiboron = ({ log, billingNameFn }) => {
   if (!log) return '—'
   if (log.action === 'updated') {
-    const entries = changeEntries(log.changes).filter((entry) => entry.isDiff)
+    const entries = visibleFieldItems(
+      changeEntries(log.changes).filter((entry) => entry.isDiff),
+    )
     if (!entries.length) return '—'
     return (
       <span className="inline">
@@ -1235,7 +1239,9 @@ export const ActivityPage = () => {
                         const isFocus =
                           String(log.id) === String(selected.id)
                         const fields = snapshotFields(log.changes)
-                        const logChanges = changeEntries(log.changes)
+                        const logChanges = visibleFieldItems(
+                          changeEntries(log.changes),
+                        )
                         return (
                           <Fragment key={log.id}>
                             <tr

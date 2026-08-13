@@ -14,6 +14,7 @@ import { usePermissions } from '../../hooks/usePermissions.js'
 import { confirmAction, toastSuccess } from '../../utils/feedback.js'
 import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
+import { SHOW_BILLING } from '../../config/features.js'
 import { SiteBillingPanel } from './SiteBillingPanel.jsx'
 import { SitePrivateCashPanel } from './SitePrivateCashPanel.jsx'
 
@@ -46,7 +47,9 @@ export const SiteDetailPage = () => {
   const siteEditDialogRef = useRef(null)
 
   const [siteApiError, setSiteApiError] = useState(null)
-  const [openSection, setOpenSection] = useState('billing')
+  const [openSection, setOpenSection] = useState(
+    SHOW_BILLING ? 'billing' : 'private',
+  )
 
   const canViewSite = can(PERMS.viewSite)
   const canChangeSite = can(PERMS.changeSite)
@@ -275,35 +278,37 @@ export const SiteDetailPage = () => {
       </section>
 
       <div className="space-y-2">
-        <div
-          className={[
-            'collapse collapse-arrow border border-base-300 bg-base-100',
-            billingOpen ? 'collapse-open' : 'collapse-close',
-          ].join(' ')}
-        >
+        {SHOW_BILLING ? (
           <div
-            role="button"
-            tabIndex={0}
-            className="collapse-title min-h-0 py-3 px-3 text-sm font-medium"
-            onClick={() => setOpenSection('billing')}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                setOpenSection('billing')
-              }
-            }}
+            className={[
+              'collapse collapse-arrow border border-base-300 bg-base-100',
+              billingOpen ? 'collapse-open' : 'collapse-close',
+            ].join(' ')}
           >
-            বিলিং ক্যাটাগরি
+            <div
+              role="button"
+              tabIndex={0}
+              className="collapse-title min-h-0 py-3 px-3 text-sm font-medium"
+              onClick={() => setOpenSection('billing')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setOpenSection('billing')
+                }
+              }}
+            >
+              বিলিং ক্যাটাগরি
+            </div>
+            <div className="collapse-content px-3">
+              {billingOpen ? (
+                <SiteBillingPanel
+                  siteId={siteId}
+                  showFab={billingOpen}
+                />
+              ) : null}
+            </div>
           </div>
-          <div className="collapse-content px-3">
-            {billingOpen ? (
-              <SiteBillingPanel
-                siteId={siteId}
-                showFab={billingOpen}
-              />
-            ) : null}
-          </div>
-        </div>
+        ) : null}
 
         <div
           className={[

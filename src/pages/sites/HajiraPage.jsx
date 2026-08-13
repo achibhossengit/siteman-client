@@ -50,6 +50,7 @@ import {
   readSelectedSite,
   todayIso,
 } from "../../utils/sessionSelection.js";
+import { SHOW_BILLING, visibleFieldItems } from "../../config/features.js";
 import { paths } from "../../router/paths.js";
 
 const MODAL_VIEWS = {
@@ -89,8 +90,10 @@ const RECORD_HISTORY_FIELDS = [
   { key: "billing", aliases: ["billing", "billing_id"], kind: "text" },
 ];
 
+const VISIBLE_HISTORY_FIELDS = visibleFieldItems(RECORD_HISTORY_FIELDS);
+
 const HISTORY_KEY_TO_CANON = Object.fromEntries(
-  RECORD_HISTORY_FIELDS.flatMap((field) =>
+  VISIBLE_HISTORY_FIELDS.flatMap((field) =>
     field.aliases.map((alias) => [alias, field.key]),
   ),
 );
@@ -109,7 +112,7 @@ const pickHistoryFieldValue = (fields, aliases) => {
 };
 
 const historyRowsFromSnapshot = (fields) =>
-  RECORD_HISTORY_FIELDS.map((field) => ({
+  VISIBLE_HISTORY_FIELDS.map((field) => ({
     key: field.key,
     kind: field.kind,
     value: pickHistoryFieldValue(fields, field.aliases),
@@ -130,7 +133,7 @@ const historyRowsFromUpdates = (entries) => {
       value: entry.value,
     });
   }
-  return RECORD_HISTORY_FIELDS.map((f) => byCanon.get(f.key)).filter(Boolean);
+  return VISIBLE_HISTORY_FIELDS.map((f) => byCanon.get(f.key)).filter(Boolean);
 };
 
 const paymentTypeLabel = (value) => {
@@ -274,7 +277,7 @@ const summarizeRecordLog = (log, billingNameFn) => {
   if (ret != null && ret !== "") {
     bits.push(`রিটার্ন ${formatHajiraLogValue("amount", ret, billingNameFn)}`);
   }
-  if (fields.billing != null || fields.billing_id != null) {
+  if (SHOW_BILLING && (fields.billing != null || fields.billing_id != null)) {
     bits.push(
       formatHajiraLogValue(
         "billing",
@@ -290,7 +293,9 @@ const summarizeRecordLog = (log, billingNameFn) => {
 const HistoryBiboron = ({ log, billingNameFn, summarize }) => {
   if (!log) return "—";
   if (log.action === "updated") {
-    const entries = activityChangeEntries(log.changes).filter((e) => e.isDiff);
+    const entries = visibleFieldItems(
+      activityChangeEntries(log.changes).filter((e) => e.isDiff),
+    );
     if (!entries.length) return "—";
     return (
       <span className="inline">
@@ -1250,7 +1255,7 @@ export const HajiraPage = () => {
 
   const viewEarningsFilter = earningsFilter;
   const viewPaymentFilter = paymentFilter;
-  const viewBillingFilter = billingFilter;
+  const viewBillingFilter = SHOW_BILLING ? billingFilter : ["all"];
   const viewHajiraFields = hajiraFilter.filter((field) => field !== "billing");
   const viewHajiraFilter = viewHajiraFields.includes("present")
     ? "present"
@@ -2005,6 +2010,9 @@ export const HajiraPage = () => {
     !attendanceLocked(recordModal) &&
     hasMeaningfulDayValue(recordModal);
 
+  const tableColCount =
+    4 + (showAyColumn ? 1 : 0) + (SHOW_BILLING ? 1 : 0);
+
   const patchRecordModal = (patch) => {
     setRecordModal((m) => {
       if (!m) return m;
@@ -2086,18 +2094,20 @@ export const HajiraPage = () => {
                   লেনদেন
                 </button>
               </th>
-              <th className="text-right">
-                <button type="button" onClick={openBillingModal}>
-                  {billingFilterHeaderLabel}
-                </button>
-              </th>
+              {SHOW_BILLING ? (
+                <th className="text-right">
+                  <button type="button" onClick={openBillingModal}>
+                    {billingFilterHeaderLabel}
+                  </button>
+                </th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
             {visibleRows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={showAyColumn ? 6 : 5}
+                  colSpan={tableColCount}
                   className="text-center text-sm text-base-content/60 py-10"
                 >
                   {emptyMessage}
@@ -2289,6 +2299,7 @@ export const HajiraPage = () => {
                         </span>
                       )}
                     </td>
+                    {SHOW_BILLING ? (
                     <td
                       className="text-right text-sm whitespace-nowrap"
                       title={
@@ -2301,6 +2312,7 @@ export const HajiraPage = () => {
                         ? billingLabelForRow(row)
                         : "—"}
                     </td>
+                    ) : null}
                   </tr>
                 );
               })
@@ -2339,7 +2351,9 @@ export const HajiraPage = () => {
                     </span>
                   )}
                 </td>
+                {SHOW_BILLING ? (
                 <td className="text-right text-base-content/60">—</td>
+                ) : null}
               </tr>
             </tfoot>
           ) : null}
@@ -2621,6 +2635,7 @@ export const HajiraPage = () => {
                       />
                     </label>
 
+                    {SHOW_BILLING ? (
                     <label className="form-control w-full">
                       <span className="label-text text-sm">বিলিং</span>
                       <select
@@ -2670,6 +2685,7 @@ export const HajiraPage = () => {
                         })()}
                       </select>
                     </label>
+                    ) : null}
 
                     <div className="modal-action pt-1 flex-wrap justify-between gap-2">
                       <button
@@ -2751,12 +2767,14 @@ export const HajiraPage = () => {
                         {recordModal.note?.trim() ? recordModal.note : "—"}
                       </div>
                     </div>
+                    {SHOW_BILLING ? (
                     <div className="form-control w-full">
                       <span className="label-text text-sm">বিলিং</span>
                       <div className="min-h-8 flex items-center px-1 text-sm">
                         {billingFullLabelForRow(recordModal)}
                       </div>
                     </div>
+                    ) : null}
                     {recordIdOf(recordModal) ? (
                       <div className="flex gap-2 pt-1">
                         <button
@@ -3014,6 +3032,7 @@ export const HajiraPage = () => {
         </div>
       </dialog>
 
+      {SHOW_BILLING ? (
       <dialog id={BILLING_FILTER_MODAL_ID} className="modal">
         <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
@@ -3087,6 +3106,7 @@ export const HajiraPage = () => {
           <button type="button" tabIndex={-1} aria-hidden="true" />
         </div>
       </dialog>
+      ) : null}
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { SHOW_BILLING } from '../config/features.js'
 import {
   Activity,
   CalendarCheck,
@@ -22,7 +23,9 @@ const FEATURES = [
   {
     icon: Wallet,
     title: 'ক্যাশ',
-    description: 'সাইটের দৈনিক ক্যাশ এন্ট্রি, বিলিং ও খরচের হিসাব।',
+    description: SHOW_BILLING
+      ? 'সাইটের দৈনিক ক্যাশ এন্ট্রি, বিলিং ও খরচের হিসাব।'
+      : 'সাইটের দৈনিক ক্যাশ এন্ট্রি ও খরচের হিসাব।',
   },
   {
     icon: Scale,

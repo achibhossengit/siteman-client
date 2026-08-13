@@ -7,6 +7,7 @@ import {
   filterActiveBilling,
   resolveBillingName,
 } from '../api/billingLookup.js'
+import { SHOW_BILLING } from '../config/features.js'
 import { useAuth } from '../providers/AuthProvider.jsx'
 
 export {
@@ -31,9 +32,10 @@ const lookupQueryOptions = (siteId) => ({
 export const useBillingLookup = (siteId, { enabled: enabledOpt } = {}) => {
   const { isAuthenticated } = useAuth()
   const enabled =
-    enabledOpt != null
+    SHOW_BILLING &&
+    (enabledOpt != null
       ? Boolean(enabledOpt)
-      : Boolean(isAuthenticated && siteId)
+      : Boolean(isAuthenticated && siteId))
 
   const query = useQuery({
     ...lookupQueryOptions(siteId),
@@ -83,7 +85,8 @@ export const useBillingLookups = (siteIds, { enabled: enabledOpt } = {}) => {
   }, [siteIds])
 
   const enabled =
-    enabledOpt != null ? Boolean(enabledOpt) : Boolean(isAuthenticated)
+    SHOW_BILLING &&
+    (enabledOpt != null ? Boolean(enabledOpt) : Boolean(isAuthenticated))
 
   const queries = useQueries({
     queries: uniqueIds.map((id) => ({

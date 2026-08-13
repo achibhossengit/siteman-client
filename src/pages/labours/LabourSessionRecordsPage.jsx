@@ -37,6 +37,7 @@ import {
   NULL_BILLING_LABEL,
 } from "../../utils/format.js";
 import { confirmAction, toastApiError, toastInfo, toastSuccess } from "../../utils/feedback.js";
+import { SHOW_BILLING } from "../../config/features.js";
 import { PERMS, hasPermissionSuffix } from "../../utils/permissions.js";
 
 const RECORD_MODAL_ID = "session_record_detail_modal";
@@ -417,7 +418,7 @@ export const LabourSessionRecordsPage = () => {
   const selectedSiteId =
     uniqueSites.length === 1 ? uniqueSites[0].value : siteFilter;
   const billingEnabled =
-    selectedSiteId !== "all" && uniqueSites.length > 0;
+    SHOW_BILLING && selectedSiteId !== "all" && uniqueSites.length > 0;
 
   const billingFilterOptions = useMemo(() => {
     const options = [{ value: "all", label: "সব বিলিং" }];
@@ -910,7 +911,12 @@ export const LabourSessionRecordsPage = () => {
         <ApiErrorAlert error={parseApiError(recordsError)} />
       ) : null}
 
-      <div className="flex justify-between items-center gap-2 shrink-0">
+      <div
+        className={`flex items-center gap-2 shrink-0 ${
+          SHOW_BILLING ? "justify-between" : "justify-end"
+        }`}
+      >
+        {SHOW_BILLING ? (
         <select
           className="select select-bordered select-sm min-w-36"
           value={billingEnabled ? billingFilter : "all"}
@@ -924,6 +930,7 @@ export const LabourSessionRecordsPage = () => {
             </option>
           ))}
         </select>
+        ) : null}
         <select
           className="select select-bordered select-sm min-w-36"
           value={selectedSiteId}
@@ -1338,6 +1345,7 @@ export const LabourSessionRecordsPage = () => {
                         }
                       />
                     </label>
+                    {SHOW_BILLING ? (
                     <label className="form-control w-full">
                       <span className="label-text text-sm">বিলিং</span>
                       <select
@@ -1371,6 +1379,7 @@ export const LabourSessionRecordsPage = () => {
                         ))}
                       </select>
                     </label>
+                    ) : null}
                     <div className="flex gap-2 pt-1">
                       <button
                         type="button"
@@ -1449,12 +1458,14 @@ export const LabourSessionRecordsPage = () => {
                         {recordModal.note?.trim() ? recordModal.note : "—"}
                       </div>
                     </div>
+                    {SHOW_BILLING ? (
                     <div className="form-control w-full">
                       <span className="label-text text-sm">বিলিং</span>
                       <div className="min-h-8 flex items-center px-1 text-sm">
                         {billingFullLabelForRow(recordModal)}
                       </div>
                     </div>
+                    ) : null}
                     <div className="flex gap-2 pt-1">
                       <button
                         type="button"
