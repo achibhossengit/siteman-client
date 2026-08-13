@@ -1075,7 +1075,7 @@ export const ActivityPage = () => {
                           ) : null}
                           {row.labour_name ? (
                             <div className="text-xs text-base-content/70 mt-0.5">
-                              লেবার : {row.labour_name}
+                              শ্রমিক : {row.labour_name}
                             </div>
                           ) : null}
                         </td>
@@ -1329,7 +1329,7 @@ export const ActivityPage = () => {
                                     {log.labour_name ? (
                                       <div className="flex gap-1.5">
                                         <span className="w-16 shrink-0 text-base-content/60">
-                                          লেবার
+                                          শ্রমিক
                                         </span>
                                         <span className="min-w-0">
                                           {log.labour_name}

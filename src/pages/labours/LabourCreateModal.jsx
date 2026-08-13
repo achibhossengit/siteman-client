@@ -117,7 +117,7 @@ export const LabourCreateModal = forwardRef(function LabourCreateModal(_, ref) {
     try {
       await mutation.mutateAsync(values)
       await queryClient.invalidateQueries({ queryKey: ['labours'] })
-      toastSuccess('লেবার তৈরি হয়েছে')
+      toastSuccess('শ্রমিক তৈরি হয়েছে')
       if (createAnother) {
         reset(blankForm())
       } else {
@@ -152,7 +152,7 @@ export const LabourCreateModal = forwardRef(function LabourCreateModal(_, ref) {
         </form>
 
         <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">
-          নতুন লেবার
+          নতুন শ্রমিক
         </h3>
 
         <ApiErrorAlert error={apiError} className="mb-3 shrink-0" />

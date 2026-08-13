@@ -756,7 +756,7 @@ const filterLabel = (options, value) =>
 
 const labourFilterHeaderLabel = (value) => {
   if (value === "record") return "শুধু রেকর্ড";
-  if (value === "labour") return "শুধু লেবার";
+  if (value === "labour") return "শুধু শ্রমিক";
   return "সব";
 };
 
@@ -800,7 +800,7 @@ const formatBulkReviewError = (parsed) => {
 /** Bulk create attrs like `0.date` → per-row map + leftover general errors. */
 const BULK_CREATE_FIELD_LABELS = {
   date: "তারিখ",
-  labour: "লেবার",
+  labour: "শ্রমিক",
   present: "হাজিরা",
   wage: "বেতন",
   extra_earn: "বাড়তি",
@@ -1983,9 +1983,9 @@ export const HajiraPage = () => {
 
   const emptyMessage =
     labourFilter === "labour"
-      ? "এই সাইটে কোনো চালু লেবার নেই।"
+      ? "এই সাইটে কোনো চালু শ্রমিক নেই।"
       : labourFilter === "name"
-        ? "এই সাইটে কোনো চালু লেবার নেই এবং অন্য কোনো রেকর্ড নেই।"
+        ? "এই সাইটে কোনো চালু শ্রমিক নেই এবং অন্য কোনো রেকর্ড নেই।"
         : "এই তারিখে কোনো হাজিরা নেই।";
 
   const recordModalLocked = !modalEditable;
@@ -2201,7 +2201,7 @@ export const HajiraPage = () => {
                               title={
                                 canOpenLabourDetail(row)
                                   ? row.labourName
-                                  : "এই লেবারের সাইটে অনুমতি নেই"
+                                  : "এই শ্রমিকের সাইটে অনুমতি নেই"
                               }
                               aria-disabled={!canOpenLabourDetail(row)}
                               tabIndex={

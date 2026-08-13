@@ -278,7 +278,7 @@ export const LabourDetailPage = () => {
 
   const onDeleteLabour = async () => {
     const ok = await confirmAction({
-      title: 'লেবার মুছে ফেলবেন?',
+      title: 'শ্রমিক মুছে ফেলবেন?',
       text: 'এই কাজটি ফিরিয়ে আনা যাবে না।',
       confirmText: 'ডিলিট করুন',
       danger: true,
@@ -288,7 +288,7 @@ export const LabourDetailPage = () => {
     try {
       await deleteLabourMutation.mutateAsync()
       await queryClient.invalidateQueries({ queryKey: ['labours'] })
-      toastSuccess('লেবার ডিলিট হয়েছে')
+      toastSuccess('শ্রমিক ডিলিট হয়েছে')
       navigate(paths.labours, { replace: true })
     } catch (err) {
       setApiError(parseApiError(err))
@@ -307,7 +307,7 @@ export const LabourDetailPage = () => {
       reset(toFormValues(data, { isCompanyAdmin, assignedSites }))
       await invalidateLabour()
       closeEditModal()
-      toastSuccess('লেবার আপডেট হয়েছে')
+      toastSuccess('শ্রমিক আপডেট হয়েছে')
     } catch (err) {
       const parsed = parseApiError(err)
       setApiError(parsed)
@@ -361,7 +361,7 @@ export const LabourDetailPage = () => {
   }
 
   useEffect(() => {
-    setTitle?.('লেবার বিবরণ')
+    setTitle?.('শ্রমিক বিবরণ')
     return () => setTitle?.('')
   }, [setTitle, labourId])
 
@@ -437,7 +437,7 @@ export const LabourDetailPage = () => {
   if (!labour) {
     return (
       <div className="text-sm text-base-content/70 py-8 text-center">
-        লেবার পাওয়া যায়নি।
+        শ্রমিক পাওয়া যায়নি।
       </div>
     )
   }
@@ -458,7 +458,7 @@ export const LabourDetailPage = () => {
 
       <section className="space-y-2 text-sm">
         <div className="flex justify-between gap-3">
-          <span className="text-base-content/70">লেবারের নাম:</span>
+          <span className="text-base-content/70">শ্রমিকের নাম:</span>
           <span className="font-medium text-right">{labour.name || '—'}</span>
         </div>
         <div className="flex justify-between gap-3">
@@ -756,7 +756,7 @@ export const LabourDetailPage = () => {
             </button>
           </form>
 
-          <h3 className="font-semibold text-base mb-3 pr-8">লেবার আপডেট</h3>
+          <h3 className="font-semibold text-base mb-3 pr-8">শ্রমিক আপডেট</h3>
 
           <ApiErrorAlert error={apiError} className="mb-3" />
 

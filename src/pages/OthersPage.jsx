@@ -92,7 +92,7 @@ const MANAGE_LINKS = [
   },
   {
     key: 'labours',
-    title: 'লেবার ম্যানেজ',
+    title: 'শ্রমিক ম্যানেজ',
     icon: UserRoundCog,
     to: paths.labours,
     anyOf: LABOUR_PERMS,

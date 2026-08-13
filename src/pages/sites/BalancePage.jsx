@@ -120,7 +120,7 @@ export const BalancePage = () => {
       />
       <Row
         icon={Undo2}
-        label="লেবার রিটার্ন"
+        label="শ্রমিক রিটার্ন"
         value={formatBnSigned(labour_return, { showPlus: true })}
         valueClassName="font-semibold tabular-nums text-success"
       />
@@ -148,7 +148,7 @@ export const BalancePage = () => {
       />
       <Row
         icon={Wallet}
-        label="লেবার পেমেন্ট"
+        label="শ্রমিক পেমেন্ট"
         value={formatBnSigned(-(Math.abs(Number(labour_payment) || 0)), {
           showPlus: false,
         })}

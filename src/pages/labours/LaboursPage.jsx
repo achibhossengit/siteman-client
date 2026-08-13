@@ -47,7 +47,7 @@ export const LaboursPage = () => {
   }, [assignedSites, isCompanyAdmin, getSiteName])
 
   useEffect(() => {
-    setTitle?.('লেবার ম্যানেজ')
+    setTitle?.('শ্রমিক ম্যানেজ')
     return () => setTitle?.('')
   }, [setTitle])
 
@@ -118,8 +118,8 @@ export const LaboursPage = () => {
   const emptyLabel = search
     ? 'কোনো মিল পাওয়া যায়নি।'
     : siteFilter !== 'all'
-      ? 'এই ফিল্টারে কোনো লেবার নেই।'
-      : 'কোনো লেবার নেই।'
+      ? 'এই ফিল্টারে কোনো শ্রমিক নেই।'
+      : 'কোনো শ্রমিক নেই।'
 
   return (
     <section className="relative flex-1 min-h-0 flex flex-col">
@@ -211,7 +211,7 @@ export const LaboursPage = () => {
           <button
             type="button"
             className="btn btn-primary btn-circle btn-lg absolute bottom-4 right-4 z-40 shadow-lg"
-            aria-label="নতুন লেবার"
+            aria-label="নতুন শ্রমিক"
             onClick={() => createModalRef.current?.open()}
           >
             <Plus className="size-7" strokeWidth={2} />

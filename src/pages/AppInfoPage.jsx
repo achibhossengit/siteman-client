@@ -17,7 +17,7 @@ const FEATURES = [
   {
     icon: CalendarCheck,
     title: 'হাজিরা',
-    description: 'লেবারদের দৈনিক হাজিরা, বেতন, খোরাকি ও অগ্রিম হিসাব।',
+    description: 'শ্রমিকদের দৈনিক হাজিরা, বেতন, খোরাকি ও অগ্রিম হিসাব।',
   },
   {
     icon: Wallet,
@@ -32,7 +32,7 @@ const FEATURES = [
   {
     icon: Users,
     title: 'ম্যানেজমেন্ট',
-    description: 'সাইট, লেবার ও ইউজার — সব এক জায়গা থেকে পরিচালনা।',
+    description: 'সাইট, শ্রমিক ও ইউজার — সব এক জায়গা থেকে পরিচালনা।',
   },
   {
     icon: Activity,

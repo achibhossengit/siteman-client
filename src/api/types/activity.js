@@ -46,7 +46,7 @@ export const ACTIVITY_ENTITY_FILTER_OPTIONS = [
   { value: 'site_cash', label: 'ক্যাশ' },
   { value: 'labour_session', label: 'হিসাব' },
   // { value: 'private_site_cash', label: 'প্রাইভেট ক্যাশ' },
-  // { value: 'labour', label: 'লেবার' },
+  // { value: 'labour', label: 'শ্রমিক' },
   // { value: 'billing_category', label: 'বিলিং' },
   // { value: 'site', label: 'সাইট' },
   // { value: 'user', label: 'ইউজার' },
