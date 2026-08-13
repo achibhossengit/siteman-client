@@ -472,6 +472,10 @@ export const LabourSessionRecordsPage = () => {
   const dateHeaderLabel = dateFilterActive ? "তারিখ*" : "তারিখ";
   const earningsHeaderLabel =
     earningsFilter.length === EARNINGS_FILTER_OPTIONS.length ? "আয়" : "আয়*";
+  const paymentHeaderLabel =
+    paymentFilter.length === PAYMENT_FILTER_OPTIONS.length
+      ? "লেনদেন"
+      : "লেনদেন*";
 
   const closeDateFilterModal = () => {
     document.getElementById(DATE_FILTER_MODAL_ID)?.close();
@@ -949,7 +953,7 @@ export const LabourSessionRecordsPage = () => {
                       ?.showModal()
                   }
                 >
-                  লেনদেন
+                  {paymentHeaderLabel}
                 </button>
               </th>
             </tr>
