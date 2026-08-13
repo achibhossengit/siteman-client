@@ -1299,43 +1299,45 @@ export const CashPage = () => {
               ) : null}
             </label>
 
-            <label className="form-control w-full">
-              <span className="label-text mb-1">পরিমাণ</span>
-              <input
-                type="number"
-                inputMode="numeric"
-                min={1}
-                step={1}
-                className={fieldClass(errors.amount, 'input', amountDisabled)}
-                disabled={amountDisabled}
-                {...register('amount')}
-              />
-              {errors.amount ? (
-                <span className="label-text-alt text-error mt-1">
-                  {errors.amount.message}
-                </span>
-              ) : null}
-            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="form-control w-full min-w-0">
+                <span className="label-text mb-1">পরিমাণ</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  step={1}
+                  className={fieldClass(errors.amount, 'input', amountDisabled)}
+                  disabled={amountDisabled}
+                  {...register('amount')}
+                />
+                {errors.amount ? (
+                  <span className="label-text-alt text-error mt-1">
+                    {errors.amount.message}
+                  </span>
+                ) : null}
+              </label>
 
-            <label className="form-control w-full">
-              <span className="label-text mb-1">ধরন</span>
-              <select
-                className={fieldClass(errors.type, 'select', detailsDisabled)}
-                disabled={detailsDisabled}
-                {...register('type')}
-              >
-                {CASH_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-              {errors.type ? (
-                <span className="label-text-alt text-error mt-1">
-                  {errors.type.message}
-                </span>
-              ) : null}
-            </label>
+              <label className="form-control w-full min-w-0">
+                <span className="label-text mb-1">ধরন</span>
+                <select
+                  className={fieldClass(errors.type, 'select', detailsDisabled)}
+                  disabled={detailsDisabled}
+                  {...register('type')}
+                >
+                  {CASH_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+                {errors.type ? (
+                  <span className="label-text-alt text-error mt-1">
+                    {errors.type.message}
+                  </span>
+                ) : null}
+              </label>
+            </div>
 
             <label className="form-control w-full">
               <span className="label-text mb-1">বিলিং ক্যাটাগরি</span>
