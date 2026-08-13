@@ -1016,7 +1016,7 @@ export const CashPage = () => {
         className="modal"
         onClose={resetModalState}
       >
-        <div className="modal-box max-w-sm h-[min(32rem,85vh)] flex flex-col">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
             <button
               type="submit"
