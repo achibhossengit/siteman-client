@@ -63,10 +63,10 @@ const RECORD_LOG_FIELD_LABELS = {
   wage: "বেতন",
   extra: "বাড়তি",
   extra_earn: "বাড়তি",
-  fooding_pay: "ফুডিং",
+  fooding_pay: "খোরাকি",
   advance_pay: "অ্যাডভান্স",
   return_amount: "রিটার্ন",
-  payment: "ফুডিং",
+  payment: "খোরাকি",
   advance: "অ্যাডভান্স",
   return: "রিটার্ন",
   amount: "পরিমাণ",
@@ -134,7 +134,7 @@ const historyRowsFromUpdates = (entries) => {
 };
 
 const paymentTypeLabel = (value) => {
-  if (value === "payment") return "ফুডিং";
+  if (value === "payment") return "খোরাকি";
   if (value === "advance") return "অ্যাডভান্স";
   if (value === "return") return "রিটার্ন";
   return value == null || value === "" ? "—" : String(value);
@@ -263,7 +263,7 @@ const summarizeRecordLog = (log, billingNameFn) => {
   const ret = fields.return_amount ?? fields.return;
   if (payment != null && payment !== "") {
     bits.push(
-      `ফুডিং ${formatHajiraLogValue("amount", payment, billingNameFn)}`,
+      `খোরাকি ${formatHajiraLogValue("amount", payment, billingNameFn)}`,
     );
   }
   if (advance != null && advance !== "") {
@@ -577,7 +577,7 @@ const hasMeaningfulDayValue = (row) =>
 const lacksMeaningfulDayValue = (row) => !hasMeaningfulDayValue(row);
 
 const MEANINGFUL_DAY_VALUE_MESSAGE =
-  "হাজিরা, বাড়তি, ফুডিং, অ্যাডভান্স বা রিটার্নের অন্তত একটি মান ০-এর বেশি দিন।";
+  "হাজিরা, বাড়তি, খোরাকি, অ্যাডভান্স বা রিটার্নের অন্তত একটি মান ০-এর বেশি দিন।";
 
 const presentEarnings = (row) => {
   if (!hasPresent(row) || Number(row.present) === 0) return 0;
@@ -746,7 +746,7 @@ const nextEarningsFilter = (value) => {
 };
 
 const PAYMENT_FILTER_OPTIONS = [
-  { value: "payment", label: "ফুডিং" },
+  { value: "payment", label: "খোরাকি" },
   { value: "advance", label: "অ্যাডভান্স" },
   { value: "return", label: "রিটার্ন" },
 ];
@@ -804,7 +804,7 @@ const BULK_CREATE_FIELD_LABELS = {
   present: "হাজিরা",
   wage: "বেতন",
   extra_earn: "বাড়তি",
-  fooding_pay: "ফুডিং",
+  fooding_pay: "খোরাকি",
   advance_pay: "অ্যাডভান্স",
   return_amount: "রিটার্ন",
   note: "নোট",
@@ -863,7 +863,7 @@ const PAYMENT_SPECS = [
     idKey: "paymentId",
     sealedKey: "paymentSealed",
     type: "payment",
-    label: "ফুডিং",
+    label: "খোরাকি",
   },
   {
     key: "advance",
@@ -2555,7 +2555,7 @@ export const HajiraPage = () => {
                       </label>
 
                       <label className="form-control w-full min-w-0">
-                        <span className="label-text text-sm">ফুডিং</span>
+                        <span className="label-text text-sm">খোরাকি</span>
                         <input
                           type="number"
                           min={0}
@@ -2726,7 +2726,7 @@ export const HajiraPage = () => {
                         </div>
                       </div>
                       <div className="form-control w-full min-w-0">
-                        <span className="label-text text-sm">ফুডিং</span>
+                        <span className="label-text text-sm">খোরাকি</span>
                         <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
                           {displayModalValue(recordModal.payment)}
                         </div>
@@ -2960,7 +2960,7 @@ export const HajiraPage = () => {
             {showBulkSection ? (
               <div className="space-y-3 border-t border-base-300 pt-3">
                 <label className="form-control w-full">
-                  <span className="label-text text-sm">ফুডিং</span>
+                  <span className="label-text text-sm">খোরাকি</span>
                   <input
                     type="number"
                     min={0}

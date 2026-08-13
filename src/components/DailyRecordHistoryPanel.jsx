@@ -14,10 +14,10 @@ export const RECORD_LOG_FIELD_LABELS = {
   wage: "বেতন",
   extra: "বাড়তি",
   extra_earn: "বাড়তি",
-  fooding_pay: "ফুডিং",
+  fooding_pay: "খোরাকি",
   advance_pay: "অ্যাডভান্স",
   return_amount: "রিটার্ন",
-  payment: "ফুডিং",
+  payment: "খোরাকি",
   advance: "অ্যাডভান্স",
   return: "রিটার্ন",
   amount: "পরিমাণ",
@@ -48,7 +48,7 @@ const HISTORY_KEY_TO_CANON = Object.fromEntries(
 const sameDisplay = (a, b) => String(a ?? "") === String(b ?? "");
 
 const paymentTypeLabel = (value) => {
-  if (value === "payment") return "ফুডিং";
+  if (value === "payment") return "খোরাকি";
   if (value === "advance") return "অ্যাডভান্স";
   if (value === "return") return "রিটার্ন";
   return value == null || value === "" ? "—" : String(value);
@@ -248,7 +248,7 @@ export const summarizeDailyRecordLog = (log, billingNameFn) => {
   const advance = fields.advance_pay ?? fields.advance;
   const ret = fields.return_amount ?? fields.return;
   if (payment != null && payment !== "") {
-    bits.push(`ফুডিং ${formatLogValue("amount", payment, billingNameFn)}`);
+    bits.push(`খোরাকি ${formatLogValue("amount", payment, billingNameFn)}`);
   }
   if (advance != null && advance !== "") {
     bits.push(`অ্যাডভান্স ${formatLogValue("amount", advance, billingNameFn)}`);

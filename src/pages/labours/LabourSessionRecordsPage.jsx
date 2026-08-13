@@ -68,7 +68,7 @@ const nextEarningsFilter = (value) => {
 };
 
 const PAYMENT_FILTER_OPTIONS = [
-  { value: "payment", label: "ফুডিং" },
+  { value: "payment", label: "খোরাকি" },
   { value: "advance", label: "অ্যাডভান্স" },
   { value: "return", label: "রিটার্ন" },
 ];
@@ -162,7 +162,7 @@ const hasMeaningfulDayValue = (row) =>
   amountPositive(row.return);
 
 const MEANINGFUL_DAY_VALUE_MESSAGE =
-  "হাজিরা, বাড়তি, ফুডিং, অ্যাডভান্স বা রিটার্নের অন্তত একটি মান ০-এর বেশি দিন।";
+  "হাজিরা, বাড়তি, খোরাকি, অ্যাডভান্স বা রিটার্নের অন্তত একটি মান ০-এর বেশি দিন।";
 
 const presentEarnings = (row) => {
   if (!hasPresent(row) || Number(row.present) === 0) return 0;
@@ -1081,7 +1081,7 @@ export const LabourSessionRecordsPage = () => {
                         />
                       </label>
                       <label className="form-control w-full min-w-0">
-                        <span className="label-text text-sm">ফুডিং</span>
+                        <span className="label-text text-sm">খোরাকি</span>
                         <input
                           type="number"
                           min={0}
@@ -1229,7 +1229,7 @@ export const LabourSessionRecordsPage = () => {
                         </div>
                       </div>
                       <div className="form-control w-full min-w-0">
-                        <span className="label-text text-sm">ফুডিং</span>
+                        <span className="label-text text-sm">খোরাকি</span>
                         <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
                           {displayValue(recordModal.payment)}
                         </div>
