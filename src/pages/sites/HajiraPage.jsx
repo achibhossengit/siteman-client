@@ -1484,7 +1484,8 @@ export const HajiraPage = () => {
     setRecordModal((m) => {
       if (!m) return m;
       const blank = (value) => value === "" || value == null;
-      const present = blank(m.present)
+      const unsetPresent = blank(m.present) || Number(m.present) === 0;
+      const present = unsetPresent
         ? row.defaultAttendance === "" || row.defaultAttendance == null
           ? ""
           : String(row.defaultAttendance)
