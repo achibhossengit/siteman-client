@@ -374,40 +374,26 @@ export const LabourSessionRecordsPage = () => {
     return getBillingName(row.siteId, row.billing);
   };
 
-  const billingFilterOptions = useMemo(() => {
-    const options = [
-      { value: "all", label: "সব বিলিং" },
-      { value: "none", label: NULL_BILLING_LABEL },
-    ];
-    const seen = new Set();
-    for (const row of rows) {
-      if (row.billing == null || row.billing === "") continue;
-      const value = String(row.billing);
-      if (seen.has(value)) continue;
-      seen.add(value);
-      options.push({
-        value,
-        label: row.billingName || getBillingName(row.siteId, value),
-      });
-    }
-    return options;
-  }, [rows, getBillingName]);
+  const dateFilteredRows = useMemo(() => {
+    const start = toIsoDate(dateStart);
+    const end = toIsoDate(dateEnd);
+    if (!start || !end) return rows;
+    return rows.filter((row) => {
+      const d = toIsoDate(row.date);
+      return Boolean(d && d >= start && d <= end);
+    });
+  }, [rows, dateStart, dateEnd]);
 
-  const siteFilterOptions = useMemo(() => {
-    const options = [{ value: "all", label: "সব সাইট" }];
-    const seen = new Set();
-    for (const row of rows) {
+  const uniqueSites = useMemo(() => {
+    const seen = new Map();
+    for (const row of dateFilteredRows) {
       if (row.siteId == null || row.siteId === "") continue;
       const value = String(row.siteId);
       if (seen.has(value)) continue;
-      seen.add(value);
-      options.push({
-        value,
-        label: getSiteName(row.siteId),
-      });
+      seen.set(value, { value, label: getSiteName(row.siteId) });
     }
-    return options;
-  }, [rows, getSiteName]);
+    return [...seen.values()];
+  }, [dateFilteredRows, getSiteName]);
 
   const sessionDateBounds = useMemo(() => {
     const dates = [];
@@ -420,27 +406,74 @@ export const LabourSessionRecordsPage = () => {
     return { min: dates[0], max: dates[dates.length - 1] };
   }, [rows]);
 
+  const siteFilterOptions = useMemo(() => {
+    if (uniqueSites.length === 0) {
+      return [{ value: "all", label: "সব" }];
+    }
+    if (uniqueSites.length === 1) return uniqueSites;
+    return [{ value: "all", label: "সব" }, ...uniqueSites];
+  }, [uniqueSites]);
+
+  const selectedSiteId =
+    uniqueSites.length === 1 ? uniqueSites[0].value : siteFilter;
+  const billingEnabled =
+    selectedSiteId !== "all" && uniqueSites.length > 0;
+
+  const billingFilterOptions = useMemo(() => {
+    const options = [{ value: "all", label: "সব বিলিং" }];
+    if (!billingEnabled) return options;
+    options.push({ value: "none", label: NULL_BILLING_LABEL });
+    const seen = new Set();
+    for (const row of dateFilteredRows) {
+      if (String(row.siteId ?? "") !== String(selectedSiteId)) continue;
+      if (row.billing == null || row.billing === "") continue;
+      const value = String(row.billing);
+      if (seen.has(value)) continue;
+      seen.add(value);
+      options.push({
+        value,
+        label: row.billingName || getBillingName(row.siteId, value),
+      });
+    }
+    return options;
+  }, [billingEnabled, dateFilteredRows, selectedSiteId, getBillingName]);
+
+  useEffect(() => {
+    if (uniqueSites.length === 1) {
+      const only = uniqueSites[0].value;
+      if (siteFilter !== only) setSiteFilter(only);
+      return;
+    }
+    if (
+      uniqueSites.length > 1 &&
+      siteFilter !== "all" &&
+      !uniqueSites.some((site) => site.value === siteFilter)
+    ) {
+      setSiteFilter("all");
+      setBillingFilter("all");
+    }
+  }, [uniqueSites, siteFilter]);
+
   const visibleRows = useMemo(() => {
-    const start = toIsoDate(dateStart);
-    const end = toIsoDate(dateEnd);
-    return rows.filter((row) => {
-      if (start && end) {
-        const d = toIsoDate(row.date);
-        if (!d || d < start || d > end) return false;
-      }
+    return dateFilteredRows.filter((row) => {
       if (
-        siteFilter !== "all" &&
-        String(row.siteId ?? "") !== String(siteFilter)
+        selectedSiteId !== "all" &&
+        String(row.siteId ?? "") !== String(selectedSiteId)
       ) {
         return false;
       }
-      if (billingFilter === "all") return true;
+      if (!billingEnabled || billingFilter === "all") return true;
       if (billingFilter === "none") {
         return row.billing == null || row.billing === "";
       }
       return String(row.billing ?? "") === String(billingFilter);
     });
-  }, [rows, siteFilter, billingFilter, dateStart, dateEnd]);
+  }, [
+    dateFilteredRows,
+    selectedSiteId,
+    billingEnabled,
+    billingFilter,
+  ]);
 
   const totals = useMemo(
     () =>
@@ -880,7 +913,8 @@ export const LabourSessionRecordsPage = () => {
       <div className="flex justify-between items-center gap-2 shrink-0">
         <select
           className="select select-bordered select-sm min-w-36"
-          value={billingFilter}
+          value={billingEnabled ? billingFilter : "all"}
+          disabled={!billingEnabled}
           onChange={(e) => setBillingFilter(e.target.value)}
           aria-label="বিলিং ফিল্টার"
         >
@@ -892,8 +926,11 @@ export const LabourSessionRecordsPage = () => {
         </select>
         <select
           className="select select-bordered select-sm min-w-36"
-          value={siteFilter}
-          onChange={(e) => setSiteFilter(e.target.value)}
+          value={selectedSiteId}
+          onChange={(e) => {
+            setSiteFilter(e.target.value);
+            setBillingFilter("all");
+          }}
           aria-label="সাইট ফিল্টার"
         >
           {siteFilterOptions.map((opt) => (
