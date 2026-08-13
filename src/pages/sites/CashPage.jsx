@@ -942,7 +942,7 @@ export const CashPage = () => {
               })
             )}
           </tbody>
-          {liveRows.length > 0 ? (
+          {typeFilter !== 'all' && liveRows.length > 0 ? (
             <tfoot>
               <tr className="font-medium border-t border-base-300">
                 <td />
