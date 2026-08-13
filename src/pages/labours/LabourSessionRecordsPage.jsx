@@ -37,7 +37,7 @@ import {
   formatBnNumber,
   NULL_BILLING_LABEL,
 } from "../../utils/format.js";
-import { confirmAction, toastSuccess } from "../../utils/feedback.js";
+import { confirmAction, toastApiError, toastInfo, toastSuccess } from "../../utils/feedback.js";
 import { PERMS, hasPermissionSuffix } from "../../utils/permissions.js";
 
 const RECORD_MODAL_ID = "session_record_detail_modal";
@@ -274,6 +274,10 @@ export const LabourSessionRecordsPage = () => {
   );
   const [draftDateStart, setDraftDateStart] = useState("");
   const [draftDateEnd, setDraftDateEnd] = useState("");
+  const [bulkSalary, setBulkSalary] = useState("");
+  const [bulkSalaryBusy, setBulkSalaryBusy] = useState(false);
+  const [bulkFooding, setBulkFooding] = useState("");
+  const [bulkFoodingBusy, setBulkFoodingBusy] = useState(false);
   const [recordModal, setRecordModal] = useState(null);
   const [recordModalView, setRecordModalView] = useState(MODAL_VIEWS.detail);
   const [modalEditing, setModalEditing] = useState(false);
@@ -500,6 +504,88 @@ export const LabourSessionRecordsPage = () => {
     setDraftDateStart(sessionDateBounds?.min || "");
     setDraftDateEnd(sessionDateBounds?.max || "");
     closeDateFilterModal();
+  };
+
+  const applyBulkSalary = async () => {
+    const salary = numOrEmpty(bulkSalary);
+    if (salary === "" || !canChangeDailyRecord || bulkSalaryBusy) return;
+    const wage = Number(salary);
+    if (!Number.isFinite(wage) || wage < 0) return;
+
+    const targets = visibleRows.filter(
+      (row) => row.recordId && !row.sealed && isSiteAllowed(row.siteId),
+    );
+    if (!targets.length) {
+      toastInfo("আপডেট করার মতো কোনো রেকর্ড নেই।");
+      return;
+    }
+
+    setBulkSalaryBusy(true);
+    try {
+      const results = await Promise.allSettled(
+        targets.map((row) =>
+          updateLabourDailyRecord(labourId, row.recordId, { wage }),
+        ),
+      );
+      const failed = results.filter((result) => result.status === "rejected");
+      await invalidateRecordQueries();
+      if (failed.length === 0) {
+        toastSuccess("বেতন সেট হয়েছে");
+        setBulkSalary("");
+        document.getElementById(HAJIRA_FILTER_MODAL_ID)?.close();
+      } else if (failed.length < results.length) {
+        toastInfo(
+          `${formatBnNumber(failed.length)}টি রেকর্ড আপডেট হয়নি।`,
+        );
+      } else {
+        toastApiError(parseApiError(failed[0].reason));
+      }
+    } catch (error) {
+      toastApiError(parseApiError(error));
+    } finally {
+      setBulkSalaryBusy(false);
+    }
+  };
+
+  const applyBulkFooding = async () => {
+    const fooding = numOrEmpty(bulkFooding);
+    if (fooding === "" || !canChangeDailyRecord || bulkFoodingBusy) return;
+    const fooding_pay = Number(fooding);
+    if (!Number.isFinite(fooding_pay) || fooding_pay < 0) return;
+
+    const targets = visibleRows.filter(
+      (row) => row.recordId && !row.sealed && isSiteAllowed(row.siteId),
+    );
+    if (!targets.length) {
+      toastInfo("আপডেট করার মতো কোনো রেকর্ড নেই।");
+      return;
+    }
+
+    setBulkFoodingBusy(true);
+    try {
+      const results = await Promise.allSettled(
+        targets.map((row) =>
+          updateLabourDailyRecord(labourId, row.recordId, { fooding_pay }),
+        ),
+      );
+      const failed = results.filter((result) => result.status === "rejected");
+      await invalidateRecordQueries();
+      if (failed.length === 0) {
+        toastSuccess("খোরাকি সেট হয়েছে");
+        setBulkFooding("");
+        document.getElementById(PAYMENT_FILTER_MODAL_ID)?.close();
+      } else if (failed.length < results.length) {
+        toastInfo(
+          `${formatBnNumber(failed.length)}টি রেকর্ড আপডেট হয়নি।`,
+        );
+      } else {
+        toastApiError(parseApiError(failed[0].reason));
+      }
+    } catch (error) {
+      toastApiError(parseApiError(error));
+    } finally {
+      setBulkFoodingBusy(false);
+    }
   };
 
   useEffect(() => {
@@ -1481,61 +1567,155 @@ export const LabourSessionRecordsPage = () => {
         </div>
       </dialog>
 
-      <MultiFilterDialog
-        id={HAJIRA_FILTER_MODAL_ID}
-        title="হাজিরা"
-        options={HAJIRA_FILTER_OPTIONS}
-        values={hajiraFilter}
-        onChange={setHajiraFilter}
-      />
-      <MultiFilterDialog
-        id={PAYMENT_FILTER_MODAL_ID}
-        title="লেনদেন"
-        options={PAYMENT_FILTER_OPTIONS}
-        values={paymentFilter}
-        onChange={setPaymentFilter}
-      />
+      <dialog id={HAJIRA_FILTER_MODAL_ID} className="modal">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
+          <form method="dialog">
+            <button
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              ✕
+            </button>
+          </form>
+          <h3 className="font-bold text-lg pr-8 shrink-0">হাজিরা</h3>
+          <div className="flex flex-col gap-3 pt-3 flex-1 min-h-0 overflow-y-auto">
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
+              {HAJIRA_FILTER_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  className="inline-flex items-center gap-2 cursor-pointer text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-xs"
+                    checked={hajiraFilter.includes(option.value)}
+                    onChange={() => {
+                      setHajiraFilter((prev) =>
+                        prev.includes(option.value)
+                          ? prev.filter((value) => value !== option.value)
+                          : [...prev, option.value],
+                      );
+                    }}
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))}
+            </div>
+            {canChangeDailyRecord ? (
+              <div className="space-y-3 border-t border-base-300 pt-3">
+                <label className="form-control w-full">
+                  <span className="label-text text-sm">বেতন</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    step={1}
+                    className="input input-bordered input-sm w-full tabular-nums"
+                    value={bulkSalary}
+                    disabled={bulkSalaryBusy}
+                    onChange={(e) => setBulkSalary(numOrEmpty(e.target.value))}
+                  />
+                </label>
+                <div className="modal-action pt-1">
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => void applyBulkSalary()}
+                    disabled={
+                      bulkSalaryBusy ||
+                      bulkSalary === "" ||
+                      bulkSalary == null
+                    }
+                  >
+                    {bulkSalaryBusy ? (
+                      <span className="loading loading-spinner loading-sm" />
+                    ) : null}
+                    সেট করুন
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
+      </dialog>
+
+      <dialog id={PAYMENT_FILTER_MODAL_ID} className="modal">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
+          <form method="dialog">
+            <button
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              ✕
+            </button>
+          </form>
+          <h3 className="font-bold text-lg pr-8 shrink-0">লেনদেন</h3>
+          <div className="flex flex-col gap-3 pt-3 flex-1 min-h-0 overflow-y-auto">
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
+              {PAYMENT_FILTER_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  className="inline-flex items-center gap-2 cursor-pointer text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-xs"
+                    checked={paymentFilter.includes(option.value)}
+                    onChange={() => {
+                      setPaymentFilter((prev) =>
+                        prev.includes(option.value)
+                          ? prev.filter((value) => value !== option.value)
+                          : [...prev, option.value],
+                      );
+                    }}
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))}
+            </div>
+            {canChangeDailyRecord ? (
+              <div className="space-y-3 border-t border-base-300 pt-3">
+                <label className="form-control w-full">
+                  <span className="label-text text-sm">খোরাকি</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    step={1}
+                    className="input input-bordered input-sm w-full tabular-nums"
+                    value={bulkFooding}
+                    disabled={bulkFoodingBusy}
+                    onChange={(e) => setBulkFooding(numOrEmpty(e.target.value))}
+                  />
+                </label>
+                <div className="modal-action pt-1">
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => void applyBulkFooding()}
+                    disabled={
+                      bulkFoodingBusy ||
+                      bulkFooding === "" ||
+                      bulkFooding == null
+                    }
+                  >
+                    {bulkFoodingBusy ? (
+                      <span className="loading loading-spinner loading-sm" />
+                    ) : null}
+                    সেট করুন
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
+      </dialog>
     </div>
   );
 };
-
-const MultiFilterDialog = ({ id, title, options, values, onChange }) => (
-  <dialog id={id} className="modal">
-    <div className="modal-box max-w-xs max-h-[min(32rem,85vh)] flex flex-col overflow-y-auto">
-      <form method="dialog">
-        <button
-          className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-          aria-label="বন্ধ"
-        >
-          ✕
-        </button>
-      </form>
-      <h3 className="font-bold text-lg">{title}</h3>
-      <div className="pt-3 flex flex-wrap gap-x-4 gap-y-2">
-        {options.map((option) => (
-          <label
-            key={option.value}
-            className="inline-flex items-center gap-2 cursor-pointer text-sm"
-          >
-            <input
-              type="checkbox"
-              className="checkbox checkbox-xs"
-              checked={values.includes(option.value)}
-              onChange={() => {
-                onChange((prev) =>
-                  prev.includes(option.value)
-                    ? prev.filter((value) => value !== option.value)
-                    : [...prev, option.value],
-                );
-              }}
-            />
-            <span>{option.label}</span>
-          </label>
-        ))}
-      </div>
-    </div>
-    <div className="modal-backdrop">
-      <button type="button" tabIndex={-1} aria-hidden="true" />
-    </div>
-  </dialog>
-);
