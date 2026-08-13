@@ -189,7 +189,10 @@ const shortActionLabel = (action) => {
   return 'তৈরি'
 }
 
-const TYPE_FILTER_OPTIONS = [{ value: 'all', label: 'পরিমাণ' }, ...CASH_TYPES]
+const TYPE_DEFAULT_FIELDS = CASH_TYPES.map((t) => t.value)
+
+const filterHeaderTitle = (title, selected, required) =>
+  required.every((value) => selected.includes(value)) ? title : `${title}*`
 
 /** Bulk review validation: attr ids + missing id details. */
 const formatBulkReviewError = (parsed) => {
@@ -283,7 +286,7 @@ export const CashPage = () => {
   const { can, profile } = usePermissions()
   const dialogRef = useRef(null)
 
-  const [typeFilter, setTypeFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState(() => [...TYPE_DEFAULT_FIELDS])
   const [billingFilter, setBillingFilter] = useState('all')
   const [selected, setSelected] = useState(null)
   const [creating, setCreating] = useState(false)
@@ -335,7 +338,7 @@ export const CashPage = () => {
   const formReady = noteReady && amountReady
 
   useEffect(() => {
-    setTypeFilter('all')
+    setTypeFilter([...TYPE_DEFAULT_FIELDS])
     setBillingFilter('all')
     setSelectMode(false)
     setSelectedIds(new Set())
@@ -435,8 +438,8 @@ export const CashPage = () => {
 
   const liveRows = useMemo(() => {
     let rows = cashQuery.data ?? []
-    if (typeFilter !== 'all') {
-      rows = rows.filter((row) => row.type === typeFilter)
+    if (typeFilter.length !== TYPE_DEFAULT_FIELDS.length) {
+      rows = rows.filter((row) => typeFilter.includes(row.type))
     }
     if (SHOW_BILLING && billingFilter === 'none') {
       rows = rows.filter((row) => row.billing == null)
@@ -464,7 +467,7 @@ export const CashPage = () => {
     }
     return next.filter((row) => {
       if (!row.fromActivitySnapshot) return true
-      if (typeFilter !== 'all' && row.type !== typeFilter) return false
+      if (!typeFilter.includes(row.type)) return false
       if (SHOW_BILLING && billingFilter === 'none') return row.billing == null
       if (SHOW_BILLING && billingFilter !== 'all') {
         return String(row.billing) === String(billingFilter)
@@ -862,7 +865,11 @@ export const CashPage = () => {
                     document.getElementById(TYPE_FILTER_MODAL_ID)?.showModal()
                   }
                 >
-                  {filterLabel(TYPE_FILTER_OPTIONS, typeFilter)}
+                  {filterHeaderTitle(
+                    'পরিমাণ',
+                    typeFilter,
+                    TYPE_DEFAULT_FIELDS,
+                  )}
                 </button>
               </th>
             </tr>
@@ -949,11 +956,11 @@ export const CashPage = () => {
               })
             )}
           </tbody>
-          {typeFilter !== 'all' && liveRows.length > 0 ? (
+          {typeFilter.length === 1 && liveRows.length > 0 ? (
             <tfoot>
               <tr className="font-medium border-t border-base-300">
                 <td />
-                <td className="whitespace-nowrap">Total</td>
+                <td className="whitespace-nowrap">মোট</td>
                 {SHOW_BILLING ? <td /> : null}
                 <td
                   className={`text-right tabular-nums ${
@@ -1454,7 +1461,7 @@ export const CashPage = () => {
       </dialog>
 
       <dialog id={TYPE_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-xs max-h-[min(32rem,85vh)] overflow-y-auto">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
             <button
               type="submit"
@@ -1464,23 +1471,30 @@ export const CashPage = () => {
               <X className="size-4" strokeWidth={1.75} />
             </button>
           </form>
-          <h3 className="font-semibold text-base">পরিমাণ ফিল্টার</h3>
-          <div className="menu bg-base-100 w-full p-0 pt-3">
-            {TYPE_FILTER_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`btn btn-ghost btn-sm justify-start ${
-                  typeFilter === opt.value ? 'btn-active' : ''
-                }`}
-                onClick={() => {
-                  setTypeFilter(opt.value)
-                  document.getElementById(TYPE_FILTER_MODAL_ID)?.close()
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
+          <h3 className="font-bold text-lg pr-8 shrink-0">পরিমাণ</h3>
+          <div className="flex flex-col gap-3 pt-3 flex-1 min-h-0 overflow-y-auto">
+            <div className="flex flex-col gap-2">
+              {CASH_TYPES.map((opt) => (
+                <label
+                  key={opt.value}
+                  className="inline-flex items-center gap-2 cursor-pointer text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-xs"
+                    checked={typeFilter.includes(opt.value)}
+                    onChange={() => {
+                      setTypeFilter((prev) =>
+                        prev.includes(opt.value)
+                          ? prev.filter((value) => value !== opt.value)
+                          : [...prev, opt.value],
+                      )
+                    }}
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              ))}
+            </div>
           </div>
         </div>
         <div className="modal-backdrop">
