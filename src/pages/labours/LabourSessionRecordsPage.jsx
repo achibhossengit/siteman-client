@@ -33,7 +33,6 @@ import { useBillingLookups } from "../../hooks/useBillingLookup.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { useSitesLookup } from "../../hooks/useSites.js";
 import {
-  concatBillingName,
   formatBnNumber,
   NULL_BILLING_LABEL,
 } from "../../utils/format.js";
@@ -374,9 +373,6 @@ export const LabourSessionRecordsPage = () => {
     if (row.billingName) return row.billingName;
     return getBillingName(row.siteId, row.billing);
   };
-
-  const billingLabelForRow = (row) =>
-    concatBillingName(billingFullLabelForRow(row));
 
   const billingFilterOptions = useMemo(() => {
     const options = [
@@ -992,7 +988,6 @@ export const LabourSessionRecordsPage = () => {
                 const hajiraTone =
                   activityTextToneClass(row.activityTone) ||
                   "text-base-content/70";
-                const billingText = billingLabelForRow(row);
 
                 return (
                   <tr
@@ -1008,19 +1003,7 @@ export const LabourSessionRecordsPage = () => {
                     <td className="tabular-nums text-base-content/60">
                       {formatBnNumber(index + 1)}
                     </td>
-                    <td className="whitespace-nowrap">
-                      <span className="block leading-tight">
-                        <span>{formatDate(row.date)}</span>
-                        {row.siteId != null && row.siteId !== "" ? (
-                          <span
-                            className="block text-xs text-base-content/60 truncate max-w-28"
-                            title={getSiteName(row.siteId)}
-                          >
-                            {getSiteName(row.siteId)}
-                          </span>
-                        ) : null}
-                      </span>
-                    </td>
+                    <td className="whitespace-nowrap">{formatDate(row.date)}</td>
                     <td className={`text-right ${hajiraTone}`}>
                       <span className="block w-full space-y-0.5 text-right leading-tight">
                         {attendanceLines.map((line) => (
@@ -1032,12 +1015,6 @@ export const LabourSessionRecordsPage = () => {
                             {line.value}
                           </span>
                         ))}
-                        <span
-                          className="block w-full truncate text-right text-xs text-base-content/60"
-                          title={billingFullLabelForRow(row)}
-                        >
-                          {billingText}
-                        </span>
                       </span>
                     </td>
                     <td className="text-right tabular-nums">
