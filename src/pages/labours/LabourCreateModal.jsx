@@ -291,9 +291,9 @@ export const LabourCreateModal = forwardRef(function LabourCreateModal(_, ref) {
           </div>
         </form>
       </div>
-      <form method="dialog" className="modal-backdrop">
-        <button type="submit">বন্ধ</button>
-      </form>
+      <div className="modal-backdrop">
+        <button type="button" tabIndex={-1} aria-hidden="true" />
+      </div>
     </dialog>
   )
 })
