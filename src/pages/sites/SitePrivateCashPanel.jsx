@@ -624,9 +624,9 @@ export const SitePrivateCashPanel = ({
             ) : null}
           </form>
         </div>
-        <form method="dialog" className="modal-backdrop">
-          <button type="submit">close</button>
-        </form>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
       </dialog>
 
       <dialog id={TYPE_FILTER_MODAL_ID} className="modal">
@@ -659,9 +659,9 @@ export const SitePrivateCashPanel = ({
             ))}
           </div>
         </div>
-        <form method="dialog" className="modal-backdrop">
-          <button type="submit">close</button>
-        </form>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
       </dialog>
 
       <dialog id={BILLING_FILTER_MODAL_ID} className="modal">
@@ -694,9 +694,9 @@ export const SitePrivateCashPanel = ({
             ))}
           </div>
         </div>
-        <form method="dialog" className="modal-backdrop">
-          <button type="submit">close</button>
-        </form>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
       </dialog>
     </div>
   )

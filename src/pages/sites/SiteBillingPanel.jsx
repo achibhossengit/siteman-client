@@ -609,9 +609,9 @@ export const SiteBillingPanel = ({ siteId, showFab = true }) => {
             ) : null}
           </form>
         </div>
-        <form method="dialog" className="modal-backdrop">
-          <button type="submit">close</button>
-        </form>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
       </dialog>
     </div>
   )

@@ -2799,6 +2799,9 @@ export const HajiraPage = () => {
             ) : null}
           </div>
         </div>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
       </dialog>
 
       <dialog id={HAJIRA_FILTER_MODAL_ID} className="modal">
@@ -2917,9 +2920,9 @@ export const HajiraPage = () => {
             ) : null}
           </div>
         </div>
-        <form method="dialog" className="modal-backdrop">
-          <button type="submit">close</button>
-        </form>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
       </dialog>
 
       <dialog id={PAYMENT_FILTER_MODAL_ID} className="modal">
@@ -3006,9 +3009,9 @@ export const HajiraPage = () => {
             ) : null}
           </div>
         </div>
-        <form method="dialog" className="modal-backdrop">
-          <button type="submit">close</button>
-        </form>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
       </dialog>
 
       <dialog id={BILLING_FILTER_MODAL_ID} className="modal">
@@ -3080,9 +3083,9 @@ export const HajiraPage = () => {
             ) : null}
           </div>
         </div>
-        <form method="dialog" className="modal-backdrop">
-          <button type="submit">close</button>
-        </form>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
       </dialog>
     </div>
   );

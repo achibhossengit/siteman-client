@@ -1307,9 +1307,9 @@ export const LabourSessionRecordsPage = () => {
             ) : null}
           </div>
         </div>
-        <form method="dialog" className="modal-backdrop">
-          <button type="submit">close</button>
-        </form>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
       </dialog>
 
       <MultiFilterDialog
@@ -1365,8 +1365,8 @@ const MultiFilterDialog = ({ id, title, options, values, onChange }) => (
         ))}
       </div>
     </div>
-    <form method="dialog" className="modal-backdrop">
-      <button type="submit">close</button>
-    </form>
+    <div className="modal-backdrop">
+      <button type="button" tabIndex={-1} aria-hidden="true" />
+    </div>
   </dialog>
 );
