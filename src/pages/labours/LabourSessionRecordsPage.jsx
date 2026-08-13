@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useOutletContext, useParams } from "react-router-dom";
+import { useOutletContext, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Trash2 } from "lucide-react";
 import { fetchAllActivities } from "../../api/activities.js";
@@ -111,6 +111,13 @@ const toIsoDate = (value) => {
   if (value == null || value === "") return "";
   const match = String(value).trim().match(/^(\d{4}-\d{2}-\d{2})/);
   return match ? match[1] : "";
+};
+
+const readDateRangeFromSearch = (params) => {
+  const start = toIsoDate(params.get("start"));
+  const end = toIsoDate(params.get("end"));
+  if (!start || !end) return { start: "", end: "" };
+  return start <= end ? { start, end } : { start: end, end: start };
 };
 
 const filterLabel = (options, value) =>
@@ -231,6 +238,7 @@ const fetchAllLabourDailyRecords = async (labourId, rangeParams) => {
 
 export const LabourSessionRecordsPage = () => {
   const { labourId, sessionId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { setTitle, setHeaderMenu } = useOutletContext();
   const queryClient = useQueryClient();
   const { can, profile } = usePermissions();
@@ -258,8 +266,12 @@ export const LabourSessionRecordsPage = () => {
   const [billingFilter, setBillingFilter] = useState("all");
   const [siteFilter, setSiteFilter] = useState("all");
   const [hajiraFilter, setHajiraFilter] = useState(["present", "extra"]);
-  const [dateStart, setDateStart] = useState("");
-  const [dateEnd, setDateEnd] = useState("");
+  const [dateStart, setDateStart] = useState(
+    () => readDateRangeFromSearch(searchParams).start,
+  );
+  const [dateEnd, setDateEnd] = useState(
+    () => readDateRangeFromSearch(searchParams).end,
+  );
   const [draftDateStart, setDraftDateStart] = useState("");
   const [draftDateEnd, setDraftDateEnd] = useState("");
   const [recordModal, setRecordModal] = useState(null);
@@ -489,6 +501,23 @@ export const LabourSessionRecordsPage = () => {
     setDraftDateEnd(sessionDateBounds?.max || "");
     closeDateFilterModal();
   };
+
+  useEffect(() => {
+    const start = toIsoDate(dateStart);
+    const end = toIsoDate(dateEnd);
+    const next = new URLSearchParams(searchParams);
+    if (start && end) {
+      next.set("start", start <= end ? start : end);
+      next.set("end", start <= end ? end : start);
+    } else {
+      next.delete("start");
+      next.delete("end");
+    }
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync outward from state
+  }, [dateStart, dateEnd]);
 
   const historyQuery = useQuery({
     queryKey: [
