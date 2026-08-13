@@ -43,5 +43,5 @@ export const concatName = (name, maxLen = 10) => {
 /** @see concatName */
 export const concatBillingName = concatName
 
-/** @see concatName */
-export const concatLabourName = concatName
+/** Labour names: first + last usually fit at 14 (e.g. "আরিফ উদ্দিন"). */
+export const concatLabourName = (name) => concatName(name, 14)
