@@ -591,12 +591,16 @@ const presentEarnings = (row) => {
   return Number(row.present) * salary;
 };
 
-const dayEarnings = (row, earningsFilter = "earn") => {
-  const fromPresent = presentEarnings(row);
-  const fromExtra = amountPositive(row.extra) ? Number(row.extra) : 0;
-  if (earningsFilter === "from_present") return fromPresent;
-  if (earningsFilter === "from_extra") return fromExtra;
-  return fromPresent + fromExtra;
+const dayEarnings = (row, selected = ["from_present", "from_extra"]) => {
+  const fields = Array.isArray(selected)
+    ? selected
+    : ["from_present", "from_extra"];
+  let total = 0;
+  if (fields.includes("from_present")) total += presentEarnings(row);
+  if (fields.includes("from_extra")) {
+    total += amountPositive(row.extra) ? Number(row.extra) : 0;
+  }
+  return total;
 };
 
 const hajiraTotalValue = (row, hajiraFilter = "hajira") => {
@@ -700,6 +704,8 @@ const recordSealedOf = (row) =>
   );
 
 const RECORD_MODAL_ID = "hajira_record_modal";
+const LABOUR_FILTER_MODAL_ID = "hajira_labour_filter_modal";
+const EARNINGS_FILTER_MODAL_ID = "hajira_earnings_filter_modal";
 const PAYMENT_FILTER_MODAL_ID = "hajira_payment_filter_modal";
 const HAJIRA_FILTER_MODAL_ID = "hajira_hajira_filter_modal";
 const BILLING_FILTER_MODAL_ID = "hajira_billing_filter_modal";
@@ -738,17 +744,21 @@ const HAJIRA_FILTER_OPTIONS = [
   { value: "extra", label: "বাড়তি কাজ" },
 ];
 
-const EARNINGS_FILTER_OPTIONS = [
-  { value: "earn", label: "আয়" },
-  { value: "from_present", label: "বেতন" },
-  { value: "from_extra", label: "বাড়তি কাজ" },
+const HAJIRA_DEFAULT_FIELDS = ["present", "extra"];
+
+const LABOUR_FILTER_OPTIONS = [
+  { value: "record", label: "এই সাইটের রেকর্ড" },
+  { value: "labour", label: "শুধু এই সাইটের শ্রমিক" },
 ];
 
-const nextEarningsFilter = (value) => {
-  const idx = EARNINGS_FILTER_OPTIONS.findIndex((opt) => opt.value === value);
-  const next = EARNINGS_FILTER_OPTIONS[(idx + 1) % EARNINGS_FILTER_OPTIONS.length];
-  return next?.value ?? "earn";
-};
+const LABOUR_DEFAULT_FIELDS = ["record", "labour"];
+
+const EARNINGS_FILTER_OPTIONS = [
+  { value: "from_present", label: "বেতন থেকে আয়" },
+  { value: "from_extra", label: "বাড়তি কাজ থেকে আয়" },
+];
+
+const EARNINGS_DEFAULT_FIELDS = EARNINGS_FILTER_OPTIONS.map((opt) => opt.value);
 
 const PAYMENT_FILTER_OPTIONS = [
   { value: "payment", label: "খোরাকি" },
@@ -756,24 +766,13 @@ const PAYMENT_FILTER_OPTIONS = [
   { value: "return", label: "রিটার্ন" },
 ];
 
-const filterLabel = (options, value) =>
-  options.find((opt) => opt.value === value)?.label ?? options[0]?.label ?? "";
+const PAYMENT_DEFAULT_FIELDS = PAYMENT_FILTER_OPTIONS.map((opt) => opt.value);
 
-const labourFilterHeaderLabel = (value) => {
-  if (value === "record") return "শুধু রেকর্ড";
-  if (value === "labour") return "শুধু শ্রমিক";
-  return "সব";
-};
-
-const LABOUR_FILTER_CYCLE = ["name", "record", "labour"];
-
-const nextLabourFilter = (value) => {
-  const i = LABOUR_FILTER_CYCLE.indexOf(value);
-  return LABOUR_FILTER_CYCLE[(i + 1) % LABOUR_FILTER_CYCLE.length];
-};
+const filterHeaderTitle = (title, selected, required) =>
+  required.every((value) => selected.includes(value)) ? title : `${title}*`;
 
 const labourFilterNeedsActiveLabour = (filter) =>
-  filter === "name" || filter === "labour";
+  Array.isArray(filter) && filter.includes("labour");
 
 const displayModalValue = (value) => {
   if (value === "" || value == null) return "—";
@@ -951,8 +950,12 @@ export const HajiraPage = () => {
   const [recordModalView, setRecordModalView] = useState(MODAL_VIEWS.detail);
   const [modalEditing, setModalEditing] = useState(false);
   const [expandedHistoryId, setExpandedHistoryId] = useState(null);
-  const [labourFilter, setLabourFilter] = useState("name");
-  const [earningsFilter, setEarningsFilter] = useState("earn");
+  const [labourFilter, setLabourFilter] = useState(() => [
+    ...LABOUR_DEFAULT_FIELDS,
+  ]);
+  const [earningsFilter, setEarningsFilter] = useState(() => [
+    ...EARNINGS_DEFAULT_FIELDS,
+  ]);
   const [paymentFilter, setPaymentFilter] = useState([
     "payment",
     "advance",
@@ -1125,12 +1128,12 @@ export const HajiraPage = () => {
     document.getElementById(BILLING_FILTER_MODAL_ID)?.showModal();
   };
 
-  const toggleLabourFilter = () => {
-    setLabourFilter((prev) => nextLabourFilter(prev));
+  const openLabourFilterModal = () => {
+    document.getElementById(LABOUR_FILTER_MODAL_ID)?.showModal();
   };
 
-  const toggleEarningsFilter = () => {
-    setEarningsFilter((prev) => nextEarningsFilter(prev));
+  const openEarningsFilterModal = () => {
+    document.getElementById(EARNINGS_FILTER_MODAL_ID)?.showModal();
   };
 
   const withSiteLabourCurrentSite = (list) =>
@@ -1145,10 +1148,15 @@ export const HajiraPage = () => {
     }));
 
   const buildRowsForLabourFilter = (filter) => {
+    const selected = Array.isArray(filter) ? filter : LABOUR_DEFAULT_FIELDS;
+    const includeRecord = selected.includes("record");
+    const includeLabour = selected.includes("labour");
     const records = dailyRecordsQuery.data ?? [];
     const activeLabour = activeLabourQuery.data ?? [];
 
-    if (filter === "record") {
+    if (!includeRecord && !includeLabour) return [];
+
+    if (includeRecord && !includeLabour) {
       let next = buildHajiraViewRows(records);
       if (canViewActivityLog) {
         next = applyActivitiesToViewRows(next, pendingLogQuery.data ?? []);
@@ -1156,7 +1164,7 @@ export const HajiraPage = () => {
       return next;
     }
 
-    if (filter === "labour") {
+    if (includeLabour && !includeRecord) {
       let next = withSiteLabourCurrentSite(
         buildHajiraEditRows(activeLabour, records),
       );
@@ -1170,7 +1178,6 @@ export const HajiraPage = () => {
       return next;
     }
 
-    // name (default): site labours first, then other records
     const siteRows = withSiteLabourCurrentSite(
       buildHajiraEditRows(activeLabour, records),
     );
@@ -1192,7 +1199,7 @@ export const HajiraPage = () => {
       skipSiteDateResetRef.current = false;
       return;
     }
-    setLabourFilter("name");
+    setLabourFilter([...LABOUR_DEFAULT_FIELDS]);
     setSelectMode(false);
     setSelectedIds(new Set());
     setApiError(null);
@@ -1201,7 +1208,7 @@ export const HajiraPage = () => {
     setRecordModalView(MODAL_VIEWS.detail);
     setModalEditing(false);
     setExpandedHistoryId(null);
-    setEarningsFilter("earn");
+    setEarningsFilter([...EARNINGS_DEFAULT_FIELDS]);
     setPaymentFilter(["payment", "advance", "return"]);
     setBillingFilter(["all"]);
     setHajiraFilter(["present", "extra"]);
@@ -1987,12 +1994,16 @@ export const HajiraPage = () => {
     );
   }
 
+  const includeLabourRows = labourFilter.includes("labour");
+  const includeRecordRows = labourFilter.includes("record");
   const emptyMessage =
-    labourFilter === "labour"
-      ? "এই সাইটে কোনো চালু শ্রমিক নেই।"
-      : labourFilter === "name"
-        ? "এই সাইটে কোনো চালু শ্রমিক নেই এবং অন্য কোনো রেকর্ড নেই।"
-        : "এই তারিখে কোনো হাজিরা নেই।";
+    !includeLabourRows && !includeRecordRows
+      ? "কোনো ফিল্টার নির্বাচিত নেই।"
+      : includeLabourRows && !includeRecordRows
+        ? "এই সাইটে কোনো চালু শ্রমিক নেই।"
+        : includeLabourRows && includeRecordRows
+          ? "এই সাইটে কোনো চালু শ্রমিক নেই এবং অন্য কোনো রেকর্ড নেই।"
+          : "এই তারিখে কোনো হাজিরা নেই।";
 
   const recordModalLocked = !modalEditable;
   const salaryFieldEnabled =
@@ -2068,30 +2079,41 @@ export const HajiraPage = () => {
               <th>
                 <button
                   type="button"
-                  onClick={toggleLabourFilter}
+                  onClick={openLabourFilterModal}
                 >
-                  {labourFilterHeaderLabel(labourFilter)}
+                  {filterHeaderTitle("নাম", labourFilter, LABOUR_DEFAULT_FIELDS)}
                 </button>
               </th>
               <th className="text-right">
                 <button type="button" onClick={openHajiraModal}>
-                  হাজিরা
+                  {filterHeaderTitle(
+                    "হাজিরা",
+                    hajiraFilter,
+                    HAJIRA_DEFAULT_FIELDS,
+                  )}
                 </button>
               </th>
               {showAyColumn ? (
                 <th className="text-right">
                   <button
                     type="button"
-                    onClick={toggleEarningsFilter}
-                    title="ক্লিক করে আয় / বেতন / বাড়তি কাজ বদলান"
+                    onClick={openEarningsFilterModal}
                   >
-                    {filterLabel(EARNINGS_FILTER_OPTIONS, earningsFilter)}
+                    {filterHeaderTitle(
+                      "আয়",
+                      earningsFilter,
+                      EARNINGS_DEFAULT_FIELDS,
+                    )}
                   </button>
                 </th>
               ) : null}
               <th className="text-right">
                 <button type="button" onClick={openPaymentModal}>
-                  লেনদেন
+                  {filterHeaderTitle(
+                    "লেনদেন",
+                    paymentFilter,
+                    PAYMENT_DEFAULT_FIELDS,
+                  )}
                 </button>
               </th>
               {SHOW_BILLING ? (
@@ -2823,6 +2845,88 @@ export const HajiraPage = () => {
                 )}
               </div>
             ) : null}
+          </div>
+        </div>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
+      </dialog>
+
+      <dialog id={LABOUR_FILTER_MODAL_ID} className="modal">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
+          <form method="dialog">
+            <button
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              ✕
+            </button>
+          </form>
+          <h3 className="font-bold text-lg pr-8 shrink-0">নাম</h3>
+          <div className="flex flex-col gap-3 pt-3 flex-1 min-h-0 overflow-y-auto">
+            <div className="flex flex-col gap-2">
+              {LABOUR_FILTER_OPTIONS.map((opt) => (
+                <label
+                  key={opt.value}
+                  className="inline-flex items-center gap-2 cursor-pointer text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-xs"
+                    checked={labourFilter.includes(opt.value)}
+                    onChange={() => {
+                      setLabourFilter((prev) =>
+                        prev.includes(opt.value)
+                          ? prev.filter((value) => value !== opt.value)
+                          : [...prev, opt.value],
+                      );
+                    }}
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
+      </dialog>
+
+      <dialog id={EARNINGS_FILTER_MODAL_ID} className="modal">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
+          <form method="dialog">
+            <button
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              ✕
+            </button>
+          </form>
+          <h3 className="font-bold text-lg pr-8 shrink-0">আয়</h3>
+          <div className="flex flex-col gap-3 pt-3 flex-1 min-h-0 overflow-y-auto">
+            <div className="flex flex-col gap-2">
+              {EARNINGS_FILTER_OPTIONS.map((opt) => (
+                <label
+                  key={opt.value}
+                  className="inline-flex items-center gap-2 cursor-pointer text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-xs"
+                    checked={earningsFilter.includes(opt.value)}
+                    onChange={() => {
+                      setEarningsFilter((prev) =>
+                        prev.includes(opt.value)
+                          ? prev.filter((value) => value !== opt.value)
+                          : [...prev, opt.value],
+                      );
+                    }}
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              ))}
+            </div>
           </div>
         </div>
         <div className="modal-backdrop">
