@@ -41,6 +41,7 @@ import { confirmAction, toastSuccess } from "../../utils/feedback.js";
 import { PERMS, hasPermissionSuffix } from "../../utils/permissions.js";
 
 const RECORD_MODAL_ID = "session_record_detail_modal";
+const DATE_FILTER_MODAL_ID = "session_record_date_filter_modal";
 const PAYMENT_FILTER_MODAL_ID = "session_record_payment_filter_modal";
 const HAJIRA_FILTER_MODAL_ID = "session_record_hajira_filter_modal";
 
@@ -104,6 +105,12 @@ const formatReadableDate = (iso) => {
     day: "numeric",
     month: "short",
   }).format(date);
+};
+
+const toIsoDate = (value) => {
+  if (value == null || value === "") return "";
+  const match = String(value).trim().match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : "";
 };
 
 const filterLabel = (options, value) =>
@@ -251,6 +258,10 @@ export const LabourSessionRecordsPage = () => {
   const [billingFilter, setBillingFilter] = useState("all");
   const [siteFilter, setSiteFilter] = useState("all");
   const [hajiraFilter, setHajiraFilter] = useState(["present", "extra"]);
+  const [dateStart, setDateStart] = useState("");
+  const [dateEnd, setDateEnd] = useState("");
+  const [draftDateStart, setDraftDateStart] = useState("");
+  const [draftDateEnd, setDraftDateEnd] = useState("");
   const [recordModal, setRecordModal] = useState(null);
   const [recordModalView, setRecordModalView] = useState(MODAL_VIEWS.detail);
   const [modalEditing, setModalEditing] = useState(false);
@@ -393,8 +404,25 @@ export const LabourSessionRecordsPage = () => {
     return options;
   }, [rows, getSiteName]);
 
+  const sessionDateBounds = useMemo(() => {
+    const dates = [];
+    for (const row of rows) {
+      const d = toIsoDate(row.date);
+      if (d) dates.push(d);
+    }
+    if (!dates.length) return null;
+    dates.sort();
+    return { min: dates[0], max: dates[dates.length - 1] };
+  }, [rows]);
+
   const visibleRows = useMemo(() => {
+    const start = toIsoDate(dateStart);
+    const end = toIsoDate(dateEnd);
     return rows.filter((row) => {
+      if (start && end) {
+        const d = toIsoDate(row.date);
+        if (!d || d < start || d > end) return false;
+      }
       if (
         siteFilter !== "all" &&
         String(row.siteId ?? "") !== String(siteFilter)
@@ -407,7 +435,7 @@ export const LabourSessionRecordsPage = () => {
       }
       return String(row.billing ?? "") === String(billingFilter);
     });
-  }, [rows, siteFilter, billingFilter]);
+  }, [rows, siteFilter, billingFilter, dateStart, dateEnd]);
 
   const totals = useMemo(
     () =>
@@ -430,6 +458,37 @@ export const LabourSessionRecordsPage = () => {
       ),
     [visibleRows, earningsFilter, paymentFilter, hajiraFilter],
   );
+
+  const dateFilterActive = Boolean(toIsoDate(dateStart) && toIsoDate(dateEnd));
+  const dateHeaderLabel = dateFilterActive ? "তারিখ*" : "তারিখ";
+
+  const closeDateFilterModal = () => {
+    document.getElementById(DATE_FILTER_MODAL_ID)?.close();
+  };
+
+  const openDateFilter = () => {
+    if (!sessionDateBounds) return;
+    setDraftDateStart(dateStart || sessionDateBounds.min);
+    setDraftDateEnd(dateEnd || sessionDateBounds.max);
+    document.getElementById(DATE_FILTER_MODAL_ID)?.showModal();
+  };
+
+  const applyDateFilter = () => {
+    const start = toIsoDate(draftDateStart);
+    const end = toIsoDate(draftDateEnd);
+    if (!start || !end) return;
+    setDateStart(start <= end ? start : end);
+    setDateEnd(start <= end ? end : start);
+    closeDateFilterModal();
+  };
+
+  const resetDateFilter = () => {
+    setDateStart("");
+    setDateEnd("");
+    setDraftDateStart(sessionDateBounds?.min || "");
+    setDraftDateEnd(sessionDateBounds?.max || "");
+    closeDateFilterModal();
+  };
 
   const historyQuery = useQuery({
     queryKey: [
@@ -740,7 +799,15 @@ export const LabourSessionRecordsPage = () => {
           <thead className="sticky top-0 z-10 bg-base-200">
             <tr className="border-b border-base-300 text-sm">
               <th>নং</th>
-              <th>তারিখ</th>
+              <th>
+                <button
+                  type="button"
+                  onClick={openDateFilter}
+                  disabled={!sessionDateBounds}
+                >
+                  {dateHeaderLabel}
+                </button>
+              </th>
               <th className="text-right">
                 <button
                   type="button"
@@ -1305,6 +1372,79 @@ export const LabourSessionRecordsPage = () => {
                 )}
               </div>
             ) : null}
+          </div>
+        </div>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
+      </dialog>
+
+      <dialog id={DATE_FILTER_MODAL_ID} className="modal">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
+          <form method="dialog">
+            <button
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              ✕
+            </button>
+          </form>
+          <h3 className="font-bold text-lg pr-8 shrink-0">তারিখ</h3>
+          <div className="flex flex-col gap-3 pt-3 flex-1 min-h-0 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-3">
+              <label className="form-control w-full min-w-0">
+                <span className="label-text mb-1">শুরু তারিখ</span>
+                <input
+                  type="date"
+                  className="input input-bordered input-sm w-full"
+                  value={draftDateStart}
+                  min={sessionDateBounds?.min}
+                  max={draftDateEnd || sessionDateBounds?.max}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setDraftDateStart(next);
+                    if (draftDateEnd && next && next > draftDateEnd) {
+                      setDraftDateEnd(next);
+                    }
+                  }}
+                />
+              </label>
+              <label className="form-control w-full min-w-0">
+                <span className="label-text mb-1">শেষ তারিখ</span>
+                <input
+                  type="date"
+                  className="input input-bordered input-sm w-full"
+                  value={draftDateEnd}
+                  min={draftDateStart || sessionDateBounds?.min}
+                  max={sessionDateBounds?.max}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setDraftDateEnd(next);
+                    if (draftDateStart && next && next < draftDateStart) {
+                      setDraftDateStart(next);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+            <div className="modal-action pt-1 flex-wrap justify-between gap-2">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={resetDateFilter}
+                disabled={!dateFilterActive}
+              >
+                রিসেট
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={applyDateFilter}
+                disabled={!draftDateStart || !draftDateEnd}
+              >
+                প্রয়োগ করুন
+              </button>
+            </div>
           </div>
         </div>
         <div className="modal-backdrop">
