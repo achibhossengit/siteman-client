@@ -1225,7 +1225,7 @@ export const LabourSessionRecordsPage = () => {
 
                 {modalEditing ? (
                   <>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-3 gap-2">
                       <label className="form-control w-full min-w-0">
                         <span className="label-text text-sm">হাজিরা</span>
                         <select
@@ -1269,21 +1269,6 @@ export const LabourSessionRecordsPage = () => {
                         />
                       </label>
                       <label className="form-control w-full min-w-0">
-                        <span className="label-text text-sm">বাড়তি কাজ</span>
-                        <input
-                          type="number"
-                          min={0}
-                          className="input input-bordered input-sm w-full tabular-nums"
-                          value={recordModal.extra}
-                          onChange={(e) =>
-                            setRecordModal((m) => ({
-                              ...m,
-                              extra: numOrEmpty(e.target.value),
-                            }))
-                          }
-                        />
-                      </label>
-                      <label className="form-control w-full min-w-0">
                         <span className="label-text text-sm">খোরাকি</span>
                         <input
                           type="number"
@@ -1298,53 +1283,72 @@ export const LabourSessionRecordsPage = () => {
                           }
                         />
                       </label>
-                      <label className="form-control w-full min-w-0">
-                        <span className="label-text text-sm">অ্যাডভান্স</span>
+                    </div>
+                    <div className="space-y-3 border-t border-dashed border-base-300 pt-3 opacity-50 hover:opacity-85 focus-within:opacity-100 transition-opacity [&_.label-text]:text-xs">
+                      <div className="grid grid-cols-3 gap-2">
+                        <label className="form-control w-full min-w-0">
+                          <span className="label-text text-sm">বাড়তি কাজ</span>
+                          <input
+                            type="number"
+                            min={0}
+                            className="input input-bordered input-sm w-full tabular-nums"
+                            value={recordModal.extra}
+                            onChange={(e) =>
+                              setRecordModal((m) => ({
+                                ...m,
+                                extra: numOrEmpty(e.target.value),
+                              }))
+                            }
+                          />
+                        </label>
+                        <label className="form-control w-full min-w-0">
+                          <span className="label-text text-sm">অ্যাডভান্স</span>
+                          <input
+                            type="number"
+                            min={0}
+                            className="input input-bordered input-sm w-full tabular-nums"
+                            value={recordModal.advance}
+                            onChange={(e) =>
+                              setRecordModal((m) => ({
+                                ...m,
+                                advance: numOrEmpty(e.target.value),
+                              }))
+                            }
+                          />
+                        </label>
+                        <label className="form-control w-full min-w-0">
+                          <span className="label-text text-sm">রিটার্ন</span>
+                          <input
+                            type="number"
+                            min={0}
+                            className="input input-bordered input-sm w-full tabular-nums"
+                            value={recordModal.return}
+                            onChange={(e) =>
+                              setRecordModal((m) => ({
+                                ...m,
+                                return: numOrEmpty(e.target.value),
+                              }))
+                            }
+                          />
+                        </label>
+                      </div>
+                      <label className="form-control w-full">
+                        <span className="label-text text-sm">নোট</span>
                         <input
-                          type="number"
-                          min={0}
-                          className="input input-bordered input-sm w-full tabular-nums"
-                          value={recordModal.advance}
+                          type="text"
+                          className="input input-bordered input-sm w-full"
+                          value={recordModal.note}
+                          maxLength={255}
+                          disabled={!hasMeaningfulDayValue(recordModal)}
                           onChange={(e) =>
                             setRecordModal((m) => ({
                               ...m,
-                              advance: numOrEmpty(e.target.value),
-                            }))
-                          }
-                        />
-                      </label>
-                      <label className="form-control w-full min-w-0">
-                        <span className="label-text text-sm">রিটার্ন</span>
-                        <input
-                          type="number"
-                          min={0}
-                          className="input input-bordered input-sm w-full tabular-nums"
-                          value={recordModal.return}
-                          onChange={(e) =>
-                            setRecordModal((m) => ({
-                              ...m,
-                              return: numOrEmpty(e.target.value),
+                              note: e.target.value,
                             }))
                           }
                         />
                       </label>
                     </div>
-                    <label className="form-control w-full">
-                      <span className="label-text text-sm">নোট</span>
-                      <input
-                        type="text"
-                        className="input input-bordered input-sm w-full"
-                        value={recordModal.note}
-                        maxLength={255}
-                        disabled={!hasMeaningfulDayValue(recordModal)}
-                        onChange={(e) =>
-                          setRecordModal((m) => ({
-                            ...m,
-                            note: e.target.value,
-                          }))
-                        }
-                      />
-                    </label>
                     {SHOW_BILLING ? (
                     <label className="form-control w-full">
                       <span className="label-text text-sm">বিলিং</span>
@@ -1412,7 +1416,7 @@ export const LabourSessionRecordsPage = () => {
                   </>
                 ) : (
                   <>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-3 gap-2">
                       <div className="form-control w-full min-w-0">
                         <span className="label-text text-sm">হাজিরা</span>
                         <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
@@ -1428,34 +1432,38 @@ export const LabourSessionRecordsPage = () => {
                         </div>
                       </div>
                       <div className="form-control w-full min-w-0">
-                        <span className="label-text text-sm">বাড়তি কাজ</span>
-                        <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
-                          {displayValue(recordModal.extra)}
-                        </div>
-                      </div>
-                      <div className="form-control w-full min-w-0">
                         <span className="label-text text-sm">খোরাকি</span>
                         <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
                           {displayValue(recordModal.payment)}
                         </div>
                       </div>
-                      <div className="form-control w-full min-w-0">
-                        <span className="label-text text-sm">অ্যাডভান্স</span>
-                        <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
-                          {displayValue(recordModal.advance)}
-                        </div>
-                      </div>
-                      <div className="form-control w-full min-w-0">
-                        <span className="label-text text-sm">রিটার্ন</span>
-                        <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
-                          {displayValue(recordModal.return)}
-                        </div>
-                      </div>
                     </div>
-                    <div className="form-control w-full">
-                      <span className="label-text text-sm">নোট</span>
-                      <div className="min-h-8 flex items-center px-1 text-sm">
-                        {recordModal.note?.trim() ? recordModal.note : "—"}
+                    <div className="space-y-3 border-t border-dashed border-base-300 pt-3 opacity-50 [&_.label-text]:text-xs">
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="form-control w-full min-w-0">
+                          <span className="label-text text-sm">বাড়তি কাজ</span>
+                          <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                            {displayValue(recordModal.extra)}
+                          </div>
+                        </div>
+                        <div className="form-control w-full min-w-0">
+                          <span className="label-text text-sm">অ্যাডভান্স</span>
+                          <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                            {displayValue(recordModal.advance)}
+                          </div>
+                        </div>
+                        <div className="form-control w-full min-w-0">
+                          <span className="label-text text-sm">রিটার্ন</span>
+                          <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                            {displayValue(recordModal.return)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="form-control w-full">
+                        <span className="label-text text-sm">নোট</span>
+                        <div className="min-h-8 flex items-center px-1 text-sm">
+                          {recordModal.note?.trim() ? recordModal.note : "—"}
+                        </div>
                       </div>
                     </div>
                     {SHOW_BILLING ? (
