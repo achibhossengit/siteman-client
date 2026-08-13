@@ -52,13 +52,13 @@ const MODAL_VIEWS = {
 const HAJIRA_FILTER_OPTIONS = [
   { value: "present", label: "উপস্থিতি" },
   { value: "salary", label: "বেতন" },
-  { value: "extra", label: "বাড়তি" },
+  { value: "extra", label: "বাড়তি কাজ" },
 ];
 
 const EARNINGS_FILTER_OPTIONS = [
   { value: "earn", label: "আয়" },
   { value: "from_present", label: "বেতন" },
-  { value: "from_extra", label: "বাড়তি" },
+  { value: "from_extra", label: "বাড়তি কাজ" },
 ];
 
 const nextEarningsFilter = (value) => {
@@ -162,7 +162,7 @@ const hasMeaningfulDayValue = (row) =>
   amountPositive(row.return);
 
 const MEANINGFUL_DAY_VALUE_MESSAGE =
-  "হাজিরা, বাড়তি, খোরাকি, অ্যাডভান্স বা রিটার্নের অন্তত একটি মান ০-এর বেশি দিন।";
+  "হাজিরা, বাড়তি কাজ, খোরাকি, অ্যাডভান্স বা রিটার্নের অন্তত একটি মান ০-এর বেশি দিন।";
 
 const presentEarnings = (row) => {
   if (!hasPresent(row) || Number(row.present) === 0) return 0;
@@ -757,7 +757,7 @@ export const LabourSessionRecordsPage = () => {
                   onClick={() =>
                     setEarningsFilter((prev) => nextEarningsFilter(prev))
                   }
-                  title="ক্লিক করে আয় / বেতন / বাড়তি বদলান"
+                  title="ক্লিক করে আয় / বেতন / বাড়তি কাজ বদলান"
                 >
                   {filterLabel(EARNINGS_FILTER_OPTIONS, earningsFilter)}
                 </button>
@@ -1066,7 +1066,7 @@ export const LabourSessionRecordsPage = () => {
                         />
                       </label>
                       <label className="form-control w-full min-w-0">
-                        <span className="label-text text-sm">বাড়তি</span>
+                        <span className="label-text text-sm">বাড়তি কাজ</span>
                         <input
                           type="number"
                           min={0}
@@ -1223,7 +1223,7 @@ export const LabourSessionRecordsPage = () => {
                         </div>
                       </div>
                       <div className="form-control w-full min-w-0">
-                        <span className="label-text text-sm">বাড়তি</span>
+                        <span className="label-text text-sm">বাড়তি কাজ</span>
                         <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
                           {displayValue(recordModal.extra)}
                         </div>

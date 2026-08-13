@@ -12,8 +12,8 @@ export const RECORD_LOG_FIELD_LABELS = {
   present: "হাজিরা",
   salary: "বেতন",
   wage: "বেতন",
-  extra: "বাড়তি",
-  extra_earn: "বাড়তি",
+  extra: "বাড়তি কাজ",
+  extra_earn: "বাড়তি কাজ",
   fooding_pay: "খোরাকি",
   advance_pay: "অ্যাডভান্স",
   return_amount: "রিটার্ন",
@@ -242,7 +242,7 @@ export const summarizeDailyRecordLog = (log, billingNameFn) => {
   }
   const extra = fields.extra_earn ?? fields.extra;
   if (extra != null && Number(extra) > 0) {
-    bits.push(`বাড়তি ${formatLogValue("extra", extra, billingNameFn)}`);
+    bits.push(`বাড়তি কাজ ${formatLogValue("extra", extra, billingNameFn)}`);
   }
   const payment = fields.fooding_pay ?? fields.payment ?? fields.amount;
   const advance = fields.advance_pay ?? fields.advance;
