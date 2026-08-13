@@ -1162,7 +1162,7 @@ export const ActivityPage = () => {
         className="modal"
         onClose={closeDetail}
       >
-        <div className="modal-box max-w-sm h-[min(32rem,85vh)] flex flex-col">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
             <button
               type="submit"
@@ -1470,7 +1470,7 @@ export const ActivityPage = () => {
       </dialog>
 
       <dialog id={DATE_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-sm">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
             <button
               type="submit"
@@ -1481,9 +1481,9 @@ export const ActivityPage = () => {
             </button>
           </form>
 
-          <h3 className="font-semibold text-base mb-3 pr-8">অ্যাকশন তারিখ</h3>
+          <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">অ্যাকশন তারিখ</h3>
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto">
             <div className="join join-vertical w-full">
               <button
                 type="button"

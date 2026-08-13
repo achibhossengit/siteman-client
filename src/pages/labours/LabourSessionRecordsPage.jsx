@@ -933,7 +933,7 @@ export const LabourSessionRecordsPage = () => {
           resetModalEditState();
         }}
       >
-        <div className="modal-box max-w-sm">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
             <button
               className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
@@ -943,7 +943,7 @@ export const LabourSessionRecordsPage = () => {
             </button>
           </form>
 
-          <h3 className="font-semibold text-base mb-3 pr-8">
+          <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">
             {recordModal && canShowRecordHistory ? (
               <div className="flex items-center gap-3">
                 <button
@@ -984,7 +984,7 @@ export const LabourSessionRecordsPage = () => {
             )}
           </h3>
 
-          <div>
+          <div className="flex-1 min-h-0 overflow-y-auto">
             {recordModal &&
             recordModalView === MODAL_VIEWS.history &&
             canShowRecordHistory ? (
@@ -1332,7 +1332,7 @@ export const LabourSessionRecordsPage = () => {
 
 const MultiFilterDialog = ({ id, title, options, values, onChange }) => (
   <dialog id={id} className="modal">
-    <div className="modal-box max-w-xs">
+    <div className="modal-box max-w-xs max-h-[min(32rem,85vh)] flex flex-col overflow-y-auto">
       <form method="dialog">
         <button
           className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"

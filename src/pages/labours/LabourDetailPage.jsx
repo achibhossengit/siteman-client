@@ -745,7 +745,7 @@ export const LabourDetailPage = () => {
         className="modal"
         onClose={onEditModalClose}
       >
-        <div className="modal-box max-w-lg">
+        <div className="modal-box max-w-lg max-h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
             <button
               type="submit"
@@ -756,12 +756,12 @@ export const LabourDetailPage = () => {
             </button>
           </form>
 
-          <h3 className="font-semibold text-base mb-3 pr-8">শ্রমিক আপডেট</h3>
+          <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">শ্রমিক আপডেট</h3>
 
-          <ApiErrorAlert error={apiError} className="mb-3" />
+          <ApiErrorAlert error={apiError} className="mb-3 shrink-0" />
 
           <form
-            className="flex flex-col gap-3"
+            className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto"
             onSubmit={(e) => {
               e.preventDefault()
               return onConfirmEdit(e)

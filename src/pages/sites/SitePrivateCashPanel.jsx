@@ -447,7 +447,7 @@ export const SitePrivateCashPanel = ({
         className="modal"
         onClose={resetModalState}
       >
-        <div className="modal-box max-w-sm">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
             <button
               type="submit"
@@ -458,16 +458,16 @@ export const SitePrivateCashPanel = ({
             </button>
           </form>
 
-          <h3 className="font-semibold text-base mb-3 pr-8">
+          <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">
             {isCreateMode
               ? 'নতুন প্রাইভেট হিসাব'
               : selected?.note || privateCashTypeLabel(selected?.type)}
           </h3>
 
-          <ApiErrorAlert error={apiError} className="mb-3" />
+          <ApiErrorAlert error={apiError} className="mb-3 shrink-0" />
 
           <form
-            className="flex flex-col gap-3"
+            className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto"
             onSubmit={(e) => {
               e.preventDefault()
               if (saveDisabled) return
@@ -630,7 +630,7 @@ export const SitePrivateCashPanel = ({
       </dialog>
 
       <dialog id={TYPE_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-xs">
+        <div className="modal-box max-w-xs max-h-[min(32rem,85vh)] overflow-y-auto">
           <form method="dialog">
             <button
               type="submit"
@@ -665,7 +665,7 @@ export const SitePrivateCashPanel = ({
       </dialog>
 
       <dialog id={BILLING_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-xs">
+        <div className="modal-box max-w-xs max-h-[min(32rem,85vh)] overflow-y-auto">
           <form method="dialog">
             <button
               type="submit"

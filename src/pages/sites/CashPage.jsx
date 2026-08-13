@@ -1437,7 +1437,7 @@ export const CashPage = () => {
       </dialog>
 
       <dialog id={TYPE_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-xs">
+        <div className="modal-box max-w-xs max-h-[min(32rem,85vh)] overflow-y-auto">
           <form method="dialog">
             <button
               type="submit"
@@ -1472,7 +1472,7 @@ export const CashPage = () => {
       </dialog>
 
       <dialog id={BILLING_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-xs">
+        <div className="modal-box max-w-xs max-h-[min(32rem,85vh)] overflow-y-auto">
           <form method="dialog">
             <button
               type="submit"

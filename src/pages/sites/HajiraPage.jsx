@@ -2409,7 +2409,7 @@ export const HajiraPage = () => {
           resetModalEditState();
         }}
       >
-        <div className="modal-box max-w-sm">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
             <button
               className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
@@ -2419,7 +2419,7 @@ export const HajiraPage = () => {
             </button>
           </form>
 
-          <h3 className="font-semibold text-base mb-3 pr-8">
+          <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">
             {recordModal && canViewActivityLog && canShowRecordHistory ? (
               <div className="flex items-center gap-3">
                 <button
@@ -2460,7 +2460,7 @@ export const HajiraPage = () => {
             )}
           </h3>
 
-          <div>
+          <div className="flex-1 min-h-0 overflow-y-auto">
             {recordModal &&
             recordModalView === MODAL_VIEWS.history &&
             canShowRecordHistory ? (
@@ -2805,7 +2805,7 @@ export const HajiraPage = () => {
       </dialog>
 
       <dialog id={HAJIRA_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-sm">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
             <button
               className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
@@ -2814,8 +2814,8 @@ export const HajiraPage = () => {
               ✕
             </button>
           </form>
-          <h3 className="font-bold text-lg pr-8">হাজিরা</h3>
-          <div className="space-y-4 pt-3">
+          <h3 className="font-bold text-lg pr-8 shrink-0">হাজিরা</h3>
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pt-3">
             <div>
               <div className="flex flex-wrap gap-x-4 gap-y-2">
                 {HAJIRA_FILTER_OPTIONS.map((opt) => (
@@ -2926,7 +2926,7 @@ export const HajiraPage = () => {
       </dialog>
 
       <dialog id={PAYMENT_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-sm">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
             <button
               className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
@@ -2935,8 +2935,8 @@ export const HajiraPage = () => {
               ✕
             </button>
           </form>
-          <h3 className="font-bold text-lg pr-8">লেনদেন</h3>
-          <div className="space-y-4 pt-3">
+          <h3 className="font-bold text-lg pr-8 shrink-0">লেনদেন</h3>
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pt-3">
             <div>
               <div className="flex flex-wrap gap-x-4 gap-y-2">
                 {PAYMENT_FILTER_OPTIONS.map((opt) => (
@@ -3015,7 +3015,7 @@ export const HajiraPage = () => {
       </dialog>
 
       <dialog id={BILLING_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-sm">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
             <button
               className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
@@ -3024,8 +3024,8 @@ export const HajiraPage = () => {
               ✕
             </button>
           </form>
-          <h3 className="font-bold text-lg pr-8">বিলিং</h3>
-          <div className="pt-3 space-y-4">
+          <h3 className="font-bold text-lg pr-8 shrink-0">বিলিং</h3>
+          <div className="flex-1 min-h-0 overflow-y-auto pt-3 space-y-4">
             <div>
               <div className="flex flex-col gap-2">
                 {billingFilterOptions.map((opt) => (

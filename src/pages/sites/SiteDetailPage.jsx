@@ -343,7 +343,7 @@ export const SiteDetailPage = () => {
         className="modal"
         onClose={onEditModalClose}
       >
-        <div className="modal-box max-w-sm">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
             <button
               type="submit"
@@ -354,12 +354,12 @@ export const SiteDetailPage = () => {
             </button>
           </form>
 
-          <h3 className="font-semibold text-base mb-3 pr-8">সাইট আপডেট</h3>
+          <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">সাইট আপডেট</h3>
 
-          <ApiErrorAlert error={siteApiError} className="mb-3" />
+          <ApiErrorAlert error={siteApiError} className="mb-3 shrink-0" />
 
           <form
-            className="flex flex-col gap-3"
+            className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto"
             onSubmit={(e) => {
               e.preventDefault()
               return onConfirmSiteEdit(e)

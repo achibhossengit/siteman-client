@@ -461,7 +461,7 @@ export const SiteBillingPanel = ({ siteId, showFab = true }) => {
         className="modal"
         onClose={resetBillingModalState}
       >
-        <div className="modal-box max-w-sm">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
             <button
               type="submit"
@@ -472,16 +472,16 @@ export const SiteBillingPanel = ({ siteId, showFab = true }) => {
             </button>
           </form>
 
-          <h3 className="font-semibold text-base mb-3 pr-8">
+          <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">
             {isCreateMode
               ? 'নতুন বিলিং ক্যাটাগরি'
               : selected?.name || 'বিলিং ক্যাটাগরি'}
           </h3>
 
-          <ApiErrorAlert error={billingApiError} className="mb-3" />
+          <ApiErrorAlert error={billingApiError} className="mb-3 shrink-0" />
 
           <form
-            className="flex flex-col gap-3"
+            className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto"
             onSubmit={(e) => {
               e.preventDefault()
               if (!confirmReady) return
