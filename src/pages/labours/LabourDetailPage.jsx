@@ -814,58 +814,60 @@ export const LabourDetailPage = () => {
               <span className="label-text">চালু</span>
             </label>
 
-            <label className="form-control w-full">
-              <span className="label-text mb-1">ডিফল্ট হাজিরা</span>
-              <select
-                className={fieldClass(errors.default_attendance, 'select')}
-                {...register('default_attendance')}
-              >
-                {DEFAULT_ATTENDANCE_OPTIONS.map((v) => (
-                  <option key={v} value={String(v)}>
-                    {formatBnNumber(v, { maximumFractionDigits: 1 })}
-                  </option>
-                ))}
-              </select>
-              {errors.default_attendance ? (
-                <span className="label-text-alt text-error mt-1">
-                  {errors.default_attendance.message}
-                </span>
-              ) : null}
-            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <label className="form-control w-full min-w-0">
+                <span className="label-text mb-1">হাজিরা</span>
+                <select
+                  className={fieldClass(errors.default_attendance, 'select')}
+                  {...register('default_attendance')}
+                >
+                  {DEFAULT_ATTENDANCE_OPTIONS.map((v) => (
+                    <option key={v} value={String(v)}>
+                      {formatBnNumber(v, { maximumFractionDigits: 1 })}
+                    </option>
+                  ))}
+                </select>
+                {errors.default_attendance ? (
+                  <span className="label-text-alt text-error mt-1">
+                    {errors.default_attendance.message}
+                  </span>
+                ) : null}
+              </label>
 
-            <label className="form-control w-full">
-              <span className="label-text mb-1">ডিফল্ট বেতন</span>
-              <input
-                type="number"
-                inputMode="numeric"
-                min={1}
-                step={1}
-                className={fieldClass(errors.default_salary)}
-                {...register('default_salary')}
-              />
-              {errors.default_salary ? (
-                <span className="label-text-alt text-error mt-1">
-                  {errors.default_salary.message}
-                </span>
-              ) : null}
-            </label>
+              <label className="form-control w-full min-w-0">
+                <span className="label-text mb-1">বেতন</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  step={1}
+                  className={fieldClass(errors.default_salary)}
+                  {...register('default_salary')}
+                />
+                {errors.default_salary ? (
+                  <span className="label-text-alt text-error mt-1">
+                    {errors.default_salary.message}
+                  </span>
+                ) : null}
+              </label>
 
-            <label className="form-control w-full">
-              <span className="label-text mb-1">ডিফল্ট খোরাকি</span>
-              <input
-                type="number"
-                inputMode="numeric"
-                min={0}
-                step={1}
-                className={fieldClass(errors.default_fooding)}
-                {...register('default_fooding')}
-              />
-              {errors.default_fooding ? (
-                <span className="label-text-alt text-error mt-1">
-                  {errors.default_fooding.message}
-                </span>
-              ) : null}
-            </label>
+              <label className="form-control w-full min-w-0">
+                <span className="label-text mb-1">খোরাকি</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  step={1}
+                  className={fieldClass(errors.default_fooding)}
+                  {...register('default_fooding')}
+                />
+                {errors.default_fooding ? (
+                  <span className="label-text-alt text-error mt-1">
+                    {errors.default_fooding.message}
+                  </span>
+                ) : null}
+              </label>
+            </div>
 
             <div className="flex gap-2 mt-2">
               <button

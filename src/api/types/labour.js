@@ -32,14 +32,14 @@ export const createLabourFormSchema = ({ requireSite = false } = {}) =>
       ? z.string().trim().min(1, 'সাইট নির্বাচন করুন')
       : z.string().optional(),
     default_attendance: z.coerce
-      .number({ message: 'ডিফল্ট হাজিরা নির্বাচন করুন' })
-      .min(1, 'ডিফল্ট হাজিরা কমপক্ষে ১ হতে হবে'),
+      .number({ message: 'হাজিরা নির্বাচন করুন' })
+      .min(1, 'হাজিরা কমপক্ষে ১ হতে হবে'),
     default_salary: z.coerce
-      .number({ message: 'ডিফল্ট বেতন দিন' })
+      .number({ message: 'বেতন দিন' })
       .int('পূর্ণ সংখ্যা দিন')
       .gt(0, 'বেতন শূন্যের বেশি হতে হবে'),
     default_fooding: z.coerce
-      .number({ message: 'ডিফল্ট খোরাকি দিন' })
+      .number({ message: 'খোরাকি দিন' })
       .int('পূর্ণ সংখ্যা দিন')
       .min(0, 'খোরাকি ০ বা তার বেশি হতে হবে'),
     is_active: z.boolean(),

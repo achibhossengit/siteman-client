@@ -140,7 +140,7 @@ export const LabourCreateModal = forwardRef(function LabourCreateModal(_, ref) {
 
   return (
     <dialog ref={dialogRef} className="modal" onClose={resetModal}>
-      <div className="modal-box max-w-sm max-h-[min(40rem,90vh)] flex flex-col">
+      <div className="modal-box max-w-md max-h-[min(40rem,90vh)] flex flex-col">
         <form method="dialog">
           <button
             type="submit"
@@ -204,58 +204,60 @@ export const LabourCreateModal = forwardRef(function LabourCreateModal(_, ref) {
             ) : null}
           </label>
 
-          <label className="form-control w-full">
-            <span className="label-text mb-1">ডিফল্ট হাজিরা</span>
-            <select
-              className={`select select-bordered w-full ${errors.default_attendance ? 'select-error' : ''}`}
-              {...register('default_attendance')}
-            >
-              {DEFAULT_ATTENDANCE_OPTIONS.map((v) => (
-                <option key={v} value={v}>
-                  {formatBnNumber(v, { maximumFractionDigits: 1 })}
-                </option>
-              ))}
-            </select>
-            {errors.default_attendance ? (
-              <span className="label-text-alt text-error mt-1">
-                {errors.default_attendance.message}
-              </span>
-            ) : null}
-          </label>
+          <div className="grid grid-cols-3 gap-2">
+            <label className="form-control w-full min-w-0">
+              <span className="label-text mb-1">হাজিরা</span>
+              <select
+                className={`select select-bordered w-full ${errors.default_attendance ? 'select-error' : ''}`}
+                {...register('default_attendance')}
+              >
+                {DEFAULT_ATTENDANCE_OPTIONS.map((v) => (
+                  <option key={v} value={v}>
+                    {formatBnNumber(v, { maximumFractionDigits: 1 })}
+                  </option>
+                ))}
+              </select>
+              {errors.default_attendance ? (
+                <span className="label-text-alt text-error mt-1">
+                  {errors.default_attendance.message}
+                </span>
+              ) : null}
+            </label>
 
-          <label className="form-control w-full">
-            <span className="label-text mb-1">ডিফল্ট বেতন</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              step={1}
-              className={`input input-bordered w-full ${errors.default_salary ? 'input-error' : ''}`}
-              {...register('default_salary')}
-            />
-            {errors.default_salary ? (
-              <span className="label-text-alt text-error mt-1">
-                {errors.default_salary.message}
-              </span>
-            ) : null}
-          </label>
+            <label className="form-control w-full min-w-0">
+              <span className="label-text mb-1">বেতন</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                step={1}
+                className={`input input-bordered w-full ${errors.default_salary ? 'input-error' : ''}`}
+                {...register('default_salary')}
+              />
+              {errors.default_salary ? (
+                <span className="label-text-alt text-error mt-1">
+                  {errors.default_salary.message}
+                </span>
+              ) : null}
+            </label>
 
-          <label className="form-control w-full">
-            <span className="label-text mb-1">ডিফল্ট খোরাকি</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              step={1}
-              className={`input input-bordered w-full ${errors.default_fooding ? 'input-error' : ''}`}
-              {...register('default_fooding')}
-            />
-            {errors.default_fooding ? (
-              <span className="label-text-alt text-error mt-1">
-                {errors.default_fooding.message}
-              </span>
-            ) : null}
-          </label>
+            <label className="form-control w-full min-w-0">
+              <span className="label-text mb-1">খোরাকি</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                step={1}
+                className={`input input-bordered w-full ${errors.default_fooding ? 'input-error' : ''}`}
+                {...register('default_fooding')}
+              />
+              {errors.default_fooding ? (
+                <span className="label-text-alt text-error mt-1">
+                  {errors.default_fooding.message}
+                </span>
+              ) : null}
+            </label>
+          </div>
 
           <label className="label cursor-pointer justify-start gap-3 py-2">
             <input
