@@ -94,6 +94,10 @@ export const AppRouter = () => (
         </Route>
       </Route>
 
+      <Route
+        path={paths.maintenance}
+        element={<Navigate to={paths.login} replace />}
+      />
       <Route path="*" element={<Navigate to={paths.balance} replace />} />
     </Route>
   </Routes>

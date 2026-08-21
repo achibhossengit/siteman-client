@@ -19,6 +19,7 @@ import {
   readAccessToken,
   writeAccessToken,
 } from '../utils/authToken.js'
+import { MAINTENANCE } from '../config/features.js'
 import { hasPermission, PERMS } from '../utils/permissions.js'
 
 const AuthContext = createContext(null)
@@ -137,6 +138,11 @@ export const AuthProvider = ({ children }) => {
   )
 
   useEffect(() => {
+    if (MAINTENANCE) {
+      setBootstrapping(false)
+      return
+    }
+
     let cancelled = false
 
     const bootstrap = async () => {

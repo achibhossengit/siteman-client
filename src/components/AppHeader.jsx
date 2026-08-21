@@ -1,5 +1,6 @@
 import { Link, NavLink } from 'react-router-dom'
 import { BrandLogo } from './BrandLogo.jsx'
+import { MAINTENANCE } from '../config/features.js'
 import { useAuth } from '../providers/AuthProvider.jsx'
 import { paths } from '../router/paths.js'
 
@@ -25,40 +26,42 @@ export const AppHeader = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 min-w-0 shrink-0">
-          {isAuthenticated ? (
-            <>
-              {companyName || userName ? (
-                <div className="min-w-0 leading-tight text-right">
-                  {companyName ? (
-                    <p className="text-sm font-medium text-base-content truncate max-w-28 sm:max-w-44">
-                      {companyName}
-                    </p>
-                  ) : null}
-                  {userName ? (
-                    <p className="text-xs text-base-content/55 truncate max-w-28 sm:max-w-44">
-                      {userName}
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-              <Link
-                to={paths.profile}
-                className="avatar placeholder shrink-0"
-                aria-label="প্রোফাইল"
-                title={userName || companyName || 'প্রোফাইল'}
-              >
-                <div className="bg-neutral text-neutral-content w-10 h-10 rounded-full">
-                  <img src="/user.png" alt="" className="object-cover" />
-                </div>
-              </Link>
-            </>
-          ) : (
-            <NavLink to={paths.login} className="btn btn-primary btn-sm">
-              লগইন করুন
-            </NavLink>
-          )}
-        </div>
+        {MAINTENANCE ? null : (
+          <div className="flex items-center gap-2 min-w-0 shrink-0">
+            {isAuthenticated ? (
+              <>
+                {companyName || userName ? (
+                  <div className="min-w-0 leading-tight text-right">
+                    {companyName ? (
+                      <p className="text-sm font-medium text-base-content truncate max-w-28 sm:max-w-44">
+                        {companyName}
+                      </p>
+                    ) : null}
+                    {userName ? (
+                      <p className="text-xs text-base-content/55 truncate max-w-28 sm:max-w-44">
+                        {userName}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                <Link
+                  to={paths.profile}
+                  className="avatar placeholder shrink-0"
+                  aria-label="প্রোফাইল"
+                  title={userName || companyName || 'প্রোফাইল'}
+                >
+                  <div className="bg-neutral text-neutral-content w-10 h-10 rounded-full">
+                    <img src="/user.png" alt="" className="object-cover" />
+                  </div>
+                </Link>
+              </>
+            ) : (
+              <NavLink to={paths.login} className="btn btn-primary btn-sm">
+                লগইন করুন
+              </NavLink>
+            )}
+          </div>
+        )}
       </div>
     </header>
   )

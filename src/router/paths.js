@@ -20,4 +20,5 @@ export const paths = {
   passwordReset: '/password/reset',
   passwordResetConfirm: '/password/reset/confirm',
   profile: '/profile',
+  maintenance: '/maintenance',
 }
