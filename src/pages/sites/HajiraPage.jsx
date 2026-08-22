@@ -679,6 +679,59 @@ const isAttendanceDirty = (row, initial) =>
   String(row.extraNote ?? "") !== String(initial.extraNote ?? "") ||
   String(row.billing ?? "") !== String(initial.billing ?? "");
 
+const amountKey = (value) =>
+  value === "" || value == null ? "" : String(Number(value));
+
+/** Present dropdown shows 0 for unset rows, so 0 and empty compare equal. */
+const presentKey = (value) =>
+  value === "" || value == null || Number(value) === 0 ? "0" : String(Number(value));
+
+const recordModalFromRow = (row) => ({
+  labourId: row.labourId,
+  labourName: row.labourName,
+  present:
+    row.present === "" || row.present == null ? "0" : String(row.present),
+  salary:
+    row.present === "" || row.present == null || Number(row.present) === 0
+      ? ""
+      : row.salary,
+  extra: row.extra === "" || row.extra == null ? "" : row.extra,
+  note: row.extraNote ?? "",
+  billing: row.billing ?? "",
+  billingName: row.billingName ?? null,
+  payment: row.payment,
+  advance: row.advance,
+  return: row.return,
+  recordId: row.recordId ?? row.attendanceId ?? null,
+  recordSealed: row.recordSealed ?? row.attendanceSealed,
+  attendanceSealed: row.attendanceSealed,
+  attendanceId: row.attendanceId,
+  attendanceDiffs: row.attendanceDiffs ?? null,
+  paymentSealed: row.paymentSealed,
+  paymentId: row.paymentId,
+  paymentDiffs: row.paymentDiffs ?? null,
+  advanceSealed: row.advanceSealed,
+  advanceId: row.advanceId,
+  returnSealed: row.returnSealed,
+  returnId: row.returnId,
+  returnDiffs: row.returnDiffs ?? null,
+});
+
+const isRecordModalDirty = (modal, row) => {
+  if (!modal || !row) return false;
+  const baseline = recordModalFromRow(row);
+  return (
+    presentKey(modal.present) !== presentKey(baseline.present) ||
+    amountKey(modal.salary) !== amountKey(baseline.salary) ||
+    amountKey(modal.extra) !== amountKey(baseline.extra) ||
+    String(modal.note ?? "") !== String(baseline.note ?? "") ||
+    String(modal.billing ?? "") !== String(baseline.billing ?? "") ||
+    amountKey(modal.payment) !== amountKey(baseline.payment) ||
+    amountKey(modal.advance) !== amountKey(baseline.advance) ||
+    amountKey(modal.return) !== amountKey(baseline.return)
+  );
+};
+
 const isPaymentDirty = (row, initial, key) =>
   String(row[key] ?? "") !== String(initial[key] ?? "") ||
   String(row[`${key}Note`] ?? "") !== String(initial[`${key}Note`] ?? "");
@@ -1363,37 +1416,7 @@ export const HajiraPage = () => {
     setRecordModalView(MODAL_VIEWS.detail);
     setExpandedHistoryId(null);
     resetModalEditState();
-    setRecordModal({
-      labourId: row.labourId,
-      labourName: row.labourName,
-      present: row.present === "" || row.present == null ? "0" : String(row.present),
-      salary:
-        row.present === "" ||
-        row.present == null ||
-        Number(row.present) === 0
-          ? ""
-          : row.salary,
-      extra: row.extra === "" || row.extra == null ? "" : row.extra,
-      note: row.extraNote ?? "",
-      billing: row.billing ?? "",
-      billingName: row.billingName ?? null,
-      payment: row.payment,
-      advance: row.advance,
-      return: row.return,
-      recordId: row.recordId ?? row.attendanceId ?? null,
-      recordSealed: row.recordSealed ?? row.attendanceSealed,
-      attendanceSealed: row.attendanceSealed,
-      attendanceId: row.attendanceId,
-      attendanceDiffs: row.attendanceDiffs ?? null,
-      paymentSealed: row.paymentSealed,
-      paymentId: row.paymentId,
-      paymentDiffs: row.paymentDiffs ?? null,
-      advanceSealed: row.advanceSealed,
-      advanceId: row.advanceId,
-      returnSealed: row.returnSealed,
-      returnId: row.returnId,
-      returnDiffs: row.returnDiffs ?? null,
-    });
+    setRecordModal(recordModalFromRow(row));
     document.getElementById(RECORD_MODAL_ID)?.showModal();
   };
 
@@ -1405,18 +1428,17 @@ export const HajiraPage = () => {
 
   const saveRecordModal = () => {
     if (!recordModal || !modalEditable || attendanceLocked(recordModal)) return;
+    const currentRow = rows.find((r) => r.labourId === recordModal.labourId);
+    if (!isRecordModalDirty(recordModal, currentRow)) return;
+    const presentEmpty =
+      recordModal.present === "" ||
+      recordModal.present == null ||
+      Number(recordModal.present) === 0;
+    const presentNum = presentEmpty ? 0 : Number(recordModal.present);
     const billingAllowed = canSetBillingOnRow(recordModal);
     const next = {
-      present:
-        recordModal.present === "" || recordModal.present == null
-          ? 0
-          : Number(recordModal.present),
-      salary:
-        recordModal.present === "" ||
-        recordModal.present == null ||
-        Number(recordModal.present) === 0
-          ? ""
-          : numOrEmpty(recordModal.salary),
+      present: isCreateModal && presentEmpty ? "" : presentNum,
+      salary: presentEmpty ? "" : numOrEmpty(recordModal.salary),
       extra:
         recordModal.extra === "" || recordModal.extra == null
           ? ""
@@ -1435,7 +1457,8 @@ export const HajiraPage = () => {
       advanceNote: "",
       returnNote: "",
     };
-    if (lacksMeaningfulDayValue(next)) return;
+    // New rows can be cleared back to unset; saved records still need a day value.
+    if (!isCreateModal && lacksMeaningfulDayValue(next)) return;
     updateRow(recordModal.labourId, next);
     closeRecordModal();
   };
@@ -1470,22 +1493,18 @@ export const HajiraPage = () => {
     if (!recordModal) return;
     const initial = initialByLabour.get(recordModal.labourId);
     if (!initial) return;
+    const resetForm = recordModalFromRow(initial);
     setRecordModal({
       ...recordModal,
-      present: initial.present === "" || initial.present == null ? "0" : String(initial.present),
-      salary:
-        initial.present === "" ||
-        initial.present == null ||
-        Number(initial.present) === 0
-          ? ""
-          : initial.salary,
-      extra: initial.extra === "" || initial.extra == null ? "" : initial.extra,
-      note: initial.extraNote ?? "",
-      billing: initial.billing ?? "",
-      billingName: initial.billingName ?? null,
-      payment: initial.payment,
-      advance: initial.advance,
-      return: initial.return,
+      present: resetForm.present,
+      salary: resetForm.salary,
+      extra: resetForm.extra,
+      note: resetForm.note,
+      billing: resetForm.billing,
+      billingName: resetForm.billingName,
+      payment: resetForm.payment,
+      advance: resetForm.advance,
+      return: resetForm.return,
     });
   };
 
@@ -2015,11 +2034,19 @@ export const HajiraPage = () => {
     Boolean(recordModal) &&
     !recordModalLocked &&
     canSetBillingOnRow(recordModal);
+  const recordModalBaselineRow = recordModal
+    ? rows.find((r) => r.labourId === recordModal.labourId)
+    : null;
+  const recordModalDirty = isRecordModalDirty(
+    recordModal,
+    recordModalBaselineRow,
+  );
   const recordModalCanSet =
     Boolean(recordModal) &&
     modalEditable &&
     !attendanceLocked(recordModal) &&
-    hasMeaningfulDayValue(recordModal);
+    recordModalDirty &&
+    (isCreateModal || hasMeaningfulDayValue(recordModal));
 
   const tableColCount =
     4 + (showAyColumn ? 1 : 0) + (SHOW_BILLING ? 1 : 0);
@@ -2649,7 +2676,10 @@ export const HajiraPage = () => {
                           type="text"
                           className="input input-bordered input-sm w-full"
                           value={recordModal.note}
-                          disabled={recordModalLocked || !recordModalCanSet}
+                          disabled={
+                            recordModalLocked ||
+                            !hasMeaningfulDayValue(recordModal)
+                          }
                           onChange={(e) =>
                             setRecordModal((m) => ({
                               ...m,
@@ -2737,7 +2767,9 @@ export const HajiraPage = () => {
                           title={
                             recordModalCanSet
                               ? undefined
-                              : MEANINGFUL_DAY_VALUE_MESSAGE
+                              : !recordModalDirty
+                                ? "কোনো পরিবর্তন নেই।"
+                                : MEANINGFUL_DAY_VALUE_MESSAGE
                           }
                         >
                           সেট করুন
