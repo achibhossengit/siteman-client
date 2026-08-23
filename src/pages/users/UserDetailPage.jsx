@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { X } from "lucide-react";
 import { fetchUserDetail, updateUser } from "../../api/users.js";
 import {
   buildGroupSelectOptions,
@@ -10,6 +11,7 @@ import {
   normalizeSiteIds,
   toUserAdminUpdatePayload,
   userAdminUpdateSchema,
+  userStatusLabel,
 } from "../../api/types/user.js";
 import { parseApiError, applyFieldErrors } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
@@ -17,7 +19,9 @@ import { DetailMenuButton } from "../../layouts/DetailLayout.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { useSitesLookup } from "../../hooks/useSites.js";
 import { toastSuccess } from "../../utils/feedback.js";
-import { PERMS } from "../../utils/permissions.js";
+import { groupLabelBn, PERMS } from "../../utils/permissions.js";
+
+const EDIT_MODAL_ID = "user_edit_modal";
 
 const toFormValues = (user) => ({
   is_active: user?.is_active ?? true,
@@ -33,8 +37,7 @@ export const UserDetailPage = () => {
   const { setTitle, setHeaderMenu } = useOutletContext();
   const queryClient = useQueryClient();
   const { can } = usePermissions();
-  const [editing, setEditing] = useState(false);
-  const [confirmReady, setConfirmReady] = useState(false);
+  const editDialogRef = useRef(null);
   const [apiError, setApiError] = useState(null);
 
   const canViewUser = can(PERMS.viewUser);
@@ -46,7 +49,7 @@ export const UserDetailPage = () => {
     setError,
     setValue,
     watch,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
   } = useForm({
     resolver: zodResolver(userAdminUpdateSchema),
     defaultValues: toFormValues(null),
@@ -82,12 +85,47 @@ export const UserDetailPage = () => {
   }, [setTitle]);
 
   useEffect(() => {
+    if (user) reset(toFormValues(user));
+  }, [user, reset]);
+
+  const mutation = useMutation({
+    mutationFn: (values) =>
+      updateUser(userId, toUserAdminUpdatePayload(values)),
+  });
+
+  const openEditModal = () => {
+    if (!user || !canChangeUser) return;
+    setApiError(null);
+    reset(toFormValues(user));
+    editDialogRef.current?.showModal();
+  };
+
+  const closeEditModal = () => {
+    editDialogRef.current?.close();
+  };
+
+  const onEditModalClose = () => {
+    setApiError(null);
+    reset(toFormValues(user));
+  };
+
+  const openEditModalRef = useRef(openEditModal);
+  openEditModalRef.current = openEditModal;
+
+  useEffect(() => {
     setHeaderMenu?.(
       <DetailMenuButton>
         <ul
           tabIndex={0}
           className="dropdown-content menu bg-base-100 rounded-box z-20 w-48 p-1 shadow-md border border-base-300"
         >
+          {canChangeUser ? (
+            <li>
+              <button type="button" onClick={() => openEditModalRef.current()}>
+                আপডেট
+              </button>
+            </li>
+          ) : null}
           <li>
             <span className="opacity-50 pointer-events-none">ডিলিট</span>
           </li>
@@ -95,54 +133,15 @@ export const UserDetailPage = () => {
       </DetailMenuButton>,
     );
     return () => setHeaderMenu?.(null);
-  }, [setHeaderMenu]);
+  }, [setHeaderMenu, canChangeUser]);
 
-  useEffect(() => {
-    if (user) reset(toFormValues(user));
-  }, [user, reset]);
-
-  // Prevent ghost-submit: Update and Confirm share the same spot.
-  useEffect(() => {
-    if (!editing) {
-      setConfirmReady(false);
-      return;
-    }
-    let cancelled = false;
-    const id = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (!cancelled) setConfirmReady(true);
-      });
-    });
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(id);
-    };
-  }, [editing]);
-
-  const mutation = useMutation({
-    mutationFn: (values) =>
-      updateUser(userId, toUserAdminUpdatePayload(values)),
-  });
-
-  const startEdit = () => {
-    setApiError(null);
-    setConfirmReady(false);
-    setEditing(true);
-  };
-
-  const cancelEdit = () => {
-    setApiError(null);
-    reset(toFormValues(user));
-    setEditing(false);
-  };
-
-  const onConfirm = handleSubmit(async (values) => {
+  const onConfirmEdit = handleSubmit(async (values) => {
     setApiError(null);
     try {
       const { data } = await mutation.mutateAsync(values);
       reset(toFormValues(data));
       await queryClient.invalidateQueries({ queryKey: ["users"] });
-      setEditing(false);
+      closeEditModal();
       toastSuccess("ইউজার আপডেট হয়েছে");
     } catch (err) {
       const parsed = parseApiError(err);
@@ -179,183 +178,212 @@ export const UserDetailPage = () => {
     );
   }
 
-  const disabled = !editing;
   const busy = isSubmitting || mutation.isPending;
+  const groups = Array.isArray(user.groups) ? user.groups : [];
   const assignedSiteIds = normalizeSiteIds(user.sites);
-  const siteOptions = editing
-    ? allSites
-    : assignedSiteIds.map((id) => {
-        const full = allSites.find((s) => Number(s.id) === Number(id));
-        return full ?? { id };
-      });
+  const companyName =
+    typeof user.company === "object" ? user.company?.name : user.company;
 
   return (
-    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto">
-      <ApiErrorAlert error={apiError} className="mb-3" />
-
-      <form
-        className="flex flex-col gap-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!confirmReady) return;
-          return onConfirm(e);
-        }}
-        noValidate
-      >
-        <div className="flex flex-col gap-2 px-1">
-          <div className="flex items-baseline gap-2 justify-between">
-            <span className="text-sm">নাম</span>
-            <span className="text-sm font-medium truncate">
-              {user.name || "—"}
-            </span>
-          </div>
-          <div className="flex items-baseline gap-2 justify-between">
-            <span className="text-sm">ফোন নম্বর</span>
-            <span className="text-sm font-medium truncate tabular-nums">
-              {user.phone_number || "—"}
-            </span>
-          </div>
-          <div className="flex items-baseline gap-2 justify-between">
-            <span className="text-sm">ইমেইল</span>
-            <span className="text-sm font-medium truncate">
-              {user.email || "—"}
-            </span>
-          </div>
+    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto space-y-4">
+      <section className="space-y-2 text-sm">
+        <div className="flex justify-between gap-3">
+          <span className="text-base-content/70">নাম</span>
+          <span className="font-medium text-right">{user.name || "—"}</span>
         </div>
+        <div className="flex justify-between gap-3">
+          <span className="text-base-content/70">ফোন নম্বর</span>
+          <span className="font-medium text-right tabular-nums">
+            {user.phone_number || "—"}
+          </span>
+        </div>
+        <div className="flex justify-between gap-3">
+          <span className="text-base-content/70">ইমেইল</span>
+          <span className="font-medium text-right">{user.email || "—"}</span>
+        </div>
+        <div className="flex justify-between gap-3">
+          <span className="text-base-content/70">কোম্পানি</span>
+          <span className="font-medium text-right">{companyName || "—"}</span>
+        </div>
+        <div className="flex justify-between gap-3">
+          <span className="text-base-content/70">স্ট্যাটাস</span>
+          <span className="font-medium text-right">
+            {userStatusLabel(user)}
+          </span>
+        </div>
+      </section>
 
-        <div className="rounded-box border border-base-300 bg-base-100 overflow-hidden">
-          <div className="p-3 border-b border-base-300">
-            <span className="label-text font-medium">গ্রুপ</span>
-            <div className="mt-2 flex flex-col gap-1 max-h-40 overflow-y-auto pr-1">
-              {assignableGroups.map((g) => {
-                const checked = groupNames.includes(g.name);
-                const optionDisabled = disabled || g.disabled;
-                return (
-                  <label
-                    key={g.name}
-                    className={[
-                      "flex items-center gap-3 py-1.5 cursor-pointer",
-                      optionDisabled ? "cursor-default opacity-80" : "",
-                    ].join(" ")}
-                  >
-                    <input
-                      type="radio"
-                      name="user-group"
-                      className="radio radio-sm radio-primary shrink-0"
-                      disabled={optionDisabled}
-                      checked={checked}
-                      onChange={() => {
-                        if (optionDisabled) return;
-                        setValue("groups", [g.name], {
-                          shouldDirty: true,
-                        });
-                      }}
-                    />
-                    <span className="text-sm leading-snug">{g.label}</span>
-                  </label>
-                );
-              })}
-            </div>
-            {errors.groups ? (
-              <span className="label-text-alt text-error mt-1">
-                {errors.groups.message}
-              </span>
-            ) : null}
-          </div>
+      <div className="divider"></div>
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex-1">
+          <span className="label-text mb-1">গ্রুপ</span>
+          {groups.length ? (
+            <ol className="mt-1 list-decimal space-y-0.5 pl-6 text-sm text-base-content/80">
+              {user.is_companyadmin ? <li>কোম্পানি অ্যাডমিন</li> : null}
+              {groups.map((g) => (
+                <li key={g.id ?? g.name}>{groupLabelBn(g.name ?? g)}</li>
+              ))}
+            </ol>
+          ) : (
+            <p className="text-sm text-base-content/55 mt-1">
+              কোনো গ্রুপ নির্ধারণ করা হয়নি।
+            </p>
+          )}
+        </div>
+        <div className="flex-1">
+          <span className="label-text mb-1">দায়িত্বপ্রাপ্ত সাইট</span>
+          {assignedSiteIds.length ? (
+            <ol className="mt-1 list-decimal space-y-0.5 pl-6 text-sm text-base-content/80">
+              {assignedSiteIds.map((id) => (
+                <li key={id}>{getSiteName(id)}</li>
+              ))}
+            </ol>
+          ) : (
+            <p className="text-sm text-base-content/55 mt-1">
+              কোনো সাইট নির্ধারণ করা হয়নি।
+            </p>
+          )}
+        </div>
+      </div>
 
-          <div className="p-3">
-            <span className="label-text font-medium">দায়িত্বপ্রাপ্ত সাইট</span>
-            <div className="mt-2 flex flex-col gap-1 max-h-40 overflow-y-auto pr-1">
-              {editing && sitesLoading ? (
-                <div className="flex justify-center py-3">
-                  <span className="loading loading-spinner loading-sm" />
-                </div>
-              ) : siteOptions.length === 0 ? (
-                <p className="text-sm text-base-content/55 py-1">
-                  কোনো সাইট নির্ধারণ করা হয়নি।
-                </p>
-              ) : (
-                siteOptions.map((s) => {
-                  const id = Number(s.id);
-                  const checked = siteIds.includes(id);
+      <dialog
+        ref={editDialogRef}
+        id={EDIT_MODAL_ID}
+        className="modal"
+        onClose={onEditModalClose}
+      >
+        <div className="modal-box max-w-lg max-h-[min(32rem,85vh)] flex flex-col overflow-hidden!">
+          <form method="dialog">
+            <button
+              type="submit"
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              <X className="size-4" strokeWidth={1.75} />
+            </button>
+          </form>
+
+          <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">
+            ইউজার আপডেট
+          </h3>
+
+          <ApiErrorAlert error={apiError} className="mb-3 shrink-0" />
+
+          <form
+            className="flex flex-col gap-3 flex-1 min-h-0 overflow-hidden"
+            onSubmit={(e) => {
+              e.preventDefault();
+              return onConfirmEdit(e);
+            }}
+            noValidate
+          >
+            <div>
+              <span className="label-text font-medium mb-1">গ্রুপ</span>
+              <div className="border p-2 border-base-300 flex flex-col gap-1 max-h-32 overflow-y-auto overscroll-contain pr-1">
+                {assignableGroups.map((g) => {
+                  const checked = groupNames.includes(g.name);
                   return (
                     <label
-                      key={id}
+                      key={g.name}
                       className={[
                         "flex items-center gap-3 py-1.5 cursor-pointer",
-                        disabled ? "cursor-default opacity-80" : "",
+                        g.disabled ? "cursor-default opacity-80" : "",
                       ].join(" ")}
                     >
                       <input
-                        type="checkbox"
-                        className="checkbox checkbox-sm checkbox-primary shrink-0"
-                        disabled={disabled}
+                        type="radio"
+                        name="user-group"
+                        className="radio radio-sm radio-primary shrink-0"
+                        disabled={g.disabled}
                         checked={checked}
                         onChange={() => {
-                          if (disabled) return;
-                          setValue("sites", toggleItem(siteIds, id), {
+                          if (g.disabled) return;
+                          setValue("groups", [g.name], {
                             shouldDirty: true,
                           });
                         }}
                       />
-                      <span className="text-sm leading-snug truncate min-w-0">
-                        {getSiteName(id)}
-                      </span>
-                      {s.is_closed ? (
-                        <span className="badge badge-ghost badge-xs shrink-0">
-                          কমপ্লিট
-                        </span>
-                      ) : null}
+                      <span className="text-sm leading-snug">{g.label}</span>
                     </label>
                   );
-                })
-              )}
+                })}
+              </div>
+              {errors.groups ? (
+                <span className="label-text-alt text-error mt-1">
+                  {errors.groups.message}
+                </span>
+              ) : null}
             </div>
-            {errors.sites ? (
-              <span className="label-text-alt text-error mt-1">
-                {errors.sites.message}
+
+            <div className="flex flex-col flex-1 min-h-0">
+              <span className="label-text font-medium">
+                দায়িত্বপ্রাপ্ত সাইট
               </span>
-            ) : null}
-          </div>
-        </div>
+              <div className="border p-2 border-base-300 mt-1 flex flex-col gap-1 flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1">
+                {sitesLoading ? (
+                  <div className="flex justify-center py-3">
+                    <span className="loading loading-spinner loading-sm" />
+                  </div>
+                ) : allSites.length === 0 ? (
+                  <p className="text-sm text-base-content/55 py-1">
+                    কোনো সাইট নির্ধারণ করা হয়নি।
+                  </p>
+                ) : (
+                  allSites.map((s) => {
+                    const id = Number(s.id);
+                    const checked = siteIds.includes(id);
+                    return (
+                      <label
+                        key={id}
+                        className="flex items-center gap-3 py-1.5 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          className="checkbox checkbox-sm checkbox-primary shrink-0"
+                          checked={checked}
+                          onChange={() => {
+                            setValue("sites", toggleItem(siteIds, id), {
+                              shouldDirty: true,
+                            });
+                          }}
+                        />
+                        <span className="text-sm leading-snug truncate min-w-0">
+                          {getSiteName(id)}
+                        </span>
+                        {s.is_closed ? (
+                          <span className="badge badge-ghost badge-xs shrink-0">
+                            কমপ্লিট
+                          </span>
+                        ) : null}
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+              {errors.sites ? (
+                <span className="label-text-alt text-error mt-1 shrink-0">
+                  {errors.sites.message}
+                </span>
+              ) : null}
+            </div>
 
-        <label
-          className={[
-            "label justify-start gap-3 py-2",
-            disabled ? "cursor-default" : "cursor-pointer",
-          ].join(" ")}
-        >
-          <input
-            type="checkbox"
-            className="toggle toggle-primary"
-            disabled={disabled}
-            checked={Boolean(isActiveValue)}
-            onChange={(e) =>
-              setValue("is_active", e.target.checked, { shouldDirty: true })
-            }
-          />
-          <span className="label-text">চালু</span>
-        </label>
+            <label className="label cursor-pointer justify-start gap-3 py-2 shrink-0">
+              <input
+                type="checkbox"
+                className="toggle toggle-primary"
+                checked={Boolean(isActiveValue)}
+                onChange={(e) =>
+                  setValue("is_active", e.target.checked, { shouldDirty: true })
+                }
+              />
+              <span className="label-text">চালু</span>
+            </label>
 
-        {canChangeUser ? (
-          editing ? (
-            <div className="flex gap-2 mt-1">
+            <div className="mt-2 shrink-0">
               <button
-                type="button"
-                className="btn btn-ghost flex-1"
-                onClick={cancelEdit}
-                disabled={busy}
-              >
-                বাতিল
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary flex-1"
-                disabled={!confirmReady || busy || sitesLoading}
-                onClick={(e) => {
-                  if (!confirmReady) return;
-                  return onConfirm(e);
-                }}
+                type="submit"
+                className="btn btn-primary w-full"
+                disabled={!isDirty || busy || sitesLoading}
               >
                 {busy ? (
                   <span className="loading loading-spinner loading-sm" />
@@ -363,17 +391,12 @@ export const UserDetailPage = () => {
                 নিশ্চিত
               </button>
             </div>
-          ) : (
-            <button
-              type="button"
-              className="btn btn-outline btn-primary w-full mt-1"
-              onClick={startEdit}
-            >
-              আপডেট
-            </button>
-          )
-        ) : null}
-      </form>
+          </form>
+        </div>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
+      </dialog>
     </div>
   );
 };
