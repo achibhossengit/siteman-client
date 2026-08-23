@@ -60,7 +60,7 @@ export const SiteDetailPage = () => {
     handleSubmit: handleSubmitSite,
     reset: resetSite,
     setError: setSiteError,
-    formState: { errors: siteErrors, isSubmitting: siteIsSubmitting },
+    formState: { errors: siteErrors, isSubmitting: siteIsSubmitting, isDirty: siteIsDirty },
   } = useForm({
     resolver: zodResolver(siteFormSchema),
     defaultValues: toSiteFormValues(null),
@@ -402,19 +402,11 @@ export const SiteDetailPage = () => {
               <span className="label-text">চালু</span>
             </label>
 
-            <div className="flex gap-2 mt-2">
-              <button
-                type="button"
-                className="btn btn-ghost flex-1"
-                onClick={closeEditModal}
-                disabled={siteBusy}
-              >
-                বাতিল
-              </button>
+            <div className="mt-2">
               <button
                 type="submit"
-                className="btn btn-primary flex-1"
-                disabled={siteBusy || site.is_closed}
+                className="btn btn-primary w-full"
+                disabled={!siteIsDirty || siteBusy || site.is_closed}
               >
                 {siteBusy ? (
                   <span className="loading loading-spinner loading-sm" />

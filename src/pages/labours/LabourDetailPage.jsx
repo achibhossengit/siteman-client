@@ -160,7 +160,7 @@ export const LabourDetailPage = () => {
     reset,
     setError,
     watch,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
   } = useForm({
     resolver: zodResolver(schema),
     defaultValues: formDefaults,
@@ -869,19 +869,11 @@ export const LabourDetailPage = () => {
               </label>
             </div>
 
-            <div className="flex gap-2 mt-2">
-              <button
-                type="button"
-                className="btn btn-ghost flex-1"
-                onClick={closeEditModal}
-                disabled={busy}
-              >
-                বাতিল
-              </button>
+            <div className="mt-2">
               <button
                 type="submit"
-                className="btn btn-primary flex-1"
-                disabled={saveDisabled}
+                className="btn btn-primary w-full"
+                disabled={!isDirty || saveDisabled}
               >
                 {busy ? (
                   <span className="loading loading-spinner loading-sm" />
