@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Plus, X } from 'lucide-react'
 import { fetchSites } from '../../api/sites.js'
@@ -9,6 +9,13 @@ import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { ListPagination } from '../../components/ListPagination.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { formatBnNumber, STATUS_LABEL } from '../../utils/format.js'
+import {
+  readEnumParam,
+  readPageParam,
+  readQueryParam,
+  sameSearchParams,
+  toListSearchParams,
+} from '../../utils/listSearchParams.js'
 import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
 import { SiteCreateModal } from './SiteCreateModal.jsx'
@@ -31,17 +38,25 @@ const statusParams = (status) => {
   return {}
 }
 
+const STATUS_VALUES = new Set(ACCOUNT_FILTER_OPTIONS.map((o) => o.value))
+
 export const SitesPage = () => {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { setTitle } = useOutletContext()
   const { can } = usePermissions()
   const createModalRef = useRef(null)
   const nameSearchRef = useRef(null)
-  const [nameQuery, setNameQuery] = useState('')
-  const [search, setSearch] = useState('')
-  const [nameSearchOpen, setNameSearchOpen] = useState(false)
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [page, setPage] = useState(1)
+  const skipPageReset = useRef(true)
+  const [nameQuery, setNameQuery] = useState(() => readQueryParam(searchParams))
+  const [search, setSearch] = useState(() => readQueryParam(searchParams))
+  const [nameSearchOpen, setNameSearchOpen] = useState(() =>
+    Boolean(readQueryParam(searchParams)),
+  )
+  const [statusFilter, setStatusFilter] = useState(() =>
+    readEnumParam(searchParams, 'status', STATUS_VALUES, 'all'),
+  )
+  const [page, setPage] = useState(() => readPageParam(searchParams))
 
   const canViewSite = can(PERMS.viewSite)
   const canAddSite = can(PERMS.addSite)
@@ -59,6 +74,21 @@ export const SitesPage = () => {
   }, [nameQuery])
 
   useEffect(() => {
+    const next = toListSearchParams({
+      q: search,
+      page,
+      extras: { status: statusFilter },
+    })
+    if (!sameSearchParams(next, searchParams)) {
+      setSearchParams(next, { replace: true })
+    }
+  }, [search, statusFilter, page, searchParams, setSearchParams])
+
+  useEffect(() => {
+    if (skipPageReset.current) {
+      skipPageReset.current = false
+      return
+    }
     setPage(1)
   }, [search, statusFilter])
 

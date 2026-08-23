@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Plus, X } from 'lucide-react'
 import { fetchLabours } from '../../api/labours.js'
@@ -9,6 +9,13 @@ import { ListPagination } from '../../components/ListPagination.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { useAssignedSites } from '../../hooks/useSites.js'
 import { formatBnNumber, NULL_SITE_LABEL, STATUS_LABEL } from '../../utils/format.js'
+import {
+  readEnumParam,
+  readPageParam,
+  readQueryParam,
+  sameSearchParams,
+  toListSearchParams,
+} from '../../utils/listSearchParams.js'
 import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
 import { LabourCreateModal } from './LabourCreateModal.jsx'
@@ -33,22 +40,36 @@ const accountParams = (filter) => {
   return {}
 }
 
+const ACCOUNT_VALUES = new Set(ACCOUNT_FILTER_OPTIONS.map((o) => o.value))
+
+const readSiteFilter = (params) => {
+  const value = params.get('site')
+  if (!value || value === 'all') return 'all'
+  return value
+}
+
 export const LaboursPage = () => {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { setTitle } = useOutletContext()
   const { can, isCompanyAdmin } = usePermissions()
   const createModalRef = useRef(null)
   const nameSearchRef = useRef(null)
+  const skipPageReset = useRef(true)
   const { assignedSites, getSiteName } = useAssignedSites({
     includeClosed: true,
   })
-  const [nameQuery, setNameQuery] = useState('')
-  const [search, setSearch] = useState('')
-  const [nameSearchOpen, setNameSearchOpen] = useState(false)
-  const [siteFilter, setSiteFilter] = useState('all')
-  const [accountFilter, setAccountFilter] = useState('all')
+  const [nameQuery, setNameQuery] = useState(() => readQueryParam(searchParams))
+  const [search, setSearch] = useState(() => readQueryParam(searchParams))
+  const [nameSearchOpen, setNameSearchOpen] = useState(() =>
+    Boolean(readQueryParam(searchParams)),
+  )
+  const [siteFilter, setSiteFilter] = useState(() => readSiteFilter(searchParams))
+  const [accountFilter, setAccountFilter] = useState(() =>
+    readEnumParam(searchParams, 'status', ACCOUNT_VALUES, 'all'),
+  )
   const [siteModalTab, setSiteModalTab] = useState(SITE_MODAL_TABS.status)
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useState(() => readPageParam(searchParams))
 
   const canViewLabour = can(PERMS.viewLabour)
   const canAddLabour = can(PERMS.addLabour)
@@ -81,6 +102,21 @@ export const LaboursPage = () => {
   }, [nameQuery])
 
   useEffect(() => {
+    const next = toListSearchParams({
+      q: search,
+      page,
+      extras: { status: accountFilter, site: siteFilter },
+    })
+    if (!sameSearchParams(next, searchParams)) {
+      setSearchParams(next, { replace: true })
+    }
+  }, [search, siteFilter, accountFilter, page, searchParams, setSearchParams])
+
+  useEffect(() => {
+    if (skipPageReset.current) {
+      skipPageReset.current = false
+      return
+    }
     setPage(1)
   }, [search, siteFilter, accountFilter])
 
