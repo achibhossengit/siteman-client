@@ -10,14 +10,16 @@ import {
   profileUpdateSchema,
   passwordCreateSchema,
   toProfileUpdatePayload,
+  normalizeSiteIds,
 } from "../../api/types/user.js";
 import { parseApiError, applyFieldErrors } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
+import { DetailMenuButton } from "../../layouts/DetailLayout.jsx";
 import { useSitesLookup } from "../../hooks/useSites.js";
 import { toastSuccess } from "../../utils/feedback.js";
 import { groupLabelBn } from "../../utils/permissions.js";
-import { normalizeSiteIds } from "../../api/types/user.js";
 
+const EDIT_MODAL_ID = "profile_edit_modal";
 const PASSWORD_MODAL_ID = "profile_change_password_modal";
 
 const toFormValues = (profile) => ({
@@ -44,13 +46,12 @@ const emptyPasswordValues = {
 };
 
 export const ProfilePage = () => {
-  const { setTitle } = useOutletContext();
+  const { setTitle, setHeaderMenu } = useOutletContext();
   const { profile, setProfile, bootstrapProfile, changePassword } = useAuth();
   const { getSiteName } = useSitesLookup();
+  const editDialogRef = useRef(null);
   const passwordDialogRef = useRef(null);
 
-  const [editing, setEditing] = useState(false);
-  const [confirmReady, setConfirmReady] = useState(false);
   const [apiError, setApiError] = useState(null);
   const [passwordError, setPasswordError] = useState(null);
 
@@ -90,55 +91,21 @@ export const ProfilePage = () => {
     if (profile) reset(toFormValues(profile));
   }, [profile, reset]);
 
-  // Prevent ghost-submit: Update and Confirm share the same spot.
-  useEffect(() => {
-    if (!editing) {
-      setConfirmReady(false);
-      return;
-    }
-    let cancelled = false;
-    const id = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (!cancelled) setConfirmReady(true);
-      });
-    });
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(id);
-    };
-  }, [editing]);
-
-  const startEdit = () => {
-    setApiError(null);
-    setConfirmReady(false);
-    setEditing(true);
-  };
-
-  const cancelEdit = () => {
+  const openEditModal = () => {
+    if (!profile) return;
     setApiError(null);
     reset(toFormValues(profile));
-    setEditing(false);
+    editDialogRef.current?.showModal();
   };
 
-  const onConfirm = handleSubmit(async (values) => {
+  const closeEditModal = () => {
+    editDialogRef.current?.close();
+  };
+
+  const onEditModalClose = () => {
     setApiError(null);
-    try {
-      const { data } = await updateProfile(toProfileUpdatePayload(values));
-      setProfile(data);
-      reset(toFormValues(data));
-      setEditing(false);
-      toastSuccess("প্রোফাইল আপডেট হয়েছে");
-    } catch (err) {
-      const parsed = parseApiError(err);
-      setApiError(parsed);
-      applyFieldErrors(parsed, setError);
-      try {
-        await bootstrapProfile();
-      } catch {
-        // ignore
-      }
-    }
-  });
+    reset(toFormValues(profile));
+  };
 
   const openPasswordModal = () => {
     setPasswordError(null);
@@ -154,6 +121,60 @@ export const ProfilePage = () => {
     setPasswordError(null);
     resetPassword(emptyPasswordValues);
   };
+
+  const openEditModalRef = useRef(openEditModal);
+  openEditModalRef.current = openEditModal;
+  const openPasswordModalRef = useRef(openPasswordModal);
+  openPasswordModalRef.current = openPasswordModal;
+
+  useEffect(() => {
+    setHeaderMenu?.(
+      <DetailMenuButton>
+        <ul
+          tabIndex={0}
+          className="dropdown-content menu bg-base-100 rounded-box z-20 w-48 p-1 shadow-md border border-base-300"
+        >
+          <li>
+            <button
+              type="button"
+              onClick={() => openEditModalRef.current()}
+            >
+              আপডেট
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              onClick={() => openPasswordModalRef.current()}
+            >
+              পাসওয়ার্ড পরিবর্তন
+            </button>
+          </li>
+        </ul>
+      </DetailMenuButton>,
+    );
+    return () => setHeaderMenu?.(null);
+  }, [setHeaderMenu]);
+
+  const onConfirmEdit = handleSubmit(async (values) => {
+    setApiError(null);
+    try {
+      const { data } = await updateProfile(toProfileUpdatePayload(values));
+      setProfile(data);
+      reset(toFormValues(data));
+      closeEditModal();
+      toastSuccess("প্রোফাইল আপডেট হয়েছে");
+    } catch (err) {
+      const parsed = parseApiError(err);
+      setApiError(parsed);
+      applyFieldErrors(parsed, setError);
+      try {
+        await bootstrapProfile();
+      } catch {
+        // ignore
+      }
+    }
+  });
 
   const onPasswordConfirm = handlePasswordSubmit(async (values) => {
     setPasswordError(null);
@@ -179,14 +200,9 @@ export const ProfilePage = () => {
     );
   }
 
-  const disabled = !editing;
   const busy = isSubmitting;
   const fieldClass = (hasError) =>
-    [
-      "input input-bordered w-full",
-      hasError ? "input-error" : "",
-      disabled ? "bg-base-100" : "",
-    ].join(" ");
+    ["input input-bordered w-full", hasError ? "input-error" : ""].join(" ");
 
   const groups = Array.isArray(profile.groups) ? profile.groups : [];
   const siteIds = normalizeSiteIds(profile.sites);
@@ -196,134 +212,41 @@ export const ProfilePage = () => {
       : profile.company;
 
   return (
-    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto">
-      <ApiErrorAlert error={apiError} className="mb-3" />
-
-      <form
-        className="flex flex-col gap-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!confirmReady) return;
-          return onConfirm(e);
-        }}
-        noValidate
-      >
-        <label className="form-control w-full">
-          <span className="label-text mb-1">নাম</span>
-          <input
-            type="text"
-            className={fieldClass(errors.name)}
-            maxLength={255}
-            disabled={disabled}
-            {...register("name")}
-          />
-          {errors.name ? (
-            <span className="label-text-alt text-error mt-1">
-              {errors.name.message}
-            </span>
-          ) : null}
-        </label>
-
-        <label className="form-control w-full">
-          <span className="label-text mb-1">ফোন নম্বর</span>
-          <input
-            type="tel"
-            className={fieldClass(errors.phone_number)}
-            maxLength={14}
-            disabled={disabled}
-            {...register("phone_number")}
-          />
-          {errors.phone_number ? (
-            <span className="label-text-alt text-error mt-1">
-              {errors.phone_number.message}
-            </span>
-          ) : null}
-        </label>
-
-        <label className="form-control w-full">
-          <span className="label-text mb-1">ইমেইল</span>
-          <input
-            type="email"
-            className={fieldClass(errors.email)}
-            maxLength={254}
-            disabled={disabled}
-            {...register("email")}
-          />
-          {errors.email ? (
-            <span className="label-text-alt text-error mt-1">
-              {errors.email.message}
-            </span>
-          ) : null}
-        </label>
-
-        {editing ? (
-          <div className="flex gap-2 mt-2">
-            <button
-              type="button"
-              className="btn btn-ghost flex-1"
-              onClick={cancelEdit}
-              disabled={busy}
-            >
-              বাতিল
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary flex-1"
-              disabled={!confirmReady || busy}
-              onClick={(e) => {
-                if (!confirmReady) return;
-                return onConfirm(e);
-              }}
-            >
-              {busy ? (
-                <span className="loading loading-spinner loading-sm" />
-              ) : null}
-              নিশ্চিত
-            </button>
-          </div>
-        ) : (
-          <div className="flex gap-2 mt-2">
-            <button
-              type="button"
-              className="btn btn-outline flex-1 whitespace-nowrap"
-              onClick={openPasswordModal}
-            >
-              পাসওয়ার্ড
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline btn-primary flex-1"
-              onClick={startEdit}
-            >
-              আপডেট
-            </button>
-          </div>
-        )}
-      </form>
+    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto space-y-4">
+      <section className="space-y-2 text-sm">
+        <div className="flex justify-between gap-3">
+          <span className="text-base-content/70">নাম</span>
+          <span className="font-medium text-right">{profile.name || "—"}</span>
+        </div>
+        <div className="flex justify-between gap-3">
+          <span className="text-base-content/70">ফোন নম্বর</span>
+          <span className="font-medium text-right tabular-nums">
+            {profile.phone_number || "—"}
+          </span>
+        </div>
+        <div className="flex justify-between gap-3">
+          <span className="text-base-content/70">ইমেইল</span>
+          <span className="font-medium text-right">{profile.email || "—"}</span>
+        </div>
+        <div className="flex justify-between gap-3">
+          <span className="text-base-content/70">কোম্পানি</span>
+          <span className="font-medium text-right">{companyName || "—"}</span>
+        </div>
+      </section>
 
       <div className="divider"></div>
       <div className="flex flex-col md:flex-row gap-4">
         <div className="flex-1">
-          <span className="label-text mb-1">কোম্পানি</span>
-          {companyName ? (
-            <p className="text-sm text-base-content/55 mt-1">{companyName}</p>
-          ) : null}
-        </div>
-        <div className="flex-1">
           <span className="label-text mb-1">গ্রুপ</span>
           {groups.length ? (
-            <div className="flex flex-wrap gap-1.5 mt-1">
+            <ol className="mt-1 list-decimal space-y-0.5 pl-6 text-sm text-base-content/80">
               {profile.is_companyadmin ? (
-                <span className="badge badge-secondary badge-sm ml-1">
-                  কোম্পানি অ্যাডমিন
-                </span>
+                <li>কোম্পানি অ্যাডমিন</li>
               ) : null}
               {groups.map((g) => (
-                <span key={g.id ?? g.name} className="badge badge-outline">
-                  {groupLabelBn(g.name ?? g)}
-                </span>
+                <li key={g.id ?? g.name}>{groupLabelBn(g.name ?? g)}</li>
               ))}
-            </div>
+            </ol>
           ) : (
             <p className="text-sm text-base-content/55 mt-1">
               কোনো গ্রুপ নির্ধারণ করা হয়নি।
@@ -333,13 +256,11 @@ export const ProfilePage = () => {
         <div className="flex-1">
           <span className="label-text mb-1">দায়িত্বপ্রাপ্ত সাইট</span>
           {siteIds.length ? (
-            <div className="flex flex-wrap gap-1.5 mt-1">
+            <ol className="mt-1 list-decimal space-y-0.5 pl-6 text-sm text-base-content/80">
               {siteIds.map((id) => (
-                <span key={id} className="badge badge-outline">
-                  {getSiteName(id)}
-                </span>
+                <li key={id}>{getSiteName(id)}</li>
               ))}
-            </div>
+            </ol>
           ) : (
             <p className="text-sm text-base-content/55 mt-1">
               কোনো সাইট নির্ধারণ করা হয়নি।
@@ -347,6 +268,109 @@ export const ProfilePage = () => {
           )}
         </div>
       </div>
+
+      <dialog
+        ref={editDialogRef}
+        id={EDIT_MODAL_ID}
+        className="modal"
+        onClose={onEditModalClose}
+      >
+        <div className="modal-box max-w-lg max-h-[min(32rem,85vh)] flex flex-col">
+          <form method="dialog">
+            <button
+              type="submit"
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              <X className="size-4" strokeWidth={1.75} />
+            </button>
+          </form>
+
+          <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">
+            প্রোফাইল আপডেট
+          </h3>
+
+          <ApiErrorAlert error={apiError} className="mb-3 shrink-0" />
+
+          <form
+            className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto"
+            onSubmit={(e) => {
+              e.preventDefault();
+              return onConfirmEdit(e);
+            }}
+            noValidate
+          >
+            <label className="form-control w-full">
+              <span className="label-text mb-1">নাম</span>
+              <input
+                type="text"
+                className={fieldClass(errors.name)}
+                maxLength={255}
+                {...register("name")}
+              />
+              {errors.name ? (
+                <span className="label-text-alt text-error mt-1">
+                  {errors.name.message}
+                </span>
+              ) : null}
+            </label>
+
+            <label className="form-control w-full">
+              <span className="label-text mb-1">ফোন নম্বর</span>
+              <input
+                type="tel"
+                className={fieldClass(errors.phone_number)}
+                maxLength={14}
+                {...register("phone_number")}
+              />
+              {errors.phone_number ? (
+                <span className="label-text-alt text-error mt-1">
+                  {errors.phone_number.message}
+                </span>
+              ) : null}
+            </label>
+
+            <label className="form-control w-full">
+              <span className="label-text mb-1">ইমেইল</span>
+              <input
+                type="email"
+                className={fieldClass(errors.email)}
+                maxLength={254}
+                {...register("email")}
+              />
+              {errors.email ? (
+                <span className="label-text-alt text-error mt-1">
+                  {errors.email.message}
+                </span>
+              ) : null}
+            </label>
+
+            <div className="flex gap-2 mt-2">
+              <button
+                type="button"
+                className="btn btn-ghost flex-1"
+                onClick={closeEditModal}
+                disabled={busy}
+              >
+                বাতিল
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary flex-1"
+                disabled={busy}
+              >
+                {busy ? (
+                  <span className="loading loading-spinner loading-sm" />
+                ) : null}
+                নিশ্চিত
+              </button>
+            </div>
+          </form>
+        </div>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
+      </dialog>
 
       <dialog
         ref={passwordDialogRef}
