@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { fetchUsers } from '../../api/users.js'
 import { userStatusLabel } from '../../api/types/user.js'
 import { parseApiError } from '../../api/errors.js'
@@ -15,11 +15,12 @@ import { UserCreateModal } from './UserCreateModal.jsx'
 
 const PAGE_SIZE = 20
 const SEARCH_DEBOUNCE_MS = 400
+const ACCOUNT_FILTER_MODAL_ID = 'users_status_filter_modal'
 
-const STATUS_OPTIONS = [
-  { value: 'all', label: 'সব স্ট্যাটাস' },
-  { value: 'active', label: STATUS_LABEL.active },
-  { value: 'inactive', label: STATUS_LABEL.inactive },
+const ACCOUNT_FILTER_OPTIONS = [
+  { value: 'all', label: 'সব অ্যাকাউন্ট' },
+  { value: 'active', label: `${STATUS_LABEL.active} অ্যাকাউন্ট` },
+  { value: 'inactive', label: `${STATUS_LABEL.inactive} অ্যাকাউন্ট` },
 ]
 
 const statusParams = (status) => {
@@ -33,8 +34,10 @@ export const UsersPage = () => {
   const { setTitle } = useOutletContext()
   const { can } = usePermissions()
   const createModalRef = useRef(null)
+  const nameSearchRef = useRef(null)
   const [nameQuery, setNameQuery] = useState('')
   const [search, setSearch] = useState('')
+  const [nameSearchOpen, setNameSearchOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState('all')
   const [page, setPage] = useState(1)
 
@@ -56,6 +59,22 @@ export const UsersPage = () => {
   useEffect(() => {
     setPage(1)
   }, [search, statusFilter])
+
+  useEffect(() => {
+    if (!nameSearchOpen) return
+    nameSearchRef.current?.focus()
+
+    const onPointerDown = (event) => {
+      const el = nameSearchRef.current
+      if (!el) return
+      if (el === event.target || el.contains(event.target)) return
+      if (el.value !== '') return
+      setNameSearchOpen(false)
+    }
+
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [nameSearchOpen])
 
   const usersQuery = useQuery({
     queryKey: [
@@ -112,39 +131,58 @@ export const UsersPage = () => {
     : statusFilter !== 'all'
       ? 'এই ফিল্টারে কোনো ইউজার নেই।'
       : 'কোনো ইউজার নেই।'
+  const statusHeaderLabel = statusFilter === 'all' ? 'স্ট্যাটাস' : 'স্ট্যাটাস*'
 
   return (
     <section className="relative flex-1 min-h-0 flex flex-col">
-      <div className="shrink-0 grid grid-cols-2 gap-2 pb-2">
-        <input
-          type="search"
-          className="input input-bordered input-sm w-full min-w-0"
-          placeholder="নাম বা নম্বর খুঁজুন"
-          aria-label="নাম বা নম্বর খুঁজুন"
-          value={nameQuery}
-          onChange={(e) => setNameQuery(e.target.value)}
-        />
-        <select
-          className="select select-bordered select-sm w-full min-w-0"
-          aria-label="স্ট্যাটাস"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          {STATUS_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
       <div className="flex-1 min-h-0 overflow-auto">
         <table className="table table-sm sm:table-md w-full">
           <thead className="sticky top-0 z-10 bg-base-200">
             <tr className="border-b-2 border-base-300">
-              <th className="w-12">নং</th>
-              <th>নাম</th>
-              <th className="text-right">স্ট্যাটাস</th>
+              <th className="w-12">
+                <span className="inline-flex h-8 items-center">নং</span>
+              </th>
+              <th className="min-w-0">
+                <div className="grid h-8 w-full min-w-0 items-center overflow-hidden">
+                  <button
+                    type="button"
+                    className={`col-start-1 row-start-1 inline-flex h-8 items-center text-left ${
+                      nameSearchOpen ? 'invisible pointer-events-none' : ''
+                    }`}
+                    tabIndex={nameSearchOpen ? -1 : 0}
+                    onClick={() => setNameSearchOpen(true)}
+                  >
+                    নাম
+                  </button>
+                  <input
+                    ref={nameSearchRef}
+                    type="search"
+                    size={1}
+                    aria-hidden={!nameSearchOpen}
+                    tabIndex={nameSearchOpen ? 0 : -1}
+                    className={`col-start-1 row-start-1 input input-bordered input-sm h-8 min-h-8 max-h-8 w-full min-w-0 font-normal ${
+                      nameSearchOpen ? '' : 'invisible pointer-events-none'
+                    }`}
+                    placeholder="নাম বা নম্বর খুঁজুন"
+                    aria-label="নাম বা নম্বর খুঁজুন"
+                    value={nameQuery}
+                    onChange={(e) => setNameQuery(e.target.value)}
+                  />
+                </div>
+              </th>
+              <th className="text-right">
+                <button
+                  type="button"
+                  className="inline-flex h-8 items-center"
+                  onClick={() =>
+                    document
+                      .getElementById(ACCOUNT_FILTER_MODAL_ID)
+                      ?.showModal()
+                  }
+                >
+                  {statusHeaderLabel}
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -223,6 +261,44 @@ export const UsersPage = () => {
           <UserCreateModal ref={createModalRef} />
         </>
       ) : null}
+
+      <dialog id={ACCOUNT_FILTER_MODAL_ID} className="modal">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
+          <form method="dialog">
+            <button
+              type="submit"
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              <X className="size-4" strokeWidth={1.75} />
+            </button>
+          </form>
+          <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">
+            স্ট্যাটাস
+          </h3>
+          <div className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto">
+            <div className="flex flex-col gap-2">
+              {ACCOUNT_FILTER_OPTIONS.map((opt) => (
+                <label
+                  key={opt.value}
+                  className="inline-flex items-center gap-2 cursor-pointer text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-xs"
+                    checked={statusFilter === opt.value}
+                    onChange={() => setStatusFilter(opt.value)}
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
+      </dialog>
     </section>
   )
 }
