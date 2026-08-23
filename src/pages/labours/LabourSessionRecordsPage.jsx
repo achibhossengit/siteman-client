@@ -860,7 +860,7 @@ export const LabourSessionRecordsPage = () => {
 
   if (!canView) {
     return (
-      <div className="text-sm text-error py-8 text-center">
+      <div className="text-sm text-error py-8 text-center px-3">
         এই পেজ দেখার অনুমতি নেই।
       </div>
     );
@@ -889,7 +889,7 @@ export const LabourSessionRecordsPage = () => {
 
   if (!session) {
     return (
-      <div className="text-sm text-base-content/70 py-8 text-center">
+      <div className="text-sm text-base-content/70 py-8 text-center px-3">
         হিসাব পাওয়া যায়নি।
       </div>
     );
@@ -897,7 +897,7 @@ export const LabourSessionRecordsPage = () => {
 
   if (session.is_modified) {
     return (
-      <div className="alert alert-warning text-sm">
+      <div className="alert alert-warning text-sm mx-3 mt-3">
         হিসাবটি পরিবর্তিত হয়েছে। রেকর্ড দেখা বন্ধ।
       </div>
     );
@@ -906,13 +906,13 @@ export const LabourSessionRecordsPage = () => {
   const recordsError = dailyRecordsQuery.error || activitiesQuery.error;
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col gap-2">
+    <div className="flex-1 min-h-0 flex flex-col gap-2 py-3">
       {recordsError ? (
         <ApiErrorAlert error={parseApiError(recordsError)} />
       ) : null}
 
       <div
-        className={`flex items-center gap-2 shrink-0 ${
+        className={`flex items-center gap-2 shrink-0 px-3 ${
           SHOW_BILLING ? "justify-between" : "justify-end"
         }`}
       >
@@ -932,7 +932,7 @@ export const LabourSessionRecordsPage = () => {
         </select>
         ) : null}
         <select
-          className="select select-bordered select-sm min-w-36"
+          className="select select-bordered select-sm min-w-0 w-44 max-w-44"
           value={selectedSiteId}
           onChange={(e) => {
             setSiteFilter(e.target.value);
@@ -949,7 +949,7 @@ export const LabourSessionRecordsPage = () => {
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto">
-        <table className="table table-sm sm:table-md w-full bg-transparent [&_th]:px-0 [&_td]:px-0">
+        <table className="table table-sm sm:table-md w-full">
           <thead className="sticky top-0 z-10 bg-base-200">
             <tr className="border-b border-base-300 text-sm">
               <th>নং</th>
