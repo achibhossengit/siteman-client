@@ -152,7 +152,7 @@ export const UserDetailPage = () => {
 
   if (!canViewUser) {
     return (
-      <div className="text-sm text-error py-8 text-center">
+      <div className="text-sm text-error py-8 text-center px-3">
         এই পেজ দেখার অনুমতি নেই।
       </div>
     );
@@ -172,7 +172,7 @@ export const UserDetailPage = () => {
 
   if (!user) {
     return (
-      <div className="text-sm text-base-content/70 py-8 text-center">
+      <div className="text-sm text-base-content/70 py-8 text-center px-3">
         ইউজার পাওয়া যায়নি।
       </div>
     );
@@ -185,7 +185,7 @@ export const UserDetailPage = () => {
     typeof user.company === "object" ? user.company?.name : user.company;
 
   return (
-    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto space-y-4">
+    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto space-y-4 px-3 py-3">
       <section className="space-y-2 text-sm">
         <div className="flex justify-between gap-3">
           <span className="text-base-content/70">নাম</span>

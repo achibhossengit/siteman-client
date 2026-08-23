@@ -208,7 +208,7 @@ export const SiteDetailPage = () => {
 
   if (!canViewSite) {
     return (
-      <div className="text-sm text-error py-8 text-center">
+      <div className="text-sm text-error py-8 text-center px-3">
         এই পেজ দেখার অনুমতি নেই।
       </div>
     )
@@ -228,7 +228,7 @@ export const SiteDetailPage = () => {
 
   if (!site) {
     return (
-      <div className="text-sm text-base-content/70 py-8 text-center">
+      <div className="text-sm text-base-content/70 py-8 text-center px-3">
         সাইট পাওয়া যায়নি।
       </div>
     )
@@ -247,7 +247,7 @@ export const SiteDetailPage = () => {
   const privateOpen = openSection === 'private'
 
   return (
-    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto space-y-4 relative pb-20">
+    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto space-y-4 relative px-3 pt-3 pb-20">
       <ApiErrorAlert error={siteApiError} />
 
       {site.is_closed ? (

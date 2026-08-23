@@ -416,7 +416,7 @@ export const LabourDetailPage = () => {
 
   if (!canViewLabour) {
     return (
-      <div className="text-sm text-error py-8 text-center">
+      <div className="text-sm text-error py-8 text-center px-3">
         এই পেজ দেখার অনুমতি নেই।
       </div>
     )
@@ -436,7 +436,7 @@ export const LabourDetailPage = () => {
 
   if (!labour) {
     return (
-      <div className="text-sm text-base-content/70 py-8 text-center">
+      <div className="text-sm text-base-content/70 py-8 text-center px-3">
         শ্রমিক পাওয়া যায়নি।
       </div>
     )
@@ -453,7 +453,7 @@ export const LabourDetailPage = () => {
     ].join(' ')
 
   return (
-    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto space-y-4">
+    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto space-y-4 px-3 py-3">
       <ApiErrorAlert error={apiError} />
 
       <section className="space-y-2 text-sm">

@@ -212,7 +212,7 @@ export const ProfilePage = () => {
       : profile.company;
 
   return (
-    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto space-y-4">
+    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto space-y-4 px-3 py-3">
       <section className="space-y-2 text-sm">
         <div className="flex justify-between gap-3">
           <span className="text-base-content/70">নাম</span>

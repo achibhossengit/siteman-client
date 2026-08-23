@@ -39,7 +39,7 @@ export const DetailLayout = () => {
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 w-full max-w-5xl mx-auto flex flex-col overflow-hidden px-3 py-3">
+      <main className="flex-1 min-h-0 w-full max-w-5xl mx-auto flex flex-col overflow-hidden">
         <Outlet context={{ setTitle, setHeaderMenu }} />
       </main>
     </div>

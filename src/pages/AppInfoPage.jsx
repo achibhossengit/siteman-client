@@ -62,7 +62,7 @@ export const AppInfoPage = () => {
 
   if (showPortfolio) {
     return (
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-3 py-3">
         <div className="shrink-0 flex items-center justify-end gap-1 pb-2">
           <a
             href={LINKS.portfolio}
@@ -92,7 +92,7 @@ export const AppInfoPage = () => {
   }
 
   return (
-    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
+    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 px-3 py-3">
       <section className="card bg-transparent border border-base-300">
         <div className="card-body gap-3">
           <ul className="flex flex-col divide-y divide-base-300/70">
