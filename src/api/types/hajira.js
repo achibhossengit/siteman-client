@@ -110,6 +110,7 @@ export const buildHajiraEditRows = (labours, records = []) => {
     return {
       labourId,
       labourName: labour.name ?? `#${labourId}`,
+      labourPhoto: labour.photo ?? null,
       labourCurrentSite:
         labourCurrentSite == null || labourCurrentSite === ''
           ? null

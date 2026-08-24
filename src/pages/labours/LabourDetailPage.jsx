@@ -23,9 +23,12 @@ import {
 } from '../../api/types/labour.js'
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
+import { PersonAvatar } from '../../components/PersonAvatar.jsx'
+import { PhotoPicker } from '../../components/PhotoPicker.jsx'
 import { ListPagination } from '../../components/ListPagination.jsx'
 import { DetailMenuButton } from '../../layouts/DetailLayout.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
+import { usePhotoPicker } from '../../hooks/usePhotoPicker.js'
 import { useAssignedSites, useSitesLookup } from '../../hooks/useSites.js'
 import { formatBnNumber, formatBnSigned, NULL_SITE_LABEL } from '../../utils/format.js'
 import { confirmAction, toastSuccess } from '../../utils/feedback.js'
@@ -198,6 +201,17 @@ export const LabourDetailPage = () => {
   })
 
   const labour = detailQuery.data
+  const {
+    photoFile,
+    removePhoto,
+    photoError,
+    setPhotoError,
+    previewSrc,
+    photoDirty,
+    resetPhotoState,
+    onSelectPhoto,
+    onRemovePhoto,
+  } = usePhotoPicker(labour?.photo)
   const sessionsPage = sessionsQuery.data ?? {
     results: [],
     count: 0,
@@ -263,6 +277,7 @@ export const LabourDetailPage = () => {
   const openEditModal = () => {
     if (!labour) return
     setApiError(null)
+    resetPhotoState()
     reset(toFormValues(labour, { isCompanyAdmin, assignedSites }))
     editDialogRef.current?.showModal()
   }
@@ -273,6 +288,7 @@ export const LabourDetailPage = () => {
 
   const onEditModalClose = () => {
     setApiError(null)
+    resetPhotoState()
     reset(toFormValues(labour, { isCompanyAdmin, assignedSites }))
   }
 
@@ -303,8 +319,13 @@ export const LabourDetailPage = () => {
   const onConfirmEdit = handleSubmit(async (values) => {
     setApiError(null)
     try {
-      const { data } = await updateMutation.mutateAsync(values)
+      const { data } = await updateMutation.mutateAsync({
+        ...values,
+        photoFile,
+        removePhoto,
+      })
       reset(toFormValues(data, { isCompanyAdmin, assignedSites }))
+      resetPhotoState()
       await invalidateLabour()
       closeEditModal()
       toastSuccess('শ্রমিক আপডেট হয়েছে')
@@ -312,6 +333,9 @@ export const LabourDetailPage = () => {
       const parsed = parseApiError(err)
       setApiError(parsed)
       applyFieldErrors(parsed, setError)
+      if (parsed.fieldErrors?.photo?.[0]) {
+        setPhotoError(parsed.fieldErrors.photo[0])
+      }
     }
   })
 
@@ -443,7 +467,7 @@ export const LabourDetailPage = () => {
   }
 
   const busy = isSubmitting || updateMutation.isPending
-  const saveDisabled = busy || !formReady
+  const saveDisabled = busy || !formReady || Boolean(photoError)
   const fieldClass = (hasError, kind = 'input') =>
     [
       kind === 'select'
@@ -456,16 +480,23 @@ export const LabourDetailPage = () => {
     <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto space-y-4 px-3 py-3">
       <ApiErrorAlert error={apiError} />
 
-      <section className="space-y-2 text-sm">
-        <div className="flex justify-between gap-3">
-          <span className="text-base-content/70">শ্রমিকের নাম:</span>
-          <span className="font-medium text-right">{labour.name || '—'}</span>
-        </div>
-        <div className="flex justify-between gap-3">
-          <span className="text-base-content/70">বর্তমান সাইট:</span>
-          <span className="font-medium text-right">
-            {siteLabel(labour.current_site)}
-          </span>
+      <section className="space-y-3 text-sm">
+        <div className="flex items-center gap-4">
+          <PersonAvatar
+            photo={labour.photo}
+            name={labour.name}
+            size="lg"
+            shape="square"
+            alt={labour.name || 'শ্রমিকের ছবি'}
+          />
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <div className="font-semibold text-base leading-snug truncate">
+              {labour.name || '—'}
+            </div>
+            <div className="text-base-content/80 truncate">
+              বর্তমান সাইটঃ {siteLabel(labour.current_site)}
+            </div>
+          </div>
         </div>
         <div className="flex justify-between gap-2">
           <span className="text-base-content/70">
@@ -745,7 +776,7 @@ export const LabourDetailPage = () => {
         className="modal"
         onClose={onEditModalClose}
       >
-        <div className="modal-box max-w-lg max-h-[min(32rem,85vh)] flex flex-col">
+        <div className="modal-box max-w-lg max-h-[min(36rem,90vh)] flex flex-col">
           <form method="dialog">
             <button
               type="submit"
@@ -768,6 +799,15 @@ export const LabourDetailPage = () => {
             }}
             noValidate
           >
+            <PhotoPicker
+              previewSrc={previewSrc}
+              name={watched.name || labour.name}
+              error={photoError || errors.photo?.message}
+              disabled={busy}
+              onSelect={onSelectPhoto}
+              onRemove={onRemovePhoto}
+            />
+
             <label className="form-control w-full">
               <span className="label-text mb-1">নাম</span>
               <input
@@ -873,7 +913,7 @@ export const LabourDetailPage = () => {
               <button
                 type="submit"
                 className="btn btn-primary w-full"
-                disabled={!isDirty || saveDisabled}
+                disabled={(!isDirty && !photoDirty) || saveDisabled}
               >
                 {busy ? (
                   <span className="loading loading-spinner loading-sm" />

@@ -1,5 +1,6 @@
 import { Link, NavLink } from 'react-router-dom'
 import { BrandLogo } from './BrandLogo.jsx'
+import { PersonAvatar } from './PersonAvatar.jsx'
 import { MAINTENANCE } from '../config/features.js'
 import { useAuth } from '../providers/AuthProvider.jsx'
 import { paths } from '../router/paths.js'
@@ -46,13 +47,16 @@ export const AppHeader = () => {
                 ) : null}
                 <Link
                   to={paths.profile}
-                  className="avatar placeholder shrink-0"
+                  className="shrink-0"
                   aria-label="প্রোফাইল"
                   title={userName || companyName || 'প্রোফাইল'}
                 >
-                  <div className="bg-neutral text-neutral-content w-10 h-10 rounded-full">
-                    <img src="/user.png" alt="" className="object-cover" />
-                  </div>
+                  <PersonAvatar
+                    photo={profile?.photo}
+                    name={userName}
+                    size="sm"
+                    alt={userName || 'প্রোফাইল'}
+                  />
                 </Link>
               </>
             ) : (

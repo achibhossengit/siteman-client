@@ -67,11 +67,32 @@ export const toUserAdminUpdatePayload = ({ is_active, groups, sites }) => ({
   sites: (sites ?? []).map((id) => Number(id)),
 })
 
-export const toProfileUpdatePayload = ({ name, phone_number, email }) => ({
+const profileTextFields = ({ name, phone_number, email }) => ({
   name: String(name ?? '').trim(),
   phone_number: String(phone_number ?? '').trim(),
   email: email?.trim() ? email.trim() : null,
 })
+
+/** PATCH /profile. File upload uses multipart; clearing photo sends JSON null. */
+export const toProfileUpdatePayload = ({
+  name,
+  phone_number,
+  email,
+  photoFile,
+  removePhoto,
+} = {}) => {
+  const fields = profileTextFields({ name, phone_number, email })
+  if (photoFile instanceof File) {
+    const form = new FormData()
+    form.append('name', fields.name)
+    form.append('phone_number', fields.phone_number)
+    form.append('email', fields.email ?? '')
+    form.append('photo', photoFile)
+    return form
+  }
+  if (removePhoto) return { ...fields, photo: null }
+  return fields
+}
 
 /** Normalize API groups (objects or names) → string[]. */
 export const normalizeGroupNames = (groups) =>

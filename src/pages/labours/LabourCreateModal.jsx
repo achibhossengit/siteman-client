@@ -19,7 +19,9 @@ import {
 } from '../../api/types/labour.js'
 import { parseApiError, applyFieldErrors } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
+import { PhotoPicker } from '../../components/PhotoPicker.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
+import { usePhotoPicker } from '../../hooks/usePhotoPicker.js'
 import { useAssignedSites, useSitesLookup } from '../../hooks/useSites.js'
 import { formatBnNumber, NULL_SITE_LABEL } from '../../utils/format.js'
 import { toastSuccess } from '../../utils/feedback.js'
@@ -29,6 +31,16 @@ export const LabourCreateModal = forwardRef(function LabourCreateModal(_, ref) {
   const dialogRef = useRef(null)
   const { isCompanyAdmin } = usePermissions()
   const [apiError, setApiError] = useState(null)
+  const {
+    photoFile,
+    removePhoto,
+    photoError,
+    setPhotoError,
+    previewSrc,
+    resetPhotoState,
+    onSelectPhoto,
+    onRemovePhoto,
+  } = usePhotoPicker(null)
 
   const requireSite = !isCompanyAdmin
 
@@ -89,7 +101,7 @@ export const LabourCreateModal = forwardRef(function LabourCreateModal(_, ref) {
   })
 
   const busy = isSubmitting || mutation.isPending
-  const saveDisabled = busy || !formReady
+  const saveDisabled = busy || !formReady || Boolean(photoError)
 
   const blankForm = () => ({
     ...LABOUR_FORM_DEFAULTS,
@@ -98,6 +110,7 @@ export const LabourCreateModal = forwardRef(function LabourCreateModal(_, ref) {
 
   const resetModal = () => {
     setApiError(null)
+    resetPhotoState()
     reset(blankForm())
   }
 
@@ -115,11 +128,12 @@ export const LabourCreateModal = forwardRef(function LabourCreateModal(_, ref) {
   const saveLabour = async (values, { createAnother }) => {
     setApiError(null)
     try {
-      await mutation.mutateAsync(values)
+      await mutation.mutateAsync({ ...values, photoFile, removePhoto })
       await queryClient.invalidateQueries({ queryKey: ['labours'] })
       toastSuccess('শ্রমিক তৈরি হয়েছে')
       if (createAnother) {
         reset(blankForm())
+        resetPhotoState()
       } else {
         closeModal()
       }
@@ -127,6 +141,9 @@ export const LabourCreateModal = forwardRef(function LabourCreateModal(_, ref) {
       const parsed = parseApiError(err)
       setApiError(parsed)
       applyFieldErrors(parsed, setError)
+      if (parsed.fieldErrors?.photo?.[0]) {
+        setPhotoError(parsed.fieldErrors.photo[0])
+      }
     }
   }
 
@@ -140,7 +157,7 @@ export const LabourCreateModal = forwardRef(function LabourCreateModal(_, ref) {
 
   return (
     <dialog ref={dialogRef} className="modal" onClose={resetModal}>
-      <div className="modal-box max-w-md max-h-[min(40rem,90vh)] flex flex-col">
+        <div className="modal-box max-w-md max-h-[min(42rem,90vh)] flex flex-col">
         <form method="dialog">
           <button
             type="submit"
@@ -157,11 +174,20 @@ export const LabourCreateModal = forwardRef(function LabourCreateModal(_, ref) {
 
         <ApiErrorAlert error={apiError} className="mb-3 shrink-0" />
 
-        <form
+          <form
           className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto"
           onSubmit={onSubmit}
           noValidate
         >
+          <PhotoPicker
+            previewSrc={previewSrc}
+            name={watched.name}
+            error={photoError || errors.photo?.message}
+            disabled={busy}
+            onSelect={onSelectPhoto}
+            onRemove={onRemovePhoto}
+          />
+
           <label className="form-control w-full">
             <span className="label-text mb-1">নাম</span>
             <input

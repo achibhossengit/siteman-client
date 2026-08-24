@@ -15,7 +15,10 @@ import {
 } from "../../api/types/user.js";
 import { parseApiError, applyFieldErrors } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
+import { PhotoPicker } from "../../components/PhotoPicker.jsx";
+import { UserProfileCard } from "../../components/UserProfileCard.jsx";
 import { DetailMenuButton } from "../../layouts/DetailLayout.jsx";
+import { usePhotoPicker } from "../../hooks/usePhotoPicker.js";
 import { useSitesLookup } from "../../hooks/useSites.js";
 import { toastSuccess } from "../../utils/feedback.js";
 import { groupLabelBn } from "../../utils/permissions.js";
@@ -55,6 +58,17 @@ export const ProfilePage = () => {
 
   const [apiError, setApiError] = useState(null);
   const [passwordError, setPasswordError] = useState(null);
+  const {
+    photoFile,
+    removePhoto,
+    photoError,
+    setPhotoError,
+    previewSrc: photoPreviewSrc,
+    photoDirty,
+    resetPhotoState,
+    onSelectPhoto,
+    onRemovePhoto,
+  } = usePhotoPicker(profile?.photo);
 
   const {
     register,
@@ -95,6 +109,7 @@ export const ProfilePage = () => {
   const openEditModal = () => {
     if (!profile) return;
     setApiError(null);
+    resetPhotoState();
     reset(toFormValues(profile));
     editDialogRef.current?.showModal();
   };
@@ -105,6 +120,7 @@ export const ProfilePage = () => {
 
   const onEditModalClose = () => {
     setApiError(null);
+    resetPhotoState();
     reset(toFormValues(profile));
   };
 
@@ -160,15 +176,25 @@ export const ProfilePage = () => {
   const onConfirmEdit = handleSubmit(async (values) => {
     setApiError(null);
     try {
-      const { data } = await updateProfile(toProfileUpdatePayload(values));
+      const { data } = await updateProfile(
+        toProfileUpdatePayload({
+          ...values,
+          photoFile,
+          removePhoto,
+        }),
+      );
       setProfile(data);
       reset(toFormValues(data));
+      resetPhotoState();
       closeEditModal();
       toastSuccess("প্রোফাইল আপডেট হয়েছে");
     } catch (err) {
       const parsed = parseApiError(err);
       setApiError(parsed);
       applyFieldErrors(parsed, setError);
+      if (parsed.fieldErrors?.photo?.[0]) {
+        setPhotoError(parsed.fieldErrors.photo[0]);
+      }
       try {
         await bootstrapProfile();
       } catch {
@@ -211,67 +237,33 @@ export const ProfilePage = () => {
     typeof profile.company === "object"
       ? profile.company?.name
       : profile.company;
+  const groupItems = [
+    ...(profile.is_companyadmin
+      ? [{ key: "companyadmin", label: "কোম্পানি অ্যাডমিন" }]
+      : []),
+    ...groups.map((g) => {
+      const groupName = typeof g === "string" ? g : g?.name;
+      const key =
+        typeof g === "object" && g != null ? (g.id ?? g.name) : g;
+      return { key, label: groupLabelBn(groupName) };
+    }),
+  ];
+  const siteItems = siteIds.map((id) => ({
+    key: id,
+    label: getSiteName(id),
+  }));
 
   return (
-    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto space-y-4 px-3 py-3">
-      <section className="space-y-2 text-sm">
-        <div className="flex justify-between gap-3">
-          <span className="text-base-content/70">নাম</span>
-          <span className="font-medium text-right">{profile.name || "—"}</span>
-        </div>
-        <div className="flex justify-between gap-3">
-          <span className="text-base-content/70">ফোন নম্বর</span>
-          <span className="font-medium text-right tabular-nums">
-            {profile.phone_number || "—"}
-          </span>
-        </div>
-        <div className="flex justify-between gap-3">
-          <span className="text-base-content/70">ইমেইল</span>
-          <span className="font-medium text-right">{profile.email || "—"}</span>
-        </div>
-        <div className="flex justify-between gap-3">
-          <span className="text-base-content/70">কোম্পানি</span>
-          <span className="font-medium text-right">{companyName || "—"}</span>
-        </div>
-      </section>
-
-      <div className="divider"></div>
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1">
-          <span className="label-text mb-1">গ্রুপ</span>
-          {profile.is_companyadmin || groups.length ? (
-            <ol className="mt-1 list-decimal space-y-0.5 pl-6 text-sm text-base-content/80">
-              {profile.is_companyadmin ? (
-                <li>কোম্পানি অ্যাডমিন</li>
-              ) : null}
-              {groups.map((g) => {
-                const name = typeof g === "string" ? g : g?.name
-                const key =
-                  typeof g === "object" && g != null ? (g.id ?? g.name) : g
-                return <li key={key}>{groupLabelBn(name)}</li>
-              })}
-            </ol>
-          ) : (
-            <p className="text-sm text-base-content/55 mt-1">
-              কোনো গ্রুপ নির্ধারণ করা হয়নি।
-            </p>
-          )}
-        </div>
-        <div className="flex-1">
-          <span className="label-text mb-1">দায়িত্বপ্রাপ্ত সাইট</span>
-          {siteIds.length ? (
-            <ol className="mt-1 list-decimal space-y-0.5 pl-6 text-sm text-base-content/80">
-              {siteIds.map((id) => (
-                <li key={id}>{getSiteName(id)}</li>
-              ))}
-            </ol>
-          ) : (
-            <p className="text-sm text-base-content/55 mt-1">
-              কোনো সাইট নির্ধারণ করা হয়নি।
-            </p>
-          )}
-        </div>
-      </div>
+    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto px-3 py-3">
+      <UserProfileCard
+        photo={profile.photo}
+        name={profile.name}
+        phone={profile.phone_number}
+        email={profile.email}
+        company={companyName}
+        groups={groupItems}
+        sites={siteItems}
+      />
 
       <dialog
         ref={editDialogRef}
@@ -279,7 +271,7 @@ export const ProfilePage = () => {
         className="modal"
         onClose={onEditModalClose}
       >
-        <div className="modal-box max-w-lg max-h-[min(32rem,85vh)] flex flex-col">
+        <div className="modal-box max-w-lg max-h-[min(36rem,90vh)] flex flex-col">
           <form method="dialog">
             <button
               type="submit"
@@ -304,6 +296,15 @@ export const ProfilePage = () => {
             }}
             noValidate
           >
+            <PhotoPicker
+              previewSrc={photoPreviewSrc}
+              name={profile.name}
+              error={photoError || errors.photo?.message}
+              disabled={busy}
+              onSelect={onSelectPhoto}
+              onRemove={onRemovePhoto}
+            />
+
             <label className="form-control w-full">
               <span className="label-text mb-1">নাম</span>
               <input
@@ -353,7 +354,7 @@ export const ProfilePage = () => {
               <button
                 type="submit"
                 className="btn btn-primary w-full"
-                disabled={!isDirty || busy}
+                disabled={(!isDirty && !photoDirty) || busy || Boolean(photoError)}
               >
                 {busy ? (
                   <span className="loading loading-spinner loading-sm" />

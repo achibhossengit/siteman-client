@@ -10828,6 +10828,10 @@ components:
         name:
           type: string
           maxLength: 255
+        photo:
+          type: string
+          format: uri
+          nullable: true
         current_site:
           type: integer
           nullable: true
@@ -10881,6 +10885,10 @@ components:
         name:
           type: string
           maxLength: 255
+        photo:
+          type: string
+          format: uri
+          nullable: true
         current_site:
           type: integer
           nullable: true
@@ -11141,6 +11149,7 @@ components:
       oneOf:
         - $ref: "#/components/schemas/LaboursCreateNonFieldErrorsErrorComponent"
         - $ref: "#/components/schemas/LaboursCreateNameErrorComponent"
+        - $ref: "#/components/schemas/LaboursCreatePhotoErrorComponent"
         - $ref: "#/components/schemas/LaboursCreateCurrentSiteErrorComponent"
         - $ref: "#/components/schemas/LaboursCreateDefaultAttendanceErrorComponent"
         - $ref: "#/components/schemas/LaboursCreateDefaultSalaryErrorComponent"
@@ -11151,6 +11160,7 @@ components:
         mapping:
           non_field_errors: "#/components/schemas/LaboursCreateNonFieldErrorsErrorComponent"
           name: "#/components/schemas/LaboursCreateNameErrorComponent"
+          photo: "#/components/schemas/LaboursCreatePhotoErrorComponent"
           current_site: "#/components/schemas/LaboursCreateCurrentSiteErrorComponent"
           default_attendance: "#/components/schemas/LaboursCreateDefaultAttendanceErrorComponent"
           default_salary: "#/components/schemas/LaboursCreateDefaultSalaryErrorComponent"
@@ -11235,6 +11245,34 @@ components:
           description: |-
             * `invalid` - invalid
             * `null` - null
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    LaboursCreatePhotoErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - photo
+          type: string
+          description: "* `photo` - photo"
+        code:
+          enum:
+            - empty
+            - invalid
+            - invalid_image
+            - max_length
+            - no_name
+          type: string
+          description: |-
+            * `empty` - empty
+            * `invalid` - invalid
+            * `invalid_image` - invalid_image
+            * `max_length` - max_length
+            * `no_name` - no_name
         detail:
           type: string
       required:
@@ -12159,6 +12197,7 @@ components:
       oneOf:
         - $ref: "#/components/schemas/LaboursPartialUpdateNonFieldErrorsErrorComponent"
         - $ref: "#/components/schemas/LaboursPartialUpdateNameErrorComponent"
+        - $ref: "#/components/schemas/LaboursPartialUpdatePhotoErrorComponent"
         - $ref: "#/components/schemas/LaboursPartialUpdateCurrentSiteErrorComponent"
         - $ref: "#/components/schemas/LaboursPartialUpdateDefaultAttendanceErrorComponent"
         - $ref: "#/components/schemas/LaboursPartialUpdateDefaultSalaryErrorComponent"
@@ -12169,6 +12208,7 @@ components:
         mapping:
           non_field_errors: "#/components/schemas/LaboursPartialUpdateNonFieldErrorsErrorComponent"
           name: "#/components/schemas/LaboursPartialUpdateNameErrorComponent"
+          photo: "#/components/schemas/LaboursPartialUpdatePhotoErrorComponent"
           current_site: "#/components/schemas/LaboursPartialUpdateCurrentSiteErrorComponent"
           default_attendance: "#/components/schemas/LaboursPartialUpdateDefaultAttendanceErrorComponent"
           default_salary: "#/components/schemas/LaboursPartialUpdateDefaultSalaryErrorComponent"
@@ -12253,6 +12293,34 @@ components:
           description: |-
             * `invalid` - invalid
             * `null` - null
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    LaboursPartialUpdatePhotoErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - photo
+          type: string
+          description: "* `photo` - photo"
+        code:
+          enum:
+            - empty
+            - invalid
+            - invalid_image
+            - max_length
+            - no_name
+          type: string
+          description: |-
+            * `empty` - empty
+            * `invalid` - invalid
+            * `invalid_image` - invalid_image
+            * `max_length` - max_length
+            * `no_name` - no_name
         detail:
           type: string
       required:
@@ -13152,6 +13220,10 @@ components:
         name:
           type: string
           maxLength: 255
+        photo:
+          type: string
+          format: uri
+          nullable: true
         current_site:
           type: integer
           nullable: true
@@ -13312,6 +13384,10 @@ components:
         name:
           type: string
           maxLength: 255
+        photo:
+          type: string
+          format: uri
+          nullable: true
         phone_number:
           type: string
         email:
@@ -13491,6 +13567,7 @@ components:
       oneOf:
         - $ref: "#/components/schemas/ProfilePartialUpdateNonFieldErrorsErrorComponent"
         - $ref: "#/components/schemas/ProfilePartialUpdateNameErrorComponent"
+        - $ref: "#/components/schemas/ProfilePartialUpdatePhotoErrorComponent"
         - $ref: "#/components/schemas/ProfilePartialUpdatePhoneNumberErrorComponent"
         - $ref: "#/components/schemas/ProfilePartialUpdateEmailErrorComponent"
       discriminator:
@@ -13498,6 +13575,7 @@ components:
         mapping:
           non_field_errors: "#/components/schemas/ProfilePartialUpdateNonFieldErrorsErrorComponent"
           name: "#/components/schemas/ProfilePartialUpdateNameErrorComponent"
+          photo: "#/components/schemas/ProfilePartialUpdatePhotoErrorComponent"
           phone_number: "#/components/schemas/ProfilePartialUpdatePhoneNumberErrorComponent"
           email: "#/components/schemas/ProfilePartialUpdateEmailErrorComponent"
     ProfilePartialUpdateErrorResponse400:
@@ -13587,6 +13665,34 @@ components:
             * `null_characters_not_allowed` - null_characters_not_allowed
             * `required` - required
             * `surrogate_characters_not_allowed` - surrogate_characters_not_allowed
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    ProfilePartialUpdatePhotoErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - photo
+          type: string
+          description: "* `photo` - photo"
+        code:
+          enum:
+            - empty
+            - invalid
+            - invalid_image
+            - max_length
+            - no_name
+          type: string
+          description: |-
+            * `empty` - empty
+            * `invalid` - invalid
+            * `invalid_image` - invalid_image
+            * `max_length` - max_length
+            * `no_name` - no_name
         detail:
           type: string
       required:
@@ -16068,6 +16174,10 @@ components:
         name:
           type: string
           maxLength: 255
+        photo:
+          type: string
+          format: uri
+          nullable: true
         phone_number:
           type: string
           readOnly: true
@@ -16102,6 +16212,10 @@ components:
         name:
           type: string
           maxLength: 255
+        photo:
+          type: string
+          format: uri
+          nullable: true
         phone_number:
           type: string
         email:

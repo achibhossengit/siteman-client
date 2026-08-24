@@ -6,6 +6,7 @@ import { fetchLabours } from '../../api/labours.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { ListPagination } from '../../components/ListPagination.jsx'
+import { PersonAvatar } from '../../components/PersonAvatar.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { useAssignedSites } from '../../hooks/useSites.js'
 import { formatBnNumber, NULL_SITE_LABEL, STATUS_LABEL } from '../../utils/format.js'
@@ -272,12 +273,20 @@ export const LaboursPage = () => {
                       {formatBnNumber(slOffset + index + 1)}
                     </td>
                     <td
-                      className={`font-medium truncate max-w-48 ${
+                      className={`max-w-48 ${
                         inactive ? 'text-base-content/40' : ''
                       }`}
                       title={row.name}
                     >
-                      {row.name}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <PersonAvatar
+                          photo={row.photo}
+                          name={row.name}
+                          size="xs"
+                          className={inactive ? 'opacity-40' : ''}
+                        />
+                        <span className="font-medium truncate">{row.name}</span>
+                      </div>
                     </td>
                     <td className="truncate text-sm text-base-content/80 max-w-40">
                       {siteLabel(row.current_site)}

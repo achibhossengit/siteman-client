@@ -55,15 +55,37 @@ export const toLabourPayload = ({
   default_salary,
   default_fooding,
   is_active,
-}) => ({
-  name: String(name ?? '').trim(),
-  current_site:
-    current_site === '' || current_site == null ? null : Number(current_site),
-  default_attendance: Number(default_attendance),
-  default_salary: Number(default_salary),
-  default_fooding: Number(default_fooding),
-  is_active: Boolean(is_active),
-})
+  photoFile,
+  removePhoto,
+}) => {
+  const fields = {
+    name: String(name ?? '').trim(),
+    current_site:
+      current_site === '' || current_site == null ? null : Number(current_site),
+    default_attendance: Number(default_attendance),
+    default_salary: Number(default_salary),
+    default_fooding: Number(default_fooding),
+    is_active: Boolean(is_active),
+  }
+
+  if (photoFile instanceof File) {
+    const form = new FormData()
+    form.append('name', fields.name)
+    form.append(
+      'current_site',
+      fields.current_site == null ? '' : String(fields.current_site),
+    )
+    form.append('default_attendance', String(fields.default_attendance))
+    form.append('default_salary', String(fields.default_salary))
+    form.append('default_fooding', String(fields.default_fooding))
+    form.append('is_active', fields.is_active ? 'true' : 'false')
+    form.append('photo', photoFile)
+    return form
+  }
+
+  if (removePhoto) return { ...fields, photo: null }
+  return fields
+}
 
 export const labourStatusLabel = (labour) => {
   if (!labour) return '—'

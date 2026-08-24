@@ -30,6 +30,16 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+  // Default JSON Content-Type breaks multipart file uploads (boundary).
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    const headers = config.headers
+    if (headers && typeof headers.delete === 'function') {
+      headers.delete('Content-Type')
+    } else if (headers) {
+      delete headers['Content-Type']
+      delete headers['content-type']
+    }
+  }
   return config
 })
 

@@ -7,6 +7,7 @@ import { userStatusLabel } from '../../api/types/user.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { ListPagination } from '../../components/ListPagination.jsx'
+import { PersonAvatar } from '../../components/PersonAvatar.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { formatBnNumber, STATUS_LABEL } from '../../utils/format.js'
 import {
@@ -243,13 +244,23 @@ export const UsersPage = () => {
                         .filter(Boolean)
                         .join(' · ')}
                     >
-                      <div className="font-medium truncate">{row.name}</div>
-                      <div
-                        className={`tabular-nums text-xs truncate ${
-                          muted ? '' : 'text-base-content/60'
-                        }`}
-                      >
-                        {row.phone_number || '—'}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <PersonAvatar
+                          photo={row.photo}
+                          name={row.name}
+                          size="xs"
+                          className={muted ? 'opacity-40' : ''}
+                        />
+                        <div className="min-w-0">
+                          <div className="font-medium truncate">{row.name}</div>
+                          <div
+                            className={`tabular-nums text-xs truncate ${
+                              muted ? '' : 'text-base-content/60'
+                            }`}
+                          >
+                            {row.phone_number || '—'}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     <td

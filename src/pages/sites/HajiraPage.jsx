@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Trash2 } from "lucide-react";
+import { PersonAvatar } from "../../components/PersonAvatar.jsx";
 import {
   deleteLabourDailyRecord,
   fetchSiteActiveLabour,
@@ -689,6 +690,7 @@ const presentKey = (value) =>
 const recordModalFromRow = (row) => ({
   labourId: row.labourId,
   labourName: row.labourName,
+  labourPhoto: row.labourPhoto,
   present:
     row.present === "" || row.present == null ? "0" : String(row.present),
   salary:
@@ -2249,15 +2251,16 @@ export const HajiraPage = () => {
                       }
                     >
                       <div className="min-w-0">
-                        <div className="whitespace-nowrap">
+                        <div className="flex items-center gap-2 whitespace-nowrap">
                           {row.labourId != null ? (
                             <Link
                               to={paths.labourDetail(row.labourId)}
-                              className={
+                              className={[
+                                "flex items-center gap-2 min-w-0",
                                 canOpenLabourDetail(row)
-                                  ? "link link-hover"
-                                  : "text-base-content/60 no-underline pointer-events-none"
-                              }
+                                  ? ""
+                                  : "text-base-content/60 no-underline pointer-events-none",
+                              ].join(" ")}
                               title={
                                 canOpenLabourDetail(row)
                                   ? row.labourName
@@ -2272,10 +2275,30 @@ export const HajiraPage = () => {
                                 if (!canOpenLabourDetail(row)) e.preventDefault();
                               }}
                             >
-                              {concatLabourName(row.labourName)}
+                              <PersonAvatar
+                                photo={row.labourPhoto}
+                                name={row.labourName}
+                                size="xs"
+                              />
+                              <span
+                                className={
+                                  canOpenLabourDetail(row)
+                                    ? "link link-hover"
+                                    : ""
+                                }
+                              >
+                                {concatLabourName(row.labourName)}
+                              </span>
                             </Link>
                           ) : (
-                            concatLabourName(row.labourName)
+                            <>
+                              <PersonAvatar
+                                photo={row.labourPhoto}
+                                name={row.labourName}
+                                size="xs"
+                              />
+                              {concatLabourName(row.labourName)}
+                            </>
                           )}
                         </div>
                         {hasSaveError ? (

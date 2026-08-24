@@ -15,6 +15,7 @@ import {
 } from "../../api/types/user.js";
 import { parseApiError, applyFieldErrors } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
+import { UserProfileCard } from "../../components/UserProfileCard.jsx";
 import { DetailMenuButton } from "../../layouts/DetailLayout.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { useSitesLookup } from "../../hooks/useSites.js";
@@ -183,68 +184,32 @@ export const UserDetailPage = () => {
   const assignedSiteIds = normalizeSiteIds(user.sites);
   const companyName =
     typeof user.company === "object" ? user.company?.name : user.company;
+  const groupItems = [
+    ...(user.is_companyadmin
+      ? [{ key: "companyadmin", label: "কোম্পানি অ্যাডমিন" }]
+      : []),
+    ...groups.map((g) => ({
+      key: g.id ?? g.name ?? g,
+      label: groupLabelBn(g.name ?? g),
+    })),
+  ];
+  const siteItems = assignedSiteIds.map((id) => ({
+    key: id,
+    label: getSiteName(id),
+  }));
 
   return (
-    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto space-y-4 px-3 py-3">
-      <section className="space-y-2 text-sm">
-        <div className="flex justify-between gap-3">
-          <span className="text-base-content/70">নাম</span>
-          <span className="font-medium text-right">{user.name || "—"}</span>
-        </div>
-        <div className="flex justify-between gap-3">
-          <span className="text-base-content/70">ফোন নম্বর</span>
-          <span className="font-medium text-right tabular-nums">
-            {user.phone_number || "—"}
-          </span>
-        </div>
-        <div className="flex justify-between gap-3">
-          <span className="text-base-content/70">ইমেইল</span>
-          <span className="font-medium text-right">{user.email || "—"}</span>
-        </div>
-        <div className="flex justify-between gap-3">
-          <span className="text-base-content/70">কোম্পানি</span>
-          <span className="font-medium text-right">{companyName || "—"}</span>
-        </div>
-        <div className="flex justify-between gap-3">
-          <span className="text-base-content/70">স্ট্যাটাস</span>
-          <span className="font-medium text-right">
-            {userStatusLabel(user)}
-          </span>
-        </div>
-      </section>
-
-      <div className="divider"></div>
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1">
-          <span className="label-text mb-1">গ্রুপ</span>
-          {groups.length ? (
-            <ol className="mt-1 list-decimal space-y-0.5 pl-6 text-sm text-base-content/80">
-              {user.is_companyadmin ? <li>কোম্পানি অ্যাডমিন</li> : null}
-              {groups.map((g) => (
-                <li key={g.id ?? g.name}>{groupLabelBn(g.name ?? g)}</li>
-              ))}
-            </ol>
-          ) : (
-            <p className="text-sm text-base-content/55 mt-1">
-              কোনো গ্রুপ নির্ধারণ করা হয়নি।
-            </p>
-          )}
-        </div>
-        <div className="flex-1">
-          <span className="label-text mb-1">দায়িত্বপ্রাপ্ত সাইট</span>
-          {assignedSiteIds.length ? (
-            <ol className="mt-1 list-decimal space-y-0.5 pl-6 text-sm text-base-content/80">
-              {assignedSiteIds.map((id) => (
-                <li key={id}>{getSiteName(id)}</li>
-              ))}
-            </ol>
-          ) : (
-            <p className="text-sm text-base-content/55 mt-1">
-              কোনো সাইট নির্ধারণ করা হয়নি।
-            </p>
-          )}
-        </div>
-      </div>
+    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto px-3 py-3">
+      <UserProfileCard
+        photo={user.photo}
+        name={user.name}
+        phone={user.phone_number}
+        email={user.email}
+        company={companyName}
+        status={userStatusLabel(user)}
+        groups={groupItems}
+        sites={siteItems}
+      />
 
       <dialog
         ref={editDialogRef}

@@ -19,6 +19,7 @@ import { useTheme } from '../providers/ThemeProvider.jsx'
 import { confirmAction } from '../utils/feedback.js'
 import { groupLabelBn, hasPermissionSuffix, PERMS } from '../utils/permissions.js'
 import { profileAllowedGroups } from '../api/types/user.js'
+import { PersonAvatar } from '../components/PersonAvatar.jsx'
 import { THEME_DARK } from '../utils/theme.js'
 import { paths } from '../router/paths.js'
 
@@ -239,9 +240,12 @@ export const OthersPage = () => {
         to={paths.profile}
         className="flex items-center gap-3 px-1 py-1 rounded-xl active:bg-base-200/60"
       >
-        <div className="avatar placeholder shrink-0">
-          <img src={profile?.image || '/user.png'} alt="user" className="size-10 rounded-full" />
-        </div>
+        <PersonAvatar
+          photo={profile?.photo}
+          name={profile?.name}
+          size="sm"
+          alt={profile?.name || 'প্রোফাইল'}
+        />
         <div className="min-w-0 flex-1">
           <div className="font-semibold text-base truncate">{profile?.name}</div>
           <div className="text-sm text-base-content/55 truncate">

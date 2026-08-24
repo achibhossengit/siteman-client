@@ -24,6 +24,7 @@ import {
 import { profileAllowedSiteIds } from "../../api/types/user.js";
 import { parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
+import { PersonAvatar } from "../../components/PersonAvatar.jsx";
 import {
   DailyRecordHistoryPanel,
   RECORD_LOG_FIELD_LABELS,
@@ -847,16 +848,24 @@ export const LabourSessionRecordsPage = () => {
   }, [setTitle, periodLabel]);
 
   useEffect(() => {
-    const labourName = labourQuery.data?.name;
+    const labour = labourQuery.data;
+    const labourName = labour?.name;
     setHeaderMenu?.(
       labourName ? (
-        <span className="text-sm font-medium text-base-content/80 truncate px-1 max-w-full">
-          {labourName}
-        </span>
+        <div className="flex items-center gap-2 min-w-0 px-1 max-w-full">
+          <PersonAvatar
+            photo={labour.photo}
+            name={labourName}
+            size="xs"
+          />
+          <span className="text-sm font-medium text-base-content/80 truncate">
+            {labourName}
+          </span>
+        </div>
       ) : null,
     );
     return () => setHeaderMenu?.(null);
-  }, [labourQuery.data?.name, setHeaderMenu]);
+  }, [labourQuery.data, setHeaderMenu]);
 
   if (!canView) {
     return (
