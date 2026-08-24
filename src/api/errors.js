@@ -1,4 +1,5 @@
 import { BD_PHONE_MESSAGE } from '../utils/phone.js'
+import { PHOTO_TOO_LARGE_MESSAGE, PHOTO_TYPE_MESSAGE } from '../utils/media.js'
 
 /**
  * Parse drf_standardized_errors shape:
@@ -42,6 +43,7 @@ export const CODE_COPY = {
   empty: 'ফাইলটি খালি। অন্য ফাইল দিন।',
   invalid_image: 'এই ফাইলটি সঠিক ছবি নয়। অন্যটি চেষ্টা করুন।',
   no_name: 'ফাইলের নাম নেই। অন্য ফাইল দিন।',
+  photo_too_large: PHOTO_TOO_LARGE_MESSAGE,
   null_characters_not_allowed: 'এই লেখায় অনুমোদিত নয় এমন অক্ষর আছে।',
   surrogate_characters_not_allowed: 'এই লেখায় অনুমোদিত নয় এমন অক্ষর আছে।',
 
@@ -141,6 +143,9 @@ export const parseApiError = (error) => {
       /bangladeshi phone/i.test(String(rawDetail ?? ''))
     ) {
       detail = BD_PHONE_MESSAGE
+    }
+    if (item?.attr === 'photo' && (code === 'invalid' || code === 'invalid_image')) {
+      detail = PHOTO_TYPE_MESSAGE
     }
     return {
       code,

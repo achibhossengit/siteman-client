@@ -1,7 +1,12 @@
 import { API_BASE } from '../api/endpoints.js'
 
-export const PHOTO_ACCEPT = 'image/jpeg,image/png,image/webp,image/gif'
+export const PHOTO_ACCEPT = 'image/jpeg,image/png,image/webp'
 export const PHOTO_MAX_BYTES = 5 * 1024 * 1024
+const PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+const PHOTO_NAME = /\.(jpe?g|png|webp)$/i
+
+export const PHOTO_TYPE_MESSAGE = 'শুধু জেপিজি, পিএনজি বা ওয়েবপি ছবি দিন'
+export const PHOTO_TOO_LARGE_MESSAGE = 'ছবিটি ৫ এমবির বেশি হতে পারবে না'
 
 /** Resolve API media URI (absolute or relative) for <img src>. */
 export const resolveMediaUrl = (url) => {
@@ -29,8 +34,10 @@ export const initialsFromName = (name) => {
 export const validatePhotoFile = (file) => {
   if (!(file instanceof File)) return 'ছবি দিন'
   if (file.size <= 0) return 'ফাইলটি খালি। অন্য ফাইল দিন।'
-  if (file.size > PHOTO_MAX_BYTES) return 'ছবিটি ৫ এমবির বেশি হতে পারবে না'
+  if (file.size > PHOTO_MAX_BYTES) return PHOTO_TOO_LARGE_MESSAGE
   const type = String(file.type || '').toLowerCase()
-  if (type && !type.startsWith('image/')) return 'শুধু ছবি ফাইল দিন'
+  const name = String(file.name || '')
+  const typeOk = type ? PHOTO_TYPES.has(type) : PHOTO_NAME.test(name)
+  if (!typeOk) return PHOTO_TYPE_MESSAGE
   return null
 }

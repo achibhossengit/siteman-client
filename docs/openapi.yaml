@@ -11264,14 +11264,12 @@ components:
             - empty
             - invalid
             - invalid_image
-            - max_length
             - no_name
           type: string
           description: |-
             * `empty` - empty
             * `invalid` - invalid
             * `invalid_image` - invalid_image
-            * `max_length` - max_length
             * `no_name` - no_name
         detail:
           type: string
@@ -12312,14 +12310,12 @@ components:
             - empty
             - invalid
             - invalid_image
-            - max_length
             - no_name
           type: string
           description: |-
             * `empty` - empty
             * `invalid` - invalid
             * `invalid_image` - invalid_image
-            * `max_length` - max_length
             * `no_name` - no_name
         detail:
           type: string
@@ -13684,14 +13680,12 @@ components:
             - empty
             - invalid
             - invalid_image
-            - max_length
             - no_name
           type: string
           description: |-
             * `empty` - empty
             * `invalid` - invalid
             * `invalid_image` - invalid_image
-            * `max_length` - max_length
             * `no_name` - no_name
         detail:
           type: string
