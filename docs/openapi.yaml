@@ -3954,8 +3954,10 @@ paths:
       description: |-
         Current authenticated user's profile.
 
-        ``GET /profile`` — basic info, groups, permissions, and site ids
-        (all company sites for company admins; otherwise assigned sites only).
+        ``GET /profile`` — basic info, allowed groups/permissions/site ids,
+        and the company site catalog (``sites``).
+        Allowed site ids are all company sites for company admins; otherwise
+        assigned sites only. ``sites`` is every site in the company.
         ``PATCH /profile`` — update name, email, phone.
         Password changes use ``/auth/password/change`` or reset.
         No Django model-permission gate (any authenticated user).
@@ -4086,8 +4088,10 @@ paths:
       description: |-
         Current authenticated user's profile.
 
-        ``GET /profile`` — basic info, groups, permissions, and site ids
-        (all company sites for company admins; otherwise assigned sites only).
+        ``GET /profile`` — basic info, allowed groups/permissions/site ids,
+        and the company site catalog (``sites``).
+        Allowed site ids are all company sites for company admins; otherwise
+        assigned sites only. ``sites`` is every site in the company.
         ``PATCH /profile`` — update name, email, phone.
         Password changes use ``/auth/password/change`` or reset.
         No Django model-permission gate (any authenticated user).
@@ -13298,6 +13302,9 @@ components:
 
         Writable: name and phone_number. Email changes require a verification flow.
         Password changes go through ``/auth/password/change`` or reset.
+
+        ``allowed_*`` is this user's access. ``sites`` is the company site catalog
+        (id → name and related fields), not the access list.
       properties:
         id:
           type: integer
@@ -13325,10 +13332,13 @@ components:
           type: boolean
           readOnly: true
           description: Company owner/admin; bypasses site assignment checks.
-        groups:
+        allowed_groups:
           type: string
           readOnly: true
-        permissions:
+        allowed_permissions:
+          type: string
+          readOnly: true
+        allowed_sites:
           type: string
           readOnly: true
         sites:
@@ -16082,6 +16092,9 @@ components:
 
         Writable: name and phone_number. Email changes require a verification flow.
         Password changes go through ``/auth/password/change`` or reset.
+
+        ``allowed_*`` is this user's access. ``sites`` is the company site catalog
+        (id → name and related fields), not the access list.
       properties:
         id:
           type: integer
@@ -16109,24 +16122,28 @@ components:
           type: boolean
           readOnly: true
           description: Company owner/admin; bypasses site assignment checks.
-        groups:
+        allowed_groups:
           type: string
           readOnly: true
-        permissions:
+        allowed_permissions:
+          type: string
+          readOnly: true
+        allowed_sites:
           type: string
           readOnly: true
         sites:
           type: string
           readOnly: true
       required:
+        - allowed_groups
+        - allowed_permissions
+        - allowed_sites
         - company
-        - groups
         - id
         - is_active
         - is_companyadmin
         - is_staff
         - name
-        - permissions
         - phone_number
         - sites
     UserUpdate:

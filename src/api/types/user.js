@@ -97,6 +97,15 @@ export const normalizeSiteIds = (sites) =>
     .filter((id) => id != null && id !== '')
     .map(Number)
 
+/** Profile access list — not the company catalog (`profile.sites`). */
+export const profileAllowedSiteIds = (profile) =>
+  normalizeSiteIds(profile?.allowed_sites)
+
+export const profileAllowedGroups = (profile) => {
+  const raw = profile?.allowed_groups
+  return Array.isArray(raw) ? raw : []
+}
+
 /**
  * Select options for user group (single choice).
  * Company Admin is only listed when already assigned, and is not selectable.

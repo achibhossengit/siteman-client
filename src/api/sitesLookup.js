@@ -1,13 +1,27 @@
-import { fetchSites } from './sites.js'
-import { fetchAllPages } from './pagination.js'
 import { NULL_SITE_LABEL } from '../utils/format.js'
 
-/** Session-wide site list for id → name lookup (not the paginated Sites page). */
-export const SITES_LOOKUP_KEY = ['sites', 'lookup']
-
-/** Fetch every page of GET /sites for the lookup cache. */
-export const fetchAllSitesLookup = () =>
-  fetchAllPages(({ page, page_size }) => fetchSites({ page, page_size }))
+/**
+ * Company site catalog from GET /profile (`sites`), not GET /sites.
+ * Shape: [{ id, name, is_active, is_closed }, ...] or an id-keyed object.
+ */
+export const normalizeSitesCatalog = (sites) => {
+  if (Array.isArray(sites)) {
+    return sites.filter(
+      (site) => site != null && typeof site === 'object' && site.id != null,
+    )
+  }
+  if (sites && typeof sites === 'object') {
+    return Object.entries(sites)
+      .map(([key, value]) => {
+        if (value && typeof value === 'object') {
+          return { ...value, id: value.id ?? Number(key) }
+        }
+        return { id: Number(key), name: String(value ?? '') }
+      })
+      .filter((site) => site.id != null && !Number.isNaN(Number(site.id)))
+  }
+  return []
+}
 
 export const buildSiteNameMap = (sites) => {
   const map = new Map()

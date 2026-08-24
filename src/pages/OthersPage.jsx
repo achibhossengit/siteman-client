@@ -18,6 +18,7 @@ import { usePermissions } from '../hooks/usePermissions.js'
 import { useTheme } from '../providers/ThemeProvider.jsx'
 import { confirmAction } from '../utils/feedback.js'
 import { groupLabelBn, hasPermissionSuffix, PERMS } from '../utils/permissions.js'
+import { profileAllowedGroups } from '../api/types/user.js'
 import { THEME_DARK } from '../utils/theme.js'
 import { paths } from '../router/paths.js'
 
@@ -26,10 +27,13 @@ const SITE_PERMS = [
   PERMS.addSite,
   PERMS.changeSite,
   PERMS.deleteSite,
-  PERMS.viewBillingCategory,
-  PERMS.addBillingCategory,
-  PERMS.changeBillingCategory,
-  PERMS.deleteBillingCategory,
+
+  // TODO: Move billing category to different page.
+
+  // PERMS.viewBillingCategory,
+  // PERMS.addBillingCategory,
+  // PERMS.changeBillingCategory,
+  // PERMS.deleteBillingCategory,
   PERMS.viewPrivateSiteCash,
   PERMS.addPrivateSiteCash,
   PERMS.changePrivateSiteCash,
@@ -111,7 +115,7 @@ const OTHER_LINKS = [
 const roleLabel = (profile) => {
   if (!profile) return '—'
   if (profile.is_companyadmin) return 'অ্যাডমিন'
-  const group = profile.groups?.[0]
+  const group = profileAllowedGroups(profile)[0]
   const name = typeof group === 'string' ? group : group?.name
   return name ? groupLabelBn(name) : 'ইউজার'
 }

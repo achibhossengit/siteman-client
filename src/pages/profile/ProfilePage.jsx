@@ -10,7 +10,8 @@ import {
   profileUpdateSchema,
   passwordCreateSchema,
   toProfileUpdatePayload,
-  normalizeSiteIds,
+  profileAllowedGroups,
+  profileAllowedSiteIds,
 } from "../../api/types/user.js";
 import { parseApiError, applyFieldErrors } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
@@ -204,8 +205,8 @@ export const ProfilePage = () => {
   const fieldClass = (hasError) =>
     ["input input-bordered w-full", hasError ? "input-error" : ""].join(" ");
 
-  const groups = Array.isArray(profile.groups) ? profile.groups : [];
-  const siteIds = normalizeSiteIds(profile.sites);
+  const groups = profileAllowedGroups(profile);
+  const siteIds = profileAllowedSiteIds(profile);
   const companyName =
     typeof profile.company === "object"
       ? profile.company?.name
@@ -238,14 +239,17 @@ export const ProfilePage = () => {
       <div className="flex flex-col md:flex-row gap-4">
         <div className="flex-1">
           <span className="label-text mb-1">গ্রুপ</span>
-          {groups.length ? (
+          {profile.is_companyadmin || groups.length ? (
             <ol className="mt-1 list-decimal space-y-0.5 pl-6 text-sm text-base-content/80">
               {profile.is_companyadmin ? (
                 <li>কোম্পানি অ্যাডমিন</li>
               ) : null}
-              {groups.map((g) => (
-                <li key={g.id ?? g.name}>{groupLabelBn(g.name ?? g)}</li>
-              ))}
+              {groups.map((g) => {
+                const name = typeof g === "string" ? g : g?.name
+                const key =
+                  typeof g === "object" && g != null ? (g.id ?? g.name) : g
+                return <li key={key}>{groupLabelBn(name)}</li>
+              })}
             </ol>
           ) : (
             <p className="text-sm text-base-content/55 mt-1">

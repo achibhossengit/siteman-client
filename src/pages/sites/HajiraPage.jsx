@@ -24,7 +24,7 @@ import {
   applyActivitiesToViewRows,
   snapshotFields,
 } from "../../api/types/activity.js";
-import { normalizeSiteIds } from "../../api/types/user.js";
+import { profileAllowedSiteIds } from "../../api/types/user.js";
 import { fetchAllActivities, reviewActivities } from "../../api/activities.js";
 import { messageForCode, parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
@@ -975,8 +975,8 @@ export const HajiraPage = () => {
     hasPermissionSuffix(profile, "change_activitylog");
 
   const allowedSiteIds = useMemo(
-    () => new Set(normalizeSiteIds(profile?.sites).map(String)),
-    [profile?.sites],
+    () => new Set(profileAllowedSiteIds(profile).map(String)),
+    [profile],
   );
 
   const canOpenLabourDetail = (row) => {

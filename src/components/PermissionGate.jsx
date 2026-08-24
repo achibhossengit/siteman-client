@@ -1,7 +1,7 @@
 import { usePermissions } from '../hooks/usePermissions.js'
 
 /**
- * Soft UI gate on profile.permissions codenames.
+ * Soft UI gate on profile.allowed_permissions codenames.
  * Do not gate solely on group names.
  */
 export const PermissionGate = ({

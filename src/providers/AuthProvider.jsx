@@ -11,25 +11,13 @@ import { bindAuthTokenAccessors } from '../api/client.js'
 import * as authApi from '../api/auth.js'
 import * as profileApi from '../api/profile.js'
 import {
-  fetchAllSitesLookup,
-  SITES_LOOKUP_KEY,
-} from '../api/sitesLookup.js'
-import {
   clearAccessToken,
   readAccessToken,
   writeAccessToken,
 } from '../utils/authToken.js'
 import { MAINTENANCE } from '../config/features.js'
-import { hasPermission, PERMS } from '../utils/permissions.js'
 
 const AuthContext = createContext(null)
-
-const sitesLookupQueryOptions = {
-  queryKey: SITES_LOOKUP_KEY,
-  queryFn: fetchAllSitesLookup,
-  staleTime: Infinity,
-  gcTime: Infinity,
-}
 
 export const AuthProvider = ({ children }) => {
   const queryClient = useQueryClient()
@@ -46,15 +34,7 @@ export const AuthProvider = ({ children }) => {
     clearAccessToken()
     setAccessTokenState(null)
     setProfile(null)
-    queryClient.removeQueries({ queryKey: SITES_LOOKUP_KEY })
-    // Per-site billing lookup caches: ['sites', siteId, 'billing-categories', 'lookup']
-    queryClient.removeQueries({
-      predicate: (q) =>
-        Array.isArray(q.queryKey) &&
-        q.queryKey[0] === 'sites' &&
-        q.queryKey[2] === 'billing-categories' &&
-        q.queryKey[3] === 'lookup',
-    })
+    queryClient.removeQueries({ queryKey: ['sites'] })
   }, [queryClient])
 
   useEffect(() => {
@@ -71,18 +51,6 @@ export const AuthProvider = ({ children }) => {
     return data
   }, [])
 
-  /** Warm the session sites cache (no-op when user cannot view sites). */
-  const ensureSitesLookup = useCallback(
-    async (nextProfile) => {
-      if (!hasPermission(nextProfile, PERMS.viewSite)) {
-        queryClient.removeQueries({ queryKey: SITES_LOOKUP_KEY })
-        return null
-      }
-      return queryClient.prefetchQuery(sitesLookupQueryOptions)
-    },
-    [queryClient],
-  )
-
   const refreshSession = useCallback(async () => {
     const { data } = await authApi.refreshToken()
     if (data?.access) setAccessToken(data.access)
@@ -94,21 +62,10 @@ export const AuthProvider = ({ children }) => {
       const { data } = await authApi.obtainToken({ phone_number, password })
       if (!data?.access) throw new Error('No access token')
       setAccessToken(data.access)
-
-      const profilePromise = bootstrapProfile()
-      const sitesPromise = queryClient
-        .prefetchQuery(sitesLookupQueryOptions)
-        .catch(() => null)
-
-      const nextProfile = await profilePromise
-      if (hasPermission(nextProfile, PERMS.viewSite)) {
-        await sitesPromise
-      } else {
-        queryClient.removeQueries({ queryKey: SITES_LOOKUP_KEY })
-      }
+      const nextProfile = await bootstrapProfile()
       return { tokens: data, profile: nextProfile }
     },
-    [setAccessToken, bootstrapProfile, queryClient],
+    [setAccessToken, bootstrapProfile],
   )
 
   const logout = useCallback(async () => {
@@ -154,21 +111,8 @@ export const AuthProvider = ({ children }) => {
           if (cancelled) return
         }
 
-        // Load profile + sites together so the UI never mounts with empty lookup.
-        // Sites may 403 for rare users without view_site — ignore that failure.
-        const profilePromise = bootstrapProfile()
-        const sitesPromise = queryClient
-          .prefetchQuery(sitesLookupQueryOptions)
-          .catch(() => null)
-
-        const nextProfile = await profilePromise
+        await bootstrapProfile()
         if (cancelled) return
-
-        if (hasPermission(nextProfile, PERMS.viewSite)) {
-          await sitesPromise
-        } else {
-          queryClient.removeQueries({ queryKey: SITES_LOOKUP_KEY })
-        }
       } catch {
         if (!cancelled) clearSession()
       } finally {
@@ -180,7 +124,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       cancelled = true
     }
-  }, [refreshSession, bootstrapProfile, clearSession, queryClient])
+  }, [refreshSession, bootstrapProfile, clearSession])
 
   const value = useMemo(
     () => ({
@@ -193,7 +137,6 @@ export const AuthProvider = ({ children }) => {
       logout,
       refreshSession,
       bootstrapProfile,
-      ensureSitesLookup,
       changePassword,
       clearSession,
       setAccessToken,
@@ -206,7 +149,6 @@ export const AuthProvider = ({ children }) => {
       logout,
       refreshSession,
       bootstrapProfile,
-      ensureSitesLookup,
       changePassword,
       clearSession,
       setAccessToken,

@@ -82,18 +82,24 @@ export const groupLabelBn = (name) =>
 
 /** Never gate solely on group name strings — use permission codenames. */
 
+const permissionList = (profile) => {
+  const list = profile?.allowed_permissions
+  if (Array.isArray(list)) return list
+  if (typeof list === 'string' && list.trim()) {
+    return list.split(/[\s,]+/).filter(Boolean)
+  }
+  return []
+}
+
 export const hasPermission = (profile, codename) => {
   if (!profile || !codename) return false
-  const list = profile.permissions
-  return Array.isArray(list) && list.includes(codename)
+  return permissionList(profile).includes(codename)
 }
 
 /** Match any permission whose suffix equals codename (e.g. view_activitylog). */
 export const hasPermissionSuffix = (profile, suffix) => {
   if (!profile || !suffix) return false
-  const list = profile.permissions
-  if (!Array.isArray(list)) return false
-  return list.some(
+  return permissionList(profile).some(
     (p) => p === suffix || String(p).endsWith(`.${suffix}`),
   )
 }
