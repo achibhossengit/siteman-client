@@ -3,12 +3,14 @@ import { ROLE_NAMES, groupLabelBn } from '../../utils/permissions.js'
 import { STATUS_LABEL } from '../../utils/format.js'
 import { bdPhoneNumberSchema } from '../../utils/phone.js'
 
-const requiredEmail = z
+const optionalEmail = z
   .string()
   .trim()
-  .min(1, 'ইমেইল দিন')
-  .email('সঠিক ইমেইল দিন')
-  .max(254)
+  .max(254, 'ইমেইল একটু ছোট করুন')
+  .refine(
+    (value) => value === '' || z.string().email().safeParse(value).success,
+    { message: 'সঠিক ইমেইল দিন' },
+  )
 
 /** Matches Django password validators used by the API. */
 export const passwordCreateSchema = z
@@ -49,7 +51,7 @@ export const profileUpdateSchema = z.object({
     .min(1, 'নাম দিন')
     .max(255, 'নাম একটু ছোট করুন'),
   phone_number: bdPhoneNumberSchema,
-  email: requiredEmail,
+  email: optionalEmail,
 })
 
 export const toUserCreatePayload = ({ name, phone_number, password }) => ({
