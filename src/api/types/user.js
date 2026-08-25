@@ -120,12 +120,16 @@ export const normalizeSiteIds = (sites) =>
     .filter((id) => id != null && id !== '')
     .map(Number)
 
-/** Profile access list — not the company catalog (`profile.sites`). */
-export const profileAllowedSiteIds = (profile) =>
-  normalizeSiteIds(profile?.allowed_sites)
+/**
+ * Assigned site ids from `allowed_sites` (user detail or profile).
+ * Resolve names from the company catalog on GET /profile (`sites`), not this list.
+ */
+export const profileAllowedSiteIds = (resource) =>
+  normalizeSiteIds(resource?.allowed_sites)
 
-export const profileAllowedGroups = (profile) => {
-  const raw = profile?.allowed_groups
+/** Assigned groups from `allowed_groups` (user detail or profile). */
+export const profileAllowedGroups = (resource) => {
+  const raw = resource?.allowed_groups
   return Array.isArray(raw) ? raw : []
 }
 

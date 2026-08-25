@@ -8,7 +8,8 @@ import { fetchUserDetail, updateUser } from "../../api/users.js";
 import {
   buildGroupSelectOptions,
   toSingleGroupNames,
-  normalizeSiteIds,
+  profileAllowedGroups,
+  profileAllowedSiteIds,
   toUserAdminUpdatePayload,
   userAdminUpdateSchema,
   userStatusLabel,
@@ -26,8 +27,8 @@ const EDIT_MODAL_ID = "user_edit_modal";
 
 const toFormValues = (user) => ({
   is_active: user?.is_active ?? true,
-  groups: toSingleGroupNames(user?.groups),
-  sites: normalizeSiteIds(user?.sites),
+  groups: toSingleGroupNames(profileAllowedGroups(user)),
+  sites: profileAllowedSiteIds(user),
 });
 
 const toggleItem = (list, item) =>
@@ -78,7 +79,7 @@ export const UserDetailPage = () => {
   const groupNames = watch("groups") ?? [];
   const siteIds = watch("sites") ?? [];
 
-  const assignableGroups = buildGroupSelectOptions(user?.groups);
+  const assignableGroups = buildGroupSelectOptions(profileAllowedGroups(user));
 
   useEffect(() => {
     setTitle?.("ইউজার বিবরণ");
@@ -139,8 +140,8 @@ export const UserDetailPage = () => {
   const onConfirmEdit = handleSubmit(async (values) => {
     setApiError(null);
     try {
-      const { data } = await mutation.mutateAsync(values);
-      reset(toFormValues(data));
+      await mutation.mutateAsync(values);
+      reset(values);
       await queryClient.invalidateQueries({ queryKey: ["users"] });
       closeEditModal();
       toastSuccess("ইউজার আপডেট হয়েছে");
@@ -180,18 +181,20 @@ export const UserDetailPage = () => {
   }
 
   const busy = isSubmitting || mutation.isPending;
-  const groups = Array.isArray(user.groups) ? user.groups : [];
-  const assignedSiteIds = normalizeSiteIds(user.sites);
+  const groups = profileAllowedGroups(user);
+  const assignedSiteIds = profileAllowedSiteIds(user);
   const companyName =
     typeof user.company === "object" ? user.company?.name : user.company;
   const groupItems = [
     ...(user.is_companyadmin
       ? [{ key: "companyadmin", label: "কোম্পানি অ্যাডমিন" }]
       : []),
-    ...groups.map((g) => ({
-      key: g.id ?? g.name ?? g,
-      label: groupLabelBn(g.name ?? g),
-    })),
+    ...groups.map((g) => {
+      const groupName = typeof g === "string" ? g : g?.name;
+      const key =
+        typeof g === "object" && g != null ? (g.id ?? g.name) : g;
+      return { key, label: groupLabelBn(groupName) };
+    }),
   ];
   const siteItems = assignedSiteIds.map((id) => ({
     key: id,

@@ -8405,7 +8405,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UserProfile"
+                $ref: "#/components/schemas/UserDetail"
           description: ""
     patch:
       operationId: users_partial_update
@@ -13368,11 +13368,8 @@ components:
       description: |-
         Own profile: GET returns full snapshot; PATCH updates basic fields.
 
-        Writable: name and phone_number. Email changes require a verification flow.
-        Password changes go through ``/auth/password/change`` or reset.
-
-        ``allowed_*`` is this user's access. ``sites`` is the company site catalog
-        (id → name and related fields), not the access list.
+        ``sites`` is the company site catalog (id → name and related fields),
+        not the access list.
       properties:
         id:
           type: integer
@@ -16159,6 +16156,68 @@ components:
         - password
         - phone_number
         - updated_at
+    UserDetail:
+      type: object
+      description: |-
+        Company user detail: same snapshot as profile, without the site catalog.
+
+        Writable on profile PATCH: name and phone_number. Email changes require a
+        verification flow. Password changes go through ``/auth/password/change``
+        or reset.
+
+        ``allowed_*`` is this user's access. The company site catalog (``sites``)
+        is only on ``UserProfileSerializer``.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        photo:
+          type: string
+          format: uri
+          nullable: true
+        phone_number:
+          type: string
+        email:
+          type: string
+          format: email
+          nullable: true
+          maxLength: 254
+        company:
+          type: string
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+        is_staff:
+          type: boolean
+          readOnly: true
+        is_companyadmin:
+          type: boolean
+          readOnly: true
+          description: Company owner/admin; bypasses site assignment checks.
+        allowed_groups:
+          type: string
+          readOnly: true
+        allowed_permissions:
+          type: string
+          readOnly: true
+        allowed_sites:
+          type: string
+          readOnly: true
+      required:
+        - allowed_groups
+        - allowed_permissions
+        - allowed_sites
+        - company
+        - id
+        - is_active
+        - is_companyadmin
+        - is_staff
+        - name
+        - phone_number
     UserList:
       type: object
       properties:
@@ -16194,11 +16253,8 @@ components:
       description: |-
         Own profile: GET returns full snapshot; PATCH updates basic fields.
 
-        Writable: name and phone_number. Email changes require a verification flow.
-        Password changes go through ``/auth/password/change`` or reset.
-
-        ``allowed_*`` is this user's access. ``sites`` is the company site catalog
-        (id → name and related fields), not the access list.
+        ``sites`` is the company site catalog (id → name and related fields),
+        not the access list.
       properties:
         id:
           type: integer
