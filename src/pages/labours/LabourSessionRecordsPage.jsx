@@ -1186,7 +1186,7 @@ export const LabourSessionRecordsPage = () => {
                     setExpandedHistoryId(null);
                   }}
                 >
-                  হিস্ট্রি
+                  অডিট হিস্ট্রি
                 </button>
               </div>
             ) : recordModal ? (

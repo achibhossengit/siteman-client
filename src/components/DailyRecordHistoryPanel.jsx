@@ -321,7 +321,7 @@ export const DailyRecordHistoryPanel = ({
   if (!logs.length) {
     return (
       <p className="text-sm text-base-content/60 text-center py-8">
-        কোনো হিস্ট্রি নেই।
+        কোনো অডিট হিস্ট্রি নেই।
       </p>
     );
   }

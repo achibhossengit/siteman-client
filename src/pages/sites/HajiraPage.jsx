@@ -348,7 +348,7 @@ const EntityHistoryPanel = ({
   if (!logs.length) {
     return (
       <p className="text-sm text-base-content/60 text-center py-8">
-        কোনো হিস্ট্রি নেই।
+        কোনো অডিট হিস্ট্রি নেই।
       </p>
     );
   }
@@ -848,7 +848,7 @@ const formatBulkReviewError = (parsed) => {
     const main =
       idsError?.rawDetail ||
       idsError?.detail ||
-      "কিছু অ্যাক্টিভিটি লগ রিভিউ করা যায়নি।";
+      "কিছু অডিট করা যায়নি।";
     if (!missingIds.length) return String(main);
     return `${main} (missing: ${missingIds.join(", ")})`;
   }
@@ -1556,7 +1556,7 @@ export const HajiraPage = () => {
     if (!canChangeActivityLog || ids.length === 0) return;
     const ok = await confirmAction({
       title: "অডিট নিশ্চিত করুন",
-      text: `${formatBnNumber(ids.length)}টি হাজিরা অ্যাক্টিভিটি রিভিউড হবে। পরে বাতিল করা যাবে না।`,
+      text: `${formatBnNumber(ids.length)}টি হাজিরা অডিট হবে। পরে বাতিল করা যাবে না।`,
       confirmText: "অডিট করুন",
       cancelText: "বাতিল",
     });
@@ -2536,7 +2536,7 @@ export const HajiraPage = () => {
                     setExpandedHistoryId(null);
                   }}
                 >
-                  হিস্ট্রি
+                  অডিট হিস্ট্রি
                 </button>
               </div>
             ) : recordModal ? (

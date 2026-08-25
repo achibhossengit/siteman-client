@@ -845,7 +845,7 @@ export const ActivityPage = () => {
     if (!canChangeActivityLog || ids.length === 0) return
     const ok = await confirmAction({
       title: 'অডিট নিশ্চিত করুন',
-      text: `${formatBnNumber(ids.length)}টি অ্যাক্টিভিটি রিভিউড হবে। পরে বাতিল করা যাবে না।`,
+      text: `${formatBnNumber(ids.length)}টি অডিট হবে। পরে বাতিল করা যাবে না।`,
       confirmText: 'অডিট করুন',
       cancelText: 'বাতিল',
     })
@@ -924,7 +924,7 @@ export const ActivityPage = () => {
         </select>
         <select
           className="select select-bordered select-sm min-w-30 flex-1"
-          aria-label="রিভিউ"
+          aria-label="অডিট"
           value={reviewedFilter}
           onChange={(e) => setReviewedFilter(e.target.value)}
         >
@@ -1018,7 +1018,7 @@ export const ActivityPage = () => {
                       colSpan={3}
                       className="text-center text-sm text-base-content/60 py-10"
                     >
-                      কোনো অ্যাক্টিভিটি নেই।
+                      কোনো অডিট হিস্ট্রি নেই।
                     </td>
                   </tr>
                 ) : (
@@ -1204,7 +1204,7 @@ export const ActivityPage = () => {
                   }
                 }}
               >
-                হিস্ট্রি
+                অডিট হিস্ট্রি
               </button>
             </div>
           </h3>
@@ -1222,7 +1222,7 @@ export const ActivityPage = () => {
                   <ApiErrorAlert error={parseApiError(historyQuery.error)} />
                 ) : historyLogs.length === 0 ? (
                   <p className="text-sm text-base-content/60 text-center py-8">
-                    কোনো হিস্ট্রি নেই।
+                    কোনো অডিট হিস্ট্রি নেই।
                   </p>
                 ) : (
                   <table className="table table-sm w-full">
@@ -1262,8 +1262,8 @@ export const ActivityPage = () => {
                                   {isFocus ? (
                                     <span
                                       className="mt-1 size-1.5 shrink-0 rounded-full bg-primary"
-                                      title="নির্বাচিত অ্যাক্টিভিটি"
-                                      aria-label="নির্বাচিত অ্যাক্টিভিটি"
+                                      title="নির্বাচিত অডিট"
+                                      aria-label="নির্বাচিত অডিট"
                                     />
                                   ) : (
                                     <span className="mt-1 size-1.5 shrink-0" />

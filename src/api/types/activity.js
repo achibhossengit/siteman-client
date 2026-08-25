@@ -41,7 +41,7 @@ export const ACTIVITY_ACTION_FILTER_OPTIONS = [
 ]
 
 export const ACTIVITY_ENTITY_FILTER_OPTIONS = [
-  { value: 'all', label: 'সব অ্যাক্টিভিটি' },
+  { value: 'all', label: 'সব অডিট' },
   { value: 'daily_record', label: 'হাজিরা' },
   { value: 'site_cash', label: 'ক্যাশ' },
   { value: 'labour_session', label: 'হিসাব' },
@@ -53,7 +53,7 @@ export const ACTIVITY_ENTITY_FILTER_OPTIONS = [
 ]
 
 export const ACTIVITY_REVIEWED_FILTER_OPTIONS = [
-  { value: 'all', label: 'সব অ্যাক্টিভিটি' },
+  { value: 'all', label: 'সব অডিট' },
   { value: 'pending', label: 'অডিট হয়নি' },
   { value: 'reviewed', label: 'অডিট হয়েছে' },
 ]
