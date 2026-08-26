@@ -7,7 +7,7 @@ import { Pencil, Plus, Trash2, X } from 'lucide-react'
 import {
   createSiteCash,
   deleteSiteCash,
-  fetchSiteCashByDate,
+  fetchSiteCash,
   updateSiteCash,
 } from '../../api/sites.js'
 import { fetchAllActivities, reviewActivities } from '../../api/activities.js'
@@ -19,6 +19,7 @@ import {
 } from '../../api/types/siteCash.js'
 import { parseApiError, applyFieldErrors, messageForCode } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
+import { ListPagination } from '../../components/ListPagination.jsx'
 import {
   formatBnNumber,
   formatBnSigned,
@@ -39,6 +40,7 @@ import {
 const MODAL_ID = 'site_cash_modal'
 const TYPE_FILTER_MODAL_ID = 'cash_type_filter_modal'
 const BILLING_FILTER_MODAL_ID = 'cash_billing_filter_modal'
+const PAGE_SIZE = 15
 
 const CASH_LOG_FIELD_LABELS = {
   note: 'নোট',
@@ -288,6 +290,7 @@ export const CashPage = () => {
 
   const [typeFilter, setTypeFilter] = useState(() => [...TYPE_DEFAULT_FIELDS])
   const [billingFilter, setBillingFilter] = useState('all')
+  const [page, setPage] = useState(1)
   const [selected, setSelected] = useState(null)
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -340,12 +343,14 @@ export const CashPage = () => {
   useEffect(() => {
     setTypeFilter([...TYPE_DEFAULT_FIELDS])
     setBillingFilter('all')
+    setPage(1)
     setSelectMode(false)
     setSelectedIds(new Set())
   }, [siteId, date])
 
   useEffect(() => {
     setSelectedIds(new Set())
+    setPage(1)
   }, [typeFilter, billingFilter])
 
   useEffect(() => {
@@ -365,19 +370,55 @@ export const CashPage = () => {
     }
   }, [editing, creating])
 
+  /** API accepts a single type; multi-select stays client-side. */
+  const apiType = typeFilter.length === 1 ? typeFilter[0] : undefined
+  const apiBilling =
+    SHOW_BILLING && billingFilter !== 'all' && billingFilter !== 'none'
+      ? Number(billingFilter)
+      : undefined
+
   const cashQueryKey = useMemo(
-    () => ['sites', siteId, 'cash', date],
-    [siteId, date],
+    () => [
+      'sites',
+      siteId,
+      'cash',
+      {
+        date,
+        page,
+        page_size: PAGE_SIZE,
+        type: apiType ?? 'all',
+        billing: SHOW_BILLING ? billingFilter : 'all',
+      },
+    ],
+    [siteId, date, page, apiType, billingFilter],
   )
 
   const cashQuery = useQuery({
     queryKey: cashQueryKey,
     queryFn: async () => {
-      const { data } = await fetchSiteCashByDate(siteId, date)
-      return data ?? []
+      const { data } = await fetchSiteCash(siteId, {
+        date,
+        page,
+        page_size: PAGE_SIZE,
+        ...(apiType ? { type: apiType } : {}),
+        ...(Number.isFinite(apiBilling) ? { billing: apiBilling } : {}),
+      })
+      return data
     },
     enabled: Boolean(canViewCash && siteId && date),
+    placeholderData: (previousData) => previousData,
   })
+
+  const pageData = cashQuery.data ?? {
+    results: [],
+    count: 0,
+    next: null,
+    previous: null,
+  }
+  const pageResults = pageData.results ?? []
+  const totalCount = pageData.count ?? 0
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE) || 1)
+  const slOffset = (page - 1) * PAGE_SIZE
 
   const {
     categories: billingOptions,
@@ -445,19 +486,16 @@ export const CashPage = () => {
       .filter((id) => Number.isFinite(id))
 
   const liveRows = useMemo(() => {
-    let rows = cashQuery.data ?? []
-    if (typeFilter.length !== TYPE_DEFAULT_FIELDS.length) {
+    let rows = pageResults
+    // Client-side only when the API cannot express the filter (multi-type / null billing).
+    if (!apiType && typeFilter.length !== TYPE_DEFAULT_FIELDS.length) {
       rows = rows.filter((row) => typeFilter.includes(row.type))
     }
     if (SHOW_BILLING && billingFilter === 'none') {
       rows = rows.filter((row) => row.billing == null)
-    } else if (SHOW_BILLING && billingFilter !== 'all') {
-      rows = rows.filter(
-        (row) => String(row.billing) === String(billingFilter),
-      )
     }
     return rows
-  }, [cashQuery.data, typeFilter, billingFilter])
+  }, [pageResults, typeFilter, billingFilter, apiType])
 
   const totals = useMemo(() => {
     let net = 0
@@ -472,6 +510,13 @@ export const CashPage = () => {
     if (!canViewActivityLog) return liveRows
     return applyPendingActivitiesToCashRows(liveRows)
   }, [liveRows, canViewActivityLog])
+
+  useEffect(() => {
+    if (!cashQuery.isSuccess) return
+    const count = cashQuery.data?.count ?? 0
+    const pages = Math.max(1, Math.ceil(count / PAGE_SIZE) || 1)
+    if (page > pages) setPage(pages)
+  }, [cashQuery.isSuccess, cashQuery.data?.count, page])
 
   const pendingIds = useMemo(() => {
     const ids = new Set()
@@ -491,7 +536,8 @@ export const CashPage = () => {
     const entityId = Number(cash.id)
     if (!Number.isFinite(entityId)) return
     queryClient.setQueryData(cashQueryKey, (prev) => {
-      const list = Array.isArray(prev) ? prev : []
+      if (!prev || !Array.isArray(prev.results)) return prev
+      const list = prev.results
       const idx = list.findIndex((row) => Number(row.id) === entityId)
       if (idx === -1) return prev
       const row = list[idx]
@@ -508,7 +554,7 @@ export const CashPage = () => {
           { id: `local-${action}-${entityId}`, action },
         ],
       }
-      return next
+      return { ...prev, results: next }
     })
   }
 
@@ -639,6 +685,7 @@ export const CashPage = () => {
     setApiError(null)
     try {
       const { data } = await saveMutation.mutateAsync(values)
+      setPage(1)
       await invalidateCash(data, isCreateMode ? 'created' : 'updated')
       if (isCreateMode) {
         closeModal()
@@ -660,6 +707,7 @@ export const CashPage = () => {
     setApiError(null)
     try {
       const { data } = await saveMutation.mutateAsync(values)
+      setPage(1)
       await invalidateCash(data, 'created')
       toastSuccess('ক্যাশ এন্ট্রি তৈরি হয়েছে')
       reset(emptyValues)
@@ -730,7 +778,7 @@ export const CashPage = () => {
   const dayBillingExtras = (() => {
     const known = new Set(billingOptions.map((b) => String(b.id)))
     const extras = []
-    for (const row of cashQuery.data ?? []) {
+    for (const row of pageResults) {
       if (row.billing == null) continue
       const id = String(row.billing)
       if (known.has(id)) continue
@@ -909,13 +957,13 @@ export const CashPage = () => {
                           className="checkbox checkbox-sm"
                           checked={checked}
                           disabled={!selectable}
-                          aria-label={`নির্বাচন ${formatBnNumber(index + 1)}`}
+                          aria-label={`নির্বাচন ${formatBnNumber(slOffset + index + 1)}`}
                           onChange={(e) =>
                             toggleRowSelected(row, e.target.checked)
                           }
                         />
                       ) : (
-                        formatBnNumber(index + 1)
+                        formatBnNumber(slOffset + index + 1)
                       )}
                     </td>
                     <td className="truncate">{row.note || '—'}</td>
@@ -934,7 +982,9 @@ export const CashPage = () => {
               })
             )}
           </tbody>
-          {typeFilter.length === 1 && liveRows.length > 0 ? (
+          {typeFilter.length === 1 &&
+          liveRows.length > 0 &&
+          totalCount <= PAGE_SIZE ? (
             <tfoot>
               <tr className="font-medium border-t border-base-300">
                 <td />
@@ -957,6 +1007,15 @@ export const CashPage = () => {
             </tfoot>
           ) : null}
         </table>
+        <ListPagination
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          pageSize={PAGE_SIZE}
+          isFetching={cashQuery.isFetching}
+          onPageChange={setPage}
+        />
+        <div className="h-14" aria-hidden />
       </div>
 
       <div className="fixed bottom-16 inset-x-0 z-40 px-3 pointer-events-none">
