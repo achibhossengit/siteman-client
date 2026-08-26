@@ -1,6 +1,7 @@
 /**
  * SiteCashList / SiteCash from /sites/{site_pk}/cash
- * { id, date, type, amount, note, billing, created_at, updated_at }
+ * { id, date, type, amount, note, billing, created_at, updated_at,
+ *   pending_activities: [{ id, action }] }
  */
 
 import { z } from 'zod'

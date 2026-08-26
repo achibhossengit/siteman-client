@@ -570,6 +570,29 @@ export const applyActivitiesToSessionRows = (rows = [], logs = []) => {
 }
 
 /**
+ * SiteCashList.pending_activities: [{ id, action }, ...].
+ */
+export const pendingActivitiesOf = (row) => {
+  const list = row?.pending_activities
+  return Array.isArray(list) ? list : []
+}
+
+/**
+ * Attach row audit tone from SiteCashList.pending_activities.
+ * Does not mutate input rows.
+ */
+export const applyPendingActivitiesToCashRows = (rows = []) =>
+  rows.map((row) => {
+    const logs = pendingActivitiesOf(row)
+    if (!logs.length) return row
+    return {
+      ...row,
+      activityTone: toneFromLogs(logs),
+      activityLogs: logs,
+    }
+  })
+
+/**
  * Attach activity tones to cash rows and append deleted-only ghost rows.
  * Does not mutate input rows. Totals should use live rows only.
  */

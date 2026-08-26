@@ -13874,10 +13874,14 @@ components:
           type: string
           format: date-time
           readOnly: true
+        pending_activities:
+          type: string
+          readOnly: true
       required:
         - amount
         - created_at
         - id
+        - pending_activities
         - type
         - updated_at
     SiteDailyRecord:

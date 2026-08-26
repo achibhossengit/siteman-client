@@ -32,7 +32,7 @@ import { PERMS, hasPermissionSuffix } from '../../utils/permissions.js'
 import {
   activityTextToneClass,
   activityToneClass,
-  applyActivitiesToCashRows,
+  applyPendingActivitiesToCashRows,
   snapshotFields,
 } from '../../api/types/activity.js'
 
@@ -365,8 +365,13 @@ export const CashPage = () => {
     }
   }, [editing, creating])
 
+  const cashQueryKey = useMemo(
+    () => ['sites', siteId, 'cash', date],
+    [siteId, date],
+  )
+
   const cashQuery = useQuery({
-    queryKey: ['sites', siteId, 'cash', date],
+    queryKey: cashQueryKey,
     queryFn: async () => {
       const { data } = await fetchSiteCashByDate(siteId, date)
       return data ?? []
@@ -395,44 +400,47 @@ export const CashPage = () => {
     mutationFn: () => deleteSiteCash(siteId, selected.id),
   })
 
-  const cashActivityQueryKey = useMemo(
-    () => [
-      'activities',
-      'pending',
-      { site: siteId, business_date: date, entity_type: 'site_cash' },
-    ],
-    [siteId, date],
-  )
+  const selectedEntityId = selected?.id ?? null
 
-  const activityCashQuery = useQuery({
-    queryKey: cashActivityQueryKey,
+  /** Full audit log for the open cash row — fetched only on the history tab. */
+  const entityHistoryQuery = useQuery({
+    queryKey: [
+      'activities',
+      'entity',
+      {
+        site: siteId,
+        entity_type: 'site_cash',
+        entity_id: selectedEntityId,
+      },
+    ],
     queryFn: () =>
       fetchAllActivities({
         site: siteId,
-        business_date: date,
         entity_type: 'site_cash',
-        reviewed: false,
+        entity_id: selectedEntityId,
         page_size: 100,
       }),
-    enabled: Boolean(canViewCash && canViewActivityLog && siteId && date),
+    enabled: Boolean(
+      canViewActivityLog &&
+        modalView === 'history' &&
+        !isCreateMode &&
+        !editing &&
+        selectedEntityId != null &&
+        siteId,
+    ),
   })
 
-  /** Modal history from pending (unreviewed) site_cash activities for the day. */
   const historyLogs = useMemo(() => {
-    const entityId = selected?.id
-    if (entityId == null) return []
-    const logs = (activityCashQuery.data ?? []).filter(
-      (log) => Number(log.entity_id) === Number(entityId),
-    )
+    const logs = entityHistoryQuery.data ?? []
     return [...logs].sort((a, b) => {
       const ta = new Date(a.created_at).getTime()
       const tb = new Date(b.created_at).getTime()
       return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0)
     })
-  }, [activityCashQuery.data, selected?.id])
+  }, [entityHistoryQuery.data])
 
   const activityIdsForRow = (row) =>
-    (row?.activityLogs ?? [])
+    (row?.activityLogs ?? row?.pending_activities ?? [])
       .map((log) => Number(log.id))
       .filter((id) => Number.isFinite(id))
 
@@ -461,26 +469,9 @@ export const CashPage = () => {
   }, [liveRows])
 
   const rows = useMemo(() => {
-    let next = liveRows
-    if (canViewActivityLog) {
-      next = applyActivitiesToCashRows(next, activityCashQuery.data ?? [])
-    }
-    return next.filter((row) => {
-      if (!row.fromActivitySnapshot) return true
-      if (!typeFilter.includes(row.type)) return false
-      if (SHOW_BILLING && billingFilter === 'none') return row.billing == null
-      if (SHOW_BILLING && billingFilter !== 'all') {
-        return String(row.billing) === String(billingFilter)
-      }
-      return true
-    })
-  }, [
-    liveRows,
-    canViewActivityLog,
-    activityCashQuery.data,
-    typeFilter,
-    billingFilter,
-  ])
+    if (!canViewActivityLog) return liveRows
+    return applyPendingActivitiesToCashRows(liveRows)
+  }, [liveRows, canViewActivityLog])
 
   const pendingIds = useMemo(() => {
     const ids = new Set()
@@ -494,44 +485,30 @@ export const CashPage = () => {
     pendingIds.length > 0 && pendingIds.every((id) => selectedIds.has(id))
   const somePendingSelected = pendingIds.some((id) => selectedIds.has(id))
 
-  /** If activity API lags behind cash write, keep row tone until next real fetch. */
-  const seedCashActivity = (cash, action) => {
+  /** If cash list lags behind a write, keep row tone until the next real fetch. */
+  const seedCashPendingActivity = (cash, action) => {
     if (!canViewActivityLog || cash?.id == null || !action) return
     const entityId = Number(cash.id)
     if (!Number.isFinite(entityId)) return
-    queryClient.setQueryData(cashActivityQueryKey, (prev) => {
+    queryClient.setQueryData(cashQueryKey, (prev) => {
       const list = Array.isArray(prev) ? prev : []
-      if (
-        list.some(
-          (log) =>
-            Number(log.entity_id) === entityId &&
-            log.action === action &&
-            !log.reviewed_at,
-        )
-      ) {
-        return prev
+      const idx = list.findIndex((row) => Number(row.id) === entityId)
+      if (idx === -1) return prev
+      const row = list[idx]
+      const pending = Array.isArray(row.pending_activities)
+        ? row.pending_activities
+        : []
+      if (pending.some((log) => log.action === action)) return prev
+      const next = [...list]
+      next[idx] = {
+        ...row,
+        ...cash,
+        pending_activities: [
+          ...pending,
+          { id: `local-${action}-${entityId}`, action },
+        ],
       }
-      return [
-        ...list,
-        {
-          id: `local-${action}-${entityId}`,
-          entity_id: entityId,
-          entity_type: 'site_cash',
-          action,
-          business_date: cash.date ?? date,
-          site: siteId,
-          changes: {
-            note: cash.note ?? '',
-            type: cash.type,
-            amount: cash.amount,
-            billing: cash.billing ?? null,
-            date: cash.date ?? date,
-          },
-          reviewed_at: null,
-          created_at:
-            cash.updated_at ?? cash.created_at ?? new Date().toISOString(),
-        },
-      ]
+      return next
     })
   }
 
@@ -542,10 +519,9 @@ export const CashPage = () => {
     await queryClient.invalidateQueries({
       queryKey: ['sites', siteId, 'daily-reports'],
     })
+    seedCashPendingActivity(cash, action)
     if (!canViewActivityLog) return
-    await queryClient.refetchQueries({ queryKey: cashActivityQueryKey })
-    seedCashActivity(cash, action)
-    await queryClient.invalidateQueries({ queryKey: ['activities', 'list'] })
+    await queryClient.invalidateQueries({ queryKey: ['activities'] })
   }
 
   const exitSelectMode = () => {
@@ -585,8 +561,10 @@ export const CashPage = () => {
     try {
       await reviewActivities(ids)
       exitSelectMode()
-      await queryClient.refetchQueries({ queryKey: cashActivityQueryKey })
-      await queryClient.invalidateQueries({ queryKey: ['activities', 'list'] })
+      await queryClient.invalidateQueries({
+        queryKey: ['sites', siteId, 'cash'],
+      })
+      await queryClient.invalidateQueries({ queryKey: ['activities'] })
       toastSuccess('অডিট সম্পন্ন হয়েছে')
     } catch (err) {
       const parsed = parseApiError(err)
@@ -1085,12 +1063,12 @@ export const CashPage = () => {
           <div className="flex-1 min-h-0 overflow-y-auto">
           {modalView === 'history' && !isCreateMode && !editing ? (
             <div className="flex flex-col gap-2 min-h-full">
-              {activityCashQuery.isLoading ? (
+              {entityHistoryQuery.isLoading ? (
                 <div className="flex flex-1 justify-center items-center py-8">
                   <span className="loading loading-spinner loading-md text-primary" />
                 </div>
-              ) : activityCashQuery.isError ? (
-                <ApiErrorAlert error={parseApiError(activityCashQuery.error)} />
+              ) : entityHistoryQuery.isError ? (
+                <ApiErrorAlert error={parseApiError(entityHistoryQuery.error)} />
               ) : historyLogs.length === 0 ? (
                 <p className="text-sm text-base-content/60 text-center py-8">
                   কোনো অডিট হিস্ট্রি নেই।
