@@ -249,6 +249,7 @@ export const UsersPage = () => {
                           photo={row.photo}
                           name={row.name}
                           size="xs"
+                          shape="square"
                           className={muted ? 'opacity-40' : ''}
                         />
                         <div className="min-w-0">

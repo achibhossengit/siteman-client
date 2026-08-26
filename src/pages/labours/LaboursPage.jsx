@@ -283,6 +283,7 @@ export const LaboursPage = () => {
                           photo={row.photo}
                           name={row.name}
                           size="xs"
+                          shape="square"
                           className={inactive ? 'opacity-40' : ''}
                         />
                         <span className="font-medium truncate">{row.name}</span>

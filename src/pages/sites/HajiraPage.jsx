@@ -2279,6 +2279,7 @@ export const HajiraPage = () => {
                                 photo={row.labourPhoto}
                                 name={row.labourName}
                                 size="xs"
+                                shape="square"
                               />
                               <span
                                 className={
@@ -2296,6 +2297,7 @@ export const HajiraPage = () => {
                                 photo={row.labourPhoto}
                                 name={row.labourName}
                                 size="xs"
+                                shape="square"
                               />
                               {concatLabourName(row.labourName)}
                             </>
