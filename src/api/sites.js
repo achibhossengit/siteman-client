@@ -181,22 +181,40 @@ export const deleteBillingCategory = (siteId, id) =>
   api.delete(endpoints.sites.billingCategoryDetail(siteId, id))
 
 /**
- * Site hajira roster for one day (unpaginated).
- * GET /sites/{site_pk}/daily-records?date= — each item is { labour, record }.
+ * Site hajira roster.
+ * GET /sites/{site_pk}/daily-records — `date` (defaults to today) or
+ * `date__gte` / `date__lte`. Paginated `{ labour, records, totals }` rows.
+ * Windows longer than one month omit individual records (totals only).
  */
-export const fetchSiteDailyRecords = (siteId, { date } = {}) => {
+export const fetchSiteDailyRecords = (
+  siteId,
+  { date, date__gte, date__lte, page, page_size } = {},
+) => {
   const params = {
     ...(date ? { date } : {}),
+    ...(date__gte ? { date__gte } : {}),
+    ...(date__lte ? { date__lte } : {}),
+    ...(page != null ? { page } : {}),
+    ...(page_size != null ? { page_size } : {}),
   }
   return api.get(endpoints.sites.dailyRecords(siteId), { params }).then((res) => ({
     ...res,
-    data: asList(res.data),
+    data:
+      page != null || page_size != null ? asPage(res.data) : asList(res.data),
   }))
 }
 
-/** Hajira roster for one day — unpaginated `{ labour, record }` list. */
+/** All roster pages for the given date filter. */
+export const fetchAllSiteDailyRecords = async (siteId, filters = {}) => {
+  const data = await fetchAllPages(({ page, page_size }) =>
+    fetchSiteDailyRecords(siteId, { ...filters, page, page_size }),
+  )
+  return { data }
+}
+
+/** Hajira roster for one day — all pages of `{ labour, records, totals }`. */
 export const fetchSiteDailyRecordsByDate = (siteId, recordDate) =>
-  fetchSiteDailyRecords(siteId, { date: recordDate })
+  fetchAllSiteDailyRecords(siteId, { date: recordDate })
 
 /** POST /sites/{site_pk}/daily-records — bulk create (array body). */
 export const createSiteDailyRecords = (siteId, payload) =>

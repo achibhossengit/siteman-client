@@ -6773,10 +6773,23 @@ paths:
       description: |-
         Nested under ``/sites/<site_pk>/daily-records``.
 
-        GET returns an unpaginated hajira roster for ``date`` (defaults to
-        today): every labour currently on this site, plus anyone with a
-        record here that day. POST is still bulk create.
+        GET returns a hajira roster for ``date`` (defaults to today) or
+        ``date__gte`` / ``date__lte``. Windows longer than one month return
+        per-labour totals without individual records. Shorter windows paginate
+        records. POST is still bulk create.
       parameters:
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: page_size
+          required: false
+          in: query
+          description: Number of results to return per page.
+          schema:
+            type: integer
         - in: path
           name: site_pk
           schema:
@@ -6916,19 +6929,30 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/SiteDailyRecordList"
+                $ref: "#/components/schemas/PaginatedSiteDailyRecordListList"
           description: ""
     post:
       operationId: sites_daily_records_create
       description: |-
         Nested under ``/sites/<site_pk>/daily-records``.
 
-        GET returns an unpaginated hajira roster for ``date`` (defaults to
-        today): every labour currently on this site, plus anyone with a
-        record here that day. POST is still bulk create.
+        GET returns a hajira roster for ``date`` (defaults to today) or
+        ``date__gte`` / ``date__lte``. Windows longer than one month return
+        per-labour totals without individual records. Shorter windows paginate
+        records. POST is still bulk create.
       parameters:
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: page_size
+          required: false
+          in: query
+          description: Number of results to return per page.
+          schema:
+            type: integer
         - in: path
           name: site_pk
           schema:
@@ -7086,9 +7110,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/SiteDailyRecord"
+                $ref: "#/components/schemas/PaginatedSiteDailyRecordList"
           description: ""
   /api/v1/sites/{site_pk}/private-cash:
     get:
@@ -12897,6 +12919,52 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SiteCashList"
+    PaginatedSiteDailyRecordList:
+      type: object
+      required:
+        - count
+        - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SiteDailyRecord"
+    PaginatedSiteDailyRecordListList:
+      type: object
+      required:
+        - count
+        - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SiteDailyRecordList"
     PaginatedSiteListList:
       type: object
       required:
@@ -13897,18 +13965,21 @@ components:
     SiteDailyRecordList:
       type: object
       description:
-        "One hajira-screen row: site labour (or transferred) plus that
-        day's record."
+        "One hajira-screen row: site labour plus records in the requested
+        window."
       properties:
         labour:
           $ref: "#/components/schemas/LabourList"
-        record:
-          allOf:
-            - $ref: "#/components/schemas/SiteDailyRecordNested"
-          nullable: true
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/SiteDailyRecordNested"
+        totals:
+          $ref: "#/components/schemas/SiteDailyRecordTotals"
       required:
         - labour
-        - record
+        - records
+        - totals
     SiteDailyRecordNested:
       type: object
       description: Record slice nested on ``GET /sites/<site_pk>/daily-records``.
@@ -13985,6 +14056,27 @@ components:
         - id
         - pending_activities
         - updated_at
+    SiteDailyRecordTotals:
+      type: object
+      properties:
+        present:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,18}(?:\.\d{0,2})?$
+        extra_earn:
+          type: integer
+        fooding_pay:
+          type: integer
+        advance_pay:
+          type: integer
+        return_amount:
+          type: integer
+      required:
+        - advance_pay
+        - extra_earn
+        - fooding_pay
+        - present
+        - return_amount
     SiteList:
       type: object
       properties:

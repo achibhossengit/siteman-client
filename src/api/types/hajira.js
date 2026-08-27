@@ -1,6 +1,7 @@
 /**
  * Site daily-record helpers for হাজিরা.
- * Site list GET returns `{ labour, record }` roster rows.
+ * Site list GET returns `{ labour, records, totals }` roster rows.
+ * Single-date screens pick the matching item from `records`.
  *
  * Record fields: present, wage, extra_earn, fooding_pay, advance_pay,
  * return_amount, note, billing, pending_activities
@@ -36,12 +37,37 @@ const isRosterEntry = (item) =>
   typeof item === 'object' &&
   item.labour != null &&
   typeof item.labour === 'object' &&
-  'record' in item
+  ('records' in item || 'record' in item)
 
-/** Normalize flat legacy records or nested `{ labour, record }` entries. */
-const asRosterEntries = (items = []) => {
+/** Pick the day's nested record. Single-date windows have 0–1 items. */
+const pickRecordForDate = (records, date) => {
+  if (!Array.isArray(records) || !records.length) return null
+  if (date) {
+    return records.find((r) => r?.date === date) ?? null
+  }
+  return records.length === 1 ? records[0] : null
+}
+
+const recordsOf = (item) => {
+  if (Array.isArray(item?.records)) return item.records
+  if (item?.record != null) return [item.record]
+  return []
+}
+
+/** Normalize `{ labour, records, totals }` (or legacy `{ labour, record }`). */
+const asRosterEntries = (items = [], date) => {
   if (!Array.isArray(items) || !items.length) return []
-  if (isRosterEntry(items[0])) return items
+  if (isRosterEntry(items[0])) {
+    return items.map((item) => {
+      const records = recordsOf(item)
+      return {
+        labour: item.labour,
+        records,
+        totals: item.totals ?? null,
+        record: pickRecordForDate(records, date),
+      }
+    })
+  }
 
   return items.map((record) => {
     const labourId =
@@ -63,6 +89,8 @@ const asRosterEntries = (items = []) => {
         default_fooding: 0,
         is_active: true,
       },
+      records: record ? [record] : [],
+      totals: null,
       record,
     }
   })
@@ -102,7 +130,7 @@ export const toDailyRecordPatchPayload = (row) => {
   return rest
 }
 
-/** One UI row from a SiteDailyRecordList entry `{ labour, record }`. */
+/** One UI row from a SiteDailyRecordList entry `{ labour, records, totals }`. */
 export const buildHajiraRowFromEntry = (entry) => {
   const labour = entry?.labour ?? {}
   const record = entry?.record ?? null
@@ -179,17 +207,17 @@ export const buildHajiraRowFromEntry = (entry) => {
  * Build hajira table rows from site daily-records roster.
  * Filters:
  * - labour: labour.current_site matches siteId
- * - record: entry has a day's record
+ * - record: entry has a nested record for `date` (single-date screens)
  */
 export const buildHajiraRowsFromRoster = (
   items = [],
-  { siteId, includeLabour = true, includeRecord = true } = {},
+  { siteId, includeLabour = true, includeRecord = true, date } = {},
 ) => {
   if (!includeLabour && !includeRecord) return []
 
   const site =
     siteId != null && siteId !== '' ? Number(siteId) : null
-  const entries = asRosterEntries(items).filter((entry) => {
+  const entries = asRosterEntries(items, date).filter((entry) => {
     const labourId = entry?.labour?.id
     if (labourId == null || labourId === '') return false
     const onSite =

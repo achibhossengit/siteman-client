@@ -174,6 +174,7 @@ export const HajiraPage = () => {
 
   const showAyColumn = Boolean(isCompanyAdmin);
 
+  // Single-date roster (`?date=`). Date-range UI will switch to date__gte/lte later.
   const dailyRecordsQuery = useQuery({
     queryKey: ["sites", siteId, "daily-records", { date }],
     queryFn: async () => {
@@ -351,6 +352,7 @@ export const HajiraPage = () => {
       siteId,
       includeLabour,
       includeRecord,
+      date,
     });
     if (includeLabour) {
       next = withSiteLabourCurrentSite(next);
@@ -400,6 +402,7 @@ export const HajiraPage = () => {
     dailyRecordsQuery.isSuccess,
     dailyRecordsQuery.data,
     siteId,
+    date,
   ]);
 
   const updateRow = (labourId, patch) => {
