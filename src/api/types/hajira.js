@@ -166,6 +166,9 @@ export const buildHajiraEditRows = (labours, records = []) => {
       advanceNote: '',
       return: blankAmount(record?.return_amount),
       returnNote: '',
+      pending_activities: Array.isArray(record?.pending_activities)
+        ? record.pending_activities
+        : [],
     }
   })
 }

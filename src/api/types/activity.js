@@ -593,6 +593,25 @@ export const applyPendingActivitiesToCashRows = (rows = []) =>
   })
 
 /**
+ * Attach hajira row tones from SiteDailyRecordList.pending_activities.
+ * Pending items are `{ id, action }` only — no field diffs / column split.
+ */
+export const applyPendingActivitiesToHajiraRows = (rows = []) =>
+  rows.map((row) => {
+    const logs = pendingActivitiesOf(row)
+    if (!logs.length) return row
+    const tone = toneFromLogs(logs)
+    if (!tone) return row
+    return {
+      ...row,
+      activityTone: tone,
+      attendanceTone: tone,
+      paymentTone: tone,
+      activityLogs: logs,
+    }
+  })
+
+/**
  * Attach activity tones to cash rows and append deleted-only ghost rows.
  * Does not mutate input rows. Totals should use live rows only.
  */

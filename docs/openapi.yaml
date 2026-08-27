@@ -5974,6 +5974,16 @@ paths:
           schema:
             type: string
             format: date
+        - in: query
+          name: date__gte
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: date__lte
+          schema:
+            type: string
+            format: date
         - name: page
           required: false
           in: query
@@ -7143,6 +7153,16 @@ paths:
             type: integer
         - in: query
           name: date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: date__gte
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: date__lte
           schema:
             type: string
             format: date
@@ -14049,12 +14069,16 @@ components:
           type: string
           format: date-time
           readOnly: true
+        pending_activities:
+          type: string
+          readOnly: true
       required:
         - created_at
         - id
         - labour_current_site
         - labour_id
         - labour_name
+        - pending_activities
         - updated_at
     SiteList:
       type: object
@@ -14667,17 +14691,59 @@ components:
         - attr
         - code
         - detail
+    SitesCashListDate_gteErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - date__gte
+          type: string
+          description: "* `date__gte` - date__gte"
+        code:
+          enum:
+            - invalid
+          type: string
+          description: "* `invalid` - invalid"
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    SitesCashListDate_lteErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - date__lte
+          type: string
+          description: "* `date__lte` - date__lte"
+        code:
+          enum:
+            - invalid
+          type: string
+          description: "* `invalid` - invalid"
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
     SitesCashListError:
       oneOf:
         - $ref: "#/components/schemas/SitesCashListTypeErrorComponent"
         - $ref: "#/components/schemas/SitesCashListDateErrorComponent"
         - $ref: "#/components/schemas/SitesCashListBillingErrorComponent"
+        - $ref: "#/components/schemas/SitesCashListDate_gteErrorComponent"
+        - $ref: "#/components/schemas/SitesCashListDate_lteErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
           type: "#/components/schemas/SitesCashListTypeErrorComponent"
           date: "#/components/schemas/SitesCashListDateErrorComponent"
           billing: "#/components/schemas/SitesCashListBillingErrorComponent"
+          date__gte: "#/components/schemas/SitesCashListDate_gteErrorComponent"
+          date__lte: "#/components/schemas/SitesCashListDate_lteErrorComponent"
     SitesCashListErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/SitesCashListValidationError"
@@ -15841,17 +15907,59 @@ components:
         - attr
         - code
         - detail
+    SitesPrivateCashListDate_gteErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - date__gte
+          type: string
+          description: "* `date__gte` - date__gte"
+        code:
+          enum:
+            - invalid
+          type: string
+          description: "* `invalid` - invalid"
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    SitesPrivateCashListDate_lteErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - date__lte
+          type: string
+          description: "* `date__lte` - date__lte"
+        code:
+          enum:
+            - invalid
+          type: string
+          description: "* `invalid` - invalid"
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
     SitesPrivateCashListError:
       oneOf:
         - $ref: "#/components/schemas/SitesPrivateCashListTypeErrorComponent"
         - $ref: "#/components/schemas/SitesPrivateCashListDateErrorComponent"
         - $ref: "#/components/schemas/SitesPrivateCashListBillingErrorComponent"
+        - $ref: "#/components/schemas/SitesPrivateCashListDate_gteErrorComponent"
+        - $ref: "#/components/schemas/SitesPrivateCashListDate_lteErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
           type: "#/components/schemas/SitesPrivateCashListTypeErrorComponent"
           date: "#/components/schemas/SitesPrivateCashListDateErrorComponent"
           billing: "#/components/schemas/SitesPrivateCashListBillingErrorComponent"
+          date__gte: "#/components/schemas/SitesPrivateCashListDate_gteErrorComponent"
+          date__lte: "#/components/schemas/SitesPrivateCashListDate_lteErrorComponent"
     SitesPrivateCashListErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/SitesPrivateCashListValidationError"

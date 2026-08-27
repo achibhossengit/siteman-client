@@ -22,7 +22,7 @@ import {
 import {
   activityTextToneClass,
   activityToneClass,
-  applyActivitiesToViewRows,
+  applyPendingActivitiesToHajiraRows,
   snapshotFields,
 } from "../../api/types/activity.js";
 import { profileAllowedSiteIds } from "../../api/types/user.js";
@@ -1049,34 +1049,40 @@ export const HajiraPage = () => {
     enabled: Boolean(siteId),
   });
 
-  const pendingLogQueryKey = useMemo(
-    () => [
-      "activities",
-      "pending",
-      { site: siteId, business_date: date, entity_type: "daily_record" },
-    ],
-    [siteId, date],
-  );
+  const selectedRecordId = recordIdOf(recordModal);
 
-  const pendingLogQuery = useQuery({
-    queryKey: pendingLogQueryKey,
+  /** Full audit log for the open record — fetched only on the history tab. */
+  const entityHistoryQuery = useQuery({
+    queryKey: [
+      "activities",
+      "entity",
+      {
+        site: siteId,
+        entity_type: "daily_record",
+        entity_id: selectedRecordId,
+      },
+    ],
     queryFn: () =>
       fetchAllActivities({
         site: siteId,
-        business_date: date,
         entity_type: "daily_record",
-        reviewed: false,
+        entity_id: selectedRecordId,
         page_size: 100,
       }),
-    enabled: Boolean(canViewActivityLog && siteId && date),
+    enabled: Boolean(
+      canViewActivityLog &&
+        recordModalView === MODAL_VIEWS.history &&
+        selectedRecordId != null &&
+        siteId,
+    ),
   });
 
   const activityIdsForRow = (row) =>
-    (row?.activityLogs ?? [])
+    (row?.activityLogs ?? row?.pending_activities ?? [])
       .map((log) => Number(log.id))
       .filter((id) => Number.isFinite(id));
 
-  const canShowRecordHistory = Boolean(recordIdOf(recordModal));
+  const canShowRecordHistory = Boolean(selectedRecordId);
 
   const sortLogsDesc = (logs) =>
     [...logs].sort((a, b) => {
@@ -1085,15 +1091,10 @@ export const HajiraPage = () => {
       return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
     });
 
-  /** Modal history from pending (unreviewed) daily_record activities for the day. */
-  const recordHistoryLogs = useMemo(() => {
-    const entityId = recordIdOf(recordModal);
-    if (entityId == null) return [];
-    const logs = (pendingLogQuery.data ?? []).filter(
-      (log) => Number(log.entity_id) === Number(entityId),
-    );
-    return sortLogsDesc(logs);
-  }, [pendingLogQuery.data, recordModal]);
+  const recordHistoryLogs = useMemo(
+    () => sortLogsDesc(entityHistoryQuery.data ?? []),
+    [entityHistoryQuery.data],
+  );
 
   /** Resolve billing name from session lookup (API no longer embeds billing_name). */
   const billingFullLabelForRow = (rowOrId, maybeName) => {
@@ -1214,7 +1215,7 @@ export const HajiraPage = () => {
     if (includeRecord && !includeLabour) {
       let next = buildHajiraViewRows(records);
       if (canViewActivityLog) {
-        next = applyActivitiesToViewRows(next, pendingLogQuery.data ?? []);
+        next = applyPendingActivitiesToHajiraRows(next);
       }
       return next;
     }
@@ -1224,11 +1225,7 @@ export const HajiraPage = () => {
         buildHajiraEditRows(activeLabour, records),
       );
       if (canViewActivityLog) {
-        const siteLabourIds = new Set(next.map((row) => Number(row.labourId)));
-        next = applyActivitiesToViewRows(
-          next,
-          pendingLogQuery.data ?? [],
-        ).filter((row) => siteLabourIds.has(Number(row.labourId)));
+        next = applyPendingActivitiesToHajiraRows(next);
       }
       return next;
     }
@@ -1242,7 +1239,7 @@ export const HajiraPage = () => {
     );
     let next = [...siteRows, ...otherRows];
     if (canViewActivityLog) {
-      next = applyActivitiesToViewRows(next, pendingLogQuery.data ?? []);
+      next = applyPendingActivitiesToHajiraRows(next);
     }
     return next;
   };
@@ -1293,7 +1290,6 @@ export const HajiraPage = () => {
     dailyRecordsQuery.data,
     activeLabourQuery.isSuccess,
     activeLabourQuery.data,
-    pendingLogQuery.data,
   ]);
 
   const updateRow = (labourId, patch) => {
@@ -1482,7 +1478,7 @@ export const HajiraPage = () => {
         queryClient.invalidateQueries({
           queryKey: ["sites", siteId, "daily-records"],
         }),
-        queryClient.invalidateQueries({ queryKey: pendingLogQueryKey }),
+        queryClient.invalidateQueries({ queryKey: ["activities"] }),
       ]);
       toastSuccess("রেকর্ড ডিলিট হয়েছে");
       closeRecordModal();
@@ -1567,15 +1563,11 @@ export const HajiraPage = () => {
     try {
       await reviewActivities(ids);
       exitSelectMode();
-      const reviewed = new Set(ids.map((id) => Number(id)));
-      const dropReviewed = (logs) =>
-        (Array.isArray(logs) ? logs : []).filter(
-          (log) => !reviewed.has(Number(log?.id)),
-        );
-      queryClient.setQueryData(pendingLogQueryKey, dropReviewed);
       await Promise.all([
-        queryClient.refetchQueries({ queryKey: pendingLogQueryKey }),
-        queryClient.invalidateQueries({ queryKey: ["activities", "list"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["sites", siteId, "daily-records"],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["activities"] }),
       ]);
       toastSuccess("অডিট সম্পন্ন হয়েছে");
     } catch (err) {
@@ -1947,8 +1939,7 @@ export const HajiraPage = () => {
         queryClient.invalidateQueries({
           queryKey: ["sites", siteId, "daily-reports"],
         }),
-        queryClient.invalidateQueries({ queryKey: pendingLogQueryKey }),
-        queryClient.invalidateQueries({ queryKey: ["activities", "list"] }),
+        queryClient.invalidateQueries({ queryKey: ["activities"] }),
       ]);
       toastSuccess("হাজিরা ও পেমেন্ট সেভ হয়েছে");
     } catch (err) {
@@ -2553,9 +2544,9 @@ export const HajiraPage = () => {
             recordModalView === MODAL_VIEWS.history &&
             canShowRecordHistory ? (
               <EntityHistoryPanel
-                isLoading={pendingLogQuery.isLoading}
+                isLoading={entityHistoryQuery.isLoading}
                 error={
-                  pendingLogQuery.isError ? pendingLogQuery.error : null
+                  entityHistoryQuery.isError ? entityHistoryQuery.error : null
                 }
                 logs={recordHistoryLogs}
                 expandedId={expandedHistoryId}
