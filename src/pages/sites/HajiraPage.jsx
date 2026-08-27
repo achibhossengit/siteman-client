@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, X } from "lucide-react";
 import { PersonAvatar } from "../../components/PersonAvatar.jsx";
 import {
   deleteLabourDailyRecord,
@@ -1004,6 +1004,8 @@ export const HajiraPage = () => {
   const [recordModal, setRecordModal] = useState(null);
   const [recordModalView, setRecordModalView] = useState(MODAL_VIEWS.detail);
   const [modalEditing, setModalEditing] = useState(false);
+  const [modalDeleting, setModalDeleting] = useState(false);
+  const [modalSaving, setModalSaving] = useState(false);
   const [expandedHistoryId, setExpandedHistoryId] = useState(null);
   const [labourFilter, setLabourFilter] = useState(() => [
     ...LABOUR_DEFAULT_FIELDS,
@@ -1306,8 +1308,15 @@ export const HajiraPage = () => {
     return map;
   }, [initialRows]);
 
-  const isDirty = useMemo(
-    () => JSON.stringify(rows) !== JSON.stringify(initialRows),
+  /** Page bottom confirm is only for new daily-record creates. */
+  const hasPendingCreates = useMemo(
+    () =>
+      rows.some((row) => {
+        if (recordIdOf(row) || recordSealedOf(row)) return false;
+        const initial =
+          initialRows.find((r) => r.labourId === row.labourId) ?? row;
+        return isRecordDirty(row, initial) && hasAttendanceData(row);
+      }),
     [rows, initialRows],
   );
 
@@ -1400,6 +1409,8 @@ export const HajiraPage = () => {
 
   const resetModalEditState = () => {
     setModalEditing(false);
+    setModalDeleting(false);
+    setModalSaving(false);
   };
 
   const closeRecordModal = () => {
@@ -1421,20 +1432,36 @@ export const HajiraPage = () => {
   const startModalEdit = () => {
     if (!canUpdateRecord || !recordModal) return;
     setRecordModalView(MODAL_VIEWS.detail);
+    setModalDeleting(false);
     setModalEditing(true);
   };
 
-  const saveRecordModal = () => {
-    if (!recordModal || !modalEditable || attendanceLocked(recordModal)) return;
-    const currentRow = rows.find((r) => r.labourId === recordModal.labourId);
-    if (!isRecordModalDirty(recordModal, currentRow)) return;
+  const startModalDelete = () => {
+    if (!canDeleteRecord || !recordModal) return;
+    setRecordModalView(MODAL_VIEWS.detail);
+    setModalEditing(false);
+    setModalDeleting(true);
+  };
+
+  const cancelModalEdit = () => {
+    if (!recordModal) return;
+    resetRecordModal();
+    setModalEditing(false);
+  };
+
+  const cancelModalDelete = () => {
+    setModalDeleting(false);
+  };
+
+  const buildModalRowPatch = () => {
+    if (!recordModal) return null;
     const presentEmpty =
       recordModal.present === "" ||
       recordModal.present == null ||
       Number(recordModal.present) === 0;
     const presentNum = presentEmpty ? 0 : Number(recordModal.present);
     const billingAllowed = canSetBillingOnRow(recordModal);
-    const next = {
+    return {
       present: isCreateModal && presentEmpty ? "" : presentNum,
       salary: presentEmpty ? "" : numOrEmpty(recordModal.salary),
       extra:
@@ -1455,23 +1482,64 @@ export const HajiraPage = () => {
       advanceNote: "",
       returnNote: "",
     };
-    // New rows can be cleared back to unset; saved records still need a day value.
-    if (!isCreateModal && lacksMeaningfulDayValue(next)) return;
+  };
+
+  /** Stage new rows locally for bulk create confirm on the page. */
+  const saveRecordModal = () => {
+    if (!recordModal || !modalEditable || attendanceLocked(recordModal)) return;
+    if (!isCreateModal) return;
+    const currentRow = rows.find((r) => r.labourId === recordModal.labourId);
+    if (!isRecordModalDirty(recordModal, currentRow)) return;
+    const next = buildModalRowPatch();
+    if (!next) return;
     updateRow(recordModal.labourId, next);
     closeRecordModal();
   };
 
-  const onDeleteRecord = async () => {
-    if (!canDeleteRecord || !recordModal) return;
+  /** Existing record: PATCH immediately from the detail modal. */
+  const confirmModalUpdate = async () => {
+    if (!canUpdateRecord || !recordModal || modalSaving) return;
     const recordId = recordIdOf(recordModal);
     if (recordId == null) return;
-    const confirmed = await confirmAction({
-      title: "রেকর্ড মুছে ফেলবেন?",
-      text: "এই কাজটি ফিরিয়ে আনা যাবে না।",
-      confirmText: "ডিলিট করুন",
-      danger: true,
-    });
-    if (!confirmed) return;
+    const currentRow = rows.find((r) => r.labourId === recordModal.labourId);
+    if (!isRecordModalDirty(recordModal, currentRow)) return;
+    const next = buildModalRowPatch();
+    if (!next || lacksMeaningfulDayValue(next)) {
+      toastInfo(MEANINGFUL_DAY_VALUE_MESSAGE);
+      return;
+    }
+
+    setModalSaving(true);
+    try {
+      const payload = toDailyRecordPatchPayload({
+        ...(currentRow ?? {}),
+        ...next,
+        labourId: recordModal.labourId,
+      });
+      await updateLabourDailyRecord(recordModal.labourId, recordId, payload);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["sites", siteId, "daily-records"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["sites", siteId, "daily-reports"],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["activities"] }),
+      ]);
+      toastSuccess("হাজিরা আপডেট হয়েছে");
+      closeRecordModal();
+    } catch (err) {
+      toastApiError(parseApiError(err));
+    } finally {
+      setModalSaving(false);
+    }
+  };
+
+  const confirmModalDelete = async () => {
+    if (!canDeleteRecord || !recordModal || modalSaving) return;
+    const recordId = recordIdOf(recordModal);
+    if (recordId == null) return;
+    setModalSaving(true);
     try {
       await deleteLabourDailyRecord(recordModal.labourId, recordId);
       await Promise.all([
@@ -1484,6 +1552,8 @@ export const HajiraPage = () => {
       closeRecordModal();
     } catch (err) {
       toastApiError(parseApiError(err));
+    } finally {
+      setModalSaving(false);
     }
   };
 
@@ -1844,7 +1914,6 @@ export const HajiraPage = () => {
   const saveMutation = useMutation({
     mutationFn: async () => {
       const createItems = [];
-      const updates = [];
       let blocked = 0;
 
       for (const row of rows) {
@@ -1852,20 +1921,10 @@ export const HajiraPage = () => {
           initialRows.find((r) => r.labourId === row.labourId) ?? row;
 
         if (recordSealedOf(row)) continue;
+        if (recordIdOf(row)) continue;
         if (!isRecordDirty(row, initial)) continue;
 
-        const recordId = recordIdOf(row);
-        if (recordId) {
-          if (!canChangeDailyRecord) {
-            blocked += 1;
-            continue;
-          }
-          updates.push({
-            labourId: row.labourId,
-            id: recordId,
-            payload: toDailyRecordPatchPayload(row),
-          });
-        } else if (hasAttendanceData(row)) {
+        if (hasAttendanceData(row)) {
           if (!canAddDailyRecord) {
             blocked += 1;
             continue;
@@ -1887,15 +1946,8 @@ export const HajiraPage = () => {
       }
       pendingCreateItemsRef.current = [];
 
-      await Promise.all(
-        updates.map((item) =>
-          updateLabourDailyRecord(item.labourId, item.id, item.payload),
-        ),
-      );
-
       return {
         creates: createItems.length,
-        updates: updates.length,
         blocked,
       };
     },
@@ -1908,9 +1960,10 @@ export const HajiraPage = () => {
       const initial =
         initialRows.find((r) => r.labourId === row.labourId) ?? row;
       if (
+        recordIdOf(row) ||
         !isAttendanceDirty(row, initial) ||
         recordSealedOf(row) ||
-        !(recordIdOf(row) || hasAttendanceData(row))
+        !hasAttendanceData(row)
       ) {
         return false;
       }
@@ -1923,8 +1976,7 @@ export const HajiraPage = () => {
     setSaving(true);
     try {
       const result = await saveMutation.mutateAsync();
-      const total = result.creates + result.updates;
-      if (total === 0) {
+      if (result.creates === 0) {
         toastInfo(
           result.blocked > 0
             ? messageForCode("permission_denied")
@@ -2425,7 +2477,7 @@ export const HajiraPage = () => {
         </table>
       </div>
 
-      {isDirty ? (
+      {hasPendingCreates ? (
         <div className="fixed bottom-16 right-4 z-40 flex items-center gap-2">
           <button
             type="button"
@@ -2491,15 +2543,20 @@ export const HajiraPage = () => {
         <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
             <button
+              type="submit"
               className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
               aria-label="বন্ধ"
             >
-              ✕
+              <X className="size-4" strokeWidth={1.75} />
             </button>
           </form>
 
           <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">
-            {recordModal && canViewActivityLog && canShowRecordHistory ? (
+            {recordModal &&
+            canViewActivityLog &&
+            canShowRecordHistory &&
+            !modalEditing &&
+            !modalDeleting ? (
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -2508,7 +2565,6 @@ export const HajiraPage = () => {
                       ? "text-primary"
                       : "text-base-content/50 hover:text-base-content"
                   }
-                  disabled={modalEditing}
                   onClick={() => {
                     setRecordModalView(MODAL_VIEWS.detail);
                     setExpandedHistoryId(null);
@@ -2523,7 +2579,6 @@ export const HajiraPage = () => {
                       ? "text-primary"
                       : "text-base-content/50 hover:text-base-content"
                   }
-                  disabled={modalEditing}
                   onClick={() => {
                     setRecordModalView(MODAL_VIEWS.history);
                     setExpandedHistoryId(null);
@@ -2542,7 +2597,9 @@ export const HajiraPage = () => {
           <div className="flex-1 min-h-0 overflow-y-auto">
             {recordModal &&
             recordModalView === MODAL_VIEWS.history &&
-            canShowRecordHistory ? (
+            canShowRecordHistory &&
+            !modalEditing &&
+            !modalDeleting ? (
               <EntityHistoryPanel
                 isLoading={entityHistoryQuery.isLoading}
                 error={
@@ -2561,7 +2618,7 @@ export const HajiraPage = () => {
                   <>
                     <div className="grid grid-cols-3 gap-2">
                       <label className="form-control w-full min-w-0">
-                        <span className="label-text text-sm">হাজিরা</span>
+                        <span className="label-text mb-1">হাজিরা</span>
                         <select
                           className="select select-bordered select-sm w-full"
                           value={
@@ -2603,7 +2660,7 @@ export const HajiraPage = () => {
                       </label>
 
                       <label className="form-control w-full min-w-0">
-                        <span className="label-text text-sm">বেতন</span>
+                        <span className="label-text mb-1">বেতন</span>
                         <input
                           type="number"
                           min={0}
@@ -2619,7 +2676,7 @@ export const HajiraPage = () => {
                       </label>
 
                       <label className="form-control w-full min-w-0">
-                        <span className="label-text text-sm">খোরাকি</span>
+                        <span className="label-text mb-1">খোরাকি</span>
                         <input
                           type="number"
                           min={0}
@@ -2638,7 +2695,7 @@ export const HajiraPage = () => {
                     <div className="space-y-3 border-t border-dashed border-base-300 pt-3 opacity-50 hover:opacity-85 focus-within:opacity-100 transition-opacity [&_.label-text]:text-xs">
                       <div className="grid grid-cols-3 gap-2">
                         <label className="form-control w-full min-w-0">
-                          <span className="label-text text-sm">বাড়তি কাজ</span>
+                          <span className="label-text mb-1">বাড়তি কাজ</span>
                           <input
                             type="number"
                             min={0}
@@ -2654,7 +2711,7 @@ export const HajiraPage = () => {
                         </label>
 
                         <label className="form-control w-full min-w-0">
-                          <span className="label-text text-sm">অ্যাডভান্স</span>
+                          <span className="label-text mb-1">অ্যাডভান্স</span>
                           <input
                             type="number"
                             min={0}
@@ -2670,7 +2727,7 @@ export const HajiraPage = () => {
                         </label>
 
                         <label className="form-control w-full min-w-0">
-                          <span className="label-text text-sm">রিটার্ন</span>
+                          <span className="label-text mb-1">রিটার্ন</span>
                           <input
                             type="number"
                             min={0}
@@ -2687,7 +2744,7 @@ export const HajiraPage = () => {
                       </div>
 
                       <label className="form-control w-full">
-                        <span className="label-text text-sm">নোট</span>
+                        <span className="label-text mb-1">নোট</span>
                         <input
                           type="text"
                           className="input input-bordered input-sm w-full"
@@ -2708,78 +2765,108 @@ export const HajiraPage = () => {
                     </div>
 
                     {SHOW_BILLING ? (
-                    <label className="form-control w-full">
-                      <span className="label-text text-sm">বিলিং</span>
-                      <select
-                        className="select select-bordered select-sm w-full"
-                        value={
-                          recordModal.billing == null ||
-                          recordModal.billing === ""
-                            ? ""
-                            : String(recordModal.billing)
-                        }
-                        disabled={!billingFieldEnabled}
-                        onChange={(e) => {
-                          const nextId = e.target.value;
-                          const opt = billingOptions.find(
-                            (b) => String(b.id) === String(nextId),
-                          );
-                          patchRecordModal({
-                            billing: nextId,
-                            billingName:
-                              nextId === ""
-                                ? null
-                                : (opt?.name ?? recordModal.billingName ?? null),
-                          });
-                        }}
-                      >
-                        <option value="">{NULL_BILLING_LABEL}</option>
-                        {(() => {
-                          const opts = [...billingOptions];
-                          const cur = recordModal.billing;
-                          if (
-                            cur !== "" &&
-                            cur != null &&
-                            !opts.some((b) => String(b.id) === String(cur))
-                          ) {
-                            opts.unshift({
-                              id: cur,
-                              name:
-                                recordModal.billingName ||
-                                billingFullLabel(cur),
-                            });
+                      <label className="form-control w-full">
+                        <span className="label-text mb-1">বিলিং</span>
+                        <select
+                          className="select select-bordered select-sm w-full"
+                          value={
+                            recordModal.billing == null ||
+                            recordModal.billing === ""
+                              ? ""
+                              : String(recordModal.billing)
                           }
-                          return opts.map((b) => (
-                            <option key={b.id} value={String(b.id)}>
-                              {b.name}
-                            </option>
-                          ));
-                        })()}
-                      </select>
-                    </label>
+                          disabled={!billingFieldEnabled}
+                          onChange={(e) => {
+                            const nextId = e.target.value;
+                            const opt = billingOptions.find(
+                              (b) => String(b.id) === String(nextId),
+                            );
+                            patchRecordModal({
+                              billing: nextId,
+                              billingName:
+                                nextId === ""
+                                  ? null
+                                  : (opt?.name ??
+                                    recordModal.billingName ??
+                                    null),
+                            });
+                          }}
+                        >
+                          <option value="">{NULL_BILLING_LABEL}</option>
+                          {(() => {
+                            const opts = [...billingOptions];
+                            const cur = recordModal.billing;
+                            if (
+                              cur !== "" &&
+                              cur != null &&
+                              !opts.some((b) => String(b.id) === String(cur))
+                            ) {
+                              opts.unshift({
+                                id: cur,
+                                name:
+                                  recordModal.billingName ||
+                                  billingFullLabel(cur),
+                              });
+                            }
+                            return opts.map((b) => (
+                              <option key={b.id} value={String(b.id)}>
+                                {b.name}
+                              </option>
+                            ));
+                          })()}
+                        </select>
+                      </label>
                     ) : null}
 
-                    <div className="modal-action pt-1 flex-wrap justify-between gap-2">
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        onClick={resetRecordModal}
-                      >
-                        রিসেট
-                      </button>
-                      <div className="flex gap-2">
+                    {isCreateModal ? (
+                      <div className="modal-action pt-1 flex-wrap justify-between gap-2">
                         <button
                           type="button"
-                          className="btn btn-outline btn-sm"
-                          onClick={applyRecordModalDefaults}
+                          className="btn btn-ghost"
+                          onClick={resetRecordModal}
                         >
-                          ডিফল্ট
+                          রিসেট
+                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className="btn btn-outline"
+                            onClick={applyRecordModalDefaults}
+                          >
+                            ডিফল্ট
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={saveRecordModal}
+                            disabled={!recordModalCanSet}
+                            title={
+                              recordModalCanSet
+                                ? undefined
+                                : !recordModalDirty
+                                  ? "কোনো পরিবর্তন নেই।"
+                                  : MEANINGFUL_DAY_VALUE_MESSAGE
+                            }
+                          >
+                            সেট করুন
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="modal-action mt-2 justify-stretch gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-ghost flex-1"
+                          onClick={cancelModalEdit}
+                          disabled={modalSaving}
+                        >
+                          বাতিল
                         </button>
                         <button
                           type="button"
-                          className="btn btn-primary btn-sm"
-                          onClick={saveRecordModal}
-                          disabled={!recordModalCanSet}
+                          className="btn btn-primary flex-1"
+                          onClick={confirmModalUpdate}
+                          disabled={!recordModalCanSet || modalSaving}
                           title={
                             recordModalCanSet
                               ? undefined
@@ -2788,16 +2875,19 @@ export const HajiraPage = () => {
                                 : MEANINGFUL_DAY_VALUE_MESSAGE
                           }
                         >
-                          সেট করুন
+                          {modalSaving ? (
+                            <span className="loading loading-spinner loading-sm" />
+                          ) : null}
+                          আপডেট নিশ্চিত
                         </button>
                       </div>
-                    </div>
+                    )}
                   </>
                 ) : (
                   <>
                     <div className="grid grid-cols-3 gap-2">
                       <div className="form-control w-full min-w-0">
-                        <span className="label-text text-sm">হাজিরা</span>
+                        <span className="label-text mb-1">হাজিরা</span>
                         <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
                           {recordModal.present === ""
                             ? "—"
@@ -2805,13 +2895,13 @@ export const HajiraPage = () => {
                         </div>
                       </div>
                       <div className="form-control w-full min-w-0">
-                        <span className="label-text text-sm">বেতন</span>
+                        <span className="label-text mb-1">বেতন</span>
                         <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
                           {displayModalValue(recordModal.salary)}
                         </div>
                       </div>
                       <div className="form-control w-full min-w-0">
-                        <span className="label-text text-sm">খোরাকি</span>
+                        <span className="label-text mb-1">খোরাকি</span>
                         <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
                           {displayModalValue(recordModal.payment)}
                         </div>
@@ -2820,73 +2910,103 @@ export const HajiraPage = () => {
                     <div className="space-y-3 border-t border-dashed border-base-300 pt-3 opacity-50 [&_.label-text]:text-xs">
                       <div className="grid grid-cols-3 gap-2">
                         <div className="form-control w-full min-w-0">
-                          <span className="label-text text-sm">বাড়তি কাজ</span>
+                          <span className="label-text mb-1">বাড়তি কাজ</span>
                           <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
                             {displayModalValue(recordModal.extra)}
                           </div>
                         </div>
                         <div className="form-control w-full min-w-0">
-                          <span className="label-text text-sm">অ্যাডভান্স</span>
+                          <span className="label-text mb-1">অ্যাডভান্স</span>
                           <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
                             {displayModalValue(recordModal.advance)}
                           </div>
                         </div>
                         <div className="form-control w-full min-w-0">
-                          <span className="label-text text-sm">রিটার্ন</span>
+                          <span className="label-text mb-1">রিটার্ন</span>
                           <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
                             {displayModalValue(recordModal.return)}
                           </div>
                         </div>
                       </div>
                       <div className="form-control w-full">
-                        <span className="label-text text-sm">নোট</span>
+                        <span className="label-text mb-1">নোট</span>
                         <div className="min-h-8 flex items-center px-1 text-sm">
                           {recordModal.note?.trim() ? recordModal.note : "—"}
                         </div>
                       </div>
                     </div>
                     {SHOW_BILLING ? (
-                    <div className="form-control w-full">
-                      <span className="label-text text-sm">বিলিং</span>
-                      <div className="min-h-8 flex items-center px-1 text-sm">
-                        {billingFullLabelForRow(recordModal)}
+                      <div className="form-control w-full">
+                        <span className="label-text mb-1">বিলিং</span>
+                        <div className="min-h-8 flex items-center px-1 text-sm">
+                          {billingFullLabelForRow(recordModal)}
+                        </div>
                       </div>
-                    </div>
                     ) : null}
                     {recordIdOf(recordModal) ? (
-                      <div className="flex gap-2 pt-1">
-                        <button
-                          type="button"
-                          className="btn btn-outline btn-primary btn-sm flex-1"
-                          disabled={!canUpdateRecord}
-                          title={
-                            recordSealedOf(recordModal)
-                              ? "রেকর্ড সিল করা আছে"
-                              : !canChangeDailyRecord
-                                ? "আপডেট অনুমতি নেই"
-                                : undefined
-                          }
-                          onClick={startModalEdit}
-                        >
-                          <Pencil className="size-4" strokeWidth={1.75} />
-                          আপডেট
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-error btn-sm flex-1"
-                          disabled={!canDeleteRecord}
-                          title={
-                            recordSealedOf(recordModal)
-                              ? "রেকর্ড সিল করা আছে"
-                              : !canDeleteDailyRecord
-                                ? "ডিলিট অনুমতি নেই"
-                                : undefined
-                          }
-                          onClick={onDeleteRecord}
-                        >
-                          <Trash2 className="size-4" strokeWidth={1.75} />
-                          ডিলিট
-                        </button>
+                      <div className="modal-action mt-2 justify-stretch gap-2">
+                        {modalDeleting ? (
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-ghost flex-1"
+                              onClick={cancelModalDelete}
+                              disabled={modalSaving}
+                            >
+                              বাতিল
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-error flex-1"
+                              onClick={confirmModalDelete}
+                              disabled={modalSaving}
+                            >
+                              {modalSaving ? (
+                                <span className="loading loading-spinner loading-sm" />
+                              ) : null}
+                              ডিলিট নিশ্চিত
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {canDeleteRecord ? (
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-error flex-1"
+                                disabled={!canDeleteRecord}
+                                title={
+                                  recordSealedOf(recordModal)
+                                    ? "রেকর্ড সিল করা আছে"
+                                    : !canDeleteDailyRecord
+                                      ? "ডিলিট অনুমতি নেই"
+                                      : undefined
+                                }
+                                onClick={startModalDelete}
+                              >
+                                <Trash2 className="size-4" strokeWidth={1.75} />
+                                ডিলিট
+                              </button>
+                            ) : null}
+                            {canUpdateRecord ? (
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-primary flex-1"
+                                disabled={!canUpdateRecord}
+                                title={
+                                  recordSealedOf(recordModal)
+                                    ? "রেকর্ড সিল করা আছে"
+                                    : !canChangeDailyRecord
+                                      ? "আপডেট অনুমতি নেই"
+                                      : undefined
+                                }
+                                onClick={startModalEdit}
+                              >
+                                <Pencil className="size-4" strokeWidth={1.75} />
+                                আপডেট
+                              </button>
+                            ) : null}
+                          </>
+                        )}
                       </div>
                     ) : null}
                   </>
