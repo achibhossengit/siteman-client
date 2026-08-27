@@ -29,6 +29,7 @@ import { messageForCode, parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { useBillingLookup } from "../../hooks/useBillingLookup.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
+import { useSitesLookup } from "../../hooks/useSites.js";
 import { PERMS, hasPermissionSuffix } from "../../utils/permissions.js";
 import {
   concatBillingName,
@@ -38,7 +39,9 @@ import {
 } from "../../utils/format.js";
 import {
   alertError,
+  alertNotice,
   confirmAction,
+  escapeHtml,
   toastApiError,
   toastError,
   toastInfo,
@@ -989,6 +992,7 @@ const paymentLineTone = (row, initial, keys, idKey, typeClass) => {
 export const HajiraPage = () => {
   const { date: selectedDate, siteId: selectedSiteId } = useOutletContext();
   const { can, profile, isCompanyAdmin } = usePermissions();
+  const { getSiteName } = useSitesLookup();
   const queryClient = useQueryClient();
 
   const canAddDailyRecord = can(PERMS.addDailyRecord);
@@ -1013,6 +1017,15 @@ export const HajiraPage = () => {
       return false;
     }
     return allowedSiteIds.has(String(row.labourCurrentSite));
+  };
+
+  const showLabourDetailDenied = async (row) => {
+    const name = escapeHtml(row?.labourName?.trim() || "এই শ্রমিক");
+    const siteLabel = escapeHtml(getSiteName(row?.labourCurrentSite));
+    await alertNotice({
+      html: `<strong>${name}</strong> এর বর্তমান সাইট <strong>${siteLabel}</strong>। এই সাইটে আপনার <strong>অনুমতি নেই</strong>।`,
+      confirmText: "ঠিক আছে",
+    });
   };
 
   const siteId = selectedSiteId || readSelectedSite();
@@ -2309,35 +2322,50 @@ export const HajiraPage = () => {
                       className={["font-medium", nameMutedClass]
                         .filter(Boolean)
                         .join(" ")}
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 whitespace-nowrap">
-                          {row.labourId != null ? (
+                          {row.labourId != null && canOpenLabourDetail(row) ? (
                             <Link
                               to={paths.labourDetail(row.labourId)}
                               className={[
                                 "flex items-center gap-2 min-w-0",
-                                canOpenLabourDetail(row)
-                                  ? ""
-                                  : "text-base-content/60 no-underline pointer-events-none",
                                 nameMutedClass,
                               ]
                                 .filter(Boolean)
                                 .join(" ")}
                               title={
-                                canOpenLabourDetail(row)
-                                  ? offSite
-                                    ? "এই শ্রমিক আর এই সাইটে নেই"
-                                    : row.labourName
-                                  : "এই শ্রমিকের সাইটে অনুমতি নেই"
+                                offSite
+                                  ? "এই শ্রমিক আর এই সাইটে নেই"
+                                  : row.labourName
                               }
-                              aria-disabled={!canOpenLabourDetail(row)}
-                              tabIndex={
-                                canOpenLabourDetail(row) ? undefined : -1
-                              }
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <PersonAvatar
+                                photo={row.labourPhoto}
+                                name={row.labourName}
+                                size="xs"
+                                shape="square"
+                              />
+                              <span className="link link-hover">
+                                {concatLabourName(row.labourName)}
+                              </span>
+                            </Link>
+                          ) : row.labourId != null ? (
+                            <button
+                              type="button"
+                              className={[
+                                "flex items-center gap-2 min-w-0 text-left cursor-pointer",
+                                "text-base-content/60",
+                                nameMutedClass,
+                              ]
+                                .filter(Boolean)
+                                .join(" ")}
+                              title="এই শ্রমিকের সাইটে অনুমতি নেই"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (!canOpenLabourDetail(row)) e.preventDefault();
+                                void showLabourDetailDenied(row);
                               }}
                             >
                               <PersonAvatar
@@ -2346,18 +2374,10 @@ export const HajiraPage = () => {
                                 size="xs"
                                 shape="square"
                               />
-                              <span
-                                className={
-                                  canOpenLabourDetail(row)
-                                    ? "link link-hover"
-                                    : ""
-                                }
-                              >
-                                {concatLabourName(row.labourName)}
-                              </span>
-                            </Link>
+                              {concatLabourName(row.labourName)}
+                            </button>
                           ) : (
-                            <>
+                            <span className="flex items-center gap-2 min-w-0">
                               <PersonAvatar
                                 photo={row.labourPhoto}
                                 name={row.labourName}
@@ -2365,7 +2385,7 @@ export const HajiraPage = () => {
                                 shape="square"
                               />
                               {concatLabourName(row.labourName)}
-                            </>
+                            </span>
                           )}
                         </div>
                       </div>

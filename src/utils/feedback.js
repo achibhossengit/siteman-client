@@ -44,6 +44,37 @@ export const alertError = async ({
   })
 }
 
+const escapeHtml = (value) =>
+  String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+
+export { escapeHtml }
+
+/** Simple one-button notice — no icon/title. Prefer `html` for bold parts. */
+export const alertNotice = async ({
+  text,
+  html,
+  confirmText = 'ঠিক আছে',
+} = {}) => {
+  const target = topLayerTarget()
+
+  await Swal.fire({
+    target: target ?? 'body',
+    heightAuto: !target,
+    scrollbarPadding: !target,
+    title: false,
+    text: html ? undefined : text,
+    html: html || undefined,
+    confirmButtonText: confirmText,
+    confirmButtonColor: 'var(--color-primary)',
+    customClass: { popup: 'swal-confirm' },
+  })
+}
+
 export const confirmAction = async ({
   title,
   text,
