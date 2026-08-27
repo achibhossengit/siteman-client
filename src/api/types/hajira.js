@@ -119,6 +119,7 @@ export const buildHajiraRowFromEntry = (entry) => {
     labourPhoto: labour.photo ?? null,
     labourCurrentSite,
     labourIsActive: labour.is_active !== false,
+    lastSessionDate: labour.last_session_date ?? null,
     defaultAttendance: Number(labour.default_attendance) || 0,
     defaultSalary: Number(labour.default_salary) || 0,
     defaultFooding: Number(labour.default_fooding) || 0,

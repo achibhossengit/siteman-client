@@ -689,6 +689,8 @@ const recordModalFromRow = (row) => ({
   labourId: row.labourId,
   labourName: row.labourName,
   labourPhoto: row.labourPhoto,
+  labourCurrentSite: row.labourCurrentSite ?? null,
+  lastSessionDate: row.lastSessionDate ?? null,
   present:
     row.present === "" || row.present == null ? "0" : String(row.present),
   salary:
@@ -755,6 +757,33 @@ const recordSealedOf = (row) =>
       row?.advanceSealed ||
       row?.returnSealed,
   );
+
+/** New records must be after labour.last_session_date (ISO date strings). */
+const isCreateBlockedByLastSession = (row, recordDate) => {
+  if (recordIdOf(row)) return false;
+  const last = row?.lastSessionDate;
+  if (!last || !recordDate) return false;
+  return String(recordDate) <= String(last);
+};
+
+const formatLastSessionDateBn = (isoDate) => {
+  if (!isoDate) return null;
+  const d = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return String(isoDate);
+  return new Intl.DateTimeFormat("bn-BD", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(d);
+};
+
+const lastSessionCreateBlockedMessage = (row) => {
+  const dateLabel = formatLastSessionDateBn(row?.lastSessionDate);
+  if (!dateLabel) {
+    return messageForCode("record_date_not_after_last_session");
+  }
+  return `এই শ্রমিক কে সর্বশেষ হিসাব দেওয়া হয়েছে ${dateLabel}। নতুন হাজিরা এই তারিখের পরে হতে হবে।`;
+};
 
 const RECORD_MODAL_ID = "hajira_record_modal";
 const LABOUR_FILTER_MODAL_ID = "hajira_labour_filter_modal";
@@ -952,7 +981,9 @@ const fieldTone = (row, initial, keys, idKey) => {
 
 const paymentLineTone = (row, initial, keys, idKey, typeClass) => {
   const tone = fieldTone(row, initial, keys, idKey);
-  return tone === "text-base-content/60" ? typeClass : tone;
+  // Keep amber for pending updates; never paint create/activity green on amounts.
+  if (tone === "text-amber-500") return tone;
+  return typeClass;
 };
 
 export const HajiraPage = () => {
@@ -1270,12 +1301,18 @@ export const HajiraPage = () => {
   const hasPendingCreates = useMemo(
     () =>
       rows.some((row) => {
-        if (recordIdOf(row) || recordSealedOf(row)) return false;
+        if (
+          recordIdOf(row) ||
+          recordSealedOf(row) ||
+          isCreateBlockedByLastSession(row, date)
+        ) {
+          return false;
+        }
         const initial =
           initialRows.find((r) => r.labourId === row.labourId) ?? row;
         return isRecordDirty(row, initial) && hasAttendanceData(row);
       }),
-    [rows, initialRows],
+    [rows, initialRows, date],
   );
 
   const viewEarningsFilter = earningsFilter;
@@ -1341,14 +1378,24 @@ export const HajiraPage = () => {
 
   const attendanceLocked = (row) =>
     recordSealedOf(row) ||
-    (recordIdOf(row) ? !canChangeDailyRecord : !canAddDailyRecord);
+    (recordIdOf(row)
+      ? !canChangeDailyRecord
+      : !canAddDailyRecord || isCreateBlockedByLastSession(row, date));
+
+  const isLabourOffSite = (row) => {
+    if (row?.labourCurrentSite == null || siteId == null || siteId === "") {
+      return false;
+    }
+    return Number(row.labourCurrentSite) !== Number(siteId);
+  };
 
   const isCreateModal = Boolean(recordModal && !recordIdOf(recordModal));
   const modalEditable = Boolean(
     recordModal &&
       !recordSealedOf(recordModal) &&
       (isCreateModal
-        ? canAddDailyRecord
+        ? canAddDailyRecord &&
+          !isCreateBlockedByLastSession(recordModal, date)
         : modalEditing && canChangeDailyRecord),
   );
 
@@ -1880,6 +1927,10 @@ export const HajiraPage = () => {
 
         if (recordSealedOf(row)) continue;
         if (recordIdOf(row)) continue;
+        if (isCreateBlockedByLastSession(row, date)) {
+          blocked += 1;
+          continue;
+        }
         if (!isRecordDirty(row, initial)) continue;
 
         if (hasAttendanceData(row)) {
@@ -1921,6 +1972,7 @@ export const HajiraPage = () => {
         recordIdOf(row) ||
         !isAttendanceDirty(row, initial) ||
         recordSealedOf(row) ||
+        isCreateBlockedByLastSession(row, date) ||
         !hasAttendanceData(row)
       ) {
         return false;
@@ -1937,7 +1989,9 @@ export const HajiraPage = () => {
       if (result.creates === 0) {
         toastInfo(
           result.blocked > 0
-            ? messageForCode("permission_denied")
+            ? !canAddDailyRecord
+              ? messageForCode("permission_denied")
+              : messageForCode("record_date_not_after_last_session")
             : "সেভ করার মতো কোনো পরিবর্তন নেই।",
         );
         return;
@@ -2172,11 +2226,11 @@ export const HajiraPage = () => {
                   ["present", "salary", "extra", "extraNote", "billing"],
                   "attendanceId",
                 );
+                // Hajira / আয়: normal text (no activity/create green).
                 const hajiraGroupTone =
-                  hajiraDirtyTone !== "text-base-content/60"
-                    ? hajiraDirtyTone
-                    : activityTextToneClass(row.activityTone) ||
-                      "text-base-content/70";
+                  hajiraDirtyTone === "text-amber-500"
+                    ? "text-amber-500"
+                    : "text-base-content";
                 const earn = dayEarnings(row, viewEarningsFilter);
                 const paymentPart = viewPaymentFilter.includes("payment")
                   ? hasAmount(row.payment)
@@ -2207,10 +2261,16 @@ export const HajiraPage = () => {
                 const hasSaveError = Boolean(
                   rowSaveErrors && rowSaveErrors.length,
                 );
+                const sealed = recordSealedOf(row);
+                const offSite = isLabourOffSite(row);
+                const nameMutedClass = offSite
+                  ? "text-base-content/45"
+                  : "";
+                const sealedContentClass = sealed ? "opacity-50" : "";
 
                 return (
+                  <Fragment key={row.labourId}>
                   <tr
-                    key={row.labourId}
                     className={[
                       "border-b border-base-300/70 cursor-pointer",
                       hasSaveError ? "bg-error/10" : rowToneClass,
@@ -2218,8 +2278,16 @@ export const HajiraPage = () => {
                       .filter(Boolean)
                       .join(" ")}
                     onClick={() => openRecordModal(row)}
+                    title={
+                      sealed
+                        ? messageForCode("record_sealed")
+                        : offSite
+                          ? "এই শ্রমিক আর এই সাইটে নেই"
+                          : undefined
+                    }
                   >
                     <td className="tabular-nums text-base-content/60">
+                      <span className={sealedContentClass || undefined}>
                       {selectMode && canChangeActivityLog ? (
                         <input
                           type="checkbox"
@@ -2235,14 +2303,12 @@ export const HajiraPage = () => {
                       ) : (
                         formatBnNumber(index + 1)
                       )}
+                      </span>
                     </td>
                     <td
-                      className="font-medium"
-                      title={
-                        hasSaveError
-                          ? rowSaveErrors.join(" · ")
-                          : row.labourName
-                      }
+                      className={["font-medium", nameMutedClass]
+                        .filter(Boolean)
+                        .join(" ")}
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 whitespace-nowrap">
@@ -2254,10 +2320,15 @@ export const HajiraPage = () => {
                                 canOpenLabourDetail(row)
                                   ? ""
                                   : "text-base-content/60 no-underline pointer-events-none",
-                              ].join(" ")}
+                                nameMutedClass,
+                              ]
+                                .filter(Boolean)
+                                .join(" ")}
                               title={
                                 canOpenLabourDetail(row)
-                                  ? row.labourName
+                                  ? offSite
+                                    ? "এই শ্রমিক আর এই সাইটে নেই"
+                                    : row.labourName
                                   : "এই শ্রমিকের সাইটে অনুমতি নেই"
                               }
                               aria-disabled={!canOpenLabourDetail(row)}
@@ -2297,15 +2368,21 @@ export const HajiraPage = () => {
                             </>
                           )}
                         </div>
-                        {hasSaveError ? (
-                          <p className="text-xs text-error font-normal whitespace-normal leading-snug mt-0.5 max-w-48 sm:max-w-none">
-                            {rowSaveErrors.join(" · ")}
-                          </p>
-                        ) : null}
                       </div>
                     </td>
-                    <td className={`text-right ${hajiraGroupTone}`}>
-                      <span className="block w-full space-y-0.5 text-right leading-tight">
+                    <td
+                      className={["text-right", hajiraGroupTone]
+                        .filter(Boolean)
+                        .join(" ")}
+                    >
+                      <span
+                        className={[
+                          "block w-full space-y-0.5 text-right leading-tight",
+                          sealedContentClass,
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      >
                         {attendanceLines.map((line) => (
                           <span
                             key={line.key}
@@ -2321,12 +2398,24 @@ export const HajiraPage = () => {
                     </td>
                     {showAyColumn ? (
                       <td
-                        className={`text-right tabular-nums ${hajiraGroupTone}`}
+                        className={["text-right tabular-nums", hajiraGroupTone]
+                          .filter(Boolean)
+                          .join(" ")}
                       >
-                        {earn ? formatBnNumber(earn) : "—"}
+                        <span className={sealedContentClass || undefined}>
+                          {earn ? formatBnNumber(earn) : "—"}
+                        </span>
                       </td>
                     ) : null}
                     <td className="text-right">
+                      <span
+                        className={[
+                          "block w-full",
+                          sealedContentClass,
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      >
                       {showOutflow || showRet ? (
                         <span className="block w-full tabular-nums space-y-0.5 text-right leading-tight">
                           {showOutflow ? (
@@ -2354,7 +2443,7 @@ export const HajiraPage = () => {
                                 initial,
                                 ["return", "returnNote"],
                                 "returnId",
-                                "text-success",
+                                "text-base-content",
                               )}`}
                             >
                               {formatBnNumber(row.return)}
@@ -2366,6 +2455,7 @@ export const HajiraPage = () => {
                           —
                         </span>
                       )}
+                      </span>
                     </td>
                     {SHOW_BILLING ? (
                     <td
@@ -2376,12 +2466,32 @@ export const HajiraPage = () => {
                           : undefined
                       }
                     >
+                      <span className={sealedContentClass || undefined}>
                       {hasBilling(row) || recordIdOf(row)
                         ? billingLabelForRow(row)
                         : "—"}
+                      </span>
                     </td>
                     ) : null}
                   </tr>
+                  {hasSaveError ? (
+                    <tr
+                      className={[
+                        "border-b border-base-300/70 bg-error/10",
+                        sealed ? "opacity-50" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                    >
+                      <td
+                        colSpan={tableColCount}
+                        className="py-1.5 text-xs text-error font-normal whitespace-normal leading-snug"
+                      >
+                        {rowSaveErrors.join(" · ")}
+                      </td>
+                    </tr>
+                  ) : null}
+                  </Fragment>
                 );
               })
             )}
@@ -2408,7 +2518,7 @@ export const HajiraPage = () => {
                         </span>
                       ) : null}
                       {totals.return ? (
-                        <span className="block w-full text-right text-success">
+                        <span className="block w-full text-right text-base-content">
                           {formatBnNumber(totals.return)}
                         </span>
                       ) : null}
@@ -2927,7 +3037,7 @@ export const HajiraPage = () => {
                                 disabled={!canDeleteRecord}
                                 title={
                                   recordSealedOf(recordModal)
-                                    ? "রেকর্ড সিল করা আছে"
+                                    ? "এই হাজিরার হিসাব দেওয়া হয়েছে"
                                     : !canDeleteDailyRecord
                                       ? "ডিলিট অনুমতি নেই"
                                       : undefined
@@ -2945,7 +3055,7 @@ export const HajiraPage = () => {
                                 disabled={!canUpdateRecord}
                                 title={
                                   recordSealedOf(recordModal)
-                                    ? "রেকর্ড সিল করা আছে"
+                                    ? "এই হাজিরার হিসাব দেওয়া হয়েছে"
                                     : !canChangeDailyRecord
                                       ? "আপডেট অনুমতি নেই"
                                       : undefined
@@ -2956,8 +3066,22 @@ export const HajiraPage = () => {
                                 আপডেট
                               </button>
                             ) : null}
+                            {recordSealedOf(recordModal) &&
+                            !canDeleteRecord &&
+                            !canUpdateRecord ? (
+                              <p className="flex-1 text-sm text-center text-base-content/70 bg-base-200/80 rounded-md px-3 py-2">
+                                {messageForCode("record_sealed")}
+                              </p>
+                            ) : null}
                           </>
                         )}
+                      </div>
+                    ) : isCreateModal &&
+                      isCreateBlockedByLastSession(recordModal, date) ? (
+                      <div className="modal-action mt-2">
+                        <p className="w-full text-sm text-center text-warning bg-warning/10 rounded-md px-3 py-2">
+                          {lastSessionCreateBlockedMessage(recordModal)}
+                        </p>
                       </div>
                     ) : null}
                   </>

@@ -91,7 +91,7 @@ export const CODE_COPY = {
   // Records
   record_future_date: 'ভবিষ্যতের তারিখ দেওয়া যাবে না। আজ বা আগের তারিখ দিন।',
   record_date_not_after_last_session: 'শেষ হিসাবের পরের তারিখ দিতে হবে।',
-  record_sealed: 'এই রেকর্ডটি সিল করা আছে, তাই আর পরিবর্তন করা যাবে না।',
+  record_sealed: 'এই হাজিরার হিসাব দেওয়া হয়েছে। তাই পরিবর্তন করা যাবে না।',
   record_unique_constraint_violation: 'এই তারিখের জন্য রেকর্ড ইতিমধ্যে আছে।',
   category_not_allowed: 'নির্বাচিত ক্যাটাগরিটি এখানে ব্যবহার করা যাবে না।',
 
