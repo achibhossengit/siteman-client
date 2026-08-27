@@ -58,6 +58,7 @@ import {
   isBulkBillingDirty,
   isBulkPaymentDirty,
   isCreateBlockedByLastSession,
+  isPendingCreateRow,
   isRecordDirty,
   isRecordModalDirty,
   lacksMeaningfulDayValue,
@@ -419,16 +420,9 @@ export const HajiraPage = () => {
   const hasPendingCreates = useMemo(
     () =>
       rows.some((row) => {
-        if (
-          recordIdOf(row) ||
-          recordSealedOf(row) ||
-          isCreateBlockedByLastSession(row, date)
-        ) {
-          return false;
-        }
         const initial =
           initialRows.find((r) => r.labourId === row.labourId) ?? row;
-        return isRecordDirty(row, initial) && hasAttendanceData(row);
+        return isPendingCreateRow(row, initial, date);
       }),
     [rows, initialRows, date],
   );
@@ -1276,6 +1270,7 @@ export const HajiraPage = () => {
         showLabourDetailDenied={showLabourDetailDenied}
         billingLabelForRow={billingLabelForRow}
         totals={totals}
+        date={date}
       />
 
       <HajiraActionBars

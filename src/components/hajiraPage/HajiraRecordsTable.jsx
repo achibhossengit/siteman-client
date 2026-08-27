@@ -23,6 +23,7 @@ import {
   filterHeaderTitle,
   hasAmount,
   hasBilling,
+  isPendingCreateRow,
   paymentAmountOf,
   paymentLineTone,
   recordIdOf,
@@ -67,6 +68,7 @@ export function HajiraRecordsTable({
   showLabourDetailDenied,
   billingLabelForRow,
   totals,
+  date,
 }) {
   return (
       <div className="flex-1 min-h-0 overflow-auto pb-24">
@@ -202,7 +204,10 @@ export function HajiraRecordsTable({
                   (id) => billingFullLabelForRow(row),
                   viewHajiraFields,
                 );
-                const rowToneClass = activityToneClass(row.activityTone);
+                const pendingCreate = isPendingCreateRow(row, initial, date);
+                const rowToneClass = pendingCreate
+                  ? "[&>td]:bg-success/50"
+                  : activityToneClass(row.activityTone);
                 const rowSaveErrors =
                   saveRowErrors[Number(row.labourId)] ??
                   saveRowErrors[row.labourId] ??
@@ -230,9 +235,11 @@ export function HajiraRecordsTable({
                     title={
                       sealed
                         ? messageForCode("record_sealed")
-                        : offSite
-                          ? "এই শ্রমিক আর এই সাইটে নেই"
-                          : undefined
+                        : pendingCreate
+                          ? "নতুন হাজিরা — নিশ্চিত করলে তৈরি হবে"
+                          : offSite
+                            ? "এই শ্রমিক আর এই সাইটে নেই"
+                            : undefined
                     }
                   >
                     <td className="tabular-nums text-base-content/60">

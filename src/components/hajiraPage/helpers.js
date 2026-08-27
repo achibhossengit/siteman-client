@@ -350,3 +350,30 @@ export const paymentLineTone = (row, initial, keys, idKey, typeClass) => {
   if (tone === "text-amber-500") return tone;
   return typeClass;
 };
+
+/** Staged local row that "নিশ্চিত" will POST as a new daily record. */
+export const isPendingCreateRow = (row, initial, date) => {
+  if (
+    recordIdOf(row) ||
+    recordSealedOf(row) ||
+    isCreateBlockedByLastSession(row, date)
+  ) {
+    return false;
+  }
+  return isRecordDirty(row, initial) && hasAttendanceData(row);
+};
+
+/** Column filters must keep at least one option selected. */
+export const isLastCheckedFilter = (selected, value) =>
+  Array.isArray(selected) &&
+  selected.includes(value) &&
+  selected.length === 1;
+
+export const toggleRequiredFilter = (prev, value) => {
+  const selected = Array.isArray(prev) ? prev : [];
+  if (selected.includes(value)) {
+    if (selected.length <= 1) return selected;
+    return selected.filter((item) => item !== value);
+  }
+  return [...selected, value];
+};

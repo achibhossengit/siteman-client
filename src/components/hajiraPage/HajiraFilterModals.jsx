@@ -16,7 +16,9 @@ import {
   isBulkAttendanceDirty,
   isBulkAttendanceZeroInvalid,
   isBulkPaymentDirty,
+  isLastCheckedFilter,
   numOrEmpty,
+  toggleRequiredFilter,
 } from "./helpers.js";
 
 export function HajiraFilterModals({
@@ -63,27 +65,33 @@ export function HajiraFilterModals({
           </form>
           <h3 className="font-bold text-lg pr-8 shrink-0">নাম</h3>
           <div className="flex flex-col gap-3 pt-3 flex-1 min-h-0 overflow-y-auto">
-            <div className="flex flex-col gap-2">
-              {LABOUR_FILTER_OPTIONS.map((opt) => (
-                <label
-                  key={opt.value}
-                  className="inline-flex items-center gap-2 cursor-pointer text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    className="checkbox checkbox-xs"
-                    checked={labourFilter.includes(opt.value)}
-                    onChange={() => {
-                      setLabourFilter((prev) =>
-                        prev.includes(opt.value)
-                          ? prev.filter((value) => value !== opt.value)
-                          : [...prev, opt.value],
-                      );
-                    }}
-                  />
-                  <span>{opt.label}</span>
-                </label>
-              ))}
+            <div className="flex flex-wrap gap-3">
+              {LABOUR_FILTER_OPTIONS.map((opt) => {
+                const checked = labourFilter.includes(opt.value);
+                const locked = isLastCheckedFilter(labourFilter, opt.value);
+                return (
+                  <label
+                    key={opt.value}
+                    className={[
+                      "inline-flex items-center gap-2 text-sm",
+                      locked ? "cursor-not-allowed opacity-70" : "cursor-pointer",
+                    ].join(" ")}
+                  >
+                    <input
+                      type="checkbox"
+                      className="checkbox checkbox-xs"
+                      checked={checked}
+                      disabled={locked}
+                      onChange={() => {
+                        setLabourFilter((prev) =>
+                          toggleRequiredFilter(prev, opt.value),
+                        );
+                      }}
+                    />
+                    <span>{opt.label}</span>
+                  </label>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -147,26 +155,34 @@ export function HajiraFilterModals({
           <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pt-3">
             <div>
               <div className="flex flex-wrap gap-x-4 gap-y-2">
-                {HAJIRA_FILTER_OPTIONS.map((opt) => (
-                  <label
-                    key={opt.value}
-                    className="inline-flex items-center gap-2 cursor-pointer text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      className="checkbox checkbox-xs"
-                      checked={hajiraFilter.includes(opt.value)}
-                      onChange={() => {
-                        setHajiraFilter((prev) =>
-                          prev.includes(opt.value)
-                            ? prev.filter((value) => value !== opt.value)
-                            : [...prev, opt.value],
-                        );
-                      }}
-                    />
-                    <span>{opt.label}</span>
-                  </label>
-                ))}
+                {HAJIRA_FILTER_OPTIONS.map((opt) => {
+                  const checked = hajiraFilter.includes(opt.value);
+                  const locked = isLastCheckedFilter(hajiraFilter, opt.value);
+                  return (
+                    <label
+                      key={opt.value}
+                      className={[
+                        "inline-flex items-center gap-2 text-sm",
+                        locked
+                          ? "cursor-not-allowed opacity-70"
+                          : "cursor-pointer",
+                      ].join(" ")}
+                    >
+                      <input
+                        type="checkbox"
+                        className="checkbox checkbox-xs"
+                        checked={checked}
+                        disabled={locked}
+                        onChange={() => {
+                          setHajiraFilter((prev) =>
+                            toggleRequiredFilter(prev, opt.value),
+                          );
+                        }}
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
             {showBulkSection ? (
@@ -268,26 +284,34 @@ export function HajiraFilterModals({
           <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pt-3">
             <div>
               <div className="flex flex-wrap gap-x-4 gap-y-2">
-                {PAYMENT_FILTER_OPTIONS.map((opt) => (
-                  <label
-                    key={opt.value}
-                    className="inline-flex items-center gap-2 cursor-pointer text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      className="checkbox checkbox-xs"
-                      checked={paymentFilter.includes(opt.value)}
-                      onChange={() => {
-                        setPaymentFilter((prev) =>
-                          prev.includes(opt.value)
-                            ? prev.filter((value) => value !== opt.value)
-                            : [...prev, opt.value],
-                        );
-                      }}
-                    />
-                    <span>{opt.label}</span>
-                  </label>
-                ))}
+                {PAYMENT_FILTER_OPTIONS.map((opt) => {
+                  const checked = paymentFilter.includes(opt.value);
+                  const locked = isLastCheckedFilter(paymentFilter, opt.value);
+                  return (
+                    <label
+                      key={opt.value}
+                      className={[
+                        "inline-flex items-center gap-2 text-sm",
+                        locked
+                          ? "cursor-not-allowed opacity-70"
+                          : "cursor-pointer",
+                      ].join(" ")}
+                    >
+                      <input
+                        type="checkbox"
+                        className="checkbox checkbox-xs"
+                        checked={checked}
+                        disabled={locked}
+                        onChange={() => {
+                          setPaymentFilter((prev) =>
+                            toggleRequiredFilter(prev, opt.value),
+                          );
+                        }}
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
             {showBulkSection ? (
