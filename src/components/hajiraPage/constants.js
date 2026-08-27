@@ -19,8 +19,8 @@ export const HAJIRA_FILTER_OPTIONS = [
 export const HAJIRA_DEFAULT_FIELDS = ["present", "extra"];
 
 export const LABOUR_FILTER_OPTIONS = [
-  { value: "record", label: "এই সাইটের রেকর্ড" },
-  { value: "labour", label: "শুধু এই সাইটের শ্রমিক" },
+  { value: "record", label: "হাজিরা" },
+  { value: "labour", label: "শ্রমিক" },
 ];
 
 export const LABOUR_DEFAULT_FIELDS = ["record", "labour"];
