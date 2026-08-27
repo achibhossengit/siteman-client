@@ -181,37 +181,22 @@ export const deleteBillingCategory = (siteId, id) =>
   api.delete(endpoints.sites.billingCategoryDetail(siteId, id))
 
 /**
- * Site daily records list (paginated).
- * GET /sites/{site_pk}/daily-records — filters: date, labour, billing, is_sealed.
+ * Site hajira roster for one day (unpaginated).
+ * GET /sites/{site_pk}/daily-records?date= — each item is { labour, record }.
  */
-export const fetchSiteDailyRecords = (
-  siteId,
-  { date, labour, billing, is_sealed, page, page_size } = {},
-) => {
+export const fetchSiteDailyRecords = (siteId, { date } = {}) => {
   const params = {
     ...(date ? { date } : {}),
-    ...(labour != null && labour !== '' ? { labour } : {}),
-    ...(billing != null && billing !== '' ? { billing } : {}),
-    ...(typeof is_sealed === 'boolean' ? { is_sealed } : {}),
-    ...(page != null ? { page } : {}),
-    ...(page_size != null ? { page_size } : {}),
   }
-  return api
-    .get(endpoints.sites.dailyRecords(siteId), { params })
-    .then((res) => ({
-      ...res,
-      data:
-        page != null || page_size != null ? asPage(res.data) : asList(res.data),
-    }))
+  return api.get(endpoints.sites.dailyRecords(siteId), { params }).then((res) => ({
+    ...res,
+    data: asList(res.data),
+  }))
 }
 
-/** All daily records for one day (walks pagination). */
-export const fetchSiteDailyRecordsByDate = async (siteId, recordDate) => {
-  const data = await fetchAllPages(({ page, page_size }) =>
-    fetchSiteDailyRecords(siteId, { date: recordDate, page, page_size }),
-  )
-  return { data }
-}
+/** Hajira roster for one day — unpaginated `{ labour, record }` list. */
+export const fetchSiteDailyRecordsByDate = (siteId, recordDate) =>
+  fetchSiteDailyRecords(siteId, { date: recordDate })
 
 /** POST /sites/{site_pk}/daily-records — bulk create (array body). */
 export const createSiteDailyRecords = (siteId, payload) =>

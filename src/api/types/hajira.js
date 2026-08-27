@@ -1,9 +1,10 @@
 /**
  * Site daily-record helpers for হাজিরা.
- * DailyRecord merges former attendance + labour-payment fields.
+ * Site list GET returns `{ labour, record }` roster rows.
  *
- * API fields: present, wage, extra_earn, fooding_pay, advance_pay, return_amount, note, billing
- * UI row keeps some short names (salary/extra/payment) for existing page code.
+ * Record fields: present, wage, extra_earn, fooding_pay, advance_pay,
+ * return_amount, note, billing, pending_activities
+ * UI row keeps short names (salary/extra/payment) for existing page code.
  */
 
 import { z } from 'zod'
@@ -24,27 +25,47 @@ export const attendanceFormSchema = z.object({
   billing: z.string().optional(),
 })
 
-const labourIdOf = (row) => {
-  const candidate =
-    row?.labour ?? row?.labour_id ?? row?.labourId ?? null
-  if (candidate == null || candidate === '') return null
-  if (typeof candidate === 'object') return candidate.id ?? candidate.pk ?? null
-  return candidate
-}
-
-const labourNameOf = (row, labourId) => {
-  if (row?.labour_name) return row.labour_name
-  if (row?.labourName) return row.labourName
-  if (row?.labour && typeof row.labour === 'object' && row.labour.name) {
-    return row.labour.name
-  }
-  return labourId != null ? `#${labourId}` : '—'
-}
-
 const blankAmount = (value) => {
   if (value == null || value === '') return ''
   const n = Number(value)
   return Number.isFinite(n) ? n : ''
+}
+
+const isRosterEntry = (item) =>
+  item != null &&
+  typeof item === 'object' &&
+  item.labour != null &&
+  typeof item.labour === 'object' &&
+  'record' in item
+
+/** Normalize flat legacy records or nested `{ labour, record }` entries. */
+const asRosterEntries = (items = []) => {
+  if (!Array.isArray(items) || !items.length) return []
+  if (isRosterEntry(items[0])) return items
+
+  return items.map((record) => {
+    const labourId =
+      record?.labour_id ??
+      record?.labourId ??
+      (typeof record?.labour === 'object'
+        ? record.labour?.id
+        : record?.labour) ??
+      null
+    return {
+      labour: {
+        id: labourId,
+        name: record?.labour_name ?? record?.labourName ?? null,
+        photo: record?.labour_photo ?? record?.labourPhoto ?? null,
+        current_site:
+          record?.labour_current_site ?? record?.labourCurrentSite ?? null,
+        default_attendance: 0,
+        default_salary: 0,
+        default_fooding: 0,
+        is_active: true,
+      },
+      record,
+    }
+  })
 }
 
 /** Build API create/patch body from an edit row. */
@@ -81,144 +102,145 @@ export const toDailyRecordPatchPayload = (row) => {
   return rest
 }
 
+/** One UI row from a SiteDailyRecordList entry `{ labour, record }`. */
+export const buildHajiraRowFromEntry = (entry) => {
+  const labour = entry?.labour ?? {}
+  const record = entry?.record ?? null
+  const labourId = Number(labour.id)
+  const sealed = Boolean(record?.is_sealed)
+  const labourCurrentSite =
+    labour.current_site == null || labour.current_site === ''
+      ? null
+      : Number(labour.current_site)
+
+  return {
+    labourId,
+    labourName: labour.name ?? `#${labourId}`,
+    labourPhoto: labour.photo ?? null,
+    labourCurrentSite,
+    labourIsActive: labour.is_active !== false,
+    defaultAttendance: Number(labour.default_attendance) || 0,
+    defaultSalary: Number(labour.default_salary) || 0,
+    defaultFooding: Number(labour.default_fooding) || 0,
+    recordId: record?.id ?? null,
+    recordSealed: sealed,
+    // Legacy aliases used by existing modal/lock helpers
+    attendanceId: record?.id ?? null,
+    attendanceSealed: sealed,
+    paymentId: record?.id ?? null,
+    paymentSealed: sealed,
+    advanceId: record?.id ?? null,
+    advanceSealed: sealed,
+    returnId: record?.id ?? null,
+    returnSealed: sealed,
+    recordCreatedAt: record?.created_at ?? null,
+    recordUpdatedAt: record?.updated_at ?? null,
+    attendanceCreatedAt: record?.created_at ?? null,
+    attendanceUpdatedAt: record?.updated_at ?? null,
+    paymentCreatedAt: record?.created_at ?? null,
+    paymentUpdatedAt: record?.updated_at ?? null,
+    advanceCreatedAt: record?.created_at ?? null,
+    advanceUpdatedAt: record?.updated_at ?? null,
+    returnCreatedAt: record?.created_at ?? null,
+    returnUpdatedAt: record?.updated_at ?? null,
+    present:
+      record?.present == null || record?.present === ''
+        ? ''
+        : Number(record.present),
+    salary:
+      record?.wage == null || record?.wage === '' ? '' : Number(record.wage),
+    extra:
+      record == null
+        ? ''
+        : record.extra_earn == null || record.extra_earn === ''
+          ? ''
+          : Number(record.extra_earn) || 0,
+    extraNote: record?.note ?? '',
+    billing:
+      record?.billing != null && record?.billing !== ''
+        ? String(record.billing)
+        : '',
+    billingName: record?.billing_name ?? null,
+    siteId: record?.site ?? null,
+    payment: blankAmount(record?.fooding_pay),
+    paymentNote: '',
+    advance: blankAmount(record?.advance_pay),
+    advanceNote: '',
+    return: blankAmount(record?.return_amount),
+    returnNote: '',
+    pending_activities: Array.isArray(record?.pending_activities)
+      ? record.pending_activities
+      : [],
+  }
+}
+
 /**
- * One editable row per active labour. Records whose labour is not in
- * `labours` are ignored.
+ * Build hajira table rows from site daily-records roster.
+ * Filters:
+ * - labour: labour.current_site matches siteId
+ * - record: entry has a day's record
+ */
+export const buildHajiraRowsFromRoster = (
+  items = [],
+  { siteId, includeLabour = true, includeRecord = true } = {},
+) => {
+  if (!includeLabour && !includeRecord) return []
+
+  const site =
+    siteId != null && siteId !== '' ? Number(siteId) : null
+  const entries = asRosterEntries(items).filter((entry) => {
+    const labourId = entry?.labour?.id
+    if (labourId == null || labourId === '') return false
+    const onSite =
+      site == null || Number(entry.labour.current_site) === site
+    const hasRecord = entry.record != null
+    if (includeLabour && includeRecord) return onSite || hasRecord
+    if (includeLabour) return onSite
+    return hasRecord
+  })
+
+  return entries
+    .map(buildHajiraRowFromEntry)
+    .sort((a, b) =>
+      String(a.labourName).localeCompare(String(b.labourName), 'bn'),
+    )
+}
+
+/**
+ * @deprecated Prefer buildHajiraRowsFromRoster.
+ * One editable row per labour; records matched by labour id.
  */
 export const buildHajiraEditRows = (labours, records = []) => {
-  const labourIds = new Set(labours.map((l) => Number(l.id)))
-
-  const recordByLabour = new Map()
-  for (const record of records) {
-    const labourId = labourIdOf(record)
-    if (labourId == null || !labourIds.has(Number(labourId))) continue
-    if (!recordByLabour.has(Number(labourId))) {
-      recordByLabour.set(Number(labourId), record)
-    }
+  const byLabour = new Map()
+  for (const record of asRosterEntries(records)) {
+    const id = Number(record.labour?.id)
+    if (!Number.isFinite(id)) continue
+    if (!byLabour.has(id)) byLabour.set(id, record.record)
   }
 
-  return labours.map((labour) => {
-    const labourId = Number(labour.id)
-    const record = recordByLabour.get(labourId) ?? null
-    const sealed = Boolean(record?.is_sealed)
-    const labourCurrentSite =
-      record?.labour_current_site ??
-      labour.labour_current_site ??
-      labour.current_site ??
-      null
-
-    return {
-      labourId,
-      labourName: labour.name ?? `#${labourId}`,
-      labourPhoto: labour.photo ?? null,
-      labourCurrentSite:
-        labourCurrentSite == null || labourCurrentSite === ''
-          ? null
-          : Number(labourCurrentSite),
-      defaultAttendance: Number(labour.default_attendance) || 0,
-      defaultSalary: Number(labour.default_salary) || 0,
-      defaultFooding: Number(labour.default_fooding) || 0,
-      recordId: record?.id ?? null,
-      recordSealed: sealed,
-      // Legacy aliases used by existing modal/lock helpers
-      attendanceId: record?.id ?? null,
-      attendanceSealed: sealed,
-      paymentId: record?.id ?? null,
-      paymentSealed: sealed,
-      advanceId: record?.id ?? null,
-      advanceSealed: sealed,
-      returnId: record?.id ?? null,
-      returnSealed: sealed,
-      recordCreatedAt: record?.created_at ?? null,
-      recordUpdatedAt: record?.updated_at ?? null,
-      attendanceCreatedAt: record?.created_at ?? null,
-      attendanceUpdatedAt: record?.updated_at ?? null,
-      paymentCreatedAt: record?.created_at ?? null,
-      paymentUpdatedAt: record?.updated_at ?? null,
-      advanceCreatedAt: record?.created_at ?? null,
-      advanceUpdatedAt: record?.updated_at ?? null,
-      returnCreatedAt: record?.created_at ?? null,
-      returnUpdatedAt: record?.updated_at ?? null,
-      present:
-        record?.present == null || record?.present === ''
-          ? ''
-          : Number(record.present),
-      salary:
-        record?.wage == null || record?.wage === ''
-          ? ''
-          : Number(record.wage),
-      extra:
-        record == null
-          ? ''
-          : record.extra_earn == null || record.extra_earn === ''
-            ? ''
-            : Number(record.extra_earn) || 0,
-      extraNote: record?.note ?? '',
-      billing:
-        record?.billing != null && record?.billing !== ''
-          ? String(record.billing)
-          : '',
-      billingName: record?.billing_name ?? null,
-      siteId: record?.site ?? null,
-      payment: blankAmount(record?.fooding_pay),
-      paymentNote: '',
-      advance: blankAmount(record?.advance_pay),
-      advanceNote: '',
-      return: blankAmount(record?.return_amount),
-      returnNote: '',
-      pending_activities: Array.isArray(record?.pending_activities)
-        ? record.pending_activities
-        : [],
-    }
+  const entries = labours.map((labour) => ({
+    labour,
+    record: byLabour.get(Number(labour.id)) ?? null,
+  }))
+  return buildHajiraRowsFromRoster(entries, {
+    includeLabour: true,
+    includeRecord: true,
   })
 }
 
 /**
- * View rows from daily records only — one row per labour that appears
- * in the records, regardless of labour.current_site.
+ * @deprecated Prefer buildHajiraRowsFromRoster.
+ * View rows from records only.
  */
 export const buildHajiraViewRows = (records = []) => {
-  const labourMap = new Map()
-
-  for (const record of records) {
-    const labourId = labourIdOf(record)
-    if (labourId == null) continue
-    const id = Number(labourId)
-    const name = labourNameOf(record, labourId)
-    const existing = labourMap.get(id)
-    if (!existing) {
-      labourMap.set(id, {
-        id,
-        name,
-        labour_current_site: record.labour_current_site ?? null,
-        default_attendance: 0,
-        default_salary: 0,
-        default_fooding: 0,
-      })
-      continue
-    }
-    if (
-      name &&
-      name !== '—' &&
-      (!existing.name || String(existing.name).startsWith('#'))
-    ) {
-      existing.name = name
-    }
-    if (
-      existing.labour_current_site == null &&
-      record.labour_current_site != null
-    ) {
-      existing.labour_current_site = record.labour_current_site
-    }
-  }
-
-  const labours = [...labourMap.values()].sort((a, b) =>
-    String(a.name).localeCompare(String(b.name), 'bn'),
-  )
-  return buildHajiraEditRows(labours, records)
+  const entries = asRosterEntries(records).filter((e) => e.record != null)
+  return buildHajiraRowsFromRoster(entries, {
+    includeLabour: false,
+    includeRecord: true,
+  })
 }
 
-/** @deprecated Prefer buildHajiraViewRows(records). Kept for call-site migration. */
+/** @deprecated Prefer buildHajiraRowsFromRoster. */
 export const mergeHajiraRows = (records) => {
   const rows = buildHajiraViewRows(records)
   return rows.map((row) => ({

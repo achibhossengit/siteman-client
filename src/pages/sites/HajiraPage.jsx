@@ -5,7 +5,6 @@ import { Pencil, Trash2, X } from "lucide-react";
 import { PersonAvatar } from "../../components/PersonAvatar.jsx";
 import {
   deleteLabourDailyRecord,
-  fetchSiteActiveLabour,
   updateLabourDailyRecord,
 } from "../../api/labours.js";
 import {
@@ -14,8 +13,7 @@ import {
 } from "../../api/sites.js";
 import {
   PRESENT_OPTIONS,
-  buildHajiraEditRows,
-  buildHajiraViewRows,
+  buildHajiraRowsFromRoster,
   toDailyRecordPayload,
   toDailyRecordPatchPayload,
 } from "../../api/types/hajira.js";
@@ -826,9 +824,6 @@ const PAYMENT_DEFAULT_FIELDS = PAYMENT_FILTER_OPTIONS.map((opt) => opt.value);
 const filterHeaderTitle = (title, selected, required) =>
   required.every((value) => selected.includes(value)) ? title : `${title}*`;
 
-const labourFilterNeedsActiveLabour = (filter) =>
-  Array.isArray(filter) && filter.includes("labour");
-
 const displayModalValue = (value) => {
   if (value === "" || value == null) return "—";
   const n = Number(value);
@@ -1042,15 +1037,6 @@ export const HajiraPage = () => {
   const billingOptions = billingLookup.activeCategories;
   const getBillingName = billingLookup.getBillingName;
 
-  const activeLabourQuery = useQuery({
-    queryKey: ["labours", "active", { current_site: siteId }],
-    queryFn: async () => {
-      const { data } = await fetchSiteActiveLabour(siteId);
-      return Array.isArray(data) ? data : [];
-    },
-    enabled: Boolean(siteId),
-  });
-
   const selectedRecordId = recordIdOf(recordModal);
 
   /** Full audit log for the open record — fetched only on the history tab. */
@@ -1209,37 +1195,16 @@ export const HajiraPage = () => {
     const selected = Array.isArray(filter) ? filter : LABOUR_DEFAULT_FIELDS;
     const includeRecord = selected.includes("record");
     const includeLabour = selected.includes("labour");
-    const records = dailyRecordsQuery.data ?? [];
-    const activeLabour = activeLabourQuery.data ?? [];
+    const roster = dailyRecordsQuery.data ?? [];
 
-    if (!includeRecord && !includeLabour) return [];
-
-    if (includeRecord && !includeLabour) {
-      let next = buildHajiraViewRows(records);
-      if (canViewActivityLog) {
-        next = applyPendingActivitiesToHajiraRows(next);
-      }
-      return next;
+    let next = buildHajiraRowsFromRoster(roster, {
+      siteId,
+      includeLabour,
+      includeRecord,
+    });
+    if (includeLabour) {
+      next = withSiteLabourCurrentSite(next);
     }
-
-    if (includeLabour && !includeRecord) {
-      let next = withSiteLabourCurrentSite(
-        buildHajiraEditRows(activeLabour, records),
-      );
-      if (canViewActivityLog) {
-        next = applyPendingActivitiesToHajiraRows(next);
-      }
-      return next;
-    }
-
-    const siteRows = withSiteLabourCurrentSite(
-      buildHajiraEditRows(activeLabour, records),
-    );
-    const siteLabourIds = new Set(siteRows.map((row) => Number(row.labourId)));
-    const otherRows = buildHajiraViewRows(records).filter(
-      (row) => !siteLabourIds.has(Number(row.labourId)),
-    );
-    let next = [...siteRows, ...otherRows];
     if (canViewActivityLog) {
       next = applyPendingActivitiesToHajiraRows(next);
     }
@@ -1276,12 +1241,6 @@ export const HajiraPage = () => {
   // Single-mode row rebuild for current labour filter.
   useEffect(() => {
     if (!dailyRecordsQuery.isSuccess) return;
-    if (
-      labourFilterNeedsActiveLabour(labourFilter) &&
-      !activeLabourQuery.isSuccess
-    ) {
-      return;
-    }
     const next = buildRowsForLabourFilter(labourFilter);
     setRows(cloneRows(next));
     setInitialRows(cloneRows(next));
@@ -1290,8 +1249,7 @@ export const HajiraPage = () => {
     canViewActivityLog,
     dailyRecordsQuery.isSuccess,
     dailyRecordsQuery.data,
-    activeLabourQuery.isSuccess,
-    activeLabourQuery.data,
+    siteId,
   ]);
 
   const updateRow = (labourId, patch) => {
@@ -2032,10 +1990,7 @@ export const HajiraPage = () => {
     );
   }
 
-  const loading =
-    dailyRecordsQuery.isLoading ||
-    (labourFilterNeedsActiveLabour(labourFilter) &&
-      activeLabourQuery.isLoading);
+  const loading = dailyRecordsQuery.isLoading;
 
   if (loading) {
     return (
@@ -2045,11 +2000,7 @@ export const HajiraPage = () => {
     );
   }
 
-  const loadError =
-    dailyRecordsQuery.error ||
-    (labourFilterNeedsActiveLabour(labourFilter)
-      ? activeLabourQuery.error
-      : null);
+  const loadError = dailyRecordsQuery.error;
   if (loadError) {
     return (
       <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
@@ -2064,9 +2015,9 @@ export const HajiraPage = () => {
     !includeLabourRows && !includeRecordRows
       ? "কোনো ফিল্টার নির্বাচিত নেই।"
       : includeLabourRows && !includeRecordRows
-        ? "এই সাইটে কোনো চালু শ্রমিক নেই।"
+        ? "এই সাইটে কোনো শ্রমিক নেই।"
         : includeLabourRows && includeRecordRows
-          ? "এই সাইটে কোনো চালু শ্রমিক নেই এবং অন্য কোনো রেকর্ড নেই।"
+          ? "এই সাইটে কোনো শ্রমিক নেই এবং অন্য কোনো রেকর্ড নেই।"
           : "এই তারিখে কোনো হাজিরা নেই।";
 
   const recordModalLocked = !modalEditable;

@@ -6773,38 +6773,10 @@ paths:
       description: |-
         Nested under ``/sites/<site_pk>/daily-records``.
 
-        Only list and bulk create; the create payload is a list of records,
-        each carrying its own ``labour``.
+        GET returns an unpaginated hajira roster for ``date`` (defaults to
+        today): every labour currently on this site, plus anyone with a
+        record here that day. POST is still bulk create.
       parameters:
-        - in: query
-          name: billing
-          schema:
-            type: integer
-        - in: query
-          name: date
-          schema:
-            type: string
-            format: date
-        - in: query
-          name: is_sealed
-          schema:
-            type: boolean
-        - in: query
-          name: labour
-          schema:
-            type: integer
-        - name: page
-          required: false
-          in: query
-          description: A page number within the paginated result set.
-          schema:
-            type: integer
-        - name: page_size
-          required: false
-          in: query
-          description: Number of results to return per page.
-          schema:
-            type: integer
         - in: path
           name: site_pk
           schema:
@@ -6944,45 +6916,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PaginatedSiteDailyRecordListList"
+                type: array
+                items:
+                  $ref: "#/components/schemas/SiteDailyRecordList"
           description: ""
     post:
       operationId: sites_daily_records_create
       description: |-
         Nested under ``/sites/<site_pk>/daily-records``.
 
-        Only list and bulk create; the create payload is a list of records,
-        each carrying its own ``labour``.
+        GET returns an unpaginated hajira roster for ``date`` (defaults to
+        today): every labour currently on this site, plus anyone with a
+        record here that day. POST is still bulk create.
       parameters:
-        - in: query
-          name: billing
-          schema:
-            type: integer
-        - in: query
-          name: date
-          schema:
-            type: string
-            format: date
-        - in: query
-          name: is_sealed
-          schema:
-            type: boolean
-        - in: query
-          name: labour
-          schema:
-            type: integer
-        - name: page
-          required: false
-          in: query
-          description: A page number within the paginated result set.
-          schema:
-            type: integer
-        - name: page_size
-          required: false
-          in: query
-          description: Number of results to return per page.
-          schema:
-            type: integer
         - in: path
           name: site_pk
           schema:
@@ -7140,7 +7086,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PaginatedSiteDailyRecordList"
+                type: array
+                items:
+                  $ref: "#/components/schemas/SiteDailyRecord"
           description: ""
   /api/v1/sites/{site_pk}/private-cash:
     get:
@@ -12949,52 +12897,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SiteCashList"
-    PaginatedSiteDailyRecordList:
-      type: object
-      required:
-        - count
-        - results
-      properties:
-        count:
-          type: integer
-          example: 123
-        next:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=4
-        previous:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=2
-        results:
-          type: array
-          items:
-            $ref: "#/components/schemas/SiteDailyRecord"
-    PaginatedSiteDailyRecordListList:
-      type: object
-      required:
-        - count
-        - results
-      properties:
-        count:
-          type: integer
-          example: 123
-        next:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=4
-        previous:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=2
-        results:
-          type: array
-          items:
-            $ref: "#/components/schemas/SiteDailyRecordList"
     PaginatedSiteListList:
       type: object
       required:
@@ -13994,20 +13896,26 @@ components:
         - updated_at
     SiteDailyRecordList:
       type: object
+      description:
+        "One hajira-screen row: site labour (or transferred) plus that
+        day's record."
+      properties:
+        labour:
+          $ref: "#/components/schemas/LabourList"
+        record:
+          allOf:
+            - $ref: "#/components/schemas/SiteDailyRecordNested"
+          nullable: true
+      required:
+        - labour
+        - record
+    SiteDailyRecordNested:
+      type: object
+      description: Record slice nested on ``GET /sites/<site_pk>/daily-records``.
       properties:
         id:
           type: integer
           readOnly: true
-        labour_id:
-          type: integer
-          readOnly: true
-        labour_name:
-          type: string
-          readOnly: true
-        labour_current_site:
-          type: integer
-          readOnly: true
-          nullable: true
         date:
           type: string
           format: date
@@ -14075,9 +13983,6 @@ components:
       required:
         - created_at
         - id
-        - labour_current_site
-        - labour_id
-        - labour_name
         - pending_activities
         - updated_at
     SiteList:
@@ -15439,95 +15344,13 @@ components:
       required:
         - errors
         - type
-    SitesDailyRecordsListBillingErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - billing
-          type: string
-          description: "* `billing` - billing"
-        code:
-          enum:
-            - invalid_choice
-          type: string
-          description: "* `invalid_choice` - invalid_choice"
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
-    SitesDailyRecordsListDateErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - date
-          type: string
-          description: "* `date` - date"
-        code:
-          enum:
-            - invalid
-          type: string
-          description: "* `invalid` - invalid"
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
-    SitesDailyRecordsListError:
-      oneOf:
-        - $ref: "#/components/schemas/SitesDailyRecordsListDateErrorComponent"
-        - $ref: "#/components/schemas/SitesDailyRecordsListBillingErrorComponent"
-        - $ref: "#/components/schemas/SitesDailyRecordsListLabourErrorComponent"
-      discriminator:
-        propertyName: attr
-        mapping:
-          date: "#/components/schemas/SitesDailyRecordsListDateErrorComponent"
-          billing: "#/components/schemas/SitesDailyRecordsListBillingErrorComponent"
-          labour: "#/components/schemas/SitesDailyRecordsListLabourErrorComponent"
     SitesDailyRecordsListErrorResponse400:
       oneOf:
-        - $ref: "#/components/schemas/SitesDailyRecordsListValidationError"
         - $ref: "#/components/schemas/ParseErrorResponse"
       discriminator:
         propertyName: type
         mapping:
-          validation_error: "#/components/schemas/SitesDailyRecordsListValidationError"
           client_error: "#/components/schemas/ParseErrorResponse"
-    SitesDailyRecordsListLabourErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - labour
-          type: string
-          description: "* `labour` - labour"
-        code:
-          enum:
-            - invalid_choice
-          type: string
-          description: "* `invalid_choice` - invalid_choice"
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
-    SitesDailyRecordsListValidationError:
-      type: object
-      properties:
-        type:
-          $ref: "#/components/schemas/ValidationErrorEnum"
-        errors:
-          type: array
-          items:
-            $ref: "#/components/schemas/SitesDailyRecordsListError"
-      required:
-        - errors
-        - type
     SitesDailyReportsRetrieveErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/ParseErrorResponse"
