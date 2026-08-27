@@ -14,6 +14,7 @@ import { fetchAllActivities, reviewActivities } from '../../api/activities.js'
 import {
   CASH_TYPES,
   cashFormSchema,
+  cashListTotalsOf,
   cashTypeLabel,
   toSiteCashPayload,
 } from '../../api/types/siteCash.js'
@@ -40,7 +41,7 @@ import {
 const MODAL_ID = 'site_cash_modal'
 const TYPE_FILTER_MODAL_ID = 'cash_type_filter_modal'
 const BILLING_FILTER_MODAL_ID = 'cash_billing_filter_modal'
-const PAGE_SIZE = 15
+const PAGE_SIZE = 5
 
 const CASH_LOG_FIELD_LABELS = {
   note: 'নোট',
@@ -394,6 +395,7 @@ export const CashPage = () => {
     [siteId, date, page, apiType, billingFilter],
   )
 
+  // Single-date list (`?date=`). Date-range UI will switch to date__gte/lte later.
   const cashQuery = useQuery({
     queryKey: cashQueryKey,
     queryFn: async () => {
@@ -499,14 +501,24 @@ export const CashPage = () => {
     return rows
   }, [pageResults, typeFilter, billingFilter, apiType])
 
+  const apiTotals = cashListTotalsOf(pageData)
+  const selectedType = typeFilter.length === 1 ? typeFilter[0] : null
+
   const totals = useMemo(() => {
-    let net = 0
-    for (const row of liveRows) {
-      const style = AMOUNT_BY_TYPE[row.type] ?? AMOUNT_BY_TYPE.cost
-      net += style.sign * Math.abs(Number(row.amount) || 0)
-    }
-    return { net }
-  }, [liveRows])
+    if (!selectedType) return null
+    const apiAmount = apiTotals?.[selectedType]
+    const amount =
+      apiAmount != null
+        ? Math.abs(Number(apiAmount) || 0)
+        : liveRows.reduce((sum, row) => {
+            if (row.type !== selectedType) return sum
+            return sum + Math.abs(Number(row.amount) || 0)
+          }, 0)
+    return formatCashAmount(selectedType, amount)
+  }, [selectedType, apiTotals, liveRows])
+
+  // All types ticked → no footer. A single type → that type's total.
+  const showTotalsRow = Boolean(selectedType) && liveRows.length > 0
 
   const rows = useMemo(() => {
     if (!canViewActivityLog) return liveRows
@@ -1000,26 +1012,14 @@ export const CashPage = () => {
               })
             )}
           </tbody>
-          {typeFilter.length === 1 &&
-          liveRows.length > 0 &&
-          totalCount <= PAGE_SIZE ? (
+          {showTotalsRow && totals ? (
             <tfoot>
               <tr className="font-medium border-t border-base-300">
                 <td />
                 <td className="whitespace-nowrap">মোট</td>
                 {SHOW_BILLING ? <td /> : null}
-                <td
-                  className={`text-right tabular-nums ${
-                    totals.net < 0
-                      ? 'text-error'
-                      : totals.net > 0
-                        ? 'text-success'
-                        : 'text-base-content/60'
-                  }`}
-                >
-                  {totals.net
-                    ? formatBnSigned(totals.net)
-                    : formatBnSigned(0)}
+                <td className={`text-right tabular-nums ${totals.className}`}>
+                  {totals.text}
                 </td>
               </tr>
             </tfoot>
@@ -1561,11 +1561,13 @@ export const CashPage = () => {
                     className="checkbox checkbox-xs"
                     checked={typeFilter.includes(opt.value)}
                     onChange={() => {
-                      setTypeFilter((prev) =>
-                        prev.includes(opt.value)
-                          ? prev.filter((value) => value !== opt.value)
-                          : [...prev, opt.value],
-                      )
+                      setTypeFilter((prev) => {
+                        if (prev.includes(opt.value)) {
+                          if (prev.length === 1) return prev
+                          return prev.filter((value) => value !== opt.value)
+                        }
+                        return [...prev, opt.value]
+                      })
                     }}
                   />
                   <span>{opt.label}</span>

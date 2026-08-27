@@ -50,14 +50,17 @@ export const fetchDailyReport = (siteId, date) =>
 
 /**
  * Site cash ledger list (paginated).
- * GET /sites/{site_pk}/cash — filters: date, type, billing.
+ * GET /sites/{site_pk}/cash — filters: date, date__gte, date__lte, type, billing.
+ * Page payload may include `totals` for the filtered window.
  */
 export const fetchSiteCash = (
   siteId,
-  { date, type, billing, page, page_size } = {},
+  { date, date__gte, date__lte, type, billing, page, page_size } = {},
 ) => {
   const params = {
     ...(date ? { date } : {}),
+    ...(date__gte ? { date__gte } : {}),
+    ...(date__lte ? { date__lte } : {}),
     ...(type ? { type } : {}),
     ...(billing != null && billing !== '' ? { billing } : {}),
     ...(page != null ? { page } : {}),

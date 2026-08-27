@@ -8,11 +8,21 @@ export const asList = (data) => {
 
 export const asPage = (data) => {
   const results = asList(data)
+  if (Array.isArray(data) || data == null || typeof data !== 'object') {
+    return {
+      results,
+      count: results.length,
+      next: null,
+      previous: null,
+    }
+  }
+  const { results: _results, count, next, previous, ...extra } = data
   return {
     results,
-    count: typeof data?.count === 'number' ? data.count : results.length,
-    next: data?.next ?? null,
-    previous: data?.previous ?? null,
+    count: typeof count === 'number' ? count : results.length,
+    next: next ?? null,
+    previous: previous ?? null,
+    ...extra,
   }
 }
 
