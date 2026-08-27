@@ -294,6 +294,7 @@ export const CashPage = () => {
   const [selected, setSelected] = useState(null)
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [confirmReady, setConfirmReady] = useState(false)
   const [apiError, setApiError] = useState(null)
   const [reviewing, setReviewing] = useState(false)
@@ -325,7 +326,7 @@ export const CashPage = () => {
     reset,
     setError,
     watch,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
   } = useForm({
     resolver: zodResolver(cashFormSchema),
     defaultValues: emptyValues,
@@ -466,6 +467,7 @@ export const CashPage = () => {
         modalView === 'history' &&
         !isCreateMode &&
         !editing &&
+        !deleting &&
         selectedEntityId != null &&
         siteId,
     ),
@@ -628,6 +630,7 @@ export const CashPage = () => {
     setSelected(null)
     setCreating(false)
     setEditing(false)
+    setDeleting(false)
     setApiError(null)
     setModalView('detail')
     setExpandedHistoryId(null)
@@ -643,6 +646,7 @@ export const CashPage = () => {
     setSelected(null)
     setCreating(true)
     setEditing(true)
+    setDeleting(false)
     setConfirmReady(false)
     setModalView('detail')
     setExpandedHistoryId(null)
@@ -654,6 +658,7 @@ export const CashPage = () => {
     setApiError(null)
     setCreating(false)
     setEditing(false)
+    setDeleting(false)
     setConfirmReady(false)
     setModalView('detail')
     setExpandedHistoryId(null)
@@ -668,7 +673,18 @@ export const CashPage = () => {
     setConfirmReady(false)
     setModalView('detail')
     setExpandedHistoryId(null)
+    setDeleting(false)
+    reset(toFormValues(selected))
     setEditing(true)
+  }
+
+  const startDelete = () => {
+    if (selected?.fromActivitySnapshot) return
+    setApiError(null)
+    setModalView('detail')
+    setExpandedHistoryId(null)
+    setEditing(false)
+    setDeleting(true)
   }
 
   const cancelEdit = () => {
@@ -679,6 +695,10 @@ export const CashPage = () => {
     setApiError(null)
     reset(toFormValues(selected))
     setEditing(false)
+  }
+
+  const cancelDelete = () => {
+    setDeleting(false)
   }
 
   const onConfirm = handleSubmit(async (values) => {
@@ -722,15 +742,8 @@ export const CashPage = () => {
     }
   })
 
-  const onDelete = async () => {
-    if (selected?.fromActivitySnapshot) return
-    const ok = await confirmAction({
-      title: 'ক্যাশ এন্ট্রি মুছে ফেলবেন?',
-      text: 'এই কাজটি ফিরিয়ে আনা যাবে না।',
-      confirmText: 'ডিলিট করুন',
-      danger: true,
-    })
-    if (!ok) return
+  const confirmDelete = async () => {
+    if (selected?.fromActivitySnapshot || !selected) return
     setApiError(null)
     const deleted = selected
     try {
@@ -821,7 +834,12 @@ export const CashPage = () => {
   const busy = isSubmitting || saveMutation.isPending
   const amountDisabled = disabled || !noteReady
   const detailsDisabled = disabled || !amountReady
-  const saveDisabled = !confirmReady || !formReady || busy || siteInactive
+  const saveDisabled =
+    !confirmReady ||
+    !formReady ||
+    busy ||
+    siteInactive ||
+    (!isCreateMode && !isDirty)
   const isSnapshotDetail = Boolean(selected?.fromActivitySnapshot)
 
   const fieldClass = (hasError, kind = 'input', isDisabled = disabled) =>
@@ -1081,7 +1099,7 @@ export const CashPage = () => {
           <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">
             {isCreateMode ? (
               'নতুন ক্যাশ'
-            ) : canViewActivityLog && !editing ? (
+            ) : canViewActivityLog && !editing && !deleting ? (
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -1120,7 +1138,7 @@ export const CashPage = () => {
           <ApiErrorAlert error={apiError} className="mb-3 shrink-0" />
 
           <div className="flex-1 min-h-0 overflow-y-auto">
-          {modalView === 'history' && !isCreateMode && !editing ? (
+          {modalView === 'history' && !isCreateMode && !editing && !deleting ? (
             <div className="flex flex-col gap-2 min-h-full">
               {entityHistoryQuery.isLoading ? (
                 <div className="flex flex-1 justify-center items-center py-8">
@@ -1451,41 +1469,63 @@ export const CashPage = () => {
                   {busy ? (
                     <span className="loading loading-spinner loading-sm" />
                   ) : null}
-                  {isCreateMode ? 'সংরক্ষণ' : 'নিশ্চিত'}
+                  {isCreateMode ? 'সংরক্ষণ' : 'আপডেট নিশ্চিত'}
                 </button>
               </div>
             ) : isDetailMode ? (
               <div className="modal-action mt-2 justify-stretch gap-2">
-                {canDeleteCash ? (
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-error flex-1"
-                    onClick={onDelete}
-                    disabled={
-                      isSnapshotDetail ||
-                      siteInactive ||
-                      deleteMutation.isPending
-                    }
-                  >
-                    {deleteMutation.isPending ? (
-                      <span className="loading loading-spinner loading-sm" />
-                    ) : (
-                      <Trash2 className="size-4" strokeWidth={1.75} />
-                    )}
-                    ডিলিট
-                  </button>
-                ) : null}
-                {canChangeCash ? (
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-primary flex-1"
-                    onClick={startEdit}
-                    disabled={isSnapshotDetail || siteInactive}
-                  >
-                    <Pencil className="size-4" strokeWidth={1.75} />
-                    আপডেট
-                  </button>
-                ) : null}
+                {deleting ? (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-ghost flex-1"
+                      onClick={cancelDelete}
+                      disabled={deleteMutation.isPending}
+                    >
+                      বাতিল
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-error flex-1"
+                      onClick={confirmDelete}
+                      disabled={
+                        isSnapshotDetail ||
+                        siteInactive ||
+                        deleteMutation.isPending
+                      }
+                    >
+                      {deleteMutation.isPending ? (
+                        <span className="loading loading-spinner loading-sm" />
+                      ) : null}
+                      ডিলিট নিশ্চিত
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {canDeleteCash ? (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-error flex-1"
+                        onClick={startDelete}
+                        disabled={isSnapshotDetail || siteInactive}
+                      >
+                        <Trash2 className="size-4" strokeWidth={1.75} />
+                        ডিলিট
+                      </button>
+                    ) : null}
+                    {canChangeCash ? (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-primary flex-1"
+                        onClick={startEdit}
+                        disabled={isSnapshotDetail || siteInactive}
+                      >
+                        <Pencil className="size-4" strokeWidth={1.75} />
+                        আপডেট
+                      </button>
+                    ) : null}
+                  </>
+                )}
               </div>
             ) : null}
           </form>
