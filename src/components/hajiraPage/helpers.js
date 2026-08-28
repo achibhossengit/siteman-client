@@ -124,7 +124,8 @@ export const isAttendanceDirty = (row, initial) =>
   String(row.salary) !== String(initial.salary) ||
   String(row.extra ?? "") !== String(initial.extra ?? "") ||
   String(row.extraNote ?? "") !== String(initial.extraNote ?? "") ||
-  String(row.billing ?? "") !== String(initial.billing ?? "");
+  String(row.billing ?? "") !== String(initial.billing ?? "") ||
+  String(row.date ?? "") !== String(initial.date ?? "");
 
 export const amountKey = (value) =>
   value === "" || value == null ? "" : String(Number(value));
@@ -154,6 +155,7 @@ export const recordModalFromRow = (row) => ({
   payment: row.payment,
   advance: row.advance,
   return: row.return,
+  date: row.date ?? '',
   recordId: row.recordId ?? row.attendanceId ?? null,
   recordSealed: row.recordSealed ?? row.attendanceSealed,
   attendanceSealed: row.attendanceSealed,
@@ -180,7 +182,8 @@ export const isRecordModalDirty = (modal, row) => {
     String(modal.billing ?? "") !== String(baseline.billing ?? "") ||
     amountKey(modal.payment) !== amountKey(baseline.payment) ||
     amountKey(modal.advance) !== amountKey(baseline.advance) ||
-    amountKey(modal.return) !== amountKey(baseline.return)
+    amountKey(modal.return) !== amountKey(baseline.return) ||
+    String(modal.date ?? "") !== String(baseline.date ?? "")
   );
 };
 
@@ -356,7 +359,7 @@ export const isPendingCreateRow = (row, initial, date) => {
   if (
     recordIdOf(row) ||
     recordSealedOf(row) ||
-    isCreateBlockedByLastSession(row, date)
+    isCreateBlockedByLastSession(row, row.date || date)
   ) {
     return false;
   }

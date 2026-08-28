@@ -349,6 +349,7 @@ const emptyHajiraRow = (labourId, labourName) => ({
   salary: '',
   extra: 0,
   extraNote: '',
+  date: null,
   billing: '',
   payment: '',
   paymentNote: '',
@@ -380,6 +381,7 @@ const applyDailyRecordSnapshot = (row, log) => {
     salary: wage == null || wage === '' ? '' : Number(wage),
     extra: Number(fields.extra_earn ?? fields.extra) || 0,
     extraNote: fields.note ?? '',
+    date: fields.date ?? row.date ?? log.business_date ?? null,
     billing:
       fields.billing != null && fields.billing !== ''
         ? String(fields.billing)

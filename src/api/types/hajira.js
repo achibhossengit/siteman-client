@@ -22,6 +22,11 @@ export const attendanceFormSchema = z.object({
     .number({ message: 'বাড়তি কাজ দিন' })
     .int('পূর্ণ সংখ্যা দিন')
     .min(0, 'বাড়তি কাজ ০ বা তার বেশি হতে হবে'),
+  date: z
+    .string()
+    .min(1, 'তারিখ দিন')
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'সঠিক তারিখ দিন')
+    .optional(),
   note: z.string().trim().max(255, 'নোট একটু ছোট করুন').optional(),
   billing: z.string().optional(),
 })
@@ -104,9 +109,10 @@ export const toDailyRecordPayload = (row, date) => {
     row.advanceNote?.trim() ||
     row.returnNote?.trim() ||
     ''
+  const recordDate = date || row.date
   return {
     labour: row.labourId,
-    ...(date ? { date } : {}),
+    ...(recordDate ? { date: recordDate } : {}),
     present:
       row.present === '' || row.present == null ? null : Number(row.present),
     wage: row.salary === '' || row.salary == null ? null : Number(row.salary),
@@ -124,9 +130,9 @@ export const toDailyRecordPayload = (row, date) => {
   }
 }
 
-/** Patch body without labour/date. */
+/** Patch body without labour. */
 export const toDailyRecordPatchPayload = (row) => {
-  const { labour: _labour, date: _date, ...rest } = toDailyRecordPayload(row)
+  const { labour: _labour, ...rest } = toDailyRecordPayload(row, row.date)
   return rest
 }
 
@@ -172,6 +178,7 @@ export const buildHajiraRowFromEntry = (entry) => {
     advanceUpdatedAt: record?.updated_at ?? null,
     returnCreatedAt: record?.created_at ?? null,
     returnUpdatedAt: record?.updated_at ?? null,
+    date: record?.date ?? null,
     present:
       record?.present == null || record?.present === ''
         ? ''
@@ -229,7 +236,10 @@ export const buildHajiraRowsFromRoster = (
   })
 
   return entries
-    .map(buildHajiraRowFromEntry)
+    .map((entry) => {
+      const row = buildHajiraRowFromEntry(entry)
+      return { ...row, date: row.date || date || null }
+    })
     .sort((a, b) =>
       String(a.labourName).localeCompare(String(b.labourName), 'bn'),
     )

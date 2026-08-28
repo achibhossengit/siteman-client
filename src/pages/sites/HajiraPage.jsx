@@ -495,7 +495,7 @@ export const HajiraPage = () => {
     recordSealedOf(row) ||
     (recordIdOf(row)
       ? !canChangeDailyRecord
-      : !canAddDailyRecord || isCreateBlockedByLastSession(row, date));
+      : !canAddDailyRecord || isCreateBlockedByLastSession(row, row.date || date));
 
   const isLabourOffSite = (row) => {
     if (row?.labourCurrentSite == null || siteId == null || siteId === "") {
@@ -508,10 +508,10 @@ export const HajiraPage = () => {
   const modalEditable = Boolean(
     recordModal &&
       !recordSealedOf(recordModal) &&
-      (isCreateModal
-        ? canAddDailyRecord &&
-          !isCreateBlockedByLastSession(recordModal, date)
-        : modalEditing && canChangeDailyRecord),
+        (isCreateModal
+          ? canAddDailyRecord &&
+            !isCreateBlockedByLastSession(recordModal, date)
+          : modalEditing && canChangeDailyRecord),
   );
 
   const canUpdateRecord = Boolean(
@@ -601,6 +601,7 @@ export const HajiraPage = () => {
       paymentNote: "",
       advanceNote: "",
       returnNote: "",
+      date: recordModal.date || date,
     };
   };
 
@@ -693,6 +694,7 @@ export const HajiraPage = () => {
       payment: resetForm.payment,
       advance: resetForm.advance,
       return: resetForm.return,
+      date: resetForm.date,
     });
   };
 
@@ -1042,7 +1044,7 @@ export const HajiraPage = () => {
 
         if (recordSealedOf(row)) continue;
         if (recordIdOf(row)) continue;
-        if (isCreateBlockedByLastSession(row, date)) {
+        if (isCreateBlockedByLastSession(row, row.date || date)) {
           blocked += 1;
           continue;
         }
@@ -1056,7 +1058,7 @@ export const HajiraPage = () => {
           createItems.push({
             labourId: row.labourId,
             labourName: row.labourName,
-            payload: toDailyRecordPayload(row, date),
+            payload: toDailyRecordPayload(row, row.date || date),
           });
         }
       }
@@ -1087,7 +1089,7 @@ export const HajiraPage = () => {
         recordIdOf(row) ||
         !isAttendanceDirty(row, initial) ||
         recordSealedOf(row) ||
-        isCreateBlockedByLastSession(row, date) ||
+        isCreateBlockedByLastSession(row, row.date || date) ||
         !hasAttendanceData(row)
       ) {
         return false;
@@ -1211,6 +1213,7 @@ export const HajiraPage = () => {
     modalEditable &&
     !attendanceLocked(recordModal) &&
     recordModalDirty &&
+    Boolean(String(recordModal.date ?? "").trim()) &&
     (isCreateModal || hasMeaningfulDayValue(recordModal));
 
   const tableColCount =

@@ -11,6 +11,7 @@ import {
   formatBnNumber,
   NULL_BILLING_LABEL,
 } from "../../utils/format.js";
+import { formatDateBn, parseIsoDate, toIsoDate, todayIso } from "../../utils/dateRange.js";
 import {
   MEANINGFUL_DAY_VALUE_MESSAGE,
   MODAL_VIEWS,
@@ -26,6 +27,13 @@ import {
   recordIdOf,
   recordSealedOf,
 } from "./helpers.js";
+
+const minDateAfterLastSession = (lastSessionDate) => {
+  const d = parseIsoDate(lastSessionDate);
+  if (!d) return undefined;
+  d.setDate(d.getDate() + 1);
+  return toIsoDate(d);
+};
 
 export function RecordDetailModal({
   recordModal,
@@ -152,14 +160,41 @@ export function RecordDetailModal({
                 summarize={summarizeDailyRecordLog}
               />
             ) : recordModal ? (
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 {modalEditable ? (
                   <>
-                    <div className="grid grid-cols-3 gap-2">
-                      <label className="form-control w-full min-w-0">
+                    <label className="form-control w-full">
+                      <span className="label-text mb-1">তারিখ</span>
+                      <input
+                        type="date"
+                        className="input input-bordered input-sm w-full"
+                        value={recordModal.date || date || ""}
+                        min={minDateAfterLastSession(
+                          recordModal.lastSessionDate,
+                        )}
+                        max={todayIso()}
+                        disabled={recordModalLocked || isCreateModal}
+                        onChange={(e) =>
+                          patchRecordModal({ date: e.target.value })
+                        }
+                      />
+                    </label>
+
+                    {isCreateModal &&
+                    isCreateBlockedByLastSession(
+                      recordModal,
+                      recordModal.date || date,
+                    ) ? (
+                      <p className="text-sm text-center text-warning bg-warning/10 rounded-md px-3 py-2">
+                        {lastSessionCreateBlockedMessage(recordModal)}
+                      </p>
+                    ) : null}
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <label className="form-control w-full min-w-0 overflow-hidden">
                         <span className="label-text mb-1">হাজিরা</span>
                         <select
-                          className="select select-bordered select-sm w-full"
+                          className="select select-bordered select-sm w-full min-w-0 max-w-full"
                           value={
                             recordModal.present === "" ||
                             recordModal.present == null
@@ -203,7 +238,7 @@ export function RecordDetailModal({
                         <input
                           type="number"
                           min={0}
-                          className="input input-bordered input-sm w-full tabular-nums"
+                          className="input input-bordered input-sm w-full min-w-0 tabular-nums"
                           value={recordModal.salary}
                           disabled={!salaryFieldEnabled}
                           onChange={(e) =>
@@ -219,7 +254,7 @@ export function RecordDetailModal({
                         <input
                           type="number"
                           min={0}
-                          className="input input-bordered input-sm w-full tabular-nums"
+                          className="input input-bordered input-sm w-full min-w-0 tabular-nums"
                           value={recordModal.payment}
                           disabled={recordModalLocked}
                           onChange={(e) =>
@@ -231,14 +266,14 @@ export function RecordDetailModal({
                       </label>
                     </div>
 
-                    <div className="space-y-3 border-t border-dashed border-base-300 pt-3 opacity-50 hover:opacity-85 focus-within:opacity-100 transition-opacity [&_.label-text]:text-xs">
-                      <div className="grid grid-cols-3 gap-2">
+                    <div className="flex flex-col gap-3 border-t border-dashed border-base-300 opacity-50 hover:opacity-85 focus-within:opacity-100 transition-opacity [&_.label-text]:text-xs">
+                      <div className="grid grid-cols-3 gap-3">
                         <label className="form-control w-full min-w-0">
                           <span className="label-text mb-1">বাড়তি কাজ</span>
                           <input
                             type="number"
                             min={0}
-                            className="input input-bordered input-sm w-full tabular-nums"
+                            className="input input-bordered input-sm w-full min-w-0 tabular-nums"
                             value={recordModal.extra}
                             disabled={recordModalLocked}
                             onChange={(e) =>
@@ -254,7 +289,7 @@ export function RecordDetailModal({
                           <input
                             type="number"
                             min={0}
-                            className="input input-bordered input-sm w-full tabular-nums"
+                            className="input input-bordered input-sm w-full min-w-0 tabular-nums"
                             value={recordModal.advance}
                             disabled={recordModalLocked}
                             onChange={(e) =>
@@ -270,7 +305,7 @@ export function RecordDetailModal({
                           <input
                             type="number"
                             min={0}
-                            className="input input-bordered input-sm w-full tabular-nums"
+                            className="input input-bordered input-sm w-full min-w-0 tabular-nums"
                             value={recordModal.return}
                             disabled={recordModalLocked}
                             onChange={(e) =>
@@ -424,7 +459,15 @@ export function RecordDetailModal({
                   </>
                 ) : (
                   <>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="form-control w-full">
+                      <span className="label-text mb-1">তারিখ</span>
+                      <div className="min-h-8 flex items-center px-1 text-sm">
+                        {recordModal.date
+                          ? formatDateBn(String(recordModal.date))
+                          : "—"}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
                       <div className="form-control w-full min-w-0">
                         <span className="label-text mb-1">হাজিরা</span>
                         <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
@@ -446,8 +489,8 @@ export function RecordDetailModal({
                         </div>
                       </div>
                     </div>
-                    <div className="space-y-3 border-t border-dashed border-base-300 pt-3 opacity-50 [&_.label-text]:text-xs">
-                      <div className="grid grid-cols-3 gap-2">
+                    <div className="flex flex-col gap-3 border-t border-dashed border-base-300 opacity-50 [&_.label-text]:text-xs">
+                      <div className="grid grid-cols-3 gap-3">
                         <div className="form-control w-full min-w-0">
                           <span className="label-text mb-1">বাড়তি কাজ</span>
                           <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
@@ -555,7 +598,10 @@ export function RecordDetailModal({
                         )}
                       </div>
                     ) : isCreateModal &&
-                      isCreateBlockedByLastSession(recordModal, date) ? (
+                      isCreateBlockedByLastSession(
+                        recordModal,
+                        recordModal.date || date,
+                      ) ? (
                       <div className="modal-action mt-2">
                         <p className="w-full text-sm text-center text-warning bg-warning/10 rounded-md px-3 py-2">
                           {lastSessionCreateBlockedMessage(recordModal)}

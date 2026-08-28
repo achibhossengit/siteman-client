@@ -8,6 +8,7 @@ import { parseApiError } from "../api/errors.js";
 import { ApiErrorAlert } from "./ApiErrorAlert.jsx";
 import { SHOW_BILLING, visibleFieldItems } from "../config/features.js";
 import { formatBnNumber, NULL_BILLING_LABEL } from "../utils/format.js";
+import { formatDateBn } from "../utils/dateRange.js";
 
 export const RECORD_LOG_FIELD_LABELS = {
   present: "হাজিরা",
@@ -36,6 +37,7 @@ const RECORD_HISTORY_FIELDS = [
   { key: "payment", aliases: ["fooding_pay", "payment"], kind: "number" },
   { key: "advance", aliases: ["advance_pay", "advance"], kind: "number" },
   { key: "return", aliases: ["return_amount", "return"], kind: "number" },
+  { key: "date", aliases: ["date"], kind: "date" },
   { key: "note", aliases: ["note"], kind: "text" },
   { key: "billing", aliases: ["billing", "billing_id"], kind: "text" },
 ];
@@ -85,6 +87,7 @@ const formatLogValue = (key, value, billingNameFn) => {
     return "—";
   }
   if (key === "type") return paymentTypeLabel(value);
+  if (key === "date") return formatDateBn(String(value));
   if (key === "billing" || key === "billing_id") {
     return billingDiffLabel(value, billingNameFn);
   }

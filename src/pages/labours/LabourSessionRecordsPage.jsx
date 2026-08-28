@@ -40,6 +40,7 @@ import {
 import { confirmAction, toastApiError, toastInfo, toastSuccess } from "../../utils/feedback.js";
 import { SHOW_BILLING } from "../../config/features.js";
 import { PERMS, hasPermissionSuffix } from "../../utils/permissions.js";
+import { todayIso } from "../../utils/dateRange.js";
 
 const RECORD_MODAL_ID = "session_record_detail_modal";
 const DATE_FILTER_MODAL_ID = "session_record_date_filter_modal";
@@ -793,6 +794,7 @@ export const LabourSessionRecordsPage = () => {
       payment: recordModal.payment,
       advance: recordModal.advance,
       return: recordModal.return,
+      date: toIsoDate(recordModal.date),
     };
     if (!hasMeaningfulDayValue(payloadRow)) return;
     setModalApiError(null);
@@ -1215,13 +1217,33 @@ export const LabourSessionRecordsPage = () => {
                 {modalApiError ? (
                   <ApiErrorAlert error={modalApiError} />
                 ) : null}
-                <div className="text-sm text-base-content/60 space-y-0.5">
-                  <div>
-                    তারিখ:{" "}
-                    <span className="text-base-content font-medium">
-                      {formatDate(recordModal.date)}
-                    </span>
-                  </div>
+                <div className="text-sm text-base-content/60 space-y-2">
+                  {modalEditing ? (
+                    <label className="form-control w-full">
+                      <span className="label-text mb-1 text-base-content">
+                        তারিখ
+                      </span>
+                      <input
+                        type="date"
+                        className="input input-bordered input-sm w-full"
+                        value={toIsoDate(recordModal.date)}
+                        max={todayIso()}
+                        onChange={(e) =>
+                          setRecordModal((m) => ({
+                            ...m,
+                            date: e.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                  ) : (
+                    <div className="form-control w-full">
+                      <span className="label-text mb-1">তারিখ</span>
+                      <div className="min-h-8 flex items-center px-1 text-sm text-base-content font-medium">
+                        {formatDate(recordModal.date)}
+                      </div>
+                    </div>
+                  )}
                   {recordModal.siteId != null && recordModal.siteId !== "" ? (
                     <div>
                       সাইট:{" "}
