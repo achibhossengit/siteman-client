@@ -177,6 +177,33 @@ export const formatDateRangeBn = (start, end) => {
   return `${startLabel} – ${formatDateBn(normalized)}`
 }
 
+/** Inclusive list of ISO dates from start through end. */
+export const eachIsoDate = (start, end) => {
+  const from = parseIsoDate(start)
+  const to = parseIsoDate(end || start)
+  if (!from || !to) return isIsoDate(start) ? [start] : []
+  const first = to < from ? to : from
+  const last = to < from ? from : to
+  const days = []
+  const cursor = new Date(first)
+  while (cursor <= last) {
+    days.push(toIsoDate(cursor))
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return days
+}
+
+/** Compact column header, e.g. ২৬/৮/২৬ */
+export const formatDateColBn = (iso) => {
+  const d = parseIsoDate(iso)
+  if (!d) return '—'
+  return new Intl.DateTimeFormat('bn-BD', {
+    day: 'numeric',
+    month: 'numeric',
+    year: '2-digit',
+  }).format(d)
+}
+
 export const WEEKDAY_LABELS_BN = [
   'শনি',
   'রবি',

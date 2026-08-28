@@ -309,3 +309,136 @@ export const summarizeHajiraRows = (rows) =>
     },
     { present: 0, extra: 0, payment: 0 },
   )
+
+const asNum = (value) => {
+  if (value == null || value === '') return 0
+  const n = Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+
+const isNonZeroTotals = (t) =>
+  Boolean(t && (t.present || t.extra || t.outflow || t.returned))
+
+/** Present / extra on the left, outflow / return on the right. */
+export const dailyRecordDayValues = (record) => {
+  if (!record) {
+    return { present: 0, extra: 0, outflow: 0, returned: 0, empty: true }
+  }
+  const present = asNum(record.present)
+  const extra = asNum(record.extra_earn ?? record.extra)
+  const outflow =
+    asNum(record.fooding_pay ?? record.payment) +
+    asNum(record.advance_pay ?? record.advance)
+  const returned = asNum(record.return_amount ?? record.return)
+  return {
+    present,
+    extra,
+    outflow,
+    returned,
+    empty: present === 0 && extra === 0 && outflow === 0 && returned === 0,
+  }
+}
+
+export const totalsValuesOf = (totals) => ({
+  present: asNum(totals?.present),
+  extra: asNum(totals?.extra_earn),
+  outflow: asNum(totals?.fooding_pay) + asNum(totals?.advance_pay),
+  returned: asNum(totals?.return_amount),
+})
+
+const sumDayValues = (days) =>
+  (days ?? []).reduce(
+    (acc, day) => {
+      acc.present += asNum(day.present)
+      acc.extra += asNum(day.extra)
+      acc.outflow += asNum(day.outflow)
+      acc.returned += asNum(day.returned)
+      return acc
+    },
+    { present: 0, extra: 0, outflow: 0, returned: 0 },
+  )
+
+/**
+ * Range hajira rows: one labour, a cell per date, plus window totals.
+ * Day columns should be omitted by the UI when the window is > 1 month
+ * (API then returns totals without nested records).
+ */
+export const buildHajiraRangeRows = (
+  items = [],
+  { siteId, includeLabour = true, includeRecord = true, dates = [] } = {},
+) => {
+  if (!includeLabour && !includeRecord) return []
+
+  const site = siteId != null && siteId !== '' ? Number(siteId) : null
+  const entries = asRosterEntries(items).filter((entry) => {
+    const labourId = entry?.labour?.id
+    if (labourId == null || labourId === '') return false
+    const onSite =
+      site == null || Number(entry.labour.current_site) === site
+    const hasRecords = (entry.records ?? []).length > 0
+    const hasTotals = isNonZeroTotals(totalsValuesOf(entry.totals))
+    const hasActivity = hasRecords || hasTotals
+    if (includeLabour && includeRecord) return onSite || hasActivity
+    if (includeLabour) return onSite
+    return hasActivity
+  })
+
+  return entries
+    .map((entry) => {
+      const labour = entry.labour ?? {}
+      const labourId = Number(labour.id)
+      const byDate = new Map()
+      for (const rec of entry.records ?? []) {
+        if (rec?.date) byDate.set(rec.date, rec)
+      }
+      const days = (dates ?? []).map((iso) => {
+        const record = byDate.get(iso) ?? null
+        return { date: iso, record, ...dailyRecordDayValues(record) }
+      })
+      const fromApi = totalsValuesOf(entry.totals)
+      const totals = isNonZeroTotals(fromApi) ? fromApi : sumDayValues(days)
+      const labourCurrentSite =
+        labour.current_site == null || labour.current_site === ''
+          ? null
+          : Number(labour.current_site)
+      return {
+        labour,
+        labourId,
+        labourName: labour.name ?? `#${labourId}`,
+        labourPhoto: labour.photo ?? null,
+        labourCurrentSite,
+        labourIsActive: labour.is_active !== false,
+        days,
+        totals,
+      }
+    })
+    .sort((a, b) =>
+      String(a.labourName).localeCompare(String(b.labourName), 'bn'),
+    )
+}
+
+export const sumHajiraRangeFooter = (rows, dates = []) => {
+  const byDate = (dates ?? []).map((iso) => ({
+    date: iso,
+    present: 0,
+    extra: 0,
+    outflow: 0,
+    returned: 0,
+  }))
+  const totals = { present: 0, extra: 0, outflow: 0, returned: 0 }
+  for (const row of rows ?? []) {
+    totals.present += asNum(row.totals?.present)
+    totals.extra += asNum(row.totals?.extra)
+    totals.outflow += asNum(row.totals?.outflow)
+    totals.returned += asNum(row.totals?.returned)
+    for (let i = 0; i < byDate.length; i += 1) {
+      const day = row.days?.[i]
+      if (!day) continue
+      byDate[i].present += asNum(day.present)
+      byDate[i].extra += asNum(day.extra)
+      byDate[i].outflow += asNum(day.outflow)
+      byDate[i].returned += asNum(day.returned)
+    }
+  }
+  return { byDate, totals }
+}

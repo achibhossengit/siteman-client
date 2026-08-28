@@ -7,10 +7,13 @@ import {
 } from "../../api/labours.js";
 import {
   createSiteDailyRecords,
-  fetchSiteDailyRecordsByDate,
+  fetchAllSiteDailyRecords,
 } from "../../api/sites.js";
 import {
+  buildHajiraRangeRows,
+  buildHajiraRowFromEntry,
   buildHajiraRowsFromRoster,
+  sumHajiraRangeFooter,
   toDailyRecordPayload,
   toDailyRecordPatchPayload,
 } from "../../api/types/hajira.js";
@@ -21,6 +24,7 @@ import { messageForCode, parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { HajiraActionBars } from "../../components/hajiraPage/HajiraActionBars.jsx";
 import { HajiraFilterModals } from "../../components/hajiraPage/HajiraFilterModals.jsx";
+import { HajiraRangeTable } from "../../components/hajiraPage/HajiraRangeTable.jsx";
 import { HajiraRecordsTable } from "../../components/hajiraPage/HajiraRecordsTable.jsx";
 import { RecordDetailModal } from "../../components/hajiraPage/RecordDetailModal.jsx";
 import {
@@ -93,10 +97,12 @@ import {
   readSelectedSite,
   todayIso,
 } from "../../utils/sessionSelection.js";
+import { eachIsoDate } from "../../utils/dateRange.js";
 import { SHOW_BILLING } from "../../config/features.js";
 
 export const HajiraPage = () => {
-  const { date: selectedDate, siteId: selectedSiteId } = useOutletContext();
+  const { date: selectedDate, dateEnd, siteId: selectedSiteId } =
+    useOutletContext();
   const { can, profile, isCompanyAdmin } = usePermissions();
   const { getSiteName } = useSitesLookup();
   const queryClient = useQueryClient();
@@ -136,6 +142,17 @@ export const HajiraPage = () => {
 
   const siteId = selectedSiteId || readSelectedSite();
   const date = selectedDate || readSelectedDate() || todayIso();
+  const isRange = Boolean(dateEnd && dateEnd !== date);
+  const rangeDates = useMemo(
+    () => (isRange ? eachIsoDate(date, dateEnd) : []),
+    [isRange, date, dateEnd],
+  );
+  const showRangeDayColumns = isRange && rangeDates.length <= 31;
+  const dateParams = useMemo(
+    () =>
+      isRange ? { date__gte: date, date__lte: dateEnd } : { date },
+    [isRange, date, dateEnd],
+  );
 
   const [rows, setRows] = useState([]);
   const [initialRows, setInitialRows] = useState([]);
@@ -174,11 +191,10 @@ export const HajiraPage = () => {
 
   const showAyColumn = Boolean(isCompanyAdmin);
 
-  // Single-date roster (`?date=`). Date-range UI will switch to date__gte/lte later.
   const dailyRecordsQuery = useQuery({
-    queryKey: ["sites", siteId, "daily-records", { date }],
+    queryKey: ["sites", siteId, "daily-records", dateParams],
     queryFn: async () => {
-      const { data } = await fetchSiteDailyRecordsByDate(siteId, date);
+      const { data } = await fetchAllSiteDailyRecords(siteId, dateParams);
       return Array.isArray(data) ? data : [];
     },
     enabled: Boolean(siteId && date),
@@ -363,6 +379,41 @@ export const HajiraPage = () => {
     return next;
   };
 
+  const rangeRows = useMemo(() => {
+    if (!isRange) return [];
+    const selected = Array.isArray(labourFilter)
+      ? labourFilter
+      : LABOUR_DEFAULT_FIELDS;
+    const includeRecord = selected.includes("record");
+    const includeLabour = selected.includes("labour");
+    let next = buildHajiraRangeRows(dailyRecordsQuery.data ?? [], {
+      siteId,
+      includeLabour,
+      includeRecord,
+      dates: showRangeDayColumns ? rangeDates : [],
+    });
+    if (includeLabour) {
+      next = withSiteLabourCurrentSite(next);
+    }
+    return next;
+  }, [
+    isRange,
+    labourFilter,
+    dailyRecordsQuery.data,
+    siteId,
+    rangeDates,
+    showRangeDayColumns,
+  ]);
+
+  const rangeFooter = useMemo(
+    () =>
+      sumHajiraRangeFooter(
+        rangeRows,
+        showRangeDayColumns ? rangeDates : [],
+      ),
+    [rangeRows, showRangeDayColumns, rangeDates],
+  );
+
   // Reset filters/select when site/date changes (not on first mount / refresh).
   const skipSiteDateResetRef = useRef(true);
   useEffect(() => {
@@ -383,7 +434,7 @@ export const HajiraPage = () => {
     setPaymentFilter(["payment", "advance", "return"]);
     setBillingFilter(["all"]);
     setHajiraFilter(["present", "extra"]);
-  }, [siteId, date]);
+  }, [siteId, date, dateEnd]);
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -392,6 +443,11 @@ export const HajiraPage = () => {
 
   // Single-mode row rebuild for current labour filter.
   useEffect(() => {
+    if (isRange) {
+      setRows([]);
+      setInitialRows([]);
+      return;
+    }
     if (!dailyRecordsQuery.isSuccess) return;
     const next = buildRowsForLabourFilter(labourFilter);
     setRows(cloneRows(next));
@@ -403,6 +459,7 @@ export const HajiraPage = () => {
     dailyRecordsQuery.data,
     siteId,
     date,
+    isRange,
   ]);
 
   const updateRow = (labourId, patch) => {
@@ -547,6 +604,16 @@ export const HajiraPage = () => {
     resetModalEditState();
     setRecordModal(recordModalFromRow(row));
     document.getElementById(RECORD_MODAL_ID)?.showModal();
+  };
+
+  const openRangeDay = (rangeRow, record) => {
+    if (!record) return;
+    openRecordModal(
+      buildHajiraRowFromEntry({
+        labour: rangeRow.labour,
+        record,
+      }),
+    );
   };
 
   const startModalEdit = () => {
@@ -778,7 +845,8 @@ export const HajiraPage = () => {
   /** Bulk fills blank fields on unlocked rows (create or change). */
   const isBulkTargetRow = (row) => !attendanceLocked(row);
 
-  const showBulkSection = canAddDailyRecord || canChangeDailyRecord;
+  const showBulkSection =
+    !isRange && (canAddDailyRecord || canChangeDailyRecord);
 
   const isBlank = (value) => value === "" || value == null;
   /** Extra defaults to 0 on rows — treat 0 as unset for bulk fill. */
@@ -1189,7 +1257,9 @@ export const HajiraPage = () => {
         ? "এই সাইটে কোনো শ্রমিক নেই।"
         : includeLabourRows && includeRecordRows
           ? "এই সাইটে কোনো শ্রমিক নেই এবং অন্য কোনো রেকর্ড নেই।"
-          : "এই তারিখে কোনো হাজিরা নেই।";
+          : isRange
+            ? "এই সময়ে কোনো হাজিরা নেই।"
+            : "এই তারিখে কোনো হাজিরা নেই।";
 
   const recordModalLocked = !modalEditable;
   const salaryFieldEnabled =
@@ -1238,6 +1308,21 @@ export const HajiraPage = () => {
     <div className="flex-1 min-h-0 flex flex-col gap-2">
       {apiError ? <ApiErrorAlert error={apiError} /> : null}
 
+      {isRange ? (
+        <HajiraRangeTable
+          dates={rangeDates}
+          showDayColumns={showRangeDayColumns}
+          rows={rangeRows}
+          emptyMessage={emptyMessage}
+          footer={rangeFooter}
+          openLabourFilterModal={openLabourFilterModal}
+          labourFilter={labourFilter}
+          isLabourOffSite={isLabourOffSite}
+          canOpenLabourDetail={canOpenLabourDetail}
+          showLabourDetailDenied={showLabourDetailDenied}
+          onOpenDay={openRangeDay}
+        />
+      ) : (
       <HajiraRecordsTable
         selectMode={selectMode}
         canChangeActivityLog={canChangeActivityLog}
@@ -1278,7 +1363,9 @@ export const HajiraPage = () => {
         totals={totals}
         date={date}
       />
+      )}
 
+      {isRange ? null : (
       <HajiraActionBars
         hasPendingCreates={hasPendingCreates}
         onCancel={onCancel}
@@ -1292,6 +1379,7 @@ export const HajiraPage = () => {
         selectedIds={selectedIds}
         onAcceptChanges={onAcceptChanges}
       />
+      )}
 
       <RecordDetailModal
         recordModal={recordModal}
