@@ -413,7 +413,7 @@ export function RecordDetailModal({
                             type="button"
                             className="btn btn-primary"
                             onClick={saveRecordModal}
-                            disabled={!recordModalCanSet}
+                            disabled={!recordModalCanSet || modalSaving}
                             title={
                               recordModalCanSet
                                 ? undefined
@@ -422,6 +422,9 @@ export function RecordDetailModal({
                                   : MEANINGFUL_DAY_VALUE_MESSAGE
                             }
                           >
+                            {modalSaving ? (
+                              <span className="loading loading-spinner loading-sm" />
+                            ) : null}
                             সেট করুন
                           </button>
                         </div>

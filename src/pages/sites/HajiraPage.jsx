@@ -164,6 +164,7 @@ export const HajiraPage = () => {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [recordModal, setRecordModal] = useState(null);
+  const [modalBaseline, setModalBaseline] = useState(null);
   const [recordModalView, setRecordModalView] = useState(MODAL_VIEWS.detail);
   const [modalEditing, setModalEditing] = useState(false);
   const [modalDeleting, setModalDeleting] = useState(false);
@@ -427,6 +428,7 @@ export const HajiraPage = () => {
     setApiError(null);
     setSaveRowErrors({});
     setRecordModal(null);
+    setModalBaseline(null);
     setRecordModalView(MODAL_VIEWS.detail);
     setModalEditing(false);
     setExpandedHistoryId(null);
@@ -461,6 +463,10 @@ export const HajiraPage = () => {
     date,
     isRange,
   ]);
+
+  useEffect(() => {
+    if (recordModal == null) setModalBaseline(null);
+  }, [recordModal]);
 
   const updateRow = (labourId, patch) => {
     setRows((prev) =>
@@ -562,12 +568,13 @@ export const HajiraPage = () => {
   };
 
   const isCreateModal = Boolean(recordModal && !recordIdOf(recordModal));
+  const modalRecordDate = recordModal?.date || date;
   const modalEditable = Boolean(
     recordModal &&
       !recordSealedOf(recordModal) &&
         (isCreateModal
           ? canAddDailyRecord &&
-            !isCreateBlockedByLastSession(recordModal, date)
+            !isCreateBlockedByLastSession(recordModal, modalRecordDate)
           : modalEditing && canChangeDailyRecord),
   );
 
@@ -593,6 +600,7 @@ export const HajiraPage = () => {
   const closeRecordModal = () => {
     document.getElementById(RECORD_MODAL_ID)?.close();
     setRecordModal(null);
+    setModalBaseline(null);
     setRecordModalView(MODAL_VIEWS.detail);
     setExpandedHistoryId(null);
     resetModalEditState();
@@ -602,18 +610,27 @@ export const HajiraPage = () => {
     setRecordModalView(MODAL_VIEWS.detail);
     setExpandedHistoryId(null);
     resetModalEditState();
+    setModalBaseline(row);
     setRecordModal(recordModalFromRow(row));
     document.getElementById(RECORD_MODAL_ID)?.showModal();
   };
 
-  const openRangeDay = (rangeRow, record) => {
-    if (!record) return;
-    openRecordModal(
-      buildHajiraRowFromEntry({
-        labour: rangeRow.labour,
-        record,
-      }),
-    );
+  const openRangeDay = (rangeRow, day) => {
+    if (day?.record) {
+      openRecordModal(
+        buildHajiraRowFromEntry({
+          labour: rangeRow.labour,
+          record: day.record,
+        }),
+      );
+      return;
+    }
+    if (!canAddDailyRecord || !day?.date) return;
+    const draft = buildHajiraRowFromEntry({
+      labour: rangeRow.labour,
+      record: null,
+    });
+    openRecordModal({ ...draft, date: day.date });
   };
 
   const startModalEdit = () => {
@@ -676,7 +693,12 @@ export const HajiraPage = () => {
   const saveRecordModal = () => {
     if (!recordModal || !modalEditable || attendanceLocked(recordModal)) return;
     if (!isCreateModal) return;
-    const currentRow = rows.find((r) => r.labourId === recordModal.labourId);
+    if (isRange) {
+      void persistRangeCreate();
+      return;
+    }
+    const currentRow =
+      rows.find((r) => r.labourId === recordModal.labourId) ?? modalBaseline;
     if (!isRecordModalDirty(recordModal, currentRow)) return;
     const next = buildModalRowPatch();
     if (!next) return;
@@ -684,12 +706,50 @@ export const HajiraPage = () => {
     closeRecordModal();
   };
 
+  const persistRangeCreate = async () => {
+    if (!canAddDailyRecord || !recordModal || modalSaving) return;
+    const next = buildModalRowPatch();
+    if (!next || lacksMeaningfulDayValue(next)) {
+      toastInfo(MEANINGFUL_DAY_VALUE_MESSAGE);
+      return;
+    }
+    if (isCreateBlockedByLastSession(recordModal, next.date || date)) {
+      toastInfo(messageForCode("record_date_not_after_last_session"));
+      return;
+    }
+    setModalSaving(true);
+    try {
+      await createSiteDailyRecords(siteId, [
+        toDailyRecordPayload(
+          { ...recordModal, ...next, labourId: recordModal.labourId },
+          next.date,
+        ),
+      ]);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["sites", siteId, "daily-records"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["sites", siteId, "daily-reports"],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["activities"] }),
+      ]);
+      toastSuccess("হাজিরা তৈরি হয়েছে");
+      closeRecordModal();
+    } catch (err) {
+      toastApiError(parseApiError(err));
+    } finally {
+      setModalSaving(false);
+    }
+  };
+
   /** Existing record: PATCH immediately from the detail modal. */
   const confirmModalUpdate = async () => {
     if (!canUpdateRecord || !recordModal || modalSaving) return;
     const recordId = recordIdOf(recordModal);
     if (recordId == null) return;
-    const currentRow = rows.find((r) => r.labourId === recordModal.labourId);
+    const currentRow =
+      rows.find((r) => r.labourId === recordModal.labourId) ?? modalBaseline;
     if (!isRecordModalDirty(recordModal, currentRow)) return;
     const next = buildModalRowPatch();
     if (!next || lacksMeaningfulDayValue(next)) {
@@ -747,7 +807,8 @@ export const HajiraPage = () => {
 
   const resetRecordModal = () => {
     if (!recordModal) return;
-    const initial = initialByLabour.get(recordModal.labourId);
+    const initial =
+      initialByLabour.get(recordModal.labourId) ?? modalBaseline;
     if (!initial) return;
     const resetForm = recordModalFromRow(initial);
     setRecordModal({
@@ -767,7 +828,8 @@ export const HajiraPage = () => {
 
   const applyRecordModalDefaults = () => {
     if (!recordModal || !modalEditable || attendanceLocked(recordModal)) return;
-    const row = rows.find((r) => r.labourId === recordModal.labourId);
+    const row =
+      rows.find((r) => r.labourId === recordModal.labourId) ?? modalBaseline;
     if (!row) return;
     setRecordModal((m) => {
       if (!m) return m;
@@ -1272,7 +1334,8 @@ export const HajiraPage = () => {
     !recordModalLocked &&
     canSetBillingOnRow(recordModal);
   const recordModalBaselineRow = recordModal
-    ? rows.find((r) => r.labourId === recordModal.labourId)
+    ? (rows.find((r) => r.labourId === recordModal.labourId) ??
+      modalBaseline)
     : null;
   const recordModalDirty = isRecordModalDirty(
     recordModal,
@@ -1284,7 +1347,14 @@ export const HajiraPage = () => {
     !attendanceLocked(recordModal) &&
     recordModalDirty &&
     Boolean(String(recordModal.date ?? "").trim()) &&
-    (isCreateModal || hasMeaningfulDayValue(recordModal));
+    (isCreateModal
+      ? !isRange || hasMeaningfulDayValue(recordModal)
+      : hasMeaningfulDayValue(recordModal));
+  const modalRows = rows.length
+    ? rows
+    : modalBaseline
+      ? [modalBaseline]
+      : [];
 
   const tableColCount =
     4 + (showAyColumn ? 1 : 0) + (SHOW_BILLING ? 1 : 0);
@@ -1320,6 +1390,7 @@ export const HajiraPage = () => {
           isLabourOffSite={isLabourOffSite}
           canOpenLabourDetail={canOpenLabourDetail}
           showLabourDetailDenied={showLabourDetailDenied}
+          canCreateDay={canAddDailyRecord}
           onOpenDay={openRangeDay}
         />
       ) : (
@@ -1400,7 +1471,7 @@ export const HajiraPage = () => {
         expandedHistoryId={expandedHistoryId}
         billingFullLabel={billingFullLabel}
         modalEditable={modalEditable}
-        rows={rows}
+        rows={modalRows}
         patchRecordModal={patchRecordModal}
         recordModalLocked={recordModalLocked}
         salaryFieldEnabled={salaryFieldEnabled}

@@ -49,6 +49,7 @@ export function HajiraRangeTable({
   isLabourOffSite,
   canOpenLabourDetail,
   showLabourDetailDenied,
+  canCreateDay,
   onOpenDay,
 }) {
   const dayCount = showDayColumns ? dates.length : 0;
@@ -143,7 +144,8 @@ export function HajiraRangeTable({
                   </td>
                   {showDayColumns
                     ? row.days.map((day) => {
-                        const clickable = Boolean(day.record);
+                        const clickable =
+                          Boolean(day.record) || Boolean(canCreateDay);
                         const cellClass = [
                           "text-right align-top min-w-16 px-1 bg-transparent",
                           clickable ? "cursor-pointer" : "",
@@ -151,13 +153,20 @@ export function HajiraRangeTable({
                           .filter(Boolean)
                           .join(" ");
                         const open = () => {
-                          if (clickable) onOpenDay(row, day.record);
+                          if (clickable) onOpenDay(row, day);
                         };
                         return (
                           <FragmentPair
                             key={day.date}
                             onClick={open}
                             className={cellClass}
+                            title={
+                              day.record
+                                ? undefined
+                                : canCreateDay
+                                  ? "নতুন হাজিরা"
+                                  : undefined
+                            }
                             left={
                               <Stack
                                 side="hajira"
@@ -286,18 +295,20 @@ function LabourIdentity({ row, offSite, canOpen, onDenied, children }) {
   );
 }
 
-function FragmentPair({ left, right, className, onClick }) {
+function FragmentPair({ left, right, className, onClick, title }) {
   return (
     <>
       <td
         className={[className, CELL_INNER].filter(Boolean).join(" ")}
         onClick={onClick}
+        title={title}
       >
         {left}
       </td>
       <td
         className={[className, CELL].filter(Boolean).join(" ")}
         onClick={onClick}
+        title={title}
       >
         {right}
       </td>
