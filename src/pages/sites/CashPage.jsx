@@ -284,7 +284,7 @@ const colgroup = (
 )
 
 export const CashPage = () => {
-  const { date, siteId, sites } = useOutletContext()
+  const { date, dateEnd, siteId, sites } = useOutletContext()
   const queryClient = useQueryClient()
   const { can, profile } = usePermissions()
   const dialogRef = useRef(null)
@@ -342,13 +342,23 @@ export const CashPage = () => {
   })()
   const formReady = noteReady && amountReady
 
+  const isRange = Boolean(dateEnd && dateEnd !== date)
+  const canCreateCash = canAddCash && !isRange
+
   useEffect(() => {
     setTypeFilter([...TYPE_DEFAULT_FIELDS])
     setBillingFilter('all')
     setPage(1)
     setSelectMode(false)
     setSelectedIds(new Set())
-  }, [siteId, date])
+  }, [siteId, date, dateEnd])
+
+  useEffect(() => {
+    if (!isRange) return
+    setCreating(false)
+    setEditing(false)
+    dialogRef.current?.close()
+  }, [isRange])
 
   useEffect(() => {
     setSelectedIds(new Set())
@@ -379,28 +389,35 @@ export const CashPage = () => {
       ? Number(billingFilter)
       : undefined
 
+  const dateParams = useMemo(
+    () =>
+      isRange
+        ? { date__gte: date, date__lte: dateEnd }
+        : { date },
+    [isRange, date, dateEnd],
+  )
+
   const cashQueryKey = useMemo(
     () => [
       'sites',
       siteId,
       'cash',
       {
-        date,
+        ...dateParams,
         page,
         page_size: PAGE_SIZE,
         type: apiType ?? 'all',
         billing: SHOW_BILLING ? billingFilter : 'all',
       },
     ],
-    [siteId, date, page, apiType, billingFilter],
+    [siteId, dateParams, page, apiType, billingFilter],
   )
 
-  // Single-date list (`?date=`). Date-range UI will switch to date__gte/lte later.
   const cashQuery = useQuery({
     queryKey: cashQueryKey,
     queryFn: async () => {
       const { data } = await fetchSiteCash(siteId, {
-        date,
+        ...dateParams,
         page,
         page_size: PAGE_SIZE,
         ...(apiType ? { type: apiType } : {}),
@@ -654,6 +671,7 @@ export const CashPage = () => {
   }
 
   const openCreate = () => {
+    if (!canCreateCash) return
     setApiError(null)
     setSelected(null)
     setCreating(true)
@@ -943,7 +961,9 @@ export const CashPage = () => {
                   colSpan={SHOW_BILLING ? 4 : 3}
                   className="text-center text-base-content/60 py-10"
                 >
-                  এই তারিখে কোনো ক্যাশ এন্ট্রি নেই।
+                  {isRange
+                    ? 'এই সময়ে কোনো ক্যাশ এন্ট্রি নেই।'
+                    : 'এই তারিখে কোনো ক্যাশ এন্ট্রি নেই।'}
                 </td>
               </tr>
             ) : (
@@ -1065,7 +1085,7 @@ export const CashPage = () => {
                 ) : null}
               </button>
             </>
-          ) : canAddCash ? (
+          ) : canCreateCash ? (
             <button
               type="button"
               className="btn btn-primary btn-circle btn-lg shadow-lg"
