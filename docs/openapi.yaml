@@ -5030,9 +5030,9 @@ paths:
   /api/v1/sites/{id}/daily-reports:
     get:
       operationId: sites_daily_reports_retrieve
-      description:
-        Day summary for this site. Query param ``date`` (YYYY-MM-DD) is
-        optional; defaults to today.
+      description: |-
+        Day or range summary. ``date`` (YYYY-MM-DD) is required for a
+        single day. ``date__gte`` + ``date__lte`` cover an inclusive window.
       parameters:
         - in: path
           name: id

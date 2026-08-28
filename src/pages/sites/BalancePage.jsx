@@ -45,10 +45,11 @@ const SubtotalRow = ({ value, valueClassName }) => (
 export const BalancePage = () => {
   const { date, siteId } = useOutletContext()
 
+  // Single-day summary (`?date=`). Date-range UI will switch to date__gte/lte later.
   const query = useQuery({
-    queryKey: ['sites', siteId, 'daily-reports', date],
+    queryKey: ['sites', siteId, 'daily-reports', { date }],
     queryFn: async () => {
-      const { data } = await fetchDailyReport(siteId, date)
+      const { data } = await fetchDailyReport(siteId, { date })
       return data
     },
     enabled: Boolean(siteId && date),

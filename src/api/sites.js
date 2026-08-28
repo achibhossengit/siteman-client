@@ -39,14 +39,22 @@ export const updateSite = (siteId, payload) =>
 export const deleteSite = (siteId) => api.delete(endpoints.sites.detail(siteId))
 
 /**
- * Day summary for a site.
+ * Day or range summary for a site.
+ * GET /sites/{id}/daily-reports
+ * Single day: `date` (required). Range: `date__gte` + `date__lte`.
  * OpenAPI documents 200 as `Site` (incorrect) — live shape is aggregates.
- * Always send `date` (YYYY-MM-DD).
  */
-export const fetchDailyReport = (siteId, date) =>
-  api.get(endpoints.sites.dailyReports(siteId), {
-    params: { date },
-  })
+export const fetchDailyReport = (
+  siteId,
+  { date, date__gte, date__lte } = {},
+) => {
+  const params = {
+    ...(date ? { date } : {}),
+    ...(date__gte ? { date__gte } : {}),
+    ...(date__lte ? { date__lte } : {}),
+  }
+  return api.get(endpoints.sites.dailyReports(siteId), { params })
+}
 
 /**
  * Site cash ledger list (paginated).
