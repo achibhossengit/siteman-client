@@ -11,6 +11,9 @@ const BORDER_X = "border-r border-r-base-content/35";
 const BORDER_X_INNER = "border-r border-r-base-content/15";
 const CELL = `${BORDER_Y} ${BORDER_X}`;
 const CELL_INNER = `${BORDER_Y} ${BORDER_X_INNER}`;
+const CELL_PIN = BORDER_Y;
+const STICKY_PIN = "sticky left-0 z-[2] !bg-base-200";
+const STICKY_PIN_HEAD = "sticky left-0 z-20 !bg-base-100";
 
 const Stack = ({ present, extra, outflow, returned, side }) => {
   const left = side === "hajira";
@@ -49,7 +52,7 @@ export function HajiraRangeTable({
   onOpenDay,
 }) {
   const dayCount = showDayColumns ? dates.length : 0;
-  const colCount = 2 + dayCount * 2 + 2;
+  const colCount = 3 + dayCount * 2 + 2;
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -65,7 +68,8 @@ export function HajiraRangeTable({
         <thead className="sticky top-0 z-10 bg-base-100">
           <tr className="text-sm">
             <th className={`w-10 ${CELL}`}>নং</th>
-            <th className={`min-w-28 ${CELL}`}>
+            <th className={`w-11 pl-1 pr-0 ${CELL_PIN} ${STICKY_PIN_HEAD}`} />
+            <th className={`min-w-28 pl-1 ${CELL}`}>
               <button type="button" onClick={openLabourFilterModal}>
                 {filterHeaderTitle("নাম", labourFilter, LABOUR_DEFAULT_FIELDS)}
               </button>
@@ -105,79 +109,37 @@ export function HajiraRangeTable({
           ) : (
             rows.map((row, index) => {
               const offSite = isLabourOffSite(row);
-              const nameMutedClass = offSite ? "text-base-content/45" : "";
               return (
                 <tr key={row.labourId} className="bg-transparent">
                   <td className={`tabular-nums text-base-content/60 ${CELL}`}>
                     {formatBnNumber(index + 1)}
                   </td>
-                  <td className={`font-medium ${CELL}`}>
-                    <div className="flex items-center gap-2 whitespace-nowrap min-w-0">
-                      {row.labourId != null && canOpenLabourDetail(row) ? (
-                        <Link
-                          to={paths.labourDetail(row.labourId)}
-                          className={[
-                            "flex items-center gap-2 min-w-0",
-                            nameMutedClass,
-                          ]
-                            .filter(Boolean)
-                            .join(" ")}
-                          title={
-                            offSite
-                              ? "এই শ্রমিক আর এই সাইটে নেই"
-                              : row.labourName
-                          }
-                        >
-                          <PersonAvatar
-                            photo={row.labourPhoto}
-                            name={row.labourName}
-                            size="xs"
-                            shape="square"
-                          />
-                          <span className="link link-hover">
-                            {concatLabourName(row.labourName)}
-                          </span>
-                        </Link>
-                      ) : row.labourId != null ? (
-                        <button
-                          type="button"
-                          className={[
-                            "flex items-center gap-2 min-w-0 text-left cursor-pointer",
-                            "text-base-content/60",
-                            nameMutedClass,
-                          ]
-                            .filter(Boolean)
-                            .join(" ")}
-                          title="এই শ্রমিকের সাইটে অনুমতি নেই"
-                          onClick={() => void showLabourDetailDenied(row)}
-                        >
-                          <PersonAvatar
-                            photo={row.labourPhoto}
-                            name={row.labourName}
-                            size="xs"
-                            shape="square"
-                          />
-                          {concatLabourName(row.labourName)}
-                        </button>
-                      ) : (
-                        <span
-                          className={[
-                            "flex items-center gap-2 min-w-0",
-                            nameMutedClass,
-                          ]
-                            .filter(Boolean)
-                            .join(" ")}
-                        >
-                          <PersonAvatar
-                            photo={row.labourPhoto}
-                            name={row.labourName}
-                            size="xs"
-                            shape="square"
-                          />
-                          {concatLabourName(row.labourName)}
-                        </span>
-                      )}
-                    </div>
+                  <td className={`w-11 pl-1 pr-0 ${CELL_PIN} ${STICKY_PIN}`}>
+                    <LabourIdentity
+                      row={row}
+                      offSite={offSite}
+                      canOpen={canOpenLabourDetail(row)}
+                      onDenied={showLabourDetailDenied}
+                    >
+                      <PersonAvatar
+                        photo={row.labourPhoto}
+                        name={row.labourName}
+                        size="xs"
+                        shape="square"
+                      />
+                    </LabourIdentity>
+                  </td>
+                  <td className={`font-medium pl-1 ${CELL}`}>
+                    <LabourIdentity
+                      row={row}
+                      offSite={offSite}
+                      canOpen={canOpenLabourDetail(row)}
+                      onDenied={showLabourDetailDenied}
+                    >
+                      <span className="link link-hover">
+                        {concatLabourName(row.labourName)}
+                      </span>
+                    </LabourIdentity>
                   </td>
                   {showDayColumns
                     ? row.days.map((day) => {
@@ -237,9 +199,8 @@ export function HajiraRangeTable({
           <tfoot>
             <tr className="font-medium bg-transparent">
               <td className={CELL} />
-              <td className={`whitespace-nowrap ${CELL}`}>
-                মোট
-              </td>
+              <td className={`w-11 pl-1 pr-0 ${CELL_PIN} ${STICKY_PIN}`} />
+              <td className={`whitespace-nowrap pl-1 ${CELL}`}>মোট</td>
               {showDayColumns
                 ? footer.byDate.map((day) => (
                     <FragmentPair
@@ -282,6 +243,46 @@ export function HajiraRangeTable({
       </table>
       </div>
     </div>
+  );
+}
+
+function LabourIdentity({ row, offSite, canOpen, onDenied, children }) {
+  const muted = offSite ? "text-base-content/45" : "";
+  if (row.labourId != null && canOpen) {
+    return (
+      <Link
+        to={paths.labourDetail(row.labourId)}
+        className={["flex items-center min-w-0", muted]
+          .filter(Boolean)
+          .join(" ")}
+        title={offSite ? "এই শ্রমিক আর এই সাইটে নেই" : row.labourName}
+      >
+        {children}
+      </Link>
+    );
+  }
+  if (row.labourId != null) {
+    return (
+      <button
+        type="button"
+        className={[
+          "flex items-center min-w-0 text-left cursor-pointer",
+          "text-base-content/60",
+          muted,
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        title="এই শ্রমিকের সাইটে অনুমতি নেই"
+        onClick={() => void onDenied(row)}
+      >
+        {children}
+      </button>
+    );
+  }
+  return (
+    <span className={["flex items-center min-w-0", muted].filter(Boolean).join(" ")}>
+      {children}
+    </span>
   );
 }
 
