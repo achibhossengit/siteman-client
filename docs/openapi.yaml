@@ -6775,21 +6775,8 @@ paths:
 
         GET returns a hajira roster for ``date`` (defaults to today) or
         ``date__gte`` / ``date__lte``. Windows longer than one month return
-        per-labour totals without individual records. Shorter windows paginate
-        records. POST is still bulk create.
+        per-labour totals without individual records. POST is still bulk create.
       parameters:
-        - name: page
-          required: false
-          in: query
-          description: A page number within the paginated result set.
-          schema:
-            type: integer
-        - name: page_size
-          required: false
-          in: query
-          description: Number of results to return per page.
-          schema:
-            type: integer
         - in: path
           name: site_pk
           schema:
@@ -6929,7 +6916,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PaginatedSiteDailyRecordListList"
+                type: array
+                items:
+                  $ref: "#/components/schemas/SiteDailyRecordList"
           description: ""
     post:
       operationId: sites_daily_records_create
@@ -6938,21 +6927,8 @@ paths:
 
         GET returns a hajira roster for ``date`` (defaults to today) or
         ``date__gte`` / ``date__lte``. Windows longer than one month return
-        per-labour totals without individual records. Shorter windows paginate
-        records. POST is still bulk create.
+        per-labour totals without individual records. POST is still bulk create.
       parameters:
-        - name: page
-          required: false
-          in: query
-          description: A page number within the paginated result set.
-          schema:
-            type: integer
-        - name: page_size
-          required: false
-          in: query
-          description: Number of results to return per page.
-          schema:
-            type: integer
         - in: path
           name: site_pk
           schema:
@@ -7110,7 +7086,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PaginatedSiteDailyRecordList"
+                type: array
+                items:
+                  $ref: "#/components/schemas/SiteDailyRecord"
           description: ""
   /api/v1/sites/{site_pk}/private-cash:
     get:
@@ -12919,52 +12897,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SiteCashList"
-    PaginatedSiteDailyRecordList:
-      type: object
-      required:
-        - count
-        - results
-      properties:
-        count:
-          type: integer
-          example: 123
-        next:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=4
-        previous:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=2
-        results:
-          type: array
-          items:
-            $ref: "#/components/schemas/SiteDailyRecord"
-    PaginatedSiteDailyRecordListList:
-      type: object
-      required:
-        - count
-        - results
-      properties:
-        count:
-          type: integer
-          example: 123
-        next:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=4
-        previous:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=2
-        results:
-          type: array
-          items:
-            $ref: "#/components/schemas/SiteDailyRecordList"
     PaginatedSiteListList:
       type: object
       required:
