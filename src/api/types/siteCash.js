@@ -66,6 +66,10 @@ export const cashFormSchema = z.object({
     .number({ message: 'পরিমাণ দিন' })
     .int('পূর্ণ সংখ্যা দিন')
     .gt(0, 'পরিমাণ শূন্যের বেশি হতে হবে'),
+  date: z
+    .string()
+    .min(1, 'তারিখ দিন')
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'সঠিক তারিখ দিন'),
   billing: z.string().optional(),
 })
 
@@ -73,7 +77,7 @@ export const cashFormSchema = z.object({
 export const toSiteCashPayload = ({ type, amount, date, note, billing }) => ({
   type,
   amount: Number(amount),
-  ...(date ? { date } : {}),
+  date,
   note: String(note ?? '').trim(),
   billing: billing === '' || billing == null ? null : Number(billing),
 })
