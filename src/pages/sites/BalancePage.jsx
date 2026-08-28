@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -43,13 +44,20 @@ const SubtotalRow = ({ value, valueClassName }) => (
 )
 
 export const BalancePage = () => {
-  const { date, siteId } = useOutletContext()
+  const { date, dateEnd, siteId } = useOutletContext()
+  const isRange = Boolean(dateEnd && dateEnd !== date)
+  const reportParams = useMemo(
+    () =>
+      isRange
+        ? { date__gte: date, date__lte: dateEnd }
+        : { date },
+    [isRange, date, dateEnd],
+  )
 
-  // Single-day summary (`?date=`). Date-range UI will switch to date__gte/lte later.
   const query = useQuery({
-    queryKey: ['sites', siteId, 'daily-reports', { date }],
+    queryKey: ['sites', siteId, 'daily-reports', reportParams],
     queryFn: async () => {
-      const { data } = await fetchDailyReport(siteId, { date })
+      const { data } = await fetchDailyReport(siteId, reportParams)
       return data
     },
     enabled: Boolean(siteId && date),
@@ -84,7 +92,9 @@ export const BalancePage = () => {
     return (
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="alert bg-base-100 border border-base-300 text-sm">
-          এই তারিখে কোনো হিসাব পাওয়া যায়নি।
+          {isRange
+            ? 'এই সময়ে কোনো হিসাব পাওয়া যায়নি।'
+            : 'এই তারিখে কোনো হিসাব পাওয়া যায়নি।'}
         </div>
       </div>
     )
