@@ -74,12 +74,16 @@ export const cashFormSchema = z.object({
   billing: z.string().optional(),
 })
 
-export const cashFileLabel = (value) => {
+export const cashFileSrc = (value) => {
   if (value == null || value === '' || value === 'None' || value === 'null') {
-    return '—'
+    return null
   }
-  return 'ছবি'
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed || null
 }
+
+export const cashFileLabel = (value) => (cashFileSrc(value) ? 'ছবি' : '—')
 
 /** Build API body; empty optional billing → null. File upload uses multipart. */
 export const toSiteCashPayload = ({

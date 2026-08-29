@@ -14,6 +14,7 @@ import { fetchAllActivities, reviewActivities } from "../../api/activities.js";
 import {
   CASH_TYPES,
   cashFileLabel,
+  cashFileSrc,
   cashFormSchema,
   cashListTotalsOf,
   cashTypeLabel,
@@ -271,6 +272,44 @@ const ChangePair = ({ oldText, newText, newClassName = "" }) => {
       <span className={newClassName}> {newText}</span>
     </span>
   );
+};
+
+const HistoryFilePreview = ({ value, faded = false }) => {
+  const src = cashFileSrc(value);
+  if (!src) return "—";
+  return (
+    <span
+      className={["inline-block", faded ? "opacity-50" : ""]
+        .filter(Boolean)
+        .join(" ")}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <FilePicker previewSrc={src} disabled />
+    </span>
+  );
+};
+
+const historyFieldValue = (entry, billingNameFn) => {
+  if (entry.key === "file") {
+    if (entry.isDiff) {
+      return (
+        <span className="flex items-start gap-2">
+          <HistoryFilePreview value={entry.old} faded />
+          <HistoryFilePreview value={entry.next} />
+        </span>
+      );
+    }
+    return <HistoryFilePreview value={entry.value} />;
+  }
+  if (entry.isDiff) {
+    return (
+      <ChangePair
+        oldText={formatLogValue(entry.key, entry.old, billingNameFn)}
+        newText={formatLogValue(entry.key, entry.next, billingNameFn)}
+      />
+    );
+  }
+  return formatLogValue(entry.key, entry.value, billingNameFn);
 };
 
 const emptyValues = {
@@ -1316,7 +1355,7 @@ export const CashPage = () => {
                                         logChanges.map((entry) => (
                                           <div
                                             key={entry.key}
-                                            className="flex gap-1.5"
+                                            className="flex gap-1.5 items-start"
                                           >
                                             <span className="w-16 shrink-0 text-base-content/60">
                                               {CASH_LOG_FIELD_LABELS[
@@ -1324,25 +1363,9 @@ export const CashPage = () => {
                                               ] ?? entry.key}
                                             </span>
                                             <span className="min-w-0">
-                                              {entry.isDiff ? (
-                                                <ChangePair
-                                                  oldText={formatLogValue(
-                                                    entry.key,
-                                                    entry.old,
-                                                    billingName,
-                                                  )}
-                                                  newText={formatLogValue(
-                                                    entry.key,
-                                                    entry.next,
-                                                    billingName,
-                                                  )}
-                                                />
-                                              ) : (
-                                                formatLogValue(
-                                                  entry.key,
-                                                  entry.value,
-                                                  billingName,
-                                                )
+                                              {historyFieldValue(
+                                                entry,
+                                                billingName,
                                               )}
                                             </span>
                                           </div>
@@ -1413,12 +1436,14 @@ export const CashPage = () => {
                                             </span>
                                           </div>
                                         ) : null}
-                                        <div className="flex gap-1.5">
+                                        <div className="flex gap-1.5 items-start">
                                           <span className="w-16 shrink-0 text-base-content/60">
                                             ছবি
                                           </span>
                                           <span>
-                                            {cashFileLabel(fields.file)}
+                                            <HistoryFilePreview
+                                              value={fields.file}
+                                            />
                                           </span>
                                         </div>
                                       </>
