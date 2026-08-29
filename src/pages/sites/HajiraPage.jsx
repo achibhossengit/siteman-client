@@ -904,11 +904,13 @@ export const HajiraPage = () => {
     }
   };
 
-  /** Bulk fills blank fields on unlocked rows (create or change). */
-  const isBulkTargetRow = (row) => !attendanceLocked(row);
+  /** Bulk set only fills uncreated rows, and only blank fields on those rows. */
+  const isBulkTargetRow = (row) =>
+    !recordIdOf(row) && !attendanceLocked(row);
 
   const showBulkSection =
     !isRange && (canAddDailyRecord || canChangeDailyRecord);
+  const bulkSetEnabled = rows.some(isBulkTargetRow);
 
   const isBlank = (value) => value === "" || value == null;
   /** Extra defaults to 0 on rows — treat 0 as unset for bulk fill. */
@@ -1506,6 +1508,7 @@ export const HajiraPage = () => {
         hajiraFilter={hajiraFilter}
         setHajiraFilter={setHajiraFilter}
         showBulkSection={showBulkSection}
+        bulkSetEnabled={bulkSetEnabled}
         bulkAttendance={bulkAttendance}
         setBulkAttendance={setBulkAttendance}
         onHajiraBulkReset={onHajiraBulkReset}

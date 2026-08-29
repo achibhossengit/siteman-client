@@ -29,6 +29,7 @@ export function HajiraFilterModals({
   hajiraFilter,
   setHajiraFilter,
   showBulkSection,
+  bulkSetEnabled = true,
   bulkAttendance,
   setBulkAttendance,
   onHajiraBulkReset,
@@ -198,6 +199,7 @@ export function HajiraFilterModals({
                           ? "0"
                           : String(bulkAttendance.present)
                       }
+                      disabled={!bulkSetEnabled}
                       onChange={(e) => {
                         const present = e.target.value;
                         setBulkAttendance((m) => ({
@@ -221,7 +223,9 @@ export function HajiraFilterModals({
                       min={0}
                       className="input input-bordered input-sm w-full tabular-nums"
                       value={bulkAttendance.salary}
-                      disabled={Number(bulkAttendance.present) === 0}
+                      disabled={
+                        !bulkSetEnabled || Number(bulkAttendance.present) === 0
+                      }
                       onChange={(e) =>
                         setBulkAttendance((m) => ({
                           ...m,
@@ -236,7 +240,7 @@ export function HajiraFilterModals({
                     type="button"
                     className="btn btn-ghost btn-sm"
                     onClick={onHajiraBulkReset}
-                    disabled={!hasHajiraBulkReset}
+                    disabled={!bulkSetEnabled || !hasHajiraBulkReset}
                   >
                     রিসেট
                   </button>
@@ -245,6 +249,7 @@ export function HajiraFilterModals({
                       type="button"
                       className="btn btn-outline btn-sm"
                       onClick={onHajiraBulkDefault}
+                      disabled={!bulkSetEnabled}
                     >
                       ডিফল্ট সেট
                     </button>
@@ -253,6 +258,7 @@ export function HajiraFilterModals({
                       className="btn btn-primary btn-sm"
                       onClick={onHajiraBulkCustom}
                       disabled={
+                        !bulkSetEnabled ||
                         !isBulkAttendanceDirty(bulkAttendance) ||
                         isBulkAttendanceZeroInvalid(bulkAttendance)
                       }
@@ -323,6 +329,7 @@ export function HajiraFilterModals({
                     min={0}
                     className="input input-bordered input-sm w-full tabular-nums"
                     value={bulkPayment.payment}
+                    disabled={!bulkSetEnabled}
                     onChange={(e) =>
                       setBulkPayment((m) => ({
                         ...m,
@@ -336,7 +343,7 @@ export function HajiraFilterModals({
                     type="button"
                     className="btn btn-ghost btn-sm"
                     onClick={onPaymentBulkReset}
-                    disabled={!hasPaymentBulkReset}
+                    disabled={!bulkSetEnabled || !hasPaymentBulkReset}
                   >
                     রিসেট
                   </button>
@@ -345,6 +352,7 @@ export function HajiraFilterModals({
                       type="button"
                       className="btn btn-outline btn-sm"
                       onClick={onPaymentBulkDefault}
+                      disabled={!bulkSetEnabled}
                     >
                       ডিফল্ট সেট
                     </button>
@@ -352,7 +360,7 @@ export function HajiraFilterModals({
                       type="button"
                       className="btn btn-primary btn-sm"
                       onClick={onPaymentBulkCustom}
-                      disabled={!isBulkPaymentDirty(bulkPayment)}
+                      disabled={!bulkSetEnabled || !isBulkPaymentDirty(bulkPayment)}
                     >
                       সেট করুন
                     </button>
