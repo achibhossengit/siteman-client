@@ -1,10 +1,11 @@
 /**
  * SiteCashList / SiteCash from /sites/{site_pk}/cash
- * { id, date, type, amount, note, billing, created_at, updated_at,
+ * { id, date, type, amount, note, file, billing, created_at, updated_at,
  *   pending_activities: [{ id, action }] }
  *
  * Paginated GET may include list totals (`totals` or top-level
  * deposit / withdrawal / cost) for the filtered window.
+ * Create / update with an image uses multipart (`file`); clearing sends JSON null.
  */
 
 import { z } from 'zod'
@@ -73,11 +74,42 @@ export const cashFormSchema = z.object({
   billing: z.string().optional(),
 })
 
-/** Build API body; empty optional billing → null. */
-export const toSiteCashPayload = ({ type, amount, date, note, billing }) => ({
+export const cashFileLabel = (value) => {
+  if (value == null || value === '' || value === 'None' || value === 'null') {
+    return '—'
+  }
+  return 'ছবি'
+}
+
+/** Build API body; empty optional billing → null. File upload uses multipart. */
+export const toSiteCashPayload = ({
   type,
-  amount: Number(amount),
+  amount,
   date,
-  note: String(note ?? '').trim(),
-  billing: billing === '' || billing == null ? null : Number(billing),
-})
+  note,
+  billing,
+  file,
+  removeFile,
+} = {}) => {
+  const fields = {
+    type,
+    amount: Number(amount),
+    date,
+    note: String(note ?? '').trim(),
+    billing: billing === '' || billing == null ? null : Number(billing),
+  }
+
+  if (file instanceof File) {
+    const form = new FormData()
+    form.append('type', fields.type)
+    form.append('amount', String(fields.amount))
+    form.append('date', fields.date)
+    form.append('note', fields.note)
+    form.append('billing', fields.billing == null ? '' : String(fields.billing))
+    form.append('file', file)
+    return form
+  }
+
+  if (removeFile) return { ...fields, file: null }
+  return fields
+}

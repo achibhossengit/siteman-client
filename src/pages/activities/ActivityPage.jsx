@@ -21,10 +21,12 @@ import {
   snapshotFields,
 } from '../../api/types/activity.js'
 import {
+  cashFileLabel,
   cashTypeLabel,
 } from '../../api/types/siteCash.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
+import { FilePicker } from '../../components/FilePicker.jsx'
 import { SHOW_BILLING, isBillingFieldKey, visibleFieldItems, visibleFieldKeys } from '../../config/features.js'
 import { usePermissions } from '../../hooks/usePermissions.js'
 import { useAssignedSites } from '../../hooks/useSites.js'
@@ -61,6 +63,7 @@ const FIELD_LABELS_BN = {
   type: 'ধরন',
   category: 'ক্যাটাগরি',
   date: 'তারিখ',
+  file: 'ছবি',
   name: 'নাম',
   phone: 'ফোন',
   active: STATUS_LABEL.active,
@@ -196,7 +199,7 @@ const formatChangeValue = (value) => {
 const sameDisplay = (a, b) => String(a ?? '') === String(b ?? '')
 
 const RECORD_FIELD_KEYS = {
-  site_cash: ['date', 'type', 'amount', 'note', 'billing'],
+  site_cash: ['date', 'type', 'amount', 'note', 'file', 'billing'],
   private_site_cash: ['date', 'type', 'amount', 'note', 'billing'],
   daily_record: [
     'date',
@@ -236,6 +239,7 @@ const formatRecordValue = (key, value, billingNameFn) => {
     if (value === 'return') return 'রিটার্ন'
     return cashTypeLabel(value)
   }
+  if (key === 'file') return cashFileLabel(value)
   if (key === 'billing' || key === 'billing_id') {
     if (typeof value === 'object') {
       if (value.name) return String(value.name)
@@ -1450,15 +1454,30 @@ export const ActivityPage = () => {
                   <ApiErrorAlert error={parseApiError(recordQuery.error)} />
                 ) : (
                   <div className="flex flex-col gap-2 py-1">
-                    {recordEntries.map(({ key, value }) => (
-                      <MetaRow key={key} label={fieldLabel(key)}>
-                        {formatRecordValue(
-                          key,
-                          value,
-                          billingNameForLog(selected),
-                        )}
-                      </MetaRow>
-                    ))}
+                    {recordEntries.map(({ key, value }) =>
+                      key === 'file' ? (
+                        value ? (
+                          <div key={key} className="flex flex-col gap-1">
+                            <span className="text-sm text-base-content/60">
+                              {fieldLabel(key)}
+                            </span>
+                            <FilePicker previewSrc={value} disabled />
+                          </div>
+                        ) : (
+                          <MetaRow key={key} label={fieldLabel(key)}>
+                            —
+                          </MetaRow>
+                        )
+                      ) : (
+                        <MetaRow key={key} label={fieldLabel(key)}>
+                          {formatRecordValue(
+                            key,
+                            value,
+                            billingNameForLog(selected),
+                          )}
+                        </MetaRow>
+                      ),
+                    )}
                     {recordEntries.length === 0 ? (
                       <p className="text-sm text-base-content/50 text-center py-2">
                         কোনো রেকর্ড নেই।

@@ -93,11 +93,11 @@ export const fetchSiteCashByDate = async (siteId, cashDate) => {
 export const fetchSiteCashDetail = (siteId, cashId) =>
   api.get(endpoints.sites.cashDetail(siteId, cashId))
 
-/** POST /sites/{site_pk}/cash */
+/** POST /sites/{site_pk}/cash — JSON, or multipart when attaching `file`. */
 export const createSiteCash = (siteId, payload) =>
   api.post(endpoints.sites.cash(siteId), payload)
 
-/** PATCH /sites/{site_pk}/cash/{id} */
+/** PATCH /sites/{site_pk}/cash/{id} — JSON, or multipart when attaching `file`. */
 export const updateSiteCash = (siteId, cashId, payload) =>
   api.patch(endpoints.sites.cashDetail(siteId, cashId), payload)
 

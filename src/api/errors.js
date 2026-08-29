@@ -144,7 +144,10 @@ export const parseApiError = (error) => {
     ) {
       detail = BD_PHONE_MESSAGE
     }
-    if (item?.attr === 'photo' && (code === 'invalid' || code === 'invalid_image')) {
+    if (
+      (item?.attr === 'photo' || item?.attr === 'file') &&
+      (code === 'invalid' || code === 'invalid_image')
+    ) {
       detail = PHOTO_TYPE_MESSAGE
     }
     return {

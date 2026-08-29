@@ -516,6 +516,7 @@ const cashRowFromSnapshot = (log) => {
     type: fields.type || 'cost',
     amount: Number(fields.amount) || 0,
     note: fields.note ?? '',
+    file: fields.file ?? null,
     billing: Number.isFinite(billing) ? billing : null,
     created_at: log.created_at ?? null,
     updated_at: log.created_at ?? null,

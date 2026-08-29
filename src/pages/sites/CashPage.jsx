@@ -13,11 +13,14 @@ import {
 import { fetchAllActivities, reviewActivities } from "../../api/activities.js";
 import {
   CASH_TYPES,
+  cashFileLabel,
   cashFormSchema,
   cashListTotalsOf,
   cashTypeLabel,
   toSiteCashPayload,
 } from "../../api/types/siteCash.js";
+import { FilePicker } from "../../components/FilePicker.jsx";
+import { useFilePicker } from "../../hooks/useFilePicker.js";
 import {
   parseApiError,
   applyFieldErrors,
@@ -59,6 +62,7 @@ const CASH_LOG_FIELD_LABELS = {
   billing: "বিলিং",
   billing_id: "বিলিং",
   date: "তারিখ",
+  file: "ছবি",
 };
 
 const formatLogDateTimeBn = (iso) => {
@@ -111,6 +115,7 @@ const formatLogValue = (key, value, billingNameFn) => {
     return "—";
   }
   if (key === "type") return cashTypeLabel(value);
+  if (key === "file") return cashFileLabel(value);
   if (key === "date") return formatDateBn(String(value));
   if (key === "billing" || key === "billing_id") {
     if (typeof value === "object") {
@@ -342,6 +347,18 @@ export const CashPage = () => {
     resolver: zodResolver(cashFormSchema),
     defaultValues: emptyValues,
   });
+
+  const {
+    file,
+    removeFile,
+    fileError,
+    setFileError,
+    previewSrc,
+    fileDirty,
+    resetFileState,
+    onSelectFile,
+    onRemoveFile,
+  } = useFilePicker(selected?.file);
 
   const watchedNote = watch("note");
   const watchedAmount = watch("amount");
@@ -670,6 +687,7 @@ export const CashPage = () => {
     setModalView("detail");
     setExpandedHistoryId(null);
     reset(emptyValues);
+    resetFileState();
   };
 
   const closeModal = () => {
@@ -687,6 +705,7 @@ export const CashPage = () => {
     setModalView("detail");
     setExpandedHistoryId(null);
     reset({ ...emptyValues, date: date || todayIso() });
+    resetFileState();
     dialogRef.current?.showModal();
   };
 
@@ -700,6 +719,7 @@ export const CashPage = () => {
     setExpandedHistoryId(null);
     setSelected(row);
     reset(toFormValues(row));
+    resetFileState();
     dialogRef.current?.showModal();
   };
 
@@ -711,6 +731,7 @@ export const CashPage = () => {
     setExpandedHistoryId(null);
     setDeleting(false);
     reset(toFormValues(selected));
+    resetFileState();
     setEditing(true);
   };
 
@@ -730,6 +751,7 @@ export const CashPage = () => {
     }
     setApiError(null);
     reset(toFormValues(selected));
+    resetFileState();
     setEditing(false);
   };
 
@@ -739,8 +761,13 @@ export const CashPage = () => {
 
   const onConfirm = handleSubmit(async (values) => {
     setApiError(null);
+    setFileError(null);
     try {
-      const { data } = await saveMutation.mutateAsync(values);
+      const { data } = await saveMutation.mutateAsync({
+        ...values,
+        file,
+        removeFile,
+      });
       setPage(1);
       await invalidateCash(data, isCreateMode ? "created" : "updated");
       if (isCreateMode) {
@@ -749,6 +776,7 @@ export const CashPage = () => {
       } else {
         setSelected(data);
         reset(toFormValues(data));
+        resetFileState();
         setEditing(false);
         toastSuccess("ক্যাশ এন্ট্রি আপডেট হয়েছে");
       }
@@ -756,17 +784,26 @@ export const CashPage = () => {
       const parsed = parseApiError(err);
       setApiError(parsed);
       applyFieldErrors(parsed, setError);
+      if (parsed.fieldErrors?.file?.[0]) {
+        setFileError(parsed.fieldErrors.file[0]);
+      }
     }
   });
 
   const onSaveAndCreateAnother = handleSubmit(async (values) => {
     setApiError(null);
+    setFileError(null);
     try {
-      const { data } = await saveMutation.mutateAsync(values);
+      const { data } = await saveMutation.mutateAsync({
+        ...values,
+        file,
+        removeFile,
+      });
       setPage(1);
       await invalidateCash(data, "created");
       toastSuccess("ক্যাশ এন্ট্রি তৈরি হয়েছে");
       reset({ ...emptyValues, date: values.date || date || todayIso() });
+      resetFileState();
       setConfirmReady(false);
       requestAnimationFrame(() => {
         requestAnimationFrame(() => setConfirmReady(true));
@@ -775,6 +812,9 @@ export const CashPage = () => {
       const parsed = parseApiError(err);
       setApiError(parsed);
       applyFieldErrors(parsed, setError);
+      if (parsed.fieldErrors?.file?.[0]) {
+        setFileError(parsed.fieldErrors.file[0]);
+      }
     }
   });
 
@@ -875,7 +915,8 @@ export const CashPage = () => {
     !formReady ||
     busy ||
     siteInactive ||
-    (!isCreateMode && !isDirty);
+    Boolean(fileError) ||
+    (!isCreateMode && !isDirty && !fileDirty);
   const isSnapshotDetail = Boolean(selected?.fromActivitySnapshot);
 
   const fieldClass = (hasError, kind = "input", isDisabled = disabled) =>
@@ -1103,7 +1144,7 @@ export const CashPage = () => {
         className="modal"
         onClose={resetModalState}
       >
-        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
+        <div className="modal-box max-w-sm max-h-[min(36rem,90vh)] flex flex-col">
           <form method="dialog">
             <button
               type="submit"
@@ -1372,6 +1413,14 @@ export const CashPage = () => {
                                             </span>
                                           </div>
                                         ) : null}
+                                        <div className="flex gap-1.5">
+                                          <span className="w-16 shrink-0 text-base-content/60">
+                                            ছবি
+                                          </span>
+                                          <span>
+                                            {cashFileLabel(fields.file)}
+                                          </span>
+                                        </div>
                                       </>
                                     )}
                                   </div>
@@ -1501,6 +1550,19 @@ export const CashPage = () => {
                 ) : (
                   <input type="hidden" {...register("billing")} />
                 )}
+
+                {previewSrc || editing ? (
+                  <div className="form-control w-full">
+                    <span className="label-text mb-1">ছবি</span>
+                    <FilePicker
+                      previewSrc={previewSrc}
+                      error={fileError || errors.file?.message}
+                      disabled={disabled}
+                      onSelect={onSelectFile}
+                      onRemove={onRemoveFile}
+                    />
+                  </div>
+                ) : null}
 
                 {editing ? (
                   <div className="modal-action mt-2 justify-stretch gap-2">

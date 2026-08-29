@@ -13274,6 +13274,10 @@ components:
           type: string
           nullable: true
           maxLength: 255
+        file:
+          type: string
+          format: uri
+          nullable: true
         company:
           type: integer
           readOnly: true
@@ -13746,6 +13750,10 @@ components:
           type: string
           nullable: true
           maxLength: 255
+        file:
+          type: string
+          format: uri
+          nullable: true
         company:
           type: integer
           readOnly: true
@@ -13784,6 +13792,10 @@ components:
           type: string
           nullable: true
           maxLength: 255
+        file:
+          type: string
+          format: uri
+          nullable: true
         billing:
           type: integer
           nullable: true
@@ -14473,6 +14485,7 @@ components:
         - $ref: "#/components/schemas/SitesCashCreateDateErrorComponent"
         - $ref: "#/components/schemas/SitesCashCreateAmountErrorComponent"
         - $ref: "#/components/schemas/SitesCashCreateNoteErrorComponent"
+        - $ref: "#/components/schemas/SitesCashCreateFileErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
@@ -14482,6 +14495,7 @@ components:
           date: "#/components/schemas/SitesCashCreateDateErrorComponent"
           amount: "#/components/schemas/SitesCashCreateAmountErrorComponent"
           note: "#/components/schemas/SitesCashCreateNoteErrorComponent"
+          file: "#/components/schemas/SitesCashCreateFileErrorComponent"
     SitesCashCreateErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/SitesCashCreateValidationError"
@@ -14491,6 +14505,32 @@ components:
         mapping:
           validation_error: "#/components/schemas/SitesCashCreateValidationError"
           client_error: "#/components/schemas/ParseErrorResponse"
+    SitesCashCreateFileErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - file
+          type: string
+          description: "* `file` - file"
+        code:
+          enum:
+            - empty
+            - invalid
+            - invalid_image
+            - no_name
+          type: string
+          description: |-
+            * `empty` - empty
+            * `invalid` - invalid
+            * `invalid_image` - invalid_image
+            * `no_name` - no_name
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
     SitesCashCreateNonFieldErrorsErrorComponent:
       type: object
       properties:
@@ -14797,6 +14837,7 @@ components:
         - $ref: "#/components/schemas/SitesCashPartialUpdateDateErrorComponent"
         - $ref: "#/components/schemas/SitesCashPartialUpdateAmountErrorComponent"
         - $ref: "#/components/schemas/SitesCashPartialUpdateNoteErrorComponent"
+        - $ref: "#/components/schemas/SitesCashPartialUpdateFileErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
@@ -14806,6 +14847,7 @@ components:
           date: "#/components/schemas/SitesCashPartialUpdateDateErrorComponent"
           amount: "#/components/schemas/SitesCashPartialUpdateAmountErrorComponent"
           note: "#/components/schemas/SitesCashPartialUpdateNoteErrorComponent"
+          file: "#/components/schemas/SitesCashPartialUpdateFileErrorComponent"
     SitesCashPartialUpdateErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/SitesCashPartialUpdateValidationError"
@@ -14815,6 +14857,32 @@ components:
         mapping:
           validation_error: "#/components/schemas/SitesCashPartialUpdateValidationError"
           client_error: "#/components/schemas/ParseErrorResponse"
+    SitesCashPartialUpdateFileErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - file
+          type: string
+          description: "* `file` - file"
+        code:
+          enum:
+            - empty
+            - invalid
+            - invalid_image
+            - no_name
+          type: string
+          description: |-
+            * `empty` - empty
+            * `invalid` - invalid
+            * `invalid_image` - invalid_image
+            * `no_name` - no_name
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
     SitesCashPartialUpdateNonFieldErrorsErrorComponent:
       type: object
       properties:

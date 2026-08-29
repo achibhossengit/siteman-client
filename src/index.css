@@ -74,6 +74,28 @@
   --noise: 1;
 }
 
+/* Full-screen image viewer — inside the open dialog when one exists. */
+.image-lightbox-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.image-lightbox-overlay--page {
+  position: fixed;
+}
+
 /* Toast host lives in the top layer so toasts clear open <dialog> modals. */
 .toast-layer {
   position: fixed;
