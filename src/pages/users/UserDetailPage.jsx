@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { useOutletContext, useParams } from "react-router-dom";
+import { flushSync } from "react-dom";
+import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
-import { fetchUserDetail, updateUser } from "../../api/users.js";
+import { deleteUser, fetchUserDetail, updateUser } from "../../api/users.js";
 import {
   buildGroupSelectOptions,
   toSingleGroupNames,
@@ -21,9 +23,15 @@ import { DetailMenuButton } from "../../layouts/DetailLayout.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { useSitesLookup } from "../../hooks/useSites.js";
 import { toastSuccess } from "../../utils/feedback.js";
-import { groupLabelBn, PERMS } from "../../utils/permissions.js";
+import { groupLabelBn, PERMS, hasPermissionSuffix } from "../../utils/permissions.js";
+import { paths } from "../../router/paths.js";
 
 const EDIT_MODAL_ID = "user_edit_modal";
+const DELETE_MODAL_ID = "user_delete_modal";
+
+const deleteSchema = z.object({
+  password: z.string().min(1, "পাসওয়ার্ড দিন"),
+});
 
 const toFormValues = (user) => ({
   is_active: user?.is_active ?? true,
@@ -36,14 +44,22 @@ const toggleItem = (list, item) =>
 
 export const UserDetailPage = () => {
   const { userId } = useParams();
+  const navigate = useNavigate();
   const { setTitle, setHeaderMenu } = useOutletContext();
   const queryClient = useQueryClient();
-  const { can } = usePermissions();
+  const { can, profile, isCompanyAdmin } = usePermissions();
   const editDialogRef = useRef(null);
+  const deleteDialogRef = useRef(null);
   const [apiError, setApiError] = useState(null);
+  const [deleteApiError, setDeleteApiError] = useState(null);
+  const [detailFetchEnabled, setDetailFetchEnabled] = useState(true);
 
   const canViewUser = can(PERMS.viewUser);
   const canChangeUser = can(PERMS.changeUser);
+  const canDeleteUser =
+    Boolean(isCompanyAdmin) ||
+    can(PERMS.deleteUser) ||
+    hasPermissionSuffix(profile, "delete_user");
 
   const {
     handleSubmit,
@@ -57,13 +73,27 @@ export const UserDetailPage = () => {
     defaultValues: toFormValues(null),
   });
 
+  const {
+    register: registerDelete,
+    handleSubmit: handleSubmitDelete,
+    reset: resetDelete,
+    setError: setDeleteError,
+    watch: watchDelete,
+    formState: { errors: deleteErrors, isSubmitting: deleteSubmitting },
+  } = useForm({
+    resolver: zodResolver(deleteSchema),
+    defaultValues: { password: "" },
+  });
+
   const detailQuery = useQuery({
     queryKey: ["users", userId],
     queryFn: async () => {
       const { data } = await fetchUserDetail(userId);
       return data;
     },
-    enabled: Boolean(canViewUser && userId),
+    enabled: Boolean(canViewUser && userId && detailFetchEnabled),
+    retry: (failureCount, error) =>
+      error?.response?.status !== 404 && failureCount < 2,
   });
 
   const {
@@ -75,9 +105,13 @@ export const UserDetailPage = () => {
   });
 
   const user = detailQuery.data;
+  const isSelf = Number(user?.id) === Number(profile?.id);
+  const canDeleteThisUser = Boolean(canDeleteUser && user && !isSelf);
   const isActiveValue = watch("is_active");
   const groupNames = watch("groups") ?? [];
   const siteIds = watch("sites") ?? [];
+  const deletePassword = watchDelete("password");
+  const deleteReady = (deletePassword ?? "").length > 0;
 
   const assignableGroups = buildGroupSelectOptions(profileAllowedGroups(user));
 
@@ -93,6 +127,10 @@ export const UserDetailPage = () => {
   const mutation = useMutation({
     mutationFn: (values) =>
       updateUser(userId, toUserAdminUpdatePayload(values)),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (password) => deleteUser(userId, { password }),
   });
 
   const openEditModal = () => {
@@ -111,10 +149,32 @@ export const UserDetailPage = () => {
     reset(toFormValues(user));
   };
 
+  const openDeleteModal = () => {
+    if (!canDeleteThisUser) return;
+    setDeleteApiError(null);
+    resetDelete({ password: "" });
+    deleteDialogRef.current?.showModal();
+  };
+
+  const closeDeleteModal = () => {
+    deleteDialogRef.current?.close();
+  };
+
+  const onDeleteModalClose = () => {
+    setDeleteApiError(null);
+    resetDelete({ password: "" });
+  };
+
   const openEditModalRef = useRef(openEditModal);
   openEditModalRef.current = openEditModal;
+  const openDeleteModalRef = useRef(openDeleteModal);
+  openDeleteModalRef.current = openDeleteModal;
 
   useEffect(() => {
+    if (!userId || (!canChangeUser && !canDeleteThisUser)) {
+      setHeaderMenu?.(null);
+      return () => setHeaderMenu?.(null);
+    }
     setHeaderMenu?.(
       <DetailMenuButton>
         <ul
@@ -128,14 +188,22 @@ export const UserDetailPage = () => {
               </button>
             </li>
           ) : null}
-          <li>
-            <span className="opacity-50 pointer-events-none">ডিলিট</span>
-          </li>
+          {canDeleteThisUser ? (
+            <li>
+              <button
+                type="button"
+                className="text-error"
+                onClick={() => openDeleteModalRef.current()}
+              >
+                ডিলিট
+              </button>
+            </li>
+          ) : null}
         </ul>
       </DetailMenuButton>,
     );
     return () => setHeaderMenu?.(null);
-  }, [setHeaderMenu, canChangeUser]);
+  }, [userId, setHeaderMenu, canChangeUser, canDeleteThisUser]);
 
   const onConfirmEdit = handleSubmit(async (values) => {
     setApiError(null);
@@ -149,6 +217,43 @@ export const UserDetailPage = () => {
       const parsed = parseApiError(err);
       setApiError(parsed);
       applyFieldErrors(parsed, setError);
+    }
+  });
+
+  const onConfirmDelete = handleSubmitDelete(async (values) => {
+    setDeleteApiError(null);
+    try {
+      await deleteMutation.mutateAsync(values.password);
+      await queryClient.cancelQueries({ queryKey: ["users", userId] });
+      flushSync(() => setDetailFetchEnabled(false));
+      queryClient.removeQueries({ queryKey: ["users", userId] });
+      closeDeleteModal();
+      toastSuccess("ইউজার ডিলিট হয়েছে");
+      navigate(paths.users, { replace: true });
+      void queryClient.invalidateQueries({ queryKey: ["users", "list"] });
+    } catch (err) {
+      const parsed = parseApiError(err);
+      const fieldKeys = Object.keys(parsed.fieldErrors ?? {});
+      const onlyPasswordError =
+        fieldKeys.length === 1 && fieldKeys[0] === "password";
+      const onlyAuthFailure =
+        fieldKeys.length === 0 &&
+        parsed.errors?.length === 1 &&
+        (parsed.hasCode?.("authentication_failed") ||
+          parsed.hasCode?.("incorrect_password"));
+
+      if (onlyPasswordError || onlyAuthFailure) {
+        setDeleteError("password", {
+          type: "server",
+          message: onlyPasswordError
+            ? parsed.fieldErrors.password[0]
+            : "পাসওয়ার্ড সঠিক নয়।",
+        });
+        return;
+      }
+
+      setDeleteApiError(parsed);
+      applyFieldErrors(parsed, setDeleteError);
     }
   });
 
@@ -181,6 +286,7 @@ export const UserDetailPage = () => {
   }
 
   const busy = isSubmitting || mutation.isPending;
+  const deleteBusy = deleteSubmitting || deleteMutation.isPending;
   const groups = profileAllowedGroups(user);
   const assignedSiteIds = profileAllowedSiteIds(user);
   const companyName =
@@ -357,6 +463,78 @@ export const UserDetailPage = () => {
                   <span className="loading loading-spinner loading-sm" />
                 ) : null}
                 নিশ্চিত
+              </button>
+            </div>
+          </form>
+        </div>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
+      </dialog>
+
+      <dialog
+        ref={deleteDialogRef}
+        id={DELETE_MODAL_ID}
+        className="modal"
+        onClose={onDeleteModalClose}
+      >
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
+          <form method="dialog">
+            <button
+              type="submit"
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              <X className="size-4" strokeWidth={1.75} />
+            </button>
+          </form>
+
+          <h3 className="font-semibold text-base mb-2 pr-8 shrink-0">
+            ইউজার ডিলিট করবেন?
+          </h3>
+          <p className="text-sm text-base-content/70 mb-3 shrink-0">
+            এই কাজটি ফিরিয়ে আনা যাবে না। নিশ্চিত করতে আপনার পাসওয়ার্ড দিন।
+          </p>
+
+          <ApiErrorAlert error={deleteApiError} />
+
+          <form
+            className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto"
+            onSubmit={(e) => {
+              e.preventDefault();
+              return onConfirmDelete(e);
+            }}
+            noValidate
+          >
+            <label className="form-control w-full">
+              <span className="label-text mb-1">আপনার পাসওয়ার্ড</span>
+              <input
+                type="password"
+                autoComplete="current-password"
+                maxLength={20}
+                className={`input input-bordered w-full ${
+                  deleteErrors.password ? "input-error" : ""
+                }`}
+                placeholder="পাসওয়ার্ড দিন"
+                {...registerDelete("password")}
+              />
+              {deleteErrors.password ? (
+                <span className="label-text-alt text-error mt-1">
+                  {deleteErrors.password.message}
+                </span>
+              ) : null}
+            </label>
+
+            <div className="mt-2 shrink-0">
+              <button
+                type="submit"
+                className="btn btn-error w-full"
+                disabled={!deleteReady || deleteBusy}
+              >
+                {deleteBusy ? (
+                  <span className="loading loading-spinner loading-sm" />
+                ) : null}
+                ডিলিট করুন
               </button>
             </div>
           </form>

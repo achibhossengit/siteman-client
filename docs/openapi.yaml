@@ -7671,7 +7671,8 @@ paths:
 
         POST accepts an initial ``password`` so the admin can share credentials;
         PATCH cannot change passwords (only ``is_active``, ``groups``, ``sites``).
-        DELETE hard-deletes the user (``UserSite`` cascades; activity actor FKs null).
+        DELETE requires the admin's own ``password`` and hard-deletes the user
+        (``UserSite`` cascades; activity actor FKs null).
       parameters:
         - in: query
           name: is_active
@@ -7842,7 +7843,8 @@ paths:
 
         POST accepts an initial ``password`` so the admin can share credentials;
         PATCH cannot change passwords (only ``is_active``, ``groups``, ``sites``).
-        DELETE hard-deletes the user (``UserSite`` cascades; activity actor FKs null).
+        DELETE requires the admin's own ``password`` and hard-deletes the user
+        (``UserSite`` cascades; activity actor FKs null).
       tags:
         - users
       requestBody:
@@ -7999,7 +8001,8 @@ paths:
 
         POST accepts an initial ``password`` so the admin can share credentials;
         PATCH cannot change passwords (only ``is_active``, ``groups``, ``sites``).
-        DELETE hard-deletes the user (``UserSite`` cascades; activity actor FKs null).
+        DELETE requires the admin's own ``password`` and hard-deletes the user
+        (``UserSite`` cascades; activity actor FKs null).
       parameters:
         - in: path
           name: id
@@ -8150,7 +8153,8 @@ paths:
 
         POST accepts an initial ``password`` so the admin can share credentials;
         PATCH cannot change passwords (only ``is_active``, ``groups``, ``sites``).
-        DELETE hard-deletes the user (``UserSite`` cascades; activity actor FKs null).
+        DELETE requires the admin's own ``password`` and hard-deletes the user
+        (``UserSite`` cascades; activity actor FKs null).
       parameters:
         - in: path
           name: id
@@ -8312,7 +8316,8 @@ paths:
 
         POST accepts an initial ``password`` so the admin can share credentials;
         PATCH cannot change passwords (only ``is_active``, ``groups``, ``sites``).
-        DELETE hard-deletes the user (``UserSite`` cascades; activity actor FKs null).
+        DELETE requires the admin's own ``password`` and hard-deletes the user
+        (``UserSite`` cascades; activity actor FKs null).
       parameters:
         - in: path
           name: id

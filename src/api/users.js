@@ -35,5 +35,8 @@ export const createUser = (payload) => api.post(endpoints.users.list, payload)
 export const updateUser = (userId, payload) =>
   api.patch(endpoints.users.detail(userId), payload)
 
-/** DELETE /users/{id} */
-export const deleteUser = (userId) => api.delete(endpoints.users.detail(userId))
+/** DELETE /users/{id} — admin confirms with own password. */
+export const deleteUser = (userId, { password } = {}) =>
+  api.delete(endpoints.users.detail(userId), {
+    data: { password },
+  })

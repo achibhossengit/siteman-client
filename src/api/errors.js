@@ -77,6 +77,9 @@ export const CODE_COPY = {
 
   // Users
   user_name_exists: 'এই নামে একজন ইউজার ইতিমধ্যে আছেন। অন্য নাম দিন।',
+  cannot_delete_self: 'নিজের অ্যাকাউন্ট মুছে ফেলা যায় না।',
+  cannot_delete_company_admin: 'কোম্পানি অ্যাডমিন অ্যাকাউন্ট মুছে ফেলা যায় না।',
+  incorrect_password: 'পাসওয়ার্ড সঠিক নয়।',
 
   // Labours
   labour_inactive: 'এই শ্রমিক এখন বন্ধ। কাজ চালিয়ে যেতে আগে চালু করুন।',
@@ -143,6 +146,14 @@ export const parseApiError = (error) => {
       /bangladeshi phone/i.test(String(rawDetail ?? ''))
     ) {
       detail = BD_PHONE_MESSAGE
+    }
+    if (
+      item?.attr === 'password' &&
+      (code === 'incorrect_password' ||
+        code === 'authentication_failed' ||
+        code === 'invalid')
+    ) {
+      detail = 'পাসওয়ার্ড সঠিক নয়।'
     }
     if (
       (item?.attr === 'photo' || item?.attr === 'file') &&
