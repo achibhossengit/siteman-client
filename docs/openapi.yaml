@@ -7669,8 +7669,9 @@ paths:
       description: |-
         Company-scoped user management.
 
-        POST accepts an initial ``password`` so the admin can share credentials;
-        PATCH cannot change passwords (only ``is_active``, ``groups``, ``sites``).
+        POST accepts an initial ``password`` so the admin can share credentials,
+        plus optional ``groups`` and ``allowed_sites``. PATCH cannot change
+        passwords (only ``is_active``, ``groups``, ``allowed_sites``).
         DELETE requires the admin's own ``password`` and hard-deletes the user
         (``UserSite`` cascades; activity actor FKs null).
       parameters:
@@ -7841,8 +7842,9 @@ paths:
       description: |-
         Company-scoped user management.
 
-        POST accepts an initial ``password`` so the admin can share credentials;
-        PATCH cannot change passwords (only ``is_active``, ``groups``, ``sites``).
+        POST accepts an initial ``password`` so the admin can share credentials,
+        plus optional ``groups`` and ``allowed_sites``. PATCH cannot change
+        passwords (only ``is_active``, ``groups``, ``allowed_sites``).
         DELETE requires the admin's own ``password`` and hard-deletes the user
         (``UserSite`` cascades; activity actor FKs null).
       tags:
@@ -7999,8 +8001,9 @@ paths:
       description: |-
         Company-scoped user management.
 
-        POST accepts an initial ``password`` so the admin can share credentials;
-        PATCH cannot change passwords (only ``is_active``, ``groups``, ``sites``).
+        POST accepts an initial ``password`` so the admin can share credentials,
+        plus optional ``groups`` and ``allowed_sites``. PATCH cannot change
+        passwords (only ``is_active``, ``groups``, ``allowed_sites``).
         DELETE requires the admin's own ``password`` and hard-deletes the user
         (``UserSite`` cascades; activity actor FKs null).
       parameters:
@@ -8151,8 +8154,9 @@ paths:
       description: |-
         Company-scoped user management.
 
-        POST accepts an initial ``password`` so the admin can share credentials;
-        PATCH cannot change passwords (only ``is_active``, ``groups``, ``sites``).
+        POST accepts an initial ``password`` so the admin can share credentials,
+        plus optional ``groups`` and ``allowed_sites``. PATCH cannot change
+        passwords (only ``is_active``, ``groups``, ``allowed_sites``).
         DELETE requires the admin's own ``password`` and hard-deletes the user
         (``UserSite`` cascades; activity actor FKs null).
       parameters:
@@ -8314,8 +8318,9 @@ paths:
       description: |-
         Company-scoped user management.
 
-        POST accepts an initial ``password`` so the admin can share credentials;
-        PATCH cannot change passwords (only ``is_active``, ``groups``, ``sites``).
+        POST accepts an initial ``password`` so the admin can share credentials,
+        plus optional ``groups`` and ``allowed_sites``. PATCH cannot change
+        passwords (only ``is_active``, ``groups``, ``allowed_sites``).
         DELETE requires the admin's own ``password`` and hard-deletes the user
         (``UserSite`` cascades; activity actor FKs null).
       parameters:
@@ -12878,6 +12883,7 @@ components:
           readOnly: true
     PatchedUserUpdate:
       type: object
+      description: Writable group and allowed-site assignment for company users.
       properties:
         id:
           type: integer
@@ -12888,7 +12894,7 @@ components:
           type: array
           items:
             type: string
-        sites:
+        allowed_sites:
           type: array
           items:
             type: integer
@@ -15661,6 +15667,9 @@ components:
         Password is write-only and create-only. Updates go through
         ``UserUpdateSerializer``, which does not accept password — users change
         their own password via ``/auth/password/change`` or reset.
+
+        Optional ``groups`` (role names) and ``allowed_sites`` (site ids) are
+        assigned in the same request.
       properties:
         id:
           type: integer
@@ -15685,6 +15694,14 @@ components:
           readOnly: true
           nullable: true
           description: Null for system-scope users.
+        groups:
+          type: array
+          items:
+            type: string
+        allowed_sites:
+          type: array
+          items:
+            type: integer
         created_at:
           type: string
           format: date-time
@@ -15859,6 +15876,7 @@ components:
         - sites
     UserUpdate:
       type: object
+      description: Writable group and allowed-site assignment for company users.
       properties:
         id:
           type: integer
@@ -15869,18 +15887,46 @@ components:
           type: array
           items:
             type: string
-        sites:
+        allowed_sites:
           type: array
           items:
             type: integer
       required:
         - id
+    UsersCreateAllowedSitesErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - allowed_sites
+          type: string
+          description: "* `allowed_sites` - allowed_sites"
+        code:
+          enum:
+            - does_not_exist
+            - incorrect_type
+            - not_a_list
+            - "null"
+          type: string
+          description: |-
+            * `does_not_exist` - does_not_exist
+            * `incorrect_type` - incorrect_type
+            * `not_a_list` - not_a_list
+            * `null` - null
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
     UsersCreateError:
       oneOf:
         - $ref: "#/components/schemas/UsersCreateNonFieldErrorsErrorComponent"
         - $ref: "#/components/schemas/UsersCreateNameErrorComponent"
         - $ref: "#/components/schemas/UsersCreatePhoneNumberErrorComponent"
         - $ref: "#/components/schemas/UsersCreatePasswordErrorComponent"
+        - $ref: "#/components/schemas/UsersCreateGroupsErrorComponent"
+        - $ref: "#/components/schemas/UsersCreateAllowedSitesErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
@@ -15888,6 +15934,8 @@ components:
           name: "#/components/schemas/UsersCreateNameErrorComponent"
           phone_number: "#/components/schemas/UsersCreatePhoneNumberErrorComponent"
           password: "#/components/schemas/UsersCreatePasswordErrorComponent"
+          groups: "#/components/schemas/UsersCreateGroupsErrorComponent"
+          allowed_sites: "#/components/schemas/UsersCreateAllowedSitesErrorComponent"
     UsersCreateErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/UsersCreateValidationError"
@@ -15897,6 +15945,32 @@ components:
         mapping:
           validation_error: "#/components/schemas/UsersCreateValidationError"
           client_error: "#/components/schemas/ParseErrorResponse"
+    UsersCreateGroupsErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - groups
+          type: string
+          description: "* `groups` - groups"
+        code:
+          enum:
+            - does_not_exist
+            - invalid
+            - not_a_list
+            - "null"
+          type: string
+          description: |-
+            * `does_not_exist` - does_not_exist
+            * `invalid` - invalid
+            * `not_a_list` - not_a_list
+            * `null` - null
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
     UsersCreateNameErrorComponent:
       type: object
       properties:
@@ -16058,19 +16132,45 @@ components:
       required:
         - errors
         - type
+    UsersPartialUpdateAllowedSitesErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - allowed_sites
+          type: string
+          description: "* `allowed_sites` - allowed_sites"
+        code:
+          enum:
+            - does_not_exist
+            - incorrect_type
+            - not_a_list
+            - "null"
+          type: string
+          description: |-
+            * `does_not_exist` - does_not_exist
+            * `incorrect_type` - incorrect_type
+            * `not_a_list` - not_a_list
+            * `null` - null
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
     UsersPartialUpdateError:
       oneOf:
         - $ref: "#/components/schemas/UsersPartialUpdateNonFieldErrorsErrorComponent"
         - $ref: "#/components/schemas/UsersPartialUpdateIsActiveErrorComponent"
         - $ref: "#/components/schemas/UsersPartialUpdateGroupsErrorComponent"
-        - $ref: "#/components/schemas/UsersPartialUpdateSitesErrorComponent"
+        - $ref: "#/components/schemas/UsersPartialUpdateAllowedSitesErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
           non_field_errors: "#/components/schemas/UsersPartialUpdateNonFieldErrorsErrorComponent"
           is_active: "#/components/schemas/UsersPartialUpdateIsActiveErrorComponent"
           groups: "#/components/schemas/UsersPartialUpdateGroupsErrorComponent"
-          sites: "#/components/schemas/UsersPartialUpdateSitesErrorComponent"
+          allowed_sites: "#/components/schemas/UsersPartialUpdateAllowedSitesErrorComponent"
     UsersPartialUpdateErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/UsersPartialUpdateValidationError"
@@ -16143,32 +16243,6 @@ components:
           type: string
           description: |-
             * `invalid` - invalid
-            * `null` - null
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
-    UsersPartialUpdateSitesErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - sites
-          type: string
-          description: "* `sites` - sites"
-        code:
-          enum:
-            - does_not_exist
-            - incorrect_type
-            - not_a_list
-            - "null"
-          type: string
-          description: |-
-            * `does_not_exist` - does_not_exist
-            * `incorrect_type` - incorrect_type
-            * `not_a_list` - not_a_list
             * `null` - null
         detail:
           type: string

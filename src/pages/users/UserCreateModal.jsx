@@ -5,12 +5,15 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 import { createUser } from '../../api/users.js'
 import {
+  buildGroupSelectOptions,
   passwordCreateSchema,
+  applyUserAdminFieldErrors,
   toUserCreatePayload,
   userCreateSchema,
 } from '../../api/types/user.js'
-import { parseApiError, applyFieldErrors } from '../../api/errors.js'
+import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
+import { useSitesLookup } from '../../hooks/useSites.js'
 import { toastSuccess } from '../../utils/feedback.js'
 import { BD_PHONE_MESSAGE, isBdPhoneNumber } from '../../utils/phone.js'
 
@@ -18,7 +21,12 @@ const emptyValues = {
   name: '',
   phone_number: '',
   password: '',
+  groups: [],
+  sites: [],
 }
+
+const toggleItem = (list, item) =>
+  list.includes(item) ? list.filter((x) => x !== item) : [...list, item]
 
 /** Only show hints while invalid — valid fields stay quiet like নাম. */
 const phoneLiveHint = (raw) => {
@@ -45,10 +53,18 @@ export const UserCreateModal = forwardRef(function UserCreateModal(_, ref) {
   const [showPassword, setShowPassword] = useState(false)
 
   const {
+    sites: allSites,
+    isLoading: sitesLoading,
+  } = useSitesLookup()
+
+  const assignableGroups = buildGroupSelectOptions([])
+
+  const {
     register,
     handleSubmit,
     reset,
     setError,
+    setValue,
     watch,
     formState: { errors, isSubmitting },
   } = useForm({
@@ -57,6 +73,8 @@ export const UserCreateModal = forwardRef(function UserCreateModal(_, ref) {
   })
 
   const watched = watch()
+  const groupNames = watched.groups ?? []
+  const siteIds = watched.sites ?? []
   const phoneHint = useMemo(
     () => phoneLiveHint(watched.phone_number),
     [watched.phone_number],
@@ -75,7 +93,7 @@ export const UserCreateModal = forwardRef(function UserCreateModal(_, ref) {
   })
 
   const busy = isSubmitting || mutation.isPending
-  const saveDisabled = busy || !formReady
+  const saveDisabled = busy || !formReady || sitesLoading
 
   const resetModal = () => {
     setApiError(null)
@@ -98,7 +116,7 @@ export const UserCreateModal = forwardRef(function UserCreateModal(_, ref) {
     setApiError(null)
     try {
       await mutation.mutateAsync(values)
-      await queryClient.invalidateQueries({ queryKey: ['users'] })
+      await queryClient.invalidateQueries({ queryKey: ['users', 'list'] })
       toastSuccess('ইউজার তৈরি হয়েছে')
       if (createAnother) {
         reset(emptyValues)
@@ -109,7 +127,7 @@ export const UserCreateModal = forwardRef(function UserCreateModal(_, ref) {
     } catch (err) {
       const parsed = parseApiError(err)
       setApiError(parsed)
-      applyFieldErrors(parsed, setError)
+      applyUserAdminFieldErrors(parsed, setError)
     }
   }
 
@@ -123,7 +141,7 @@ export const UserCreateModal = forwardRef(function UserCreateModal(_, ref) {
 
   return (
     <dialog ref={dialogRef} className="modal" onClose={resetModal}>
-      <div className="modal-box max-w-sm max-h-[min(36rem,90vh)] flex flex-col">
+      <div className="modal-box w-11/12 max-w-sm max-h-[min(34rem,88dvh)] p-4 flex flex-col overflow-hidden">
         <form method="dialog">
           <button
             type="submit"
@@ -134,96 +152,169 @@ export const UserCreateModal = forwardRef(function UserCreateModal(_, ref) {
           </button>
         </form>
 
-        <h3 className="font-semibold text-base mb-2 pr-8 shrink-0">
-          নতুন ইউজার
-        </h3>
+        <h3 className="font-semibold text-base pr-8 shrink-0">নতুন ইউজার</h3>
 
-        <ApiErrorAlert error={apiError} className="mb-3 shrink-0" />
-
-        <p className="text-sm text-base-content/70 mb-3 shrink-0">
-          প্রাথমিক পাসওয়ার্ড এখানে সেট করুন এবং ইউজারকে জানিয়ে দিন। পরে ইউজার
-          নিজে পাসওয়ার্ড বদলাতে পারবে।
-        </p>
+        <ApiErrorAlert error={apiError} />
 
         <form
-          className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto"
+          className="flex flex-col flex-1 min-h-0 mt-2"
           onSubmit={onSubmit}
           noValidate
         >
-          <label className="form-control w-full">
-            <span className="label-text mb-1">নাম</span>
-            <input
-              type="text"
-              className={`input input-bordered w-full ${errors.name ? 'input-error' : ''}`}
-              maxLength={255}
-              placeholder="ইউজারের নাম দিন"
-              {...register('name')}
-            />
-            {errors.name ? (
-              <span className="label-text-alt text-error mt-1">
-                {errors.name.message}
-              </span>
-            ) : null}
-          </label>
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col gap-2 pr-0.5">
+            <label className="form-control w-full">
+              <span className="label-text text-sm mb-0.5">নাম</span>
+              <input
+                type="text"
+                className={`input input-bordered input-sm w-full ${errors.name ? 'input-error' : ''}`}
+                maxLength={255}
+                placeholder="ইউজারের নাম"
+                {...register('name')}
+              />
+              {errors.name ? (
+                <span className="label-text-alt text-error mt-0.5">
+                  {errors.name.message}
+                </span>
+              ) : null}
+            </label>
 
-          <label className="form-control w-full">
-            <span className="label-text mb-1">ফোন নম্বর</span>
-            <input
-              type="tel"
-              inputMode="numeric"
-              className={`input input-bordered w-full ${
-                errors.phone_number || phoneHint ? 'input-error' : ''
-              }`}
-              maxLength={11}
-              placeholder="০১XXXXXXXXX"
-              {...register('phone_number')}
-            />
-            {phoneHint ? (
-              <span className="label-text-alt text-error mt-1">{phoneHint}</span>
-            ) : errors.phone_number ? (
-              <span className="label-text-alt text-error mt-1">
-                {errors.phone_number.message}
-              </span>
-            ) : null}
-          </label>
+            <label className="form-control w-full">
+              <span className="label-text text-sm mb-0.5">ফোন নম্বর</span>
+              <input
+                type="tel"
+                inputMode="numeric"
+                className={`input input-bordered input-sm w-full ${
+                  errors.phone_number || phoneHint ? 'input-error' : ''
+                }`}
+                maxLength={11}
+                placeholder="০১XXXXXXXXX"
+                {...register('phone_number')}
+              />
+              {phoneHint ? (
+                <span className="label-text-alt text-error mt-0.5">
+                  {phoneHint}
+                </span>
+              ) : errors.phone_number ? (
+                <span className="label-text-alt text-error mt-0.5">
+                  {errors.phone_number.message}
+                </span>
+              ) : null}
+            </label>
 
-          <label className="form-control w-full">
-            <span className="label-text mb-1">পাসওয়ার্ড</span>
-            <input
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="new-password"
-              maxLength={20}
-              className={`input input-bordered w-full ${
-                errors.password || passwordHint ? 'input-error' : ''
-              }`}
-              placeholder="কমপক্ষে ৮ অক্ষর (শুধু সংখ্যা নয়)"
-              {...register('password')}
-            />
-            {passwordHint ? (
-              <span className="label-text-alt text-error mt-1">
-                {passwordHint}
-              </span>
-            ) : errors.password ? (
-              <span className="label-text-alt text-error mt-1">
-                {errors.password.message}
-              </span>
-            ) : null}
-          </label>
+            <div className="form-control w-full">
+              <div className="flex items-center justify-between gap-2 mb-0.5">
+                <span className="label-text text-sm">পাসওয়ার্ড</span>
+                <button
+                  type="button"
+                  className="link link-hover text-xs text-base-content/70"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                >
+                  {showPassword ? 'লুকান' : 'দেখুন'}
+                </button>
+              </div>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                maxLength={20}
+                className={`input input-bordered input-sm w-full ${
+                  errors.password || passwordHint ? 'input-error' : ''
+                }`}
+                placeholder="কমপক্ষে ৮ অক্ষর"
+                {...register('password')}
+              />
+              {passwordHint ? (
+                <span className="label-text-alt text-error mt-0.5">
+                  {passwordHint}
+                </span>
+              ) : errors.password ? (
+                <span className="label-text-alt text-error mt-0.5">
+                  {errors.password.message}
+                </span>
+              ) : null}
+            </div>
 
-          <div className="flex items-center justify-start text-sm">
-            <button
-              type="button"
-              className="link link-hover text-base-content/70"
-              onClick={() => setShowPassword((prev) => !prev)}
-            >
-              {showPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
-            </button>
+            <div>
+              <span className="label-text text-sm mb-1 block">গ্রুপ</span>
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                {assignableGroups.map((g) => {
+                  const checked = groupNames.includes(g.name)
+                  return (
+                    <label
+                      key={g.name}
+                      className="inline-flex items-center gap-2 cursor-pointer"
+                    >
+                      <input
+                        type="radio"
+                        name="user-create-group"
+                        className="radio radio-xs radio-primary"
+                        checked={checked}
+                        onChange={() => setValue('groups', [g.name])}
+                      />
+                      <span className="text-sm">{g.label}</span>
+                    </label>
+                  )
+                })}
+              </div>
+              {errors.groups ? (
+                <span className="label-text-alt text-error mt-0.5">
+                  {errors.groups.message}
+                </span>
+              ) : null}
+            </div>
+
+            <div>
+              <span className="label-text text-sm mb-1 block">
+                দায়িত্বপ্রাপ্ত সাইট
+              </span>
+              <div className="border border-base-300 rounded-box p-1.5 max-h-24 overflow-y-auto overscroll-contain">
+                {sitesLoading ? (
+                  <div className="flex justify-center py-2">
+                    <span className="loading loading-spinner loading-sm" />
+                  </div>
+                ) : allSites.length === 0 ? (
+                  <p className="text-xs text-base-content/55 py-1">
+                    কোনো সাইট নেই।
+                  </p>
+                ) : (
+                  allSites.map((s) => {
+                    const id = Number(s.id)
+                    const checked = siteIds.includes(id)
+                    return (
+                      <label
+                        key={id}
+                        className="flex items-center gap-2 py-0.5 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          className="checkbox checkbox-xs checkbox-primary shrink-0"
+                          checked={checked}
+                          onChange={() => {
+                            setValue('sites', toggleItem(siteIds, id))
+                          }}
+                        />
+                        <span className="text-sm truncate min-w-0">{s.name}</span>
+                        {s.is_closed ? (
+                          <span className="badge badge-ghost badge-xs shrink-0">
+                            কমপ্লিট
+                          </span>
+                        ) : null}
+                      </label>
+                    )
+                  })
+                )}
+              </div>
+              {errors.sites ? (
+                <span className="label-text-alt text-error mt-0.5">
+                  {errors.sites.message}
+                </span>
+              ) : null}
+            </div>
           </div>
 
-          <div className="flex justify-between gap-2 mt-2 pb-1">
+          <div className="flex gap-2 pt-3 mt-2 shrink-0 border-t border-base-300">
             <button
               type="button"
-              className="btn btn-outline btn-primary flex-1"
+              className="btn btn-outline btn-primary btn-sm flex-1"
               disabled={saveDisabled}
               onClick={onSaveAndCreateAnother}
             >
@@ -231,7 +322,7 @@ export const UserCreateModal = forwardRef(function UserCreateModal(_, ref) {
             </button>
             <button
               type="submit"
-              className="btn btn-primary flex-1"
+              className="btn btn-primary btn-sm flex-1"
               disabled={saveDisabled}
             >
               {busy ? (

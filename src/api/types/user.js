@@ -35,6 +35,8 @@ export const userCreateSchema = z.object({
     .max(255, 'নাম একটু ছোট করুন'),
   phone_number: bdPhoneNumberSchema,
   password: passwordCreateSchema,
+  groups: z.array(z.string().min(1)).max(1),
+  sites: z.array(z.number().int()),
 })
 
 /** Admin user PATCH — only is_active + assignment replace. Single group only. */
@@ -54,10 +56,21 @@ export const profileUpdateSchema = z.object({
   email: optionalEmail,
 })
 
-export const toUserCreatePayload = ({ name, phone_number, password }) => ({
+export const toUserCreatePayload = ({
+  name,
+  phone_number,
+  password,
+  groups,
+  sites,
+}) => ({
   name: String(name ?? '').trim(),
   phone_number: String(phone_number ?? '').trim(),
   password: String(password ?? ''),
+  groups: (groups ?? [])
+    .map((g) => String(g ?? '').trim())
+    .filter(Boolean)
+    .slice(0, 1),
+  allowed_sites: (sites ?? []).map((id) => Number(id)),
 })
 
 export const toUserAdminUpdatePayload = ({ is_active, groups, sites }) => ({
@@ -66,8 +79,21 @@ export const toUserAdminUpdatePayload = ({ is_active, groups, sites }) => ({
     .map((g) => String(g ?? '').trim())
     .filter(Boolean)
     .slice(0, 1),
-  sites: (sites ?? []).map((id) => Number(id)),
+  allowed_sites: (sites ?? []).map((id) => Number(id)),
 })
+
+/** Map API `allowed_sites` errors onto form field `sites`. */
+export const applyUserAdminFieldErrors = (parsed, setError) => {
+  if (!parsed?.fieldErrors || !setError) return
+  const fieldErrors = { ...parsed.fieldErrors }
+  if (fieldErrors.allowed_sites) {
+    fieldErrors.sites = fieldErrors.allowed_sites
+    delete fieldErrors.allowed_sites
+  }
+  for (const [attr, messages] of Object.entries(fieldErrors)) {
+    setError(attr, { type: 'server', message: messages[0] })
+  }
+}
 
 const profileTextFields = ({ name, phone_number, email }) => ({
   name: String(name ?? '').trim(),

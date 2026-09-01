@@ -12,6 +12,7 @@ import {
   toSingleGroupNames,
   profileAllowedGroups,
   profileAllowedSiteIds,
+  applyUserAdminFieldErrors,
   toUserAdminUpdatePayload,
   userAdminUpdateSchema,
   userStatusLabel,
@@ -216,7 +217,7 @@ export const UserDetailPage = () => {
     } catch (err) {
       const parsed = parseApiError(err);
       setApiError(parsed);
-      applyFieldErrors(parsed, setError);
+      applyUserAdminFieldErrors(parsed, setError);
     }
   });
 
