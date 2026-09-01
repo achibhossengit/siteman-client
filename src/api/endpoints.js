@@ -3,8 +3,6 @@ export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
 export const endpoints = {
   auth: {
     register: '/api/v1/auth/register',
-    registerConfirm: '/api/v1/auth/register/confirm',
-    registerResendOtp: '/api/v1/auth/register/resend-otp',
     passwordReset: '/api/v1/auth/password/reset',
     passwordResetConfirm: '/api/v1/auth/password/reset/confirm',
     passwordResetResendOtp: '/api/v1/auth/password/reset/resend-otp',

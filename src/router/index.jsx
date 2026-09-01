@@ -20,7 +20,6 @@ import { AppInfoPage } from "../pages/AppInfoPage.jsx";
 import { ActivityPage } from "../pages/activities/ActivityPage.jsx";
 import { LoginPage } from "../pages/auth/LoginPage.jsx";
 import { RegisterPage } from "../pages/auth/RegisterPage.jsx";
-import { RegisterConfirmPage } from "../pages/auth/RegisterConfirmPage.jsx";
 import { PasswordResetPage } from "../pages/auth/PasswordResetPage.jsx";
 import { PasswordResetConfirmPage } from "../pages/auth/PasswordResetConfirmPage.jsx";
 import { ProfilePage } from "../pages/profile/ProfilePage.jsx";
@@ -30,9 +29,8 @@ import { OthersPage } from "../pages/OthersPage.jsx";
 export const AppRouter = () => (
   <Routes>
     <Route element={<PendingOtpRedirect />}>
-      {/* OTP confirm must stay reachable even if logged in */}
+      {/* Password-reset OTP must stay reachable even if logged in */}
       <Route element={<AuthLayout />}>
-        <Route path={paths.registerConfirm} element={<RegisterConfirmPage />} />
         <Route
           path={paths.passwordResetConfirm}
           element={<PasswordResetConfirmPage />}
@@ -43,6 +41,10 @@ export const AppRouter = () => (
         <Route element={<AuthLayout />}>
           <Route path={paths.login} element={<LoginPage />} />
           <Route path={paths.register} element={<RegisterPage />} />
+          <Route
+            path="/register/confirm"
+            element={<Navigate to={paths.register} replace />}
+          />
           <Route path={paths.passwordReset} element={<PasswordResetPage />} />
         </Route>
       </Route>

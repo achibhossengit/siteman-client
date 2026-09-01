@@ -1,19 +1,10 @@
 export const OTP_STORAGE = {
-  register: 'siteman.register.otp',
   passwordReset: 'siteman.passwordReset.otp',
 }
 
-const otherOtpKey = (key) => {
-  if (key === OTP_STORAGE.register) return OTP_STORAGE.passwordReset
-  if (key === OTP_STORAGE.passwordReset) return OTP_STORAGE.register
-  return null
-}
+const STALE_REGISTER_OTP_KEY = 'siteman.register.otp'
 
-/** Only one OTP flow may exist at a time — saving one clears the other. */
 export const saveOtpSession = (key, payload) => {
-  const other = otherOtpKey(key)
-  if (other) sessionStorage.removeItem(other)
-
   const savedAt = Date.now()
   const next = {
     ...payload,
@@ -40,23 +31,11 @@ export const clearOtpSession = (key) => {
 }
 
 /**
- * Ensure only one OTP session exists. Prefer the newer savedAt.
- * @returns {'register' | 'passwordReset' | null}
+ * @returns {'passwordReset' | null}
  */
 export const getPendingOtpKind = () => {
-  const register = readOtpSession(OTP_STORAGE.register)
-  const passwordReset = readOtpSession(OTP_STORAGE.passwordReset)
-
-  if (register && passwordReset) {
-    if ((register.savedAt ?? 0) >= (passwordReset.savedAt ?? 0)) {
-      clearOtpSession(OTP_STORAGE.passwordReset)
-      return 'register'
-    }
-    clearOtpSession(OTP_STORAGE.register)
-    return 'passwordReset'
-  }
-  if (register) return 'register'
-  if (passwordReset) return 'passwordReset'
+  sessionStorage.removeItem(STALE_REGISTER_OTP_KEY)
+  if (readOtpSession(OTP_STORAGE.passwordReset)) return 'passwordReset'
   return null
 }
 

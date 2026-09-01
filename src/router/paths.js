@@ -16,7 +16,6 @@ export const paths = {
   activities: '/activities',
   login: '/login',
   register: '/register',
-  registerConfirm: '/register/confirm',
   passwordReset: '/password/reset',
   passwordResetConfirm: '/password/reset/confirm',
   profile: '/profile',

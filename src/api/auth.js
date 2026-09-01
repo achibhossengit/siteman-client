@@ -11,12 +11,6 @@ export const blacklistToken = () => api.post(endpoints.auth.tokenBlacklist, {})
 export const register = (payload) =>
   api.post(endpoints.auth.register, payload)
 
-export const registerConfirm = ({ ticket, otp }) =>
-  api.post(endpoints.auth.registerConfirm, { ticket, otp })
-
-export const registerResendOtp = ({ ticket }) =>
-  api.post(endpoints.auth.registerResendOtp, { ticket })
-
 export const passwordReset = ({ phone_number }) =>
   api.post(endpoints.auth.passwordReset, { phone_number })
 
