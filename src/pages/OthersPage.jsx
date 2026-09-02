@@ -76,7 +76,7 @@ const SETTINGS_LINKS = [
     key: 'company',
     title: 'কোম্পানি সেটিংস',
     icon: Building2,
-    to: null,
+    to: paths.companySettings,
   },
 ]
 

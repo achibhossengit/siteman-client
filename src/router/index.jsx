@@ -23,6 +23,7 @@ import { RegisterPage } from "../pages/auth/RegisterPage.jsx";
 import { PasswordResetPage } from "../pages/auth/PasswordResetPage.jsx";
 import { PasswordResetConfirmPage } from "../pages/auth/PasswordResetConfirmPage.jsx";
 import { ProfilePage } from "../pages/profile/ProfilePage.jsx";
+import { CompanySettingsPage } from "../pages/company/CompanySettingsPage.jsx";
 import { PendingOtpRedirect } from "./PendingOtpRedirect.jsx";
 import { OthersPage } from "../pages/OthersPage.jsx";
 
@@ -66,6 +67,7 @@ export const AppRouter = () => (
 
         <Route element={<DetailLayout />}>
           <Route path={paths.profile} element={<ProfilePage />} />
+          <Route path={paths.companySettings} element={<CompanySettingsPage />} />
           <Route path={paths.sites} element={<SitesPage />} />
           <Route
             path="/sites/:siteId/billing"

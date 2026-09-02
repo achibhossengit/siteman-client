@@ -13,6 +13,7 @@ export const paths = {
   labourSessionRecords: (labourId, sessionId) =>
     `/labours/${labourId}/sessions/${sessionId}/records`,
   appInfo: '/app-info',
+  companySettings: '/company-settings',
   activities: '/activities',
   login: '/login',
   register: '/register',

@@ -1,9 +1,11 @@
 import { useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { fetchLabours } from '../api/labours.js'
 import { fetchSites } from '../api/sites.js'
 import { fetchUsers } from '../api/users.js'
 import { useAuth } from '../providers/AuthProvider.jsx'
+import { paths } from '../router/paths.js'
 import { alertSubscriptionLimit } from '../utils/feedback.js'
 import {
   getCompanyLimit,
@@ -28,6 +30,7 @@ const USAGE_QUERY_KEY = {
  * @param {'user' | 'labour' | 'site'} kind
  */
 export const useSubscriptionLimit = (kind) => {
+  const navigate = useNavigate()
   const { profile } = useAuth()
   const limit = getCompanyLimit(profile, kind)
 
@@ -51,12 +54,13 @@ export const useSubscriptionLimit = (kind) => {
         used = result.data ?? 0
       }
       if (isSubscriptionLimitReached(used, limit)) {
-        await alertSubscriptionLimit(message)
+        const goUpdate = await alertSubscriptionLimit(message)
+        if (goUpdate) navigate(paths.companySettings)
         return false
       }
       return true
     },
-    [limit, usedCount, refetch],
+    [limit, usedCount, refetch, navigate],
   )
 
   return { assertCanCreate, limit, used: usedCount }

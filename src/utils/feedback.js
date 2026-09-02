@@ -103,11 +103,11 @@ export const confirmAction = async ({
   return result.isConfirmed
 }
 
-/** Plan-cap notice. Confirm is a no-op until a billing page exists. */
+/** Plan-cap notice. Confirm means go to company settings. */
 export const alertSubscriptionLimit = async (message) => {
   const target = topLayerTarget()
 
-  await Swal.fire({
+  const result = await Swal.fire({
     target: target ?? 'body',
     heightAuto: !target,
     scrollbarPadding: !target,
@@ -122,4 +122,6 @@ export const alertSubscriptionLimit = async (message) => {
     focusCancel: true,
     customClass: { popup: 'swal-confirm' },
   })
+
+  return result.isConfirmed
 }

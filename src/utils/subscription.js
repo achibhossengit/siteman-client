@@ -6,13 +6,15 @@
 const LIMIT_KEYS = {
   user: ['active_user_limit', 'user_limit'],
   labour: ['active_labour_limit', 'labour_limit'],
-  site: ['active_site_limit', 'site_limit'],
+  site: ['site_limit', 'active_site_limit'],
 }
 
 const asCompany = (profile) => {
   const company = profile?.company
   return company && typeof company === 'object' ? company : null
 }
+
+export const companyFromProfile = asCompany
 
 const asLimit = (value) => {
   const n = Number(value)
