@@ -102,3 +102,24 @@ export const confirmAction = async ({
 
   return result.isConfirmed
 }
+
+/** Plan-cap notice. Confirm is a no-op until a billing page exists. */
+export const alertSubscriptionLimit = async (message) => {
+  const target = topLayerTarget()
+
+  await Swal.fire({
+    target: target ?? 'body',
+    heightAuto: !target,
+    scrollbarPadding: !target,
+    title: 'সাবস্ক্রিপশন লিমিট পূর্ণ',
+    text: message,
+    showCancelButton: true,
+    confirmButtonText: 'আপডেট করুন',
+    cancelButtonText: 'এখন না',
+    confirmButtonColor: 'var(--color-primary)',
+    cancelButtonColor: 'var(--color-neutral)',
+    reverseButtons: true,
+    focusCancel: true,
+    customClass: { popup: 'swal-confirm' },
+  })
+}

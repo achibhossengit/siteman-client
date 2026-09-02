@@ -8,6 +8,7 @@ import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { ListPagination } from '../../components/ListPagination.jsx'
 import { usePermissions } from '../../hooks/usePermissions.js'
+import { useSubscriptionLimit } from '../../hooks/useSubscriptionLimit.js'
 import { formatBnNumber, STATUS_LABEL } from '../../utils/format.js'
 import {
   readEnumParam,
@@ -45,6 +46,7 @@ export const SitesPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const { setTitle } = useOutletContext()
   const { can } = usePermissions()
+  const { assertCanCreate, limit } = useSubscriptionLimit('site')
   const createModalRef = useRef(null)
   const nameSearchRef = useRef(null)
   const skipPageReset = useRef(true)
@@ -278,7 +280,13 @@ export const SitesPage = () => {
             type="button"
             className="btn btn-primary btn-circle btn-lg absolute bottom-4 right-4 z-40 shadow-lg"
             aria-label="নতুন সাইট"
-            onClick={() => createModalRef.current?.open()}
+            onClick={() => {
+              void assertCanCreate(
+                `আপনার বর্তমান সাবস্ক্রিপশন প্ল্যান অনুযায়ী সর্বোচ্চ ${formatBnNumber(limit)}টি সাইট থাকতে পারবে, যা ইতিমধ্যে পূর্ণ হয়ে গেছে। কাজ চালিয়ে যেতে প্ল্যান আপডেট করুন।`,
+              ).then((ok) => {
+                if (ok) createModalRef.current?.open()
+              })
+            }}
           >
             <Plus className="size-7" strokeWidth={2} />
           </button>
