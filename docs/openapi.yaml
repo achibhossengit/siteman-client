@@ -4146,17 +4146,7 @@ paths:
         - CompanyAdmin: provide all permissions
 
         Here, subscription limit check is need for creating new site.
-        `is_closed` is readonly in SiteSerializers, so reopening not possible.
-        site `close` and `reopen` will handled by differnet views.
       parameters:
-        - in: query
-          name: is_active
-          schema:
-            type: boolean
-        - in: query
-          name: is_closed
-          schema:
-            type: boolean
         - name: page
           required: false
           in: query
@@ -4319,8 +4309,6 @@ paths:
         - CompanyAdmin: provide all permissions
 
         Here, subscription limit check is need for creating new site.
-        `is_closed` is readonly in SiteSerializers, so reopening not possible.
-        site `close` and `reopen` will handled by differnet views.
       tags:
         - sites
       requestBody:
@@ -4478,8 +4466,6 @@ paths:
         - CompanyAdmin: provide all permissions
 
         Here, subscription limit check is need for creating new site.
-        `is_closed` is readonly in SiteSerializers, so reopening not possible.
-        site `close` and `reopen` will handled by differnet views.
       parameters:
         - in: path
           name: id
@@ -4631,8 +4617,6 @@ paths:
         - CompanyAdmin: provide all permissions
 
         Here, subscription limit check is need for creating new site.
-        `is_closed` is readonly in SiteSerializers, so reopening not possible.
-        site `close` and `reopen` will handled by differnet views.
       parameters:
         - in: path
           name: id
@@ -4795,8 +4779,6 @@ paths:
         - CompanyAdmin: provide all permissions
 
         Here, subscription limit check is need for creating new site.
-        `is_closed` is readonly in SiteSerializers, so reopening not possible.
-        site `close` and `reopen` will handled by differnet views.
       parameters:
         - in: path
           name: id
@@ -12916,16 +12898,6 @@ components:
         name:
           type: string
           maxLength: 255
-        is_active:
-          type: boolean
-        is_closed:
-          type: boolean
-          readOnly: true
-        closed_at:
-          type: string
-          format: date-time
-          readOnly: true
-          nullable: true
         company:
           type: integer
           readOnly: true
@@ -13368,16 +13340,6 @@ components:
         name:
           type: string
           maxLength: 255
-        is_active:
-          type: boolean
-        is_closed:
-          type: boolean
-          readOnly: true
-        closed_at:
-          type: string
-          format: date-time
-          readOnly: true
-          nullable: true
         company:
           type: integer
           readOnly: true
@@ -13390,11 +13352,9 @@ components:
           format: date-time
           readOnly: true
       required:
-        - closed_at
         - company
         - created_at
         - id
-        - is_closed
         - name
         - updated_at
     SiteCash:
@@ -13704,10 +13664,6 @@ components:
         name:
           type: string
           maxLength: 255
-        is_active:
-          type: boolean
-        is_closed:
-          type: boolean
       required:
         - id
         - name
@@ -14652,13 +14608,11 @@ components:
       oneOf:
         - $ref: "#/components/schemas/SitesCreateNonFieldErrorsErrorComponent"
         - $ref: "#/components/schemas/SitesCreateNameErrorComponent"
-        - $ref: "#/components/schemas/SitesCreateIsActiveErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
           non_field_errors: "#/components/schemas/SitesCreateNonFieldErrorsErrorComponent"
           name: "#/components/schemas/SitesCreateNameErrorComponent"
-          is_active: "#/components/schemas/SitesCreateIsActiveErrorComponent"
     SitesCreateErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/SitesCreateValidationError"
@@ -14668,28 +14622,6 @@ components:
         mapping:
           validation_error: "#/components/schemas/SitesCreateValidationError"
           client_error: "#/components/schemas/ParseErrorResponse"
-    SitesCreateIsActiveErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - is_active
-          type: string
-          description: "* `is_active` - is_active"
-        code:
-          enum:
-            - invalid
-            - "null"
-          type: string
-          description: |-
-            * `invalid` - invalid
-            * `null` - null
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
     SitesCreateNameErrorComponent:
       type: object
       properties:
@@ -15131,43 +15063,22 @@ components:
         propertyName: type
         mapping:
           client_error: "#/components/schemas/ParseErrorResponse"
-    SitesListError:
-      oneOf: []
-      discriminator:
-        propertyName: attr
-        mapping: {}
     SitesListErrorResponse400:
       oneOf:
-        - $ref: "#/components/schemas/SitesListValidationError"
         - $ref: "#/components/schemas/ParseErrorResponse"
       discriminator:
         propertyName: type
         mapping:
-          validation_error: "#/components/schemas/SitesListValidationError"
           client_error: "#/components/schemas/ParseErrorResponse"
-    SitesListValidationError:
-      type: object
-      properties:
-        type:
-          $ref: "#/components/schemas/ValidationErrorEnum"
-        errors:
-          type: array
-          items:
-            $ref: "#/components/schemas/SitesListError"
-      required:
-        - errors
-        - type
     SitesPartialUpdateError:
       oneOf:
         - $ref: "#/components/schemas/SitesPartialUpdateNonFieldErrorsErrorComponent"
         - $ref: "#/components/schemas/SitesPartialUpdateNameErrorComponent"
-        - $ref: "#/components/schemas/SitesPartialUpdateIsActiveErrorComponent"
       discriminator:
         propertyName: attr
         mapping:
           non_field_errors: "#/components/schemas/SitesPartialUpdateNonFieldErrorsErrorComponent"
           name: "#/components/schemas/SitesPartialUpdateNameErrorComponent"
-          is_active: "#/components/schemas/SitesPartialUpdateIsActiveErrorComponent"
     SitesPartialUpdateErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/SitesPartialUpdateValidationError"
@@ -15177,28 +15088,6 @@ components:
         mapping:
           validation_error: "#/components/schemas/SitesPartialUpdateValidationError"
           client_error: "#/components/schemas/ParseErrorResponse"
-    SitesPartialUpdateIsActiveErrorComponent:
-      type: object
-      properties:
-        attr:
-          enum:
-            - is_active
-          type: string
-          description: "* `is_active` - is_active"
-        code:
-          enum:
-            - invalid
-            - "null"
-          type: string
-          description: |-
-            * `invalid` - invalid
-            * `null` - null
-        detail:
-          type: string
-      required:
-        - attr
-        - code
-        - detail
     SitesPartialUpdateNameErrorComponent:
       type: object
       properties:

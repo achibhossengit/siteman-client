@@ -68,7 +68,8 @@ export const CODE_COPY = {
   // Sites / billing
   site_name_exists: 'এই নামে একটি সাইট ইতিমধ্যে আছে। অন্য নাম দিন।',
   site_closed: 'এই সাইটটি কমপ্লিট, তাই এখন পরিবর্তন করা যাবে না।',
-  site_has_records: 'এই সাইটে রেকর্ড থাকায় মুছে ফেলা যাচ্ছে না।',
+  site_has_unsealed_records:
+    'এই সাইটে সেশন ক্লোজ না হওয়া কিছু হাজিরা আছে। সাইট ডিলিট করতে হলে সকল লেবার এর সেশন ক্লোস করতে হবে।',
   site_inactive: 'সাইটটি এখন বন্ধ। এই কাজটি পরে করা যেতে পারে।',
   site_wrong_company: 'এই সাইটটি আপনার কোম্পানির অধীনে নয়।',
   unauthorized_site: 'এই সাইটে প্রবেশের অনুমতি আপনার নেই।',
@@ -212,4 +213,30 @@ export const applyFieldErrors = (parsed, setError) => {
   for (const [attr, messages] of Object.entries(parsed.fieldErrors)) {
     setError(attr, { type: 'server', message: messages[0] })
   }
+}
+
+/** Bangla copy for DELETE /sites/{id} when the API only distinguishes by HTTP status. */
+export const SITE_DELETE_STATUS_COPY = {
+  400: CODE_COPY.site_has_unsealed_records,
+  401: CODE_COPY.incorrect_password,
+  403: CODE_COPY.permission_denied,
+  404: 'সাইট পাওয়া যায়নি।',
+  409: CODE_COPY.site_has_unsealed_records,
+  429: CODE_COPY.throttled,
+  500: CODE_COPY.server_error,
+}
+
+const GENERIC_ERROR_CODES = new Set(['error', 'parse_error'])
+
+/** Prefer API error codes; fall back to HTTP status copy for site delete. */
+export const siteDeleteUiMessage = (parsed) => {
+  if (!parsed) return messageForCode('error')
+  const specific = (parsed.errors || []).find(
+    (e) => e.code && CODE_COPY[e.code] && !GENERIC_ERROR_CODES.has(e.code),
+  )
+  if (specific) return CODE_COPY[specific.code]
+  if (parsed.status && SITE_DELETE_STATUS_COPY[parsed.status]) {
+    return SITE_DELETE_STATUS_COPY[parsed.status]
+  }
+  return parsed.message || messageForCode('error')
 }

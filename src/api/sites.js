@@ -35,8 +35,11 @@ export const createSite = (payload) => api.post(endpoints.sites.list, payload)
 export const updateSite = (siteId, payload) =>
   api.patch(endpoints.sites.detail(siteId), payload)
 
-/** DELETE /sites/{id} */
-export const deleteSite = (siteId) => api.delete(endpoints.sites.detail(siteId))
+/** DELETE /sites/{id} — confirm with own password. */
+export const deleteSite = (siteId, { password } = {}) =>
+  api.delete(endpoints.sites.detail(siteId), {
+    data: { password },
+  })
 
 /**
  * Day or range summary for a site.
