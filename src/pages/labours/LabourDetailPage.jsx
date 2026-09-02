@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -6,7 +7,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Lock, X } from 'lucide-react'
 import {
   closeLabourSession,
-  deleteLabour,
   deleteLabourSession,
   fetchLabourDetail,
   fetchLabourRunningSession,
@@ -34,6 +34,7 @@ import { formatBnNumber, formatBnSigned, NULL_SITE_LABEL } from '../../utils/for
 import { confirmAction, toastSuccess } from '../../utils/feedback.js'
 import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
+import { LabourDeleteModal } from './LabourDeleteModal.jsx'
 
 const PAGE_SIZE = 3
 const EDIT_MODAL_ID = 'labour-edit-modal'
@@ -123,10 +124,12 @@ export const LabourDetailPage = () => {
   const queryClient = useQueryClient()
   const { can, isCompanyAdmin } = usePermissions()
   const editDialogRef = useRef(null)
+  const deleteModalRef = useRef(null)
   const [apiError, setApiError] = useState(null)
   const [sessionApiError, setSessionApiError] = useState(null)
   const [page, setPage] = useState(1)
   const [openSessionKey, setOpenSessionKey] = useState(null)
+  const [detailFetchEnabled, setDetailFetchEnabled] = useState(true)
 
   const canViewLabour = can(PERMS.viewLabour)
   const canChangeLabour = can(PERMS.changeLabour)
@@ -184,7 +187,7 @@ export const LabourDetailPage = () => {
       const { data } = await fetchLabourDetail(labourId)
       return data
     },
-    enabled: Boolean(canViewLabour && labourId),
+    enabled: Boolean(canViewLabour && labourId && detailFetchEnabled),
   })
 
   const sessionsQuery = useQuery({
@@ -253,10 +256,6 @@ export const LabourDetailPage = () => {
     mutationFn: (values) => updateLabour(labourId, toLabourPayload(values)),
   })
 
-  const deleteLabourMutation = useMutation({
-    mutationFn: () => deleteLabour(labourId),
-  })
-
   const closeSessionMutation = useMutation({
     mutationFn: () => closeLabourSession(labourId),
   })
@@ -292,29 +291,19 @@ export const LabourDetailPage = () => {
     reset(toFormValues(labour, { isCompanyAdmin, assignedSites }))
   }
 
-  const onDeleteLabour = async () => {
-    const ok = await confirmAction({
-      title: 'শ্রমিক মুছে ফেলবেন?',
-      text: 'এই কাজটি ফিরিয়ে আনা যাবে না।',
-      confirmText: 'ডিলিট করুন',
-      danger: true,
-    })
-    if (!ok) return
-    setApiError(null)
-    try {
-      await deleteLabourMutation.mutateAsync()
-      await queryClient.invalidateQueries({ queryKey: ['labours'] })
-      toastSuccess('শ্রমিক ডিলিট হয়েছে')
-      navigate(paths.labours, { replace: true })
-    } catch (err) {
-      setApiError(parseApiError(err))
-    }
+  const handleLabourDeleted = async () => {
+    await queryClient.cancelQueries({ queryKey: ['labours', labourId] })
+    flushSync(() => setDetailFetchEnabled(false))
+    queryClient.removeQueries({ queryKey: ['labours', labourId] })
+    toastSuccess('শ্রমিক ডিলিট হয়েছে')
+    navigate(paths.labours, { replace: true })
+    void queryClient.invalidateQueries({ queryKey: ['labours', 'list'] })
   }
 
-  const onDeleteLabourRef = useRef(onDeleteLabour)
-  onDeleteLabourRef.current = onDeleteLabour
   const openEditModalRef = useRef(openEditModal)
   openEditModalRef.current = openEditModal
+  const openDeleteModalRef = useRef(() => deleteModalRef.current?.open())
+  openDeleteModalRef.current = () => deleteModalRef.current?.open()
 
   const onConfirmEdit = handleSubmit(async (values) => {
     setApiError(null)
@@ -415,8 +404,7 @@ export const LabourDetailPage = () => {
               <button
                 type="button"
                 className="text-error"
-                disabled={deleteLabourMutation.isPending}
-                onClick={() => void onDeleteLabourRef.current()}
+                onClick={() => openDeleteModalRef.current()}
               >
                 ডিলিট
               </button>
@@ -431,7 +419,6 @@ export const LabourDetailPage = () => {
     setHeaderMenu,
     canChangeLabour,
     canDeleteLabour,
-    deleteLabourMutation.isPending,
   ])
 
   useEffect(() => {
@@ -769,6 +756,13 @@ export const LabourDetailPage = () => {
           হিসাব দেখার অনুমতি নেই।
         </div>
       )}
+
+      <LabourDeleteModal
+        ref={deleteModalRef}
+        labourId={labourId}
+        labour={labour}
+        onDeleted={handleLabourDeleted}
+      />
 
       <dialog
         ref={editDialogRef}

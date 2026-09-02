@@ -85,6 +85,8 @@ export const CODE_COPY = {
   labour_inactive: 'এই শ্রমিক এখন বন্ধ। কাজ চালিয়ে যেতে আগে চালু করুন।',
   labour_name_exists: 'এই নামে একজন শ্রমিক ইতিমধ্যে আছেন। অন্য নাম দিন।',
   labour_unassigned: 'এই শ্রমিকের সাইট নেই।',
+  labour_has_records:
+    'এই শ্রমিকের হাজিরা আছে। তাই ডিলিট করা যাবে না।',
 
   // Labour sessions (UI: হিসাব)
   session_no_records: 'সিল করার মতো কোনো রেকর্ড এখন নেই।',
