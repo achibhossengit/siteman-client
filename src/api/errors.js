@@ -214,29 +214,3 @@ export const applyFieldErrors = (parsed, setError) => {
     setError(attr, { type: 'server', message: messages[0] })
   }
 }
-
-/** Bangla copy for DELETE /sites/{id} when the API only distinguishes by HTTP status. */
-export const SITE_DELETE_STATUS_COPY = {
-  400: CODE_COPY.site_has_unsealed_records,
-  401: CODE_COPY.incorrect_password,
-  403: CODE_COPY.permission_denied,
-  404: 'সাইট পাওয়া যায়নি।',
-  409: CODE_COPY.site_has_unsealed_records,
-  429: CODE_COPY.throttled,
-  500: CODE_COPY.server_error,
-}
-
-const GENERIC_ERROR_CODES = new Set(['error', 'parse_error'])
-
-/** Prefer API error codes; fall back to HTTP status copy for site delete. */
-export const siteDeleteUiMessage = (parsed) => {
-  if (!parsed) return messageForCode('error')
-  const specific = (parsed.errors || []).find(
-    (e) => e.code && CODE_COPY[e.code] && !GENERIC_ERROR_CODES.has(e.code),
-  )
-  if (specific) return CODE_COPY[specific.code]
-  if (parsed.status && SITE_DELETE_STATUS_COPY[parsed.status]) {
-    return SITE_DELETE_STATUS_COPY[parsed.status]
-  }
-  return parsed.message || messageForCode('error')
-}

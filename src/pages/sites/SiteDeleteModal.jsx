@@ -1,22 +1,26 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useImperativeHandle, useRef } from 'react'
 import { useForm } from 'react-hook-form'
+import { z } from 'zod'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
 import { X } from 'lucide-react'
-import { deleteLabour } from '../../api/labours.js'
-import { parseApiError, applyFieldErrors } from '../../api/errors.js'
-import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
+import { deleteSite } from '../../api/sites.js'
+import { parseApiError } from '../../api/errors.js'
 
-const DELETE_MODAL_ID = 'labour-delete-modal'
+const DELETE_MODAL_ID = 'site-delete-modal'
 
-export const LabourDeleteModal = forwardRef(function LabourDeleteModal(
-  { labourId, labour, onDeleted },
+const deleteSchema = z.object({
+  password: z.string().min(1, 'পাসওয়ার্ড দিন'),
+})
+
+export const SiteDeleteModal = forwardRef(function SiteDeleteModal(
+  { siteId, site, onDeleted, onError },
   ref,
 ) {
   const dialogRef = useRef(null)
-  const [deleteApiError, setDeleteApiError] = useState(null)
 
-  const deleteLabourMutation = useMutation({
-    mutationFn: () => deleteLabour(labourId),
+  const deleteMutation = useMutation({
+    mutationFn: (password) => deleteSite(siteId, { password }),
   })
 
   const {
@@ -27,17 +31,16 @@ export const LabourDeleteModal = forwardRef(function LabourDeleteModal(
     watch: watchDelete,
     formState: { errors: deleteErrors, isSubmitting: deleteSubmitting },
   } = useForm({
-    defaultValues: { confirm_name: '' },
+    resolver: zodResolver(deleteSchema),
+    defaultValues: { password: '' },
   })
 
-  const deleteConfirmName = watchDelete('confirm_name') ?? ''
-  const deleteNameReady =
-    deleteConfirmName.trim() === (labour?.name ?? '').trim()
-  const deleteBusy = deleteSubmitting || deleteLabourMutation.isPending
+  const deletePassword = watchDelete('password')
+  const deleteReady = (deletePassword ?? '').length > 0
+  const deleteBusy = deleteSubmitting || deleteMutation.isPending
 
   const resetModal = () => {
-    setDeleteApiError(null)
-    resetDelete({ confirm_name: '' })
+    resetDelete({ password: '' })
   }
 
   const closeModal = () => {
@@ -46,44 +49,41 @@ export const LabourDeleteModal = forwardRef(function LabourDeleteModal(
 
   useImperativeHandle(ref, () => ({
     open: () => {
-      if (!labour) return
+      if (!site) return
       resetModal()
       dialogRef.current?.showModal()
     },
-    isDeleting: deleteLabourMutation.isPending,
+    isDeleting: deleteMutation.isPending,
   }))
 
   const onConfirmDelete = handleSubmitDelete(async (values) => {
-    const expected = (labour?.name ?? '').trim()
-    const typed = String(values.confirm_name ?? '').trim()
-    if (!typed) {
-      setDeleteError('confirm_name', {
-        type: 'manual',
-        message: 'শ্রমিকের নাম টাইপ করুন।',
-      })
-      return
-    }
-    if (typed !== expected) {
-      setDeleteError('confirm_name', {
-        type: 'manual',
-        message: 'নাম মিলছে না। আবার চেষ্টা করুন।',
-      })
-      return
-    }
-
-    setDeleteApiError(null)
     try {
-      await deleteLabourMutation.mutateAsync()
+      await deleteMutation.mutateAsync(values.password)
       closeModal()
       await onDeleted?.()
     } catch (err) {
       const parsed = parseApiError(err)
-      setDeleteApiError(parsed)
-      applyFieldErrors(parsed, setDeleteError)
+      const passwordFieldError = parsed.fieldErrors?.password?.[0]
+      const isPasswordError = Boolean(
+        passwordFieldError ||
+          parsed.hasCode?.('incorrect_password') ||
+          parsed.hasCode?.('authentication_failed'),
+      )
+
+      if (isPasswordError) {
+        setDeleteError('password', {
+          type: 'server',
+          message: passwordFieldError || 'পাসওয়ার্ড সঠিক নয়।',
+        })
+        return
+      }
+
+      closeModal()
+      onError?.(parsed)
     }
   })
 
-  if (!labour) return null
+  if (!site) return null
 
   return (
     <dialog
@@ -104,15 +104,12 @@ export const LabourDeleteModal = forwardRef(function LabourDeleteModal(
         </form>
 
         <h3 className="font-semibold text-base mb-2 pr-8 shrink-0">
-          শ্রমিক ডিলিট করবেন?
+          সাইট ডিলিট করবেন?
         </h3>
-
         <p className="text-sm text-base-content/70 mb-3 shrink-0">
-          ডিলিট করা শ্রমিক একাউন্ট পুনরায় ফিরিয়ে আনা যাবে না। নিশ্চিত করতে শ্রমিকের নাম <span className="font-semibold">"{labour.name}" {" "}</span>
-          টাইপ করুন।
+          ডিলিট করা সাইট পুনরায় ফিরিয়ে আনা যাবে না। নিশ্চিত করতে আপনার পাসওয়ার্ড
+          দিন।
         </p>
-
-        <ApiErrorAlert error={deleteApiError} />
 
         <form
           className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto"
@@ -124,18 +121,18 @@ export const LabourDeleteModal = forwardRef(function LabourDeleteModal(
         >
           <label className="form-control w-full">
             <input
-              type="text"
-              autoComplete="off"
-              maxLength={255}
+              type="password"
+              autoComplete="current-password"
+              maxLength={20}
               className={`input input-bordered w-full ${
-                deleteErrors.confirm_name ? 'input-error' : ''
+                deleteErrors.password ? 'input-error' : ''
               }`}
-              placeholder="নাম টাইপ করুন"
-              {...registerDelete('confirm_name')}
+              placeholder="আপনার পাসওয়ার্ড দিন"
+              {...registerDelete('password')}
             />
-            {deleteErrors.confirm_name ? (
+            {deleteErrors.password ? (
               <span className="label-text-alt text-error mt-1">
-                {deleteErrors.confirm_name.message}
+                {deleteErrors.password.message}
               </span>
             ) : null}
           </label>
@@ -144,7 +141,7 @@ export const LabourDeleteModal = forwardRef(function LabourDeleteModal(
             <button
               type="submit"
               className="btn btn-error w-full"
-              disabled={!deleteNameReady || deleteBusy}
+              disabled={!deleteReady || deleteBusy}
             >
               {deleteBusy ? (
                 <span className="loading loading-spinner loading-sm" />
