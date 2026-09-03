@@ -9,12 +9,9 @@ import { paths } from '../router/paths.js'
  * Shared top chrome: brand + auth actions (login/register or profile).
  */
 export const AppHeader = () => {
-  const { isAuthenticated, profile } = useAuth()
+  const { isAuthenticated, profile, company } = useAuth()
 
-  const companyName =
-    typeof profile?.company === 'object'
-      ? profile.company?.name
-      : profile?.company
+  const companyName = company?.name?.trim() || ''
   const userName = profile?.name?.trim() || ''
 
   return (

@@ -1497,11 +1497,156 @@ paths:
                 $ref: "#/components/schemas/CookieTokenRefresh"
           description: ""
   /api/v1/company:
+    get:
+      operationId: company_retrieve
+      description: |-
+        Current user's company.
+
+        ``GET /company`` — name, entitlements, and the company site catalog.
+        ``PATCH /company`` — name and labour_transfer_allowed (``change_company``).
+        ``DELETE /company`` — password-confirmed hard delete (``delete_company``).
+      tags:
+        - company
+      security:
+        - jwtAuth: []
+      responses:
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyRetrieveErrorResponse400"
+          description: ""
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse401"
+              examples:
+                AuthenticationFailed:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: authentication_failed
+                        detail: Incorrect authentication credentials.
+                        attr: null
+                NotAuthenticated:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_authenticated
+                        detail: Authentication credentials were not provided.
+                        attr: null
+          description: ""
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse403"
+              examples:
+                PermissionDenied:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: permission_denied
+                        detail: You do not have permission to perform this action.
+                        attr: null
+          description: ""
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse404"
+              examples:
+                NotFound:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_found
+                        detail: Not found.
+                        attr: null
+          description: ""
+        "405":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse405"
+              examples:
+                MethodNotAllowed:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: method_not_allowed
+                        detail: Method "get" not allowed.
+                        attr: null
+          description: ""
+        "406":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse406"
+              examples:
+                NotAcceptable:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_acceptable
+                        detail: Could not satisfy the request Accept header.
+                        attr: null
+          description: ""
+        "415":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse415"
+              examples:
+                UnsupportedMediaType:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: unsupported_media_type
+                        detail: Unsupported media type "application/json" in request.
+                        attr: null
+          description: ""
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse429"
+              examples:
+                Throttled:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: throttled
+                        detail: Request was throttled.
+                        attr: null
+          description: ""
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse500"
+              examples:
+                APIException:
+                  value:
+                    type: server_error
+                    errors:
+                      - code: error
+                        detail: A server error occurred.
+                        attr: null
+          description: ""
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+          description: ""
     patch:
       operationId: company_partial_update
       description: |-
         Current user's company.
 
+        ``GET /company`` — name, entitlements, and the company site catalog.
         ``PATCH /company`` — name and labour_transfer_allowed (``change_company``).
         ``DELETE /company`` — password-confirmed hard delete (``delete_company``).
       tags:
@@ -1656,6 +1801,7 @@ paths:
       description: |-
         Current user's company.
 
+        ``GET /company`` — name, entitlements, and the company site catalog.
         ``PATCH /company`` — name and labour_transfer_allowed (``change_company``).
         ``DELETE /company`` — password-confirmed hard delete (``delete_company``).
       tags:
@@ -4157,12 +4303,11 @@ paths:
       description: |-
         Current authenticated user's profile.
 
-        ``GET /profile`` — basic info, allowed groups/permissions/site ids,
-        and the company site catalog (``sites``).
-        Allowed site ids are all company sites for company admins; otherwise
-        assigned sites only. ``sites`` is every site in the company.
+        ``GET /profile`` — user fields plus ``allowed_permissions`` and
+        ``allowed_sites``.
         ``PATCH /profile`` — update name, email, phone.
         Password changes use ``/auth/password/change`` or reset.
+        Company config and the site catalog are on ``GET /company``.
         No Django model-permission gate (any authenticated user).
       tags:
         - profile
@@ -4291,12 +4436,11 @@ paths:
       description: |-
         Current authenticated user's profile.
 
-        ``GET /profile`` — basic info, allowed groups/permissions/site ids,
-        and the company site catalog (``sites``).
-        Allowed site ids are all company sites for company admins; otherwise
-        assigned sites only. ``sites`` is every site in the company.
+        ``GET /profile`` — user fields plus ``allowed_permissions`` and
+        ``allowed_sites``.
         ``PATCH /profile`` — update name, email, phone.
         Password changes use ``/auth/password/change`` or reset.
+        Company config and the site catalog are on ``GET /company``.
         No Django model-permission gate (any authenticated user).
       tags:
         - profile
@@ -10303,13 +10447,21 @@ components:
           nullable: true
         labour_transfer_allowed:
           type: boolean
+        sites:
+          type: string
+          readOnly: true
+        groups:
+          type: string
+          readOnly: true
       required:
         - active_labour_limit
         - active_user_limit
+        - groups
         - id
         - name
         - paid_until
         - site_limit
+        - sites
     CompanyDestroyErrorResponse400:
       oneOf:
         - $ref: "#/components/schemas/ParseErrorResponse"
@@ -10425,6 +10577,13 @@ components:
       required:
         - errors
         - type
+    CompanyRetrieveErrorResponse400:
+      oneOf:
+        - $ref: "#/components/schemas/ParseErrorResponse"
+      discriminator:
+        propertyName: type
+        mapping:
+          client_error: "#/components/schemas/ParseErrorResponse"
     CookieTokenBlacklist:
       type: object
       description: |-
@@ -13190,6 +13349,12 @@ components:
           nullable: true
         labour_transfer_allowed:
           type: boolean
+        sites:
+          type: string
+          readOnly: true
+        groups:
+          type: string
+          readOnly: true
     PatchedDailyRecord:
       type: object
       description: |-
@@ -13428,10 +13593,10 @@ components:
     PatchedUserProfile:
       type: object
       description: |-
-        Own profile: GET returns full snapshot; PATCH updates basic fields.
+        Own profile: GET/PATCH user fields plus access snapshot.
 
-        ``sites`` is the company site catalog (id → name and related fields),
-        not the access list.
+        ``allowed_permissions`` and ``allowed_sites`` are this user's access.
+        Company config and the site catalog live on ``GET /company``.
       properties:
         id:
           type: integer
@@ -13450,9 +13615,6 @@ components:
           format: email
           nullable: true
           maxLength: 254
-        company:
-          type: string
-          readOnly: true
         is_active:
           type: boolean
           readOnly: true
@@ -13463,16 +13625,10 @@ components:
           type: boolean
           readOnly: true
           description: Company owner/admin; bypasses site assignment checks.
-        allowed_groups:
-          type: string
-          readOnly: true
         allowed_permissions:
           type: string
           readOnly: true
         allowed_sites:
-          type: string
-          readOnly: true
-        sites:
           type: string
           readOnly: true
     PatchedUserUpdate:
@@ -16233,36 +16389,28 @@ components:
         - updated_at
     UserDetail:
       type: object
-      description: |-
-        Company user detail: same snapshot as profile, without the site catalog.
-
-        Writable on profile PATCH: name and phone_number. Email changes require a
-        verification flow. Password changes go through ``/auth/password/change``
-        or reset.
-
-        ``allowed_*`` is this user's access. The company site catalog (``sites``)
-        is only on ``UserProfileSerializer``.
+      description:
+        "Company user retrieve: identity plus assigned groups. No company
+        payload."
       properties:
         id:
           type: integer
           readOnly: true
         name:
           type: string
-          maxLength: 255
+          readOnly: true
         photo:
           type: string
           format: uri
-          nullable: true
+          readOnly: true
         phone_number:
           type: string
+          readOnly: true
         email:
           type: string
           format: email
-          nullable: true
-          maxLength: 254
-        company:
-          type: string
           readOnly: true
+          nullable: true
         is_active:
           type: boolean
           readOnly: true
@@ -16276,23 +16424,20 @@ components:
         allowed_groups:
           type: string
           readOnly: true
-        allowed_permissions:
-          type: string
-          readOnly: true
         allowed_sites:
           type: string
           readOnly: true
       required:
         - allowed_groups
-        - allowed_permissions
         - allowed_sites
-        - company
+        - email
         - id
         - is_active
         - is_companyadmin
         - is_staff
         - name
         - phone_number
+        - photo
     UserList:
       type: object
       properties:
@@ -16326,10 +16471,10 @@ components:
     UserProfile:
       type: object
       description: |-
-        Own profile: GET returns full snapshot; PATCH updates basic fields.
+        Own profile: GET/PATCH user fields plus access snapshot.
 
-        ``sites`` is the company site catalog (id → name and related fields),
-        not the access list.
+        ``allowed_permissions`` and ``allowed_sites`` are this user's access.
+        Company config and the site catalog live on ``GET /company``.
       properties:
         id:
           type: integer
@@ -16348,9 +16493,6 @@ components:
           format: email
           nullable: true
           maxLength: 254
-        company:
-          type: string
-          readOnly: true
         is_active:
           type: boolean
           readOnly: true
@@ -16361,30 +16503,21 @@ components:
           type: boolean
           readOnly: true
           description: Company owner/admin; bypasses site assignment checks.
-        allowed_groups:
-          type: string
-          readOnly: true
         allowed_permissions:
           type: string
           readOnly: true
         allowed_sites:
           type: string
           readOnly: true
-        sites:
-          type: string
-          readOnly: true
       required:
-        - allowed_groups
         - allowed_permissions
         - allowed_sites
-        - company
         - id
         - is_active
         - is_companyadmin
         - is_staff
         - name
         - phone_number
-        - sites
     UserUpdate:
       type: object
       description: Writable group and allowed-site assignment for company users.

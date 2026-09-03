@@ -38,11 +38,11 @@ let shownThisLoad = false;
  * Company admin: আপডেট করুন / এখন না. Others: ঠিক আছে.
  */
 export const SubscriptionExpiryPopup = () => {
-  const { profile } = useAuth();
+  const { company } = useAuth();
   const { isCompanyAdmin } = usePermissions();
   const navigate = useNavigate();
   const location = useLocation();
-  const status = getSubscriptionExpiryStatus(profile);
+  const status = getSubscriptionExpiryStatus(company);
   const kind = status?.kind;
   const paidUntil = status?.paidUntil;
 

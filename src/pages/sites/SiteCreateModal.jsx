@@ -18,7 +18,7 @@ const emptyValues = {
 export const SiteCreateModal = forwardRef(function SiteCreateModal(_, ref) {
   const queryClient = useQueryClient()
   const dialogRef = useRef(null)
-  const { bootstrapProfile } = useAuth()
+  const { refreshCompany } = useAuth()
   const [apiError, setApiError] = useState(null)
 
   const {
@@ -60,9 +60,9 @@ export const SiteCreateModal = forwardRef(function SiteCreateModal(_, ref) {
       await mutation.mutateAsync(values)
       await queryClient.invalidateQueries({ queryKey: ['sites'] })
       try {
-        await bootstrapProfile()
+        await refreshCompany()
       } catch {
-        // list still refreshed; selector may lag until next profile fetch
+        // list still refreshed; selector may lag until next company fetch
       }
       toastSuccess('সাইট তৈরি হয়েছে')
       if (createAnother) {

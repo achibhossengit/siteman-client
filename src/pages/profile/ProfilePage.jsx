@@ -10,7 +10,6 @@ import {
   profileUpdateSchema,
   passwordCreateSchema,
   toProfileUpdatePayload,
-  profileAllowedGroups,
   profileAllowedSiteIds,
 } from "../../api/types/user.js";
 import { parseApiError, applyFieldErrors } from "../../api/errors.js";
@@ -21,7 +20,6 @@ import { DetailMenuButton } from "../../layouts/DetailLayout.jsx";
 import { usePhotoPicker } from "../../hooks/usePhotoPicker.js";
 import { useSitesLookup } from "../../hooks/useSites.js";
 import { toastSuccess } from "../../utils/feedback.js";
-import { groupLabelBn } from "../../utils/permissions.js";
 
 const EDIT_MODAL_ID = "profile_edit_modal";
 const PASSWORD_MODAL_ID = "profile_change_password_modal";
@@ -51,7 +49,7 @@ const emptyPasswordValues = {
 
 export const ProfilePage = () => {
   const { setTitle, setHeaderMenu } = useOutletContext();
-  const { profile, setProfile, bootstrapProfile, changePassword } = useAuth();
+  const { profile, company, setProfile, refreshProfile, changePassword } = useAuth();
   const { getSiteName } = useSitesLookup();
   const editDialogRef = useRef(null);
   const passwordDialogRef = useRef(null);
@@ -196,7 +194,7 @@ export const ProfilePage = () => {
         setPhotoError(parsed.fieldErrors.photo[0]);
       }
       try {
-        await bootstrapProfile();
+        await refreshProfile();
       } catch {
         // ignore
       }
@@ -231,23 +229,11 @@ export const ProfilePage = () => {
   const fieldClass = (hasError) =>
     ["input input-bordered w-full", hasError ? "input-error" : ""].join(" ");
 
-  const groups = profileAllowedGroups(profile);
   const siteIds = profileAllowedSiteIds(profile);
-  const companyName =
-    typeof profile.company === "object"
-      ? profile.company?.name
-      : profile.company;
-  const groupItems = [
-    ...(profile.is_companyadmin
-      ? [{ key: "companyadmin", label: "কোম্পানি অ্যাডমিন" }]
-      : []),
-    ...groups.map((g) => {
-      const groupName = typeof g === "string" ? g : g?.name;
-      const key =
-        typeof g === "object" && g != null ? (g.id ?? g.name) : g;
-      return { key, label: groupLabelBn(groupName) };
-    }),
-  ];
+  const companyName = company?.name;
+  const groupItems = profile.is_companyadmin
+    ? [{ key: "companyadmin", label: "কোম্পানি অ্যাডমিন" }]
+    : [];
   const siteItems = siteIds.map((id) => ({
     key: id,
     label: getSiteName(id),

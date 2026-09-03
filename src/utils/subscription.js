@@ -1,5 +1,5 @@
 /**
- * Company subscription caps from GET /profile (`profile.company`).
+ * Company subscription caps from GET /company.
  * Limits apply to active (non-closed) resources.
  */
 
@@ -14,12 +14,8 @@ const LIMIT_KEYS = {
   site: ['site_limit', 'active_site_limit'],
 }
 
-const asCompany = (profile) => {
-  const company = profile?.company
-  return company && typeof company === 'object' ? company : null
-}
-
-export const companyFromProfile = asCompany
+const asCompany = (company) =>
+  company && typeof company === 'object' ? company : null
 
 const asLimit = (value) => {
   const n = Number(value)
@@ -27,11 +23,11 @@ const asLimit = (value) => {
 }
 
 /** @returns {number | null} */
-export const getCompanyLimit = (profile, kind) => {
-  const company = asCompany(profile)
-  if (!company) return null
+export const getCompanyLimit = (company, kind) => {
+  const c = asCompany(company)
+  if (!c) return null
   for (const key of LIMIT_KEYS[kind] ?? []) {
-    const n = asLimit(company[key])
+    const n = asLimit(c[key])
     if (n != null) return n
   }
   return null
@@ -45,8 +41,8 @@ export const SUBSCRIPTION_UPDATE_ASK_ADMIN =
   'আপডেট করতে কোম্পানি অ্যাডমিনের সাথে যোগাযোগ করুন।'
 
 /** Calendar date from `company.paid_until` (`YYYY-MM-DD` or datetime). */
-export const paidUntilIso = (profile) => {
-  const raw = asCompany(profile)?.paid_until
+export const paidUntilIso = (company) => {
+  const raw = asCompany(company)?.paid_until
   if (raw == null || raw === '') return null
   const datePart = String(raw).trim().slice(0, 10)
   return isIsoDate(datePart) ? datePart : null
@@ -63,8 +59,8 @@ const daysUntilIso = (iso, today) => {
  * Popup when expired, or expiring within 7 days (inclusive of today).
  * @returns {{ kind: 'expired' | 'expiring', paidUntil: string } | null}
  */
-export const getSubscriptionExpiryStatus = (profile, today = todayIso()) => {
-  const paidUntil = paidUntilIso(profile)
+export const getSubscriptionExpiryStatus = (company, today = todayIso()) => {
+  const paidUntil = paidUntilIso(company)
   if (!paidUntil) return null
   const days = daysUntilIso(paidUntil, today)
   if (days == null) return null

@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { ROLE_NAMES, groupLabelBn } from '../../utils/permissions.js'
 import { STATUS_LABEL } from '../../utils/format.js'
 import { bdPhoneNumberSchema } from '../../utils/phone.js'
+import { CompanyCatalog } from '../../utils/companyCatalog.js'
 
 const optionalEmail = z
   .string()
@@ -21,12 +21,6 @@ export const passwordCreateSchema = z
     message: 'শুধু সংখ্যা দিয়ে পাসওয়ার্ড করা যাবে না। অক্ষরও যোগ করুন।',
   })
 
-/** Groups that can be newly assigned (Company Admin is not assignable). */
-export const ASSIGNABLE_GROUP_NAMES = [
-  ROLE_NAMES.siteManager,
-  ROLE_NAMES.siteAuditor,
-]
-
 export const userCreateSchema = z.object({
   name: z
     .string()
@@ -35,14 +29,14 @@ export const userCreateSchema = z.object({
     .max(255, 'নাম একটু ছোট করুন'),
   phone_number: bdPhoneNumberSchema,
   password: passwordCreateSchema,
-  groups: z.array(z.string().min(1)).max(1),
+  groups: z.array(z.string().min(1)),
   sites: z.array(z.number().int()),
 })
 
-/** Admin user PATCH — only is_active + assignment replace. Single group only. */
+/** Admin user PATCH — is_active + assignment replace. Multiple groups allowed. */
 export const userAdminUpdateSchema = z.object({
   is_active: z.boolean(),
-  groups: z.array(z.string().min(1)).max(1),
+  groups: z.array(z.number().int()),
   sites: z.array(z.number().int()),
 })
 
@@ -68,18 +62,17 @@ export const toUserCreatePayload = ({
   password: String(password ?? ''),
   groups: (groups ?? [])
     .map((g) => String(g ?? '').trim())
-    .filter(Boolean)
-    .slice(0, 1),
+    .filter(Boolean),
   allowed_sites: (sites ?? []).map((id) => Number(id)),
 })
 
-export const toUserAdminUpdatePayload = ({ is_active, groups, sites }) => ({
+export const toUserAdminUpdatePayload = (
+  { is_active, groups, sites },
+  company,
+) => ({
   is_active: Boolean(is_active),
-  groups: (groups ?? [])
-    .map((g) => String(g ?? '').trim())
-    .filter(Boolean)
-    .slice(0, 1),
-  allowed_sites: (sites ?? []).map((id) => Number(id)),
+  groups: CompanyCatalog.groupNamesFromIds(company, groups),
+  allowed_sites: CompanyCatalog.ids(sites),
 })
 
 /** Map API `allowed_sites` errors onto form field `sites`. */
@@ -132,13 +125,6 @@ export const normalizeGroupNames = (groups) =>
     })
     .filter(Boolean)
 
-/** Prefer a single group for the form (Company Admin wins if present). */
-export const toSingleGroupNames = (groups) => {
-  const names = normalizeGroupNames(groups)
-  if (names.includes(ROLE_NAMES.companyAdmin)) return [ROLE_NAMES.companyAdmin]
-  return names.slice(0, 1)
-}
-
 /** Normalize API sites (objects or ids) → number[]. */
 export const normalizeSiteIds = (sites) =>
   (Array.isArray(sites) ? sites : [])
@@ -147,39 +133,40 @@ export const normalizeSiteIds = (sites) =>
     .map(Number)
 
 /**
- * Assigned site ids from `allowed_sites` (user detail or profile).
- * Resolve names from the company catalog on GET /profile (`sites`), not this list.
+ * Assigned site ids from user detail (`allowed_sites`) or profile.
+ * Resolve names from the company catalog on GET /company (`sites`).
  */
 export const profileAllowedSiteIds = (resource) =>
-  normalizeSiteIds(resource?.allowed_sites)
+  CompanyCatalog.assignedSiteIds(resource)
 
-/** Assigned groups from `allowed_groups` (user detail or profile). */
-export const profileAllowedGroups = (resource) => {
-  const raw = resource?.allowed_groups
-  return Array.isArray(raw) ? raw : []
-}
+/** Assigned group ids from user detail (`allowed_groups`). */
+export const profileAllowedGroups = (resource) =>
+  CompanyCatalog.assignedGroupIds(resource)
 
 /**
- * Select options for user group (single choice).
- * Company Admin is only listed when already assigned, and is not selectable.
+ * Select options from GET /company `groups`. Labels are API names.
+ * Current assignments not in the catalog stay listed so they are not dropped.
  */
-export const buildGroupSelectOptions = (currentGroups = []) => {
-  const current = new Set(normalizeGroupNames(currentGroups))
+export const buildGroupSelectOptions = (
+  catalogGroups = [],
+  currentGroups = [],
+) => {
   const options = []
+  const seen = new Set()
 
-  if (current.has(ROLE_NAMES.companyAdmin)) {
+  for (const group of [...catalogGroups, ...currentGroups]) {
+    const name =
+      typeof group === 'string'
+        ? group.trim()
+        : group && typeof group === 'object' && group.name != null
+          ? String(group.name).trim()
+          : ''
+    if (!name || seen.has(name)) continue
+    seen.add(name)
     options.push({
-      name: ROLE_NAMES.companyAdmin,
-      label: groupLabelBn(ROLE_NAMES.companyAdmin),
-      disabled: true,
-    })
-  }
-
-  for (const name of ASSIGNABLE_GROUP_NAMES) {
-    options.push({
+      id: typeof group === 'object' && group != null ? group.id : undefined,
       name,
-      label: groupLabelBn(name),
-      disabled: false,
+      label: name,
     })
   }
 

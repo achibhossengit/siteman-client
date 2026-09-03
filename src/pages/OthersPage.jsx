@@ -17,8 +17,7 @@ import { useAuth } from '../providers/AuthProvider.jsx'
 import { usePermissions } from '../hooks/usePermissions.js'
 import { useTheme } from '../providers/ThemeProvider.jsx'
 import { confirmAction } from '../utils/feedback.js'
-import { groupLabelBn, hasPermissionSuffix, PERMS } from '../utils/permissions.js'
-import { profileAllowedGroups } from '../api/types/user.js'
+import { hasPermissionSuffix, PERMS } from '../utils/permissions.js'
 import { PersonAvatar } from '../components/PersonAvatar.jsx'
 import { THEME_DARK } from '../utils/theme.js'
 import { paths } from '../router/paths.js'
@@ -116,9 +115,7 @@ const OTHER_LINKS = [
 const roleLabel = (profile) => {
   if (!profile) return '—'
   if (profile.is_companyadmin) return 'অ্যাডমিন'
-  const group = profileAllowedGroups(profile)[0]
-  const name = typeof group === 'string' ? group : group?.name
-  return name ? groupLabelBn(name) : 'ইউজার'
+  return 'ইউজার'
 }
 
 const MenuRow = ({

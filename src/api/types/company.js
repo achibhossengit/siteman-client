@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { CompanyCatalog } from '../../utils/companyCatalog.js'
 
 export const companyFormSchema = z.object({
   name: z
@@ -18,3 +19,6 @@ export const toCompanyPayload = ({ name, labour_transfer_allowed }) => ({
   name: String(name ?? '').trim(),
   labour_transfer_allowed: Boolean(labour_transfer_allowed),
 })
+
+/** Company catalog groups from GET /company (`{ id, name }[]`). */
+export const companyGroups = (company) => CompanyCatalog.groups(company)

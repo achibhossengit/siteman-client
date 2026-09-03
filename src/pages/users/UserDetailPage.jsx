@@ -7,8 +7,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { fetchUserDetail, updateUser } from "../../api/users.js";
 import {
-  buildGroupSelectOptions,
-  toSingleGroupNames,
   profileAllowedGroups,
   profileAllowedSiteIds,
   applyUserAdminFieldErrors,
@@ -20,18 +18,20 @@ import { parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { UserProfileCard } from "../../components/UserProfileCard.jsx";
 import { DetailMenuButton } from "../../layouts/DetailLayout.jsx";
+import { useAuth } from "../../providers/AuthProvider.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { useSitesLookup } from "../../hooks/useSites.js";
 import { toastSuccess } from "../../utils/feedback.js";
-import { groupLabelBn, PERMS, hasPermissionSuffix } from "../../utils/permissions.js";
+import { PERMS, hasPermissionSuffix } from "../../utils/permissions.js";
 import { paths } from "../../router/paths.js";
+import { CompanyCatalog } from "../../utils/companyCatalog.js";
 import { UserDeleteModal } from "./UserDeleteModal.jsx";
 
 const EDIT_MODAL_ID = "user_edit_modal";
 
 const toFormValues = (user) => ({
   is_active: user?.is_active ?? true,
-  groups: toSingleGroupNames(profileAllowedGroups(user)),
+  groups: profileAllowedGroups(user),
   sites: profileAllowedSiteIds(user),
 });
 
@@ -44,6 +44,7 @@ export const UserDetailPage = () => {
   const { setTitle, setHeaderMenu } = useOutletContext();
   const queryClient = useQueryClient();
   const { can, profile, isCompanyAdmin } = usePermissions();
+  const { company } = useAuth();
   const editDialogRef = useRef(null);
   const deleteModalRef = useRef(null);
   const [apiError, setApiError] = useState(null);
@@ -91,10 +92,10 @@ export const UserDetailPage = () => {
   const isSelf = Number(user?.id) === Number(profile?.id);
   const canDeleteThisUser = Boolean(canDeleteUser && user && !isSelf);
   const isActiveValue = watch("is_active");
-  const groupNames = watch("groups") ?? [];
+  const groupIds = watch("groups") ?? [];
   const siteIds = watch("sites") ?? [];
 
-  const assignableGroups = buildGroupSelectOptions(profileAllowedGroups(user));
+  const assignableGroups = CompanyCatalog.groups(company);
 
   useEffect(() => {
     setTitle?.("ইউজার বিবরণ");
@@ -107,7 +108,7 @@ export const UserDetailPage = () => {
 
   const mutation = useMutation({
     mutationFn: (values) =>
-      updateUser(userId, toUserAdminUpdatePayload(values)),
+      updateUser(userId, toUserAdminUpdatePayload(values, company)),
   });
 
   const openEditModal = () => {
@@ -221,22 +222,19 @@ export const UserDetailPage = () => {
   const busy = isSubmitting || mutation.isPending;
   const groups = profileAllowedGroups(user);
   const assignedSiteIds = profileAllowedSiteIds(user);
-  const companyName =
-    typeof user.company === "object" ? user.company?.name : user.company;
+  const companyName = company?.name;
   const groupItems = [
     ...(user.is_companyadmin
       ? [{ key: "companyadmin", label: "কোম্পানি অ্যাডমিন" }]
       : []),
-    ...groups.map((g) => {
-      const groupName = typeof g === "string" ? g : g?.name;
-      const key =
-        typeof g === "object" && g != null ? (g.id ?? g.name) : g;
-      return { key, label: groupLabelBn(groupName) };
-    }),
+    ...groups.map((id) => ({
+      key: id,
+      label: CompanyCatalog.groupName(company, id),
+    })),
   ];
   const siteItems = assignedSiteIds.map((id) => ({
     key: id,
-    label: getSiteName(id),
+    label: CompanyCatalog.siteName(company, id),
   }));
 
   return (
@@ -293,33 +291,34 @@ export const UserDetailPage = () => {
             <div>
               <span className="label-text font-medium mb-1">গ্রুপ</span>
               <div className="border p-2 border-base-300 flex flex-col gap-1 max-h-32 overflow-y-auto overscroll-contain pr-1">
-                {assignableGroups.map((g) => {
-                  const checked = groupNames.includes(g.name);
-                  return (
-                    <label
-                      key={g.name}
-                      className={[
-                        "flex items-center gap-3 py-1.5 cursor-pointer",
-                        g.disabled ? "cursor-default opacity-80" : "",
-                      ].join(" ")}
-                    >
-                      <input
-                        type="radio"
-                        name="user-group"
-                        className="radio radio-sm radio-primary shrink-0"
-                        disabled={g.disabled}
-                        checked={checked}
-                        onChange={() => {
-                          if (g.disabled) return;
-                          setValue("groups", [g.name], {
-                            shouldDirty: true,
-                          });
-                        }}
-                      />
-                      <span className="text-sm leading-snug">{g.label}</span>
-                    </label>
-                  );
-                })}
+                {assignableGroups.length === 0 ? (
+                  <p className="text-sm text-base-content/55 py-1">
+                    কোনো গ্রুপ নেই।
+                  </p>
+                ) : (
+                  assignableGroups.map((g) => {
+                    const id = Number(g.id);
+                    const checked = groupIds.includes(id);
+                    return (
+                      <label
+                        key={id}
+                        className="flex items-center gap-3 py-1.5 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          className="checkbox checkbox-sm checkbox-primary shrink-0"
+                          checked={checked}
+                          onChange={() => {
+                            setValue("groups", toggleItem(groupIds, id), {
+                              shouldDirty: true,
+                            });
+                          }}
+                        />
+                        <span className="text-sm leading-snug">{g.name}</span>
+                      </label>
+                    );
+                  })
+                )}
               </div>
               {errors.groups ? (
                 <span className="label-text-alt text-error mt-1">

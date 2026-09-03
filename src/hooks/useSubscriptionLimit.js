@@ -27,14 +27,14 @@ const USAGE_QUERY_KEY = {
 }
 
 /**
- * Gate create-FAB against `profile.company.active_*_limit` vs list `count`.
+ * Gate create-FAB against `company.active_*_limit` vs list `count`.
  * @param {'user' | 'labour' | 'site'} kind
  */
 export const useSubscriptionLimit = (kind) => {
   const navigate = useNavigate()
-  const { profile } = useAuth()
+  const { profile, company } = useAuth()
   const canUpdatePlan = Boolean(profile?.is_companyadmin)
-  const limit = getCompanyLimit(profile, kind)
+  const limit = getCompanyLimit(company, kind)
 
   const usageQuery = useQuery({
     queryKey: USAGE_QUERY_KEY[kind],

@@ -44,7 +44,7 @@ export const SiteDetailPage = () => {
   const navigate = useNavigate()
   const { setTitle, setHeaderMenu } = useOutletContext()
   const queryClient = useQueryClient()
-  const { bootstrapProfile } = useAuth()
+  const { refreshCompany } = useAuth()
   const { can } = usePermissions()
   const siteEditDialogRef = useRef(null)
   const deleteModalRef = useRef(null)
@@ -114,7 +114,7 @@ export const SiteDetailPage = () => {
       resetSite(toSiteFormValues(data))
       await queryClient.invalidateQueries({ queryKey: ['sites'] })
       try {
-        await bootstrapProfile()
+        await refreshCompany()
       } catch {
         // ignore
       }
@@ -134,7 +134,7 @@ export const SiteDetailPage = () => {
     toastSuccess('সাইট ডিলিট হয়েছে')
     navigate(paths.sites, { replace: true })
     try {
-      await bootstrapProfile()
+      await refreshCompany()
     } catch {
       // ignore
     }

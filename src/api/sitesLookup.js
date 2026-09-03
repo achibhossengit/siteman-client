@@ -1,7 +1,7 @@
 import { NULL_SITE_LABEL } from '../utils/format.js'
 
 /**
- * Company site catalog from GET /profile (`sites`), not GET /sites.
+ * Company site catalog from GET /company (`sites`), not GET /sites.
  * Shape: [{ id, name, is_active, is_closed }, ...] or an id-keyed object.
  */
 export const normalizeSitesCatalog = (sites) => {

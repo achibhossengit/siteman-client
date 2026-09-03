@@ -14,8 +14,10 @@ import {
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { useSitesLookup } from '../../hooks/useSites.js'
+import { useAuth } from '../../providers/AuthProvider.jsx'
 import { toastSuccess } from '../../utils/feedback.js'
 import { BD_PHONE_MESSAGE, isBdPhoneNumber } from '../../utils/phone.js'
+import { companyGroups } from '../../api/types/company.js'
 
 const emptyValues = {
   name: '',
@@ -49,6 +51,7 @@ const passwordLiveHint = (raw) => {
 export const UserCreateModal = forwardRef(function UserCreateModal(_, ref) {
   const queryClient = useQueryClient()
   const dialogRef = useRef(null)
+  const { company } = useAuth()
   const [apiError, setApiError] = useState(null)
   const [showPassword, setShowPassword] = useState(false)
 
@@ -57,7 +60,7 @@ export const UserCreateModal = forwardRef(function UserCreateModal(_, ref) {
     isLoading: sitesLoading,
   } = useSitesLookup()
 
-  const assignableGroups = buildGroupSelectOptions([])
+  const assignableGroups = buildGroupSelectOptions(companyGroups(company))
 
   const {
     register,
@@ -236,24 +239,31 @@ export const UserCreateModal = forwardRef(function UserCreateModal(_, ref) {
             <div>
               <span className="label-text text-sm mb-1 block">গ্রুপ</span>
               <div className="flex flex-wrap gap-x-4 gap-y-1">
-                {assignableGroups.map((g) => {
-                  const checked = groupNames.includes(g.name)
-                  return (
-                    <label
-                      key={g.name}
-                      className="inline-flex items-center gap-2 cursor-pointer"
-                    >
-                      <input
-                        type="radio"
-                        name="user-create-group"
-                        className="radio radio-xs radio-primary"
-                        checked={checked}
-                        onChange={() => setValue('groups', [g.name])}
-                      />
-                      <span className="text-sm">{g.label}</span>
-                    </label>
-                  )
-                })}
+                {assignableGroups.length === 0 ? (
+                  <p className="text-xs text-base-content/55 py-1">
+                    কোনো গ্রুপ নেই।
+                  </p>
+                ) : (
+                  assignableGroups.map((g) => {
+                    const checked = groupNames.includes(g.name)
+                    return (
+                      <label
+                        key={g.name}
+                        className="inline-flex items-center gap-2 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          className="checkbox checkbox-xs checkbox-primary"
+                          checked={checked}
+                          onChange={() =>
+                            setValue('groups', toggleItem(groupNames, g.name))
+                          }
+                        />
+                        <span className="text-sm">{g.label}</span>
+                      </label>
+                    )
+                  })
+                )}
               </div>
               {errors.groups ? (
                 <span className="label-text-alt text-error mt-0.5">

@@ -63,9 +63,9 @@ export const PERMS = {
   viewActivityLog: 'activities.view_activitylog',
   changeActivityLog: 'activities.change_activitylog',
 
-  // accounts.Company (suffix match also used — app label may vary)
-  changeCompany: 'accounts.change_company',
-  deleteCompany: 'accounts.delete_company',
+  // company.Company
+  changeCompany: 'company.change_company',
+  deleteCompany: 'company.delete_company',
 }
 
 export const ROLE_NAMES = {

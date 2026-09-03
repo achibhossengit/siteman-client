@@ -20,10 +20,7 @@ import { formatDateBn } from '../../utils/dateRange.js'
 import { formatBnNumber, STATUS_LABEL } from '../../utils/format.js'
 import { hasPermissionSuffix, PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
-import {
-  companyFromProfile,
-  getCompanyLimit,
-} from '../../utils/subscription.js'
+import { getCompanyLimit } from '../../utils/subscription.js'
 import { CompanyDeleteModal } from './CompanyDeleteModal.jsx'
 
 const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/KwhvUROanr1GpdjL2ydBGS'
@@ -65,18 +62,14 @@ const InfoCard = ({ title, titleAction, children }) => (
 export const CompanySettingsPage = () => {
   const navigate = useNavigate()
   const { setTitle, setHeaderMenu } = useOutletContext()
-  const { profile, bootstrapProfile, logout } = useAuth()
+  const { profile, company, refreshCompany, logout } = useAuth()
   const { can } = usePermissions()
   const editDialogRef = useRef(null)
   const deleteModalRef = useRef(null)
   const infoModalRef = useRef(null)
   const [apiError, setApiError] = useState(null)
 
-  const company = companyFromProfile(profile)
-  const companyName =
-    company?.name ||
-    (typeof profile?.company === 'string' ? profile.company : '') ||
-    dash
+  const companyName = company?.name || dash
 
   const canChangeCompany =
     can(PERMS.changeCompany) || hasPermissionSuffix(profile, 'change_company')
@@ -123,7 +116,7 @@ export const CompanySettingsPage = () => {
     try {
       await updateMutation.mutateAsync(values)
       try {
-        await bootstrapProfile()
+        await refreshCompany()
       } catch {
         // ignore
       }
@@ -226,15 +219,15 @@ export const CompanySettingsPage = () => {
         />
         <InfoRow
           label="চালু ইউজার লিমিট"
-          value={formatLimit(getCompanyLimit(profile, 'user'))}
+          value={formatLimit(getCompanyLimit(company, 'user'))}
         />
         <InfoRow
           label="চালু শ্রমিক লিমিট"
-          value={formatLimit(getCompanyLimit(profile, 'labour'))}
+          value={formatLimit(getCompanyLimit(company, 'labour'))}
         />
         <InfoRow
           label="সাইট লিমিট"
-          value={formatLimit(getCompanyLimit(profile, 'site'))}
+          value={formatLimit(getCompanyLimit(company, 'site'))}
         />
       </InfoCard>
 

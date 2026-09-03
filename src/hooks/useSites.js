@@ -14,20 +14,20 @@ export {
 } from '../api/sitesLookup.js'
 
 /**
- * Company site catalog from GET /profile (`sites`).
- * Refresh by calling `bootstrapProfile()` after site create/update/delete.
+ * Company site catalog from GET /company (`sites`).
+ * Refresh by calling `refreshCompany()` after site create/update/delete.
  */
 export const useSitesLookup = ({ enabled: enabledOpt } = {}) => {
-  const { isAuthenticated, profile } = useAuth()
+  const { isAuthenticated, company } = useAuth()
   const enabled =
     enabledOpt != null
       ? Boolean(enabledOpt)
-      : Boolean(isAuthenticated && profile)
+      : Boolean(isAuthenticated && company)
 
   const sites = useMemo(() => {
     if (!enabled) return []
-    return normalizeSitesCatalog(profile?.sites)
-  }, [enabled, profile?.sites])
+    return normalizeSitesCatalog(company?.sites)
+  }, [enabled, company?.sites])
 
   const siteNameById = useMemo(() => buildSiteNameMap(sites), [sites])
   const getSiteName = useCallback(
@@ -35,7 +35,7 @@ export const useSitesLookup = ({ enabled: enabledOpt } = {}) => {
     [siteNameById],
   )
 
-  const isLoading = Boolean(enabled && isAuthenticated && !profile)
+  const isLoading = Boolean(enabled && isAuthenticated && !company)
 
   return {
     sites,
@@ -46,12 +46,12 @@ export const useSitesLookup = ({ enabled: enabledOpt } = {}) => {
     isPending: isLoading,
     isFetching: false,
     isError: false,
-    isSuccess: Boolean(enabled && profile),
+    isSuccess: Boolean(enabled && company),
   }
 }
 
 /**
- * Profile `allowed_sites` joined with the company catalog (`profile.sites`).
+ * Profile `allowed_sites` joined with the company catalog (`company.sites`).
  * Company admins receive every company site id in `allowed_sites`.
  */
 export const useAssignedSites = ({

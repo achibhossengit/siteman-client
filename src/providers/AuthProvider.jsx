@@ -9,6 +9,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query'
 import { bindAuthTokenAccessors } from '../api/client.js'
 import * as authApi from '../api/auth.js'
+import * as companyApi from '../api/company.js'
 import * as profileApi from '../api/profile.js'
 import {
   clearAccessToken,
@@ -23,6 +24,7 @@ export const AuthProvider = ({ children }) => {
   const queryClient = useQueryClient()
   const [accessToken, setAccessTokenState] = useState(() => readAccessToken())
   const [profile, setProfile] = useState(null)
+  const [company, setCompany] = useState(null)
   const [bootstrapping, setBootstrapping] = useState(true)
 
   const setAccessToken = useCallback((token) => {
@@ -34,6 +36,7 @@ export const AuthProvider = ({ children }) => {
     clearAccessToken()
     setAccessTokenState(null)
     setProfile(null)
+    setCompany(null)
     queryClient.removeQueries({ queryKey: ['sites'] })
   }, [queryClient])
 
@@ -45,11 +48,25 @@ export const AuthProvider = ({ children }) => {
     })
   }, [setAccessToken, clearSession])
 
-  const bootstrapProfile = useCallback(async () => {
+  const refreshProfile = useCallback(async () => {
     const { data } = await profileApi.fetchProfile()
     setProfile(data)
     return data
   }, [])
+
+  const refreshCompany = useCallback(async () => {
+    const { data } = await companyApi.fetchCompany()
+    setCompany(data)
+    return data
+  }, [])
+
+  const bootstrapProfile = useCallback(async () => {
+    const [nextProfile] = await Promise.all([
+      refreshProfile(),
+      refreshCompany(),
+    ])
+    return nextProfile
+  }, [refreshProfile, refreshCompany])
 
   const refreshSession = useCallback(async () => {
     const { data } = await authApi.refreshToken()
@@ -132,11 +149,15 @@ export const AuthProvider = ({ children }) => {
       isAuthenticated: Boolean(accessToken),
       profile,
       setProfile,
+      company,
+      setCompany,
       bootstrapping,
       login,
       logout,
       refreshSession,
       bootstrapProfile,
+      refreshProfile,
+      refreshCompany,
       changePassword,
       clearSession,
       setAccessToken,
@@ -144,11 +165,14 @@ export const AuthProvider = ({ children }) => {
     [
       accessToken,
       profile,
+      company,
       bootstrapping,
       login,
       logout,
       refreshSession,
       bootstrapProfile,
+      refreshProfile,
+      refreshCompany,
       changePassword,
       clearSession,
       setAccessToken,
