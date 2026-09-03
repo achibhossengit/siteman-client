@@ -18,6 +18,7 @@ import { usePermissions } from '../hooks/usePermissions.js'
 import { useTheme } from '../providers/ThemeProvider.jsx'
 import { confirmAction } from '../utils/feedback.js'
 import { hasPermissionSuffix, PERMS } from '../utils/permissions.js'
+import { CompanyCatalog } from '../utils/companyCatalog.js'
 import { PersonAvatar } from '../components/PersonAvatar.jsx'
 import { THEME_DARK } from '../utils/theme.js'
 import { paths } from '../router/paths.js'
@@ -112,9 +113,12 @@ const OTHER_LINKS = [
   },
 ]
 
-const roleLabel = (profile) => {
+const roleLabel = (profile, company) => {
   if (!profile) return '—'
-  if (profile.is_companyadmin) return 'অ্যাডমিন'
+  const groupIds = CompanyCatalog.assignedGroupIds(profile)
+  if (groupIds.length > 0) {
+    return groupIds.map((id) => CompanyCatalog.groupName(company, id)).join(', ')
+  }
   return 'ইউজার'
 }
 
@@ -206,7 +210,7 @@ const SectionLabel = ({ children }) => (
 
 export const OthersPage = () => {
   const navigate = useNavigate()
-  const { profile, logout } = useAuth()
+  const { profile, company, logout } = useAuth()
   const { canAny, isCompanyAdmin } = usePermissions()
   const { resolved } = useTheme()
   const isDark = resolved === THEME_DARK
@@ -246,7 +250,7 @@ export const OthersPage = () => {
         <div className="min-w-0 flex-1">
           <div className="font-semibold text-base truncate">{profile?.name}</div>
           <div className="text-sm text-base-content/55 truncate">
-            {roleLabel(profile)}
+            {roleLabel(profile, company)}
           </div>
         </div>
         <ChevronRight

@@ -220,18 +220,13 @@ export const UserDetailPage = () => {
   }
 
   const busy = isSubmitting || mutation.isPending;
-  const groups = profileAllowedGroups(user);
+  const userGroupIds = profileAllowedGroups(user);
   const assignedSiteIds = profileAllowedSiteIds(user);
   const companyName = company?.name;
-  const groupItems = [
-    ...(user.is_companyadmin
-      ? [{ key: "companyadmin", label: "কোম্পানি অ্যাডমিন" }]
-      : []),
-    ...groups.map((id) => ({
-      key: id,
-      label: CompanyCatalog.groupName(company, id),
-    })),
-  ];
+  const groupItems = userGroupIds.map((id) => ({
+    key: id,
+    label: CompanyCatalog.groupName(company, id),
+  }));
   const siteItems = assignedSiteIds.map((id) => ({
     key: id,
     label: CompanyCatalog.siteName(company, id),

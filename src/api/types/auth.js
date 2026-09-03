@@ -50,6 +50,7 @@
  *   is_active: boolean,
  *   is_staff?: boolean,
  *   is_companyadmin: boolean,
+ *   allowed_groups: number[],
  *   allowed_permissions: string[],
  *   allowed_sites: number[],
  * }} UserProfile

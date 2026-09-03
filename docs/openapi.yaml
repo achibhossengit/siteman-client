@@ -13760,10 +13760,14 @@ components:
         allowed_permissions:
           type: string
           readOnly: true
+        allowed_groups:
+          type: string
+          readOnly: true
         allowed_sites:
           type: string
           readOnly: true
       required:
+        - allowed_groups
         - allowed_permissions
         - allowed_sites
         - email

@@ -20,6 +20,7 @@ import { DetailMenuButton } from "../../layouts/DetailLayout.jsx";
 import { usePhotoPicker } from "../../hooks/usePhotoPicker.js";
 import { useSitesLookup } from "../../hooks/useSites.js";
 import { toastSuccess } from "../../utils/feedback.js";
+import { CompanyCatalog } from "../../utils/companyCatalog.js";
 
 const EDIT_MODAL_ID = "profile_edit_modal";
 const PASSWORD_MODAL_ID = "profile_change_password_modal";
@@ -229,11 +230,13 @@ export const ProfilePage = () => {
   const fieldClass = (hasError) =>
     ["input input-bordered w-full", hasError ? "input-error" : ""].join(" ");
 
+  const groupIds = CompanyCatalog.assignedGroupIds(profile);
   const siteIds = profileAllowedSiteIds(profile);
   const companyName = company?.name;
-  const groupItems = profile.is_companyadmin
-    ? [{ key: "companyadmin", label: "কোম্পানি অ্যাডমিন" }]
-    : [];
+  const groupItems = groupIds.map((id) => ({
+    key: id,
+    label: CompanyCatalog.groupName(company, id),
+  }));
   const siteItems = siteIds.map((id) => ({
     key: id,
     label: getSiteName(id),
