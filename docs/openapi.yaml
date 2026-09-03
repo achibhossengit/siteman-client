@@ -4429,7 +4429,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UserProfile"
+                $ref: "#/components/schemas/ProfileDetail"
           description: ""
     patch:
       operationId: profile_partial_update
@@ -4448,13 +4448,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/PatchedUserProfile"
+              $ref: "#/components/schemas/PatchedProfileUpdate"
           application/x-www-form-urlencoded:
             schema:
-              $ref: "#/components/schemas/PatchedUserProfile"
+              $ref: "#/components/schemas/PatchedProfileUpdate"
           multipart/form-data:
             schema:
-              $ref: "#/components/schemas/PatchedUserProfile"
+              $ref: "#/components/schemas/PatchedProfileUpdate"
       security:
         - jwtAuth: []
       responses:
@@ -4573,7 +4573,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UserProfile"
+                $ref: "#/components/schemas/ProfileUpdate"
           description: ""
   /api/v1/sites:
     get:
@@ -13528,6 +13528,24 @@ components:
           type: string
           format: date-time
           readOnly: true
+    PatchedProfileUpdate:
+      type: object
+      description: "PATCH /profile: name, photo, phone, email."
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        photo:
+          type: string
+          format: uri
+          nullable: true
+        phone_number:
+          type: string
+        email:
+          type: string
+          format: email
+          nullable: true
+          maxLength: 254
     PatchedSite:
       type: object
       properties:
@@ -13590,50 +13608,8 @@ components:
           type: string
           format: date-time
           readOnly: true
-    PatchedUserProfile:
-      type: object
-      description: |-
-        Own profile: GET/PATCH user fields plus access snapshot.
-
-        ``allowed_permissions`` and ``allowed_sites`` are this user's access.
-        Company config and the site catalog live on ``GET /company``.
-      properties:
-        id:
-          type: integer
-          readOnly: true
-        name:
-          type: string
-          maxLength: 255
-        photo:
-          type: string
-          format: uri
-          nullable: true
-        phone_number:
-          type: string
-        email:
-          type: string
-          format: email
-          nullable: true
-          maxLength: 254
-        is_active:
-          type: boolean
-          readOnly: true
-        is_staff:
-          type: boolean
-          readOnly: true
-        is_companyadmin:
-          type: boolean
-          readOnly: true
-          description: Company owner/admin; bypasses site assignment checks.
-        allowed_permissions:
-          type: string
-          readOnly: true
-        allowed_sites:
-          type: string
-          readOnly: true
     PatchedUserUpdate:
       type: object
-      description: Writable group and allowed-site assignment for company users.
       properties:
         id:
           type: integer
@@ -13643,7 +13619,7 @@ components:
         groups:
           type: array
           items:
-            type: string
+            type: integer
         allowed_sites:
           type: array
           items:
@@ -13749,6 +13725,55 @@ components:
         - id
         - type
         - updated_at
+    ProfileDetail:
+      type: object
+      description: "GET /profile: identity plus access snapshot."
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        photo:
+          type: string
+          format: uri
+          readOnly: true
+        phone_number:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+          nullable: true
+        is_active:
+          type: boolean
+          readOnly: true
+        is_staff:
+          type: boolean
+          readOnly: true
+        is_companyadmin:
+          type: boolean
+          readOnly: true
+          description: Company owner/admin; bypasses site assignment checks.
+        allowed_permissions:
+          type: string
+          readOnly: true
+        allowed_sites:
+          type: string
+          readOnly: true
+      required:
+        - allowed_permissions
+        - allowed_sites
+        - email
+        - id
+        - is_active
+        - is_companyadmin
+        - is_staff
+        - name
+        - phone_number
+        - photo
     ProfilePartialUpdateEmailErrorComponent:
       type: object
       properties:
@@ -13928,6 +13953,27 @@ components:
         propertyName: type
         mapping:
           client_error: "#/components/schemas/ParseErrorResponse"
+    ProfileUpdate:
+      type: object
+      description: "PATCH /profile: name, photo, phone, email."
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        photo:
+          type: string
+          format: uri
+          nullable: true
+        phone_number:
+          type: string
+        email:
+          type: string
+          format: email
+          nullable: true
+          maxLength: 254
+      required:
+        - name
+        - phone_number
     Register:
       type: object
       properties:
@@ -16335,8 +16381,8 @@ components:
         ``UserUpdateSerializer``, which does not accept password — users change
         their own password via ``/auth/password/change`` or reset.
 
-        Optional ``groups`` (role names) and ``allowed_sites`` (site ids) are
-        assigned in the same request.
+        Optional ``groups`` (tenant group ids) and ``allowed_sites`` (site ids)
+        are assigned in the same request.
       properties:
         id:
           type: integer
@@ -16364,7 +16410,7 @@ components:
         groups:
           type: array
           items:
-            type: string
+            type: integer
         allowed_sites:
           type: array
           items:
@@ -16468,59 +16514,8 @@ components:
         - id
         - name
         - phone_number
-    UserProfile:
-      type: object
-      description: |-
-        Own profile: GET/PATCH user fields plus access snapshot.
-
-        ``allowed_permissions`` and ``allowed_sites`` are this user's access.
-        Company config and the site catalog live on ``GET /company``.
-      properties:
-        id:
-          type: integer
-          readOnly: true
-        name:
-          type: string
-          maxLength: 255
-        photo:
-          type: string
-          format: uri
-          nullable: true
-        phone_number:
-          type: string
-        email:
-          type: string
-          format: email
-          nullable: true
-          maxLength: 254
-        is_active:
-          type: boolean
-          readOnly: true
-        is_staff:
-          type: boolean
-          readOnly: true
-        is_companyadmin:
-          type: boolean
-          readOnly: true
-          description: Company owner/admin; bypasses site assignment checks.
-        allowed_permissions:
-          type: string
-          readOnly: true
-        allowed_sites:
-          type: string
-          readOnly: true
-      required:
-        - allowed_permissions
-        - allowed_sites
-        - id
-        - is_active
-        - is_companyadmin
-        - is_staff
-        - name
-        - phone_number
     UserUpdate:
       type: object
-      description: Writable group and allowed-site assignment for company users.
       properties:
         id:
           type: integer
@@ -16530,7 +16525,7 @@ components:
         groups:
           type: array
           items:
-            type: string
+            type: integer
         allowed_sites:
           type: array
           items:
@@ -16600,13 +16595,13 @@ components:
         code:
           enum:
             - does_not_exist
-            - invalid
+            - incorrect_type
             - not_a_list
             - "null"
           type: string
           description: |-
             * `does_not_exist` - does_not_exist
-            * `invalid` - invalid
+            * `incorrect_type` - incorrect_type
             * `not_a_list` - not_a_list
             * `null` - null
         detail:
@@ -16835,13 +16830,13 @@ components:
         code:
           enum:
             - does_not_exist
-            - invalid
+            - incorrect_type
             - not_a_list
             - "null"
           type: string
           description: |-
             * `does_not_exist` - does_not_exist
-            * `invalid` - invalid
+            * `incorrect_type` - incorrect_type
             * `not_a_list` - not_a_list
             * `null` - null
         detail:

@@ -29,7 +29,7 @@ export const userCreateSchema = z.object({
     .max(255, 'নাম একটু ছোট করুন'),
   phone_number: bdPhoneNumberSchema,
   password: passwordCreateSchema,
-  groups: z.array(z.string().min(1)),
+  groups: z.array(z.number().int()),
   sites: z.array(z.number().int()),
 })
 
@@ -60,18 +60,13 @@ export const toUserCreatePayload = ({
   name: String(name ?? '').trim(),
   phone_number: String(phone_number ?? '').trim(),
   password: String(password ?? ''),
-  groups: (groups ?? [])
-    .map((g) => String(g ?? '').trim())
-    .filter(Boolean),
-  allowed_sites: (sites ?? []).map((id) => Number(id)),
+  groups: CompanyCatalog.ids(groups),
+  allowed_sites: CompanyCatalog.ids(sites),
 })
 
-export const toUserAdminUpdatePayload = (
-  { is_active, groups, sites },
-  company,
-) => ({
+export const toUserAdminUpdatePayload = ({ is_active, groups, sites }) => ({
   is_active: Boolean(is_active),
-  groups: CompanyCatalog.groupNamesFromIds(company, groups),
+  groups: CompanyCatalog.ids(groups),
   allowed_sites: CompanyCatalog.ids(sites),
 })
 
@@ -142,36 +137,6 @@ export const profileAllowedSiteIds = (resource) =>
 /** Assigned group ids from user detail (`allowed_groups`). */
 export const profileAllowedGroups = (resource) =>
   CompanyCatalog.assignedGroupIds(resource)
-
-/**
- * Select options from GET /company `groups`. Labels are API names.
- * Current assignments not in the catalog stay listed so they are not dropped.
- */
-export const buildGroupSelectOptions = (
-  catalogGroups = [],
-  currentGroups = [],
-) => {
-  const options = []
-  const seen = new Set()
-
-  for (const group of [...catalogGroups, ...currentGroups]) {
-    const name =
-      typeof group === 'string'
-        ? group.trim()
-        : group && typeof group === 'object' && group.name != null
-          ? String(group.name).trim()
-          : ''
-    if (!name || seen.has(name)) continue
-    seen.add(name)
-    options.push({
-      id: typeof group === 'object' && group != null ? group.id : undefined,
-      name,
-      label: name,
-    })
-  }
-
-  return options
-}
 
 export const userStatusLabel = (user) => {
   if (!user) return '—'

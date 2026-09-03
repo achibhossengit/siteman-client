@@ -20,5 +20,5 @@ export const toCompanyPayload = ({ name, labour_transfer_allowed }) => ({
   labour_transfer_allowed: Boolean(labour_transfer_allowed),
 })
 
-/** Company catalog groups from GET /company (`{ id, name }[]`). */
+/** Company catalog groups from GET /company (`{ id, name, type }[]`). */
 export const companyGroups = (company) => CompanyCatalog.groups(company)

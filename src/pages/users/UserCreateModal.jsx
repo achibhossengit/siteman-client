@@ -5,7 +5,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 import { createUser } from '../../api/users.js'
 import {
-  buildGroupSelectOptions,
   passwordCreateSchema,
   applyUserAdminFieldErrors,
   toUserCreatePayload,
@@ -17,7 +16,7 @@ import { useSitesLookup } from '../../hooks/useSites.js'
 import { useAuth } from '../../providers/AuthProvider.jsx'
 import { toastSuccess } from '../../utils/feedback.js'
 import { BD_PHONE_MESSAGE, isBdPhoneNumber } from '../../utils/phone.js'
-import { companyGroups } from '../../api/types/company.js'
+import { CompanyCatalog } from '../../utils/companyCatalog.js'
 
 const emptyValues = {
   name: '',
@@ -60,7 +59,7 @@ export const UserCreateModal = forwardRef(function UserCreateModal(_, ref) {
     isLoading: sitesLoading,
   } = useSitesLookup()
 
-  const assignableGroups = buildGroupSelectOptions(companyGroups(company))
+  const assignableGroups = CompanyCatalog.assignableGroups(company)
 
   const {
     register,
@@ -76,7 +75,7 @@ export const UserCreateModal = forwardRef(function UserCreateModal(_, ref) {
   })
 
   const watched = watch()
-  const groupNames = watched.groups ?? []
+  const groupIds = watched.groups ?? []
   const siteIds = watched.sites ?? []
   const phoneHint = useMemo(
     () => phoneLiveHint(watched.phone_number),
@@ -245,10 +244,11 @@ export const UserCreateModal = forwardRef(function UserCreateModal(_, ref) {
                   </p>
                 ) : (
                   assignableGroups.map((g) => {
-                    const checked = groupNames.includes(g.name)
+                    const id = Number(g.id)
+                    const checked = groupIds.includes(id)
                     return (
                       <label
-                        key={g.name}
+                        key={id}
                         className="inline-flex items-center gap-2 cursor-pointer"
                       >
                         <input
@@ -256,10 +256,10 @@ export const UserCreateModal = forwardRef(function UserCreateModal(_, ref) {
                           className="checkbox checkbox-xs checkbox-primary"
                           checked={checked}
                           onChange={() =>
-                            setValue('groups', toggleItem(groupNames, g.name))
+                            setValue('groups', toggleItem(groupIds, id))
                           }
                         />
-                        <span className="text-sm">{g.label}</span>
+                        <span className="text-sm">{g.name}</span>
                       </label>
                     )
                   })

@@ -1,5 +1,11 @@
 import { NULL_SITE_LABEL } from './format.js'
 
+export const GROUP_TYPE = {
+  platform: 'platform',
+  tenantSystem: 'tenant_system',
+  tenant: 'tenant',
+}
+
 const toId = (value) => {
   if (value == null || value === '') return null
   if (typeof value === 'object') return toId(value.id)
@@ -33,10 +39,16 @@ const resolveName = (map, id, fallback) => {
 
 /**
  * Resolve GET /users/{id} group/site ids against GET /company catalogs.
+ * Company groups: `{ id, name, type }` (`platform` | `tenant_system` | `tenant`).
+ * Only `tenant` groups are assignable on user create/update.
  */
 export const CompanyCatalog = {
   ids,
   groups: (company) => namedList(company?.groups),
+  assignableGroups: (company) =>
+    CompanyCatalog.groups(company).filter(
+      (group) => group.type === GROUP_TYPE.tenant,
+    ),
   sites: (company) => namedList(company?.sites),
   groupNameMap: (company) => nameMap(CompanyCatalog.groups(company)),
   siteNameMap: (company) => nameMap(CompanyCatalog.sites(company)),
@@ -46,10 +58,12 @@ export const CompanyCatalog = {
     resolveName(CompanyCatalog.siteNameMap(company), id, empty),
   assignedGroupIds: (user) => ids(user?.allowed_groups ?? user?.groups),
   assignedSiteIds: (user) => ids(user?.allowed_sites ?? user?.sites),
-  groupNamesFromIds: (company, values) => {
-    const map = CompanyCatalog.groupNameMap(company)
-    return ids(values)
-      .map((id) => map.get(id))
-      .filter(Boolean)
+  assignedAssignableGroupIds: (user, company) => {
+    const assignable = new Set(
+      CompanyCatalog.assignableGroups(company).map((group) => Number(group.id)),
+    )
+    return CompanyCatalog.assignedGroupIds(user).filter((id) =>
+      assignable.has(id),
+    )
   },
 }

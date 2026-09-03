@@ -20,7 +20,7 @@
  *   paid_until?: string | null,
  *   labour_transfer_allowed?: boolean,
  *   sites: Array<{ id: number, name: string, is_active?: boolean, is_closed?: boolean }>,
- *   groups: Array<{ id: number, name: string }>,
+ *   groups: Array<{ id: number, name: string, type: 'platform' | 'tenant_system' | 'tenant' }>,
  * }} Company
  *
  * GET /users/{id} — identity plus assigned groups. No company payload.

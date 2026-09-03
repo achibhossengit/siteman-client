@@ -29,9 +29,9 @@ import { UserDeleteModal } from "./UserDeleteModal.jsx";
 
 const EDIT_MODAL_ID = "user_edit_modal";
 
-const toFormValues = (user) => ({
+const toFormValues = (user, company) => ({
   is_active: user?.is_active ?? true,
-  groups: profileAllowedGroups(user),
+  groups: CompanyCatalog.assignedAssignableGroupIds(user, company),
   sites: profileAllowedSiteIds(user),
 });
 
@@ -66,7 +66,7 @@ export const UserDetailPage = () => {
     formState: { errors, isSubmitting, isDirty },
   } = useForm({
     resolver: zodResolver(userAdminUpdateSchema),
-    defaultValues: toFormValues(null),
+    defaultValues: toFormValues(null, null),
   });
 
   const detailQuery = useQuery({
@@ -95,7 +95,7 @@ export const UserDetailPage = () => {
   const groupIds = watch("groups") ?? [];
   const siteIds = watch("sites") ?? [];
 
-  const assignableGroups = CompanyCatalog.groups(company);
+  const assignableGroups = CompanyCatalog.assignableGroups(company);
 
   useEffect(() => {
     setTitle?.("ইউজার বিবরণ");
@@ -103,18 +103,18 @@ export const UserDetailPage = () => {
   }, [setTitle]);
 
   useEffect(() => {
-    if (user) reset(toFormValues(user));
-  }, [user, reset]);
+    if (user) reset(toFormValues(user, company));
+  }, [user, company, reset]);
 
   const mutation = useMutation({
     mutationFn: (values) =>
-      updateUser(userId, toUserAdminUpdatePayload(values, company)),
+      updateUser(userId, toUserAdminUpdatePayload(values)),
   });
 
   const openEditModal = () => {
     if (!user || !canChangeUser) return;
     setApiError(null);
-    reset(toFormValues(user));
+    reset(toFormValues(user, company));
     editDialogRef.current?.showModal();
   };
 
@@ -124,7 +124,7 @@ export const UserDetailPage = () => {
 
   const onEditModalClose = () => {
     setApiError(null);
-    reset(toFormValues(user));
+    reset(toFormValues(user, company));
   };
 
   const handleUserDeleted = async () => {
