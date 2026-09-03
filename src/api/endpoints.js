@@ -12,6 +12,7 @@ export const endpoints = {
     tokenBlacklist: '/api/v1/auth/token/blacklist',
   },
   profile: '/api/v1/profile',
+  company: '/api/v1/company',
   activities: {
     list: '/api/v1/activities',
     detail: (id) => `/api/v1/activities/${id}`,

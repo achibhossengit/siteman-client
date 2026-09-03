@@ -1496,6 +1496,300 @@ paths:
               schema:
                 $ref: "#/components/schemas/CookieTokenRefresh"
           description: ""
+  /api/v1/company:
+    patch:
+      operationId: company_partial_update
+      description: |-
+        Current user's company.
+
+        ``PATCH /company`` — name and labour_transfer_allowed (``change_company``).
+        ``DELETE /company`` — password-confirmed hard delete (``delete_company``).
+      tags:
+        - company
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchedCompany"
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/PatchedCompany"
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/PatchedCompany"
+      security:
+        - jwtAuth: []
+      responses:
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyPartialUpdateErrorResponse400"
+          description: ""
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse401"
+              examples:
+                AuthenticationFailed:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: authentication_failed
+                        detail: Incorrect authentication credentials.
+                        attr: null
+                NotAuthenticated:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_authenticated
+                        detail: Authentication credentials were not provided.
+                        attr: null
+          description: ""
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse403"
+              examples:
+                PermissionDenied:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: permission_denied
+                        detail: You do not have permission to perform this action.
+                        attr: null
+          description: ""
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse404"
+              examples:
+                NotFound:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_found
+                        detail: Not found.
+                        attr: null
+          description: ""
+        "405":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse405"
+              examples:
+                MethodNotAllowed:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: method_not_allowed
+                        detail: Method "get" not allowed.
+                        attr: null
+          description: ""
+        "406":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse406"
+              examples:
+                NotAcceptable:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_acceptable
+                        detail: Could not satisfy the request Accept header.
+                        attr: null
+          description: ""
+        "415":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse415"
+              examples:
+                UnsupportedMediaType:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: unsupported_media_type
+                        detail: Unsupported media type "application/json" in request.
+                        attr: null
+          description: ""
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse429"
+              examples:
+                Throttled:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: throttled
+                        detail: Request was throttled.
+                        attr: null
+          description: ""
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse500"
+              examples:
+                APIException:
+                  value:
+                    type: server_error
+                    errors:
+                      - code: error
+                        detail: A server error occurred.
+                        attr: null
+          description: ""
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+          description: ""
+    delete:
+      operationId: company_destroy
+      description: |-
+        Current user's company.
+
+        ``PATCH /company`` — name and labour_transfer_allowed (``change_company``).
+        ``DELETE /company`` — password-confirmed hard delete (``delete_company``).
+      tags:
+        - company
+      security:
+        - jwtAuth: []
+      responses:
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyDestroyErrorResponse400"
+          description: ""
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse401"
+              examples:
+                AuthenticationFailed:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: authentication_failed
+                        detail: Incorrect authentication credentials.
+                        attr: null
+                NotAuthenticated:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_authenticated
+                        detail: Authentication credentials were not provided.
+                        attr: null
+          description: ""
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse403"
+              examples:
+                PermissionDenied:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: permission_denied
+                        detail: You do not have permission to perform this action.
+                        attr: null
+          description: ""
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse404"
+              examples:
+                NotFound:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_found
+                        detail: Not found.
+                        attr: null
+          description: ""
+        "405":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse405"
+              examples:
+                MethodNotAllowed:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: method_not_allowed
+                        detail: Method "get" not allowed.
+                        attr: null
+          description: ""
+        "406":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse406"
+              examples:
+                NotAcceptable:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: not_acceptable
+                        detail: Could not satisfy the request Accept header.
+                        attr: null
+          description: ""
+        "415":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse415"
+              examples:
+                UnsupportedMediaType:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: unsupported_media_type
+                        detail: Unsupported media type "application/json" in request.
+                        attr: null
+          description: ""
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse429"
+              examples:
+                Throttled:
+                  value:
+                    type: client_error
+                    errors:
+                      - code: throttled
+                        detail: Request was throttled.
+                        attr: null
+          description: ""
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse500"
+              examples:
+                APIException:
+                  value:
+                    type: server_error
+                    errors:
+                      - code: error
+                        detail: A server error occurred.
+                        attr: null
+          description: ""
+        "204":
+          description: No response body
   /api/v1/labours:
     get:
       operationId: labours_list
@@ -9980,6 +10274,157 @@ components:
         - client_error
       type: string
       description: "* `client_error` - Client Error"
+    Company:
+      type: object
+      description: Tenant company. API writes are limited to name and labour transfer.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        site_limit:
+          type: integer
+          readOnly: true
+          description: Max sites; -1 means no limit.
+        active_user_limit:
+          type: integer
+          readOnly: true
+          description: Max active users; -1 means no limit.
+        active_labour_limit:
+          type: integer
+          readOnly: true
+          description: Max active labour; -1 means no limit.
+        paid_until:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        labour_transfer_allowed:
+          type: boolean
+      required:
+        - active_labour_limit
+        - active_user_limit
+        - id
+        - name
+        - paid_until
+        - site_limit
+    CompanyDestroyErrorResponse400:
+      oneOf:
+        - $ref: "#/components/schemas/ParseErrorResponse"
+      discriminator:
+        propertyName: type
+        mapping:
+          client_error: "#/components/schemas/ParseErrorResponse"
+    CompanyPartialUpdateError:
+      oneOf:
+        - $ref: "#/components/schemas/CompanyPartialUpdateNonFieldErrorsErrorComponent"
+        - $ref: "#/components/schemas/CompanyPartialUpdateNameErrorComponent"
+        - $ref: "#/components/schemas/CompanyPartialUpdateLabourTransferAllowedErrorComponent"
+      discriminator:
+        propertyName: attr
+        mapping:
+          non_field_errors: "#/components/schemas/CompanyPartialUpdateNonFieldErrorsErrorComponent"
+          name: "#/components/schemas/CompanyPartialUpdateNameErrorComponent"
+          labour_transfer_allowed: "#/components/schemas/CompanyPartialUpdateLabourTransferAllowedErrorComponent"
+    CompanyPartialUpdateErrorResponse400:
+      oneOf:
+        - $ref: "#/components/schemas/CompanyPartialUpdateValidationError"
+        - $ref: "#/components/schemas/ParseErrorResponse"
+      discriminator:
+        propertyName: type
+        mapping:
+          validation_error: "#/components/schemas/CompanyPartialUpdateValidationError"
+          client_error: "#/components/schemas/ParseErrorResponse"
+    CompanyPartialUpdateLabourTransferAllowedErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - labour_transfer_allowed
+          type: string
+          description: "* `labour_transfer_allowed` - labour_transfer_allowed"
+        code:
+          enum:
+            - invalid
+            - "null"
+          type: string
+          description: |-
+            * `invalid` - invalid
+            * `null` - null
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    CompanyPartialUpdateNameErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - name
+          type: string
+          description: "* `name` - name"
+        code:
+          enum:
+            - blank
+            - invalid
+            - max_length
+            - "null"
+            - null_characters_not_allowed
+            - required
+            - surrogate_characters_not_allowed
+          type: string
+          description: |-
+            * `blank` - blank
+            * `invalid` - invalid
+            * `max_length` - max_length
+            * `null` - null
+            * `null_characters_not_allowed` - null_characters_not_allowed
+            * `required` - required
+            * `surrogate_characters_not_allowed` - surrogate_characters_not_allowed
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    CompanyPartialUpdateNonFieldErrorsErrorComponent:
+      type: object
+      properties:
+        attr:
+          enum:
+            - non_field_errors
+          type: string
+          description: "* `non_field_errors` - non_field_errors"
+        code:
+          enum:
+            - invalid
+            - "null"
+          type: string
+          description: |-
+            * `invalid` - invalid
+            * `null` - null
+        detail:
+          type: string
+      required:
+        - attr
+        - code
+        - detail
+    CompanyPartialUpdateValidationError:
+      type: object
+      properties:
+        type:
+          $ref: "#/components/schemas/ValidationErrorEnum"
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompanyPartialUpdateError"
+      required:
+        - errors
+        - type
     CookieTokenBlacklist:
       type: object
       description: |-
@@ -12716,6 +13161,35 @@ components:
           type: string
           format: date-time
           readOnly: true
+    PatchedCompany:
+      type: object
+      description: Tenant company. API writes are limited to name and labour transfer.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        site_limit:
+          type: integer
+          readOnly: true
+          description: Max sites; -1 means no limit.
+        active_user_limit:
+          type: integer
+          readOnly: true
+          description: Max active users; -1 means no limit.
+        active_labour_limit:
+          type: integer
+          readOnly: true
+          description: Max active labour; -1 means no limit.
+        paid_until:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        labour_transfer_allowed:
+          type: boolean
     PatchedDailyRecord:
       type: object
       description: |-
