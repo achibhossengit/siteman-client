@@ -3,6 +3,11 @@
  * Limits apply to active (non-closed) resources.
  */
 
+import { isIsoDate, parseIsoDate, todayIso } from './dateRange.js'
+
+/** Warn when expiry is today through this many days away. */
+const EXPIRY_WARN_DAYS = 7
+
 const LIMIT_KEYS = {
   user: ['active_user_limit', 'user_limit'],
   labour: ['active_labour_limit', 'labour_limit'],
@@ -34,3 +39,32 @@ export const getCompanyLimit = (profile, kind) => {
 
 export const isSubscriptionLimitReached = (used, limit) =>
   limit != null && Number(used) >= limit
+
+/** Calendar date from `company.paid_until` (`YYYY-MM-DD` or datetime). */
+export const paidUntilIso = (profile) => {
+  const raw = asCompany(profile)?.paid_until
+  if (raw == null || raw === '') return null
+  const datePart = String(raw).trim().slice(0, 10)
+  return isIsoDate(datePart) ? datePart : null
+}
+
+const daysUntilIso = (iso, today) => {
+  const from = parseIsoDate(today)
+  const to = parseIsoDate(iso)
+  if (!from || !to) return null
+  return Math.round((to.getTime() - from.getTime()) / 86_400_000)
+}
+
+/**
+ * Header banner: expired, or expiring within 7 days (inclusive of today).
+ * @returns {{ kind: 'expired' | 'expiring', paidUntil: string } | null}
+ */
+export const getSubscriptionExpiryBanner = (profile, today = todayIso()) => {
+  const paidUntil = paidUntilIso(profile)
+  if (!paidUntil) return null
+  const days = daysUntilIso(paidUntil, today)
+  if (days == null) return null
+  if (days < 0) return { kind: 'expired', paidUntil }
+  if (days <= EXPIRY_WARN_DAYS) return { kind: 'expiring', paidUntil }
+  return null
+}
