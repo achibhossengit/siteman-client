@@ -4,7 +4,6 @@ import {
   Banknote,
   CalendarCheck,
   ClipboardList,
-  Menu,
   Wallet,
 } from 'lucide-react'
 
@@ -22,7 +21,6 @@ export const AppBottomNav = () => {
     { to: paths.hajira, label: 'হাজিরা', icon: CalendarCheck },
     { to: paths.cash, label: 'ক্যাশ', icon: Wallet, end: true },
     { to: paths.activities, label: 'অডিট', icon: ClipboardList },
-    { to: paths.others, label: 'আরও', icon: Menu },
   ]
 
   return (

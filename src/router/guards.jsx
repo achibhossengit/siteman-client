@@ -51,7 +51,7 @@ export const RequireCompanyAdmin = () => {
   const outletContext = useOutletContext()
 
   if (!isCompanyAdmin(profile)) {
-    return <Navigate to={paths.others} replace />
+    return <Navigate to={paths.balance} replace />
   }
 
   return <Outlet context={outletContext} />

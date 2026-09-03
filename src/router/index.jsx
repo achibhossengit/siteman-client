@@ -25,7 +25,7 @@ import { PasswordResetConfirmPage } from "../pages/auth/PasswordResetConfirmPage
 import { ProfilePage } from "../pages/profile/ProfilePage.jsx";
 import { CompanySettingsPage } from "../pages/company/CompanySettingsPage.jsx";
 import { PendingOtpRedirect } from "./PendingOtpRedirect.jsx";
-import { OthersPage } from "../pages/OthersPage.jsx";
+
 
 export const AppRouter = () => (
   <Routes>
@@ -57,8 +57,6 @@ export const AppRouter = () => (
             <Route path={paths.hajira} element={<HajiraPage />} />
             <Route path={paths.cash} element={<CashPage />} />
           </Route>
-
-          <Route path={paths.others} element={<OthersPage />} />
         </Route>
 
         <Route element={<ActivityLayout />}>

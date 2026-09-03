@@ -96,7 +96,7 @@ export const SiteScopedLayout = () => {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      <header className="bg-base-100 border-b border-base-300 w-full shrink-0 z-30">
+      <header className="bg-base-100 border-b border-base-300 w-full shrink-0 z-20">
         <div className="max-w-5xl mx-auto w-full flex justify-between gap-2 items-stretch px-2 py-1.5">
           <DateSelector
             startDate={startDate}

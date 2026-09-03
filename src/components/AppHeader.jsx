@@ -1,6 +1,6 @@
-import { Link, NavLink } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { BrandLogo } from './BrandLogo.jsx'
-import { PersonAvatar } from './PersonAvatar.jsx'
+import { UserMenu } from './UserMenu.jsx'
 import { MAINTENANCE } from '../config/features.js'
 import { useAuth } from '../providers/AuthProvider.jsx'
 import { paths } from '../router/paths.js'
@@ -42,19 +42,7 @@ export const AppHeader = () => {
                     ) : null}
                   </div>
                 ) : null}
-                <Link
-                  to={paths.profile}
-                  className="shrink-0"
-                  aria-label="প্রোফাইল"
-                  title={userName || companyName || 'প্রোফাইল'}
-                >
-                  <PersonAvatar
-                    photo={profile?.photo}
-                    name={userName}
-                    size="sm"
-                    alt={userName || 'প্রোফাইল'}
-                  />
-                </Link>
+                <UserMenu />
               </>
             ) : (
               <NavLink to={paths.login} className="btn btn-primary btn-sm">
