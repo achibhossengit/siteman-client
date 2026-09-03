@@ -40,6 +40,10 @@ export const getCompanyLimit = (profile, kind) => {
 export const isSubscriptionLimitReached = (used, limit) =>
   limit != null && Number(used) >= limit
 
+/** Shown instead of the company-settings update CTA when the viewer is not company admin. */
+export const SUBSCRIPTION_UPDATE_ASK_ADMIN =
+  'আপডেট করতে কোম্পানি অ্যাডমিনের সাথে যোগাযোগ করুন।'
+
 /** Calendar date from `company.paid_until` (`YYYY-MM-DD` or datetime). */
 export const paidUntilIso = (profile) => {
   const raw = asCompany(profile)?.paid_until

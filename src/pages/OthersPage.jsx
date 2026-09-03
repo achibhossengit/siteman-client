@@ -210,7 +210,7 @@ const SectionLabel = ({ children }) => (
 export const OthersPage = () => {
   const navigate = useNavigate()
   const { profile, logout } = useAuth()
-  const { canAny } = usePermissions()
+  const { canAny, isCompanyAdmin } = usePermissions()
   const { resolved } = useTheme()
   const isDark = resolved === THEME_DARK
   const [loggingOut, setLoggingOut] = useState(false)
@@ -258,16 +258,18 @@ export const OthersPage = () => {
         />
       </Link>
 
-      <MenuCard>
-        {SETTINGS_LINKS.map((item) => (
-          <MenuRow
-            key={item.key}
-            icon={item.icon}
-            title={item.title}
-            to={item.to}
-          />
-        ))}
-      </MenuCard>
+      {isCompanyAdmin ? (
+        <MenuCard>
+          {SETTINGS_LINKS.map((item) => (
+            <MenuRow
+              key={item.key}
+              icon={item.icon}
+              title={item.title}
+              to={item.to}
+            />
+          ))}
+        </MenuCard>
+      ) : null}
 
       <div>
         <SectionLabel>ম্যানেজ</SectionLabel>

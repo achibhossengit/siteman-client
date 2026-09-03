@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { X } from "lucide-react";
 import { useAuth } from "../providers/AuthProvider.jsx";
+import { usePermissions } from "../hooks/usePermissions.js";
 import { paths } from "../router/paths.js";
 import { formatDateBn } from "../utils/dateRange.js";
 import {
   companyFromProfile,
   getSubscriptionExpiryBanner,
+  SUBSCRIPTION_UPDATE_ASK_ADMIN,
 } from "../utils/subscription.js";
 
 const DISMISS_KEY = "subscriptionExpiryBannerDismissed";
@@ -41,6 +43,7 @@ const linkClass = "link link-hover text-primary font-medium";
  */
 export const SubscriptionExpiryBanner = () => {
   const { profile } = useAuth();
+  const { isCompanyAdmin } = usePermissions();
   const status = getSubscriptionExpiryBanner(profile);
   const token = dismissTokenFor(profile, status);
   const [dismissedToken, setDismissedToken] = useState(readDismissed);
@@ -48,6 +51,13 @@ export const SubscriptionExpiryBanner = () => {
   if (!status || !token || dismissedToken === token) return null;
 
   const expired = status.kind === "expired";
+  const updateAction = isCompanyAdmin ? (
+    <Link to={paths.companySettings} className={linkClass}>
+      আপডেট করুন
+    </Link>
+  ) : (
+    SUBSCRIPTION_UPDATE_ASK_ADMIN
+  );
 
   return (
     <div
@@ -60,19 +70,11 @@ export const SubscriptionExpiryBanner = () => {
     >
       <p className="flex-1 min-w-0 leading-snug">
         {expired ? (
-          <>
-            সাবস্ক্রিপশনের মেয়াদ শেষ। {" "}
-            <Link to={paths.companySettings} className={linkClass}>
-              আপডেট করুন
-            </Link>
-          </>
+          <>সাবস্ক্রিপশনের মেয়াদ শেষ। {updateAction}</>
         ) : (
           <>
-            সাবস্ক্রিপশনের মেয়াদ {formatDateBn(status.paidUntil)} তারিখে
-            শেষ হবে। {" "}
-            <Link to={paths.companySettings} className={linkClass}>
-            আপডেট করুন
-            </Link>
+            সাবস্ক্রিপশনের মেয়াদ {formatDateBn(status.paidUntil)} তারিখে শেষ
+            হবে। {updateAction}
           </>
         )}
       </p>

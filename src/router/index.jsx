@@ -4,7 +4,7 @@ import { AppLayout } from "../layouts/AppLayout.jsx";
 import { ActivityLayout } from "../layouts/ActivityLayout.jsx";
 import { SiteScopedLayout } from "../layouts/SiteScopedLayout.jsx";
 import { DetailLayout } from "../layouts/DetailLayout.jsx";
-import { GuestOnly, RequireAuth } from "./guards.jsx";
+import { GuestOnly, RequireAuth, RequireCompanyAdmin } from "./guards.jsx";
 import { paths } from "./paths.js";
 import { BalancePage } from "../pages/sites/BalancePage.jsx";
 import { HajiraPage } from "../pages/sites/HajiraPage.jsx";
@@ -67,7 +67,9 @@ export const AppRouter = () => (
 
         <Route element={<DetailLayout />}>
           <Route path={paths.profile} element={<ProfilePage />} />
-          <Route path={paths.companySettings} element={<CompanySettingsPage />} />
+          <Route element={<RequireCompanyAdmin />}>
+            <Route path={paths.companySettings} element={<CompanySettingsPage />} />
+          </Route>
           <Route path={paths.sites} element={<SitesPage />} />
           <Route
             path="/sites/:siteId/billing"

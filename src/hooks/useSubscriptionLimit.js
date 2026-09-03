@@ -6,10 +6,11 @@ import { fetchSites } from '../api/sites.js'
 import { fetchUsers } from '../api/users.js'
 import { useAuth } from '../providers/AuthProvider.jsx'
 import { paths } from '../router/paths.js'
-import { alertSubscriptionLimit } from '../utils/feedback.js'
+import { alertNotice, alertSubscriptionLimit } from '../utils/feedback.js'
 import {
   getCompanyLimit,
   isSubscriptionLimitReached,
+  SUBSCRIPTION_UPDATE_ASK_ADMIN,
 } from '../utils/subscription.js'
 
 const USAGE_FETCH = {
@@ -32,6 +33,7 @@ const USAGE_QUERY_KEY = {
 export const useSubscriptionLimit = (kind) => {
   const navigate = useNavigate()
   const { profile } = useAuth()
+  const canUpdatePlan = Boolean(profile?.is_companyadmin)
   const limit = getCompanyLimit(profile, kind)
 
   const usageQuery = useQuery({
@@ -55,12 +57,15 @@ export const useSubscriptionLimit = (kind) => {
       }
       if (isSubscriptionLimitReached(used, limit)) {
         const goUpdate = await alertSubscriptionLimit(message)
-        if (goUpdate) navigate(paths.companySettings)
+        if (goUpdate) {
+          if (canUpdatePlan) navigate(paths.companySettings)
+          else await alertNotice({ text: SUBSCRIPTION_UPDATE_ASK_ADMIN })
+        }
         return false
       }
       return true
     },
-    [limit, usedCount, refetch, navigate],
+    [limit, usedCount, refetch, navigate, canUpdatePlan],
   )
 
   return { assertCanCreate, limit, used: usedCount }

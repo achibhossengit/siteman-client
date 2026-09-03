@@ -1,5 +1,6 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { Navigate, Outlet, useLocation, useOutletContext } from 'react-router-dom'
 import { useAuth } from '../providers/AuthProvider.jsx'
+import { isCompanyAdmin } from '../utils/permissions.js'
 import { paths } from './paths.js'
 
 export const RequireAuth = () => {
@@ -37,4 +38,15 @@ export const GuestOnly = () => {
   }
 
   return <Outlet />
+}
+
+export const RequireCompanyAdmin = () => {
+  const { profile } = useAuth()
+  const outletContext = useOutletContext()
+
+  if (!isCompanyAdmin(profile)) {
+    return <Navigate to={paths.others} replace />
+  }
+
+  return <Outlet context={outletContext} />
 }
