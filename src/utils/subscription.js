@@ -6,7 +6,7 @@
 import { isIsoDate, parseIsoDate, todayIso } from './dateRange.js'
 
 /** Warn when expiry is today through this many days away. */
-const EXPIRY_WARN_DAYS = 7
+const EXPIRY_WARN_DAYS = 3
 
 const LIMIT_KEYS = {
   user: ['active_user_limit', 'user_limit'],
@@ -60,10 +60,10 @@ const daysUntilIso = (iso, today) => {
 }
 
 /**
- * Header banner: expired, or expiring within 7 days (inclusive of today).
+ * Popup when expired, or expiring within 7 days (inclusive of today).
  * @returns {{ kind: 'expired' | 'expiring', paidUntil: string } | null}
  */
-export const getSubscriptionExpiryBanner = (profile, today = todayIso()) => {
+export const getSubscriptionExpiryStatus = (profile, today = todayIso()) => {
   const paidUntil = paidUntilIso(profile)
   if (!paidUntil) return null
   const days = daysUntilIso(paidUntil, today)

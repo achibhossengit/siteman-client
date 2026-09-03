@@ -125,3 +125,32 @@ export const alertSubscriptionLimit = async (message) => {
 
   return result.isConfirmed
 }
+
+/** Expiry / expiring-soon notice. Non-admins get ঠিক আছে only. */
+export const alertSubscriptionExpiry = async ({
+  title,
+  text,
+  showActions = true,
+} = {}) => {
+  const target = topLayerTarget()
+
+  const result = await Swal.fire({
+    target: target ?? 'body',
+    heightAuto: !target,
+    scrollbarPadding: !target,
+    title,
+    text,
+    showConfirmButton: true,
+    showCancelButton: showActions,
+    showCloseButton: false,
+    confirmButtonText: showActions ? 'আপডেট করুন' : 'ঠিক আছে',
+    cancelButtonText: 'এখন না',
+    confirmButtonColor: 'var(--color-primary)',
+    cancelButtonColor: 'var(--color-neutral)',
+    reverseButtons: showActions,
+    focusCancel: showActions,
+    customClass: { popup: 'swal-confirm' },
+  })
+
+  return Boolean(showActions && result.isConfirmed)
+}

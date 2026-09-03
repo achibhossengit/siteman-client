@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useLocation, useOutletContext } from 'react-router-dom'
+import { SubscriptionExpiryPopup } from '../components/SubscriptionExpiryPopup.jsx'
 import { useAuth } from '../providers/AuthProvider.jsx'
 import { isCompanyAdmin } from '../utils/permissions.js'
 import { paths } from './paths.js'
@@ -19,7 +20,12 @@ export const RequireAuth = () => {
     return <Navigate to={paths.login} replace state={{ from: location }} />
   }
 
-  return <Outlet />
+  return (
+    <>
+      <SubscriptionExpiryPopup />
+      <Outlet />
+    </>
+  )
 }
 
 export const GuestOnly = () => {
