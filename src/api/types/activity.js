@@ -35,13 +35,13 @@ export const activityTextToneClass = (tone) => {
 
 export const ACTIVITY_ACTION_FILTER_OPTIONS = [
   { value: 'all', label: 'সব অ্যাকশন' },
-  { value: 'created', label: 'তৈরি' },
+  { value: 'created', label: 'নতুন রেকর্ড' },
   { value: 'updated', label: 'আপডেট' },
   { value: 'deleted', label: 'ডিলিট' },
 ]
 
 export const ACTIVITY_ENTITY_FILTER_OPTIONS = [
-  { value: 'all', label: 'সব অডিট' },
+  { value: 'all', label: 'সব রেকর্ড' },
   { value: 'daily_record', label: 'হাজিরা' },
   { value: 'site_cash', label: 'ক্যাশ' },
   { value: 'labour_session', label: 'হিসাব' },

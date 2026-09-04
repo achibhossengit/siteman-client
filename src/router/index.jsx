@@ -60,7 +60,9 @@ export const AppRouter = () => (
         </Route>
 
         <Route element={<ActivityLayout />}>
-          <Route path={paths.activities} element={<ActivityPage />} />
+          <Route element={<SiteScopedLayout />}>
+            <Route path={paths.activities} element={<ActivityPage />} />
+          </Route>
         </Route>
 
         <Route element={<DetailLayout />}>

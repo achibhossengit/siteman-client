@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { fetchActivities, reviewActivities } from '../../api/activities.js'
@@ -29,23 +29,19 @@ import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { FilePicker } from '../../components/FilePicker.jsx'
 import { SHOW_BILLING, isBillingFieldKey, visibleFieldItems, visibleFieldKeys } from '../../config/features.js'
 import { usePermissions } from '../../hooks/usePermissions.js'
-import { useAssignedSites } from '../../hooks/useSites.js'
 import { useBillingLookups } from '../../hooks/useBillingLookup.js'
 import { confirmAction, toastApiError, toastSuccess } from '../../utils/feedback.js'
 import { formatBnNumber, NULL_BILLING_LABEL, STATUS_LABEL } from '../../utils/format.js'
 import { PERMS, hasPermissionSuffix } from '../../utils/permissions.js'
-import {
-  readSelectedSite,
-  todayIso,
-  writeSelectedSite,
-} from '../../utils/sessionSelection.js'
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 30
 const DETAIL_MODAL_ID = 'activity_detail_modal'
-const DATE_FILTER_MODAL_ID = 'activity_date_filter_modal'
 
-const dayStartIso = (dateStr) => `${dateStr}T00:00:00`
-const dayEndIso = (dateStr) => `${dateStr}T23:59:59.999`
+const localDayBoundIso = (dateStr, endOfDay = false) => {
+  const d = new Date(`${dateStr}T${endOfDay ? '23:59:59.999' : '00:00:00'}`)
+  if (Number.isNaN(d.getTime())) return dateStr
+  return d.toISOString()
+}
 
 const FIELD_LABELS_BN = {
   present: 'হাজিরা',
@@ -140,38 +136,26 @@ const formatDateBn = (isoDate) => {
   }).format(d)
 }
 
-const createdAtFilterParams = (mode, specificDate, startDate, endDate) => {
-  if (mode === 'day' && specificDate) {
-    return {
-      created_at__gte: dayStartIso(specificDate),
-      created_at__lte: dayEndIso(specificDate),
-    }
-  }
-  if (mode === 'range') {
-    return {
-      ...(startDate ? { created_at__gte: dayStartIso(startDate) } : {}),
-      ...(endDate ? { created_at__lte: dayEndIso(endDate) } : {}),
-    }
-  }
-  return {}
+const businessCalendarDate = (value) => {
+  if (!value || typeof value !== 'string') return null
+  const dateOnly = value.slice(0, 10)
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateOnly) ? dateOnly : null
 }
 
-const dateFilterHeaderLabel = (mode, specificDate, startDate, endDate) => {
-  if (mode === 'day' && specificDate) {
-    return formatDateBn(specificDate) || 'অ্যাকশন তারিখ'
-  }
-  if (mode === 'range' && (startDate || endDate)) {
-    const a = formatDateBn(startDate) || '…'
-    const b = formatDateBn(endDate) || '…'
-    return (
-      <span className="inline-flex flex-col items-end leading-tight">
-        <span>{a}</span>
-        <span>{b}</span>
-      </span>
-    )
-  }
-  if (mode === 'all') return 'সব তারিখ'
-  return 'অ্যাকশন তারিখ'
+const createdCalendarDate = (iso) => {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+const isCreatedOffBusinessDate = (log) => {
+  const business = businessCalendarDate(log?.business_date)
+  const created = createdCalendarDate(log?.created_at)
+  return Boolean(business && created && business !== created)
 }
 
 const fieldLabel = (key) => FIELD_LABELS_BN[key] ?? key
@@ -478,46 +462,30 @@ const ALLOWED_ENTITIES = new Set(
 const ALLOWED_REVIEWED = new Set(
   ACTIVITY_REVIEWED_FILTER_OPTIONS.map((o) => o.value),
 )
-const ALLOWED_DATE_MODES = new Set(['all', 'day', 'range'])
-const SITE_ALL = 'all'
-
 const readFilterParam = (params, key, allowed, fallback) => {
   const value = params.get(key)
   if (value && allowed.has(value)) return value
   return fallback
 }
 
-const readSiteParam = (params) => {
-  const value = params.get('site')
-  if (value === SITE_ALL) return SITE_ALL
-  if (value) return value
-  return ''
-}
-
-const filtersToSearchParams = ({
-  siteId,
+const filtersToSearchParams = (
+  currentParams,
+  {
   actionFilter,
   entityFilter,
   reviewedFilter,
-  dateMode,
-  specificDate,
-  startDate,
-  endDate,
   page,
-}) => {
-  const params = new URLSearchParams()
-  if (siteId === SITE_ALL) params.set('site', SITE_ALL)
-  else if (siteId) params.set('site', String(siteId))
+},
+) => {
+  const params = new URLSearchParams(currentParams)
   if (actionFilter !== 'all') params.set('action', actionFilter)
+  else params.delete('action')
   if (entityFilter !== 'all') params.set('entity', entityFilter)
-  if (reviewedFilter !== 'pending') params.set('reviewed', reviewedFilter)
-  if (dateMode !== 'all') params.set('date_mode', dateMode)
-  if (dateMode === 'day' && specificDate) params.set('date', specificDate)
-  if (dateMode === 'range') {
-    if (startDate) params.set('start', startDate)
-    if (endDate) params.set('end', endDate)
-  }
+  else params.delete('entity')
+  if (reviewedFilter !== 'all') params.set('reviewed', reviewedFilter)
+  else params.delete('reviewed')
   if (page > 1) params.set('page', String(page))
+  else params.delete('page')
   return params
 }
 
@@ -534,8 +502,8 @@ export const ActivityPage = () => {
   const dialogRef = useRef(null)
   const skipPageReset = useRef(true)
   const [searchParams, setSearchParams] = useSearchParams()
+  const { date, dateEnd, siteId } = useOutletContext()
   const { can, profile } = usePermissions()
-  const { assignedSites: sites } = useAssignedSites({ includeClosed: false })
 
   const canViewActivityLog =
     can(PERMS.viewActivityLog) ||
@@ -544,9 +512,6 @@ export const ActivityPage = () => {
     can(PERMS.changeActivityLog) ||
     hasPermissionSuffix(profile, 'change_activitylog')
 
-  const [siteId, setSiteId] = useState(
-    () => readSiteParam(searchParams) || readSelectedSite() || '',
-  )
   const [actionFilter, setActionFilter] = useState(() =>
     readFilterParam(searchParams, 'action', ALLOWED_ACTIONS, 'all'),
   )
@@ -554,24 +519,8 @@ export const ActivityPage = () => {
     readFilterParam(searchParams, 'entity', ALLOWED_ENTITIES, 'all'),
   )
   const [reviewedFilter, setReviewedFilter] = useState(() =>
-    readFilterParam(searchParams, 'reviewed', ALLOWED_REVIEWED, 'pending'),
+    readFilterParam(searchParams, 'reviewed', ALLOWED_REVIEWED, 'all'),
   )
-  const [dateMode, setDateMode] = useState(() =>
-    readFilterParam(searchParams, 'date_mode', ALLOWED_DATE_MODES, 'all'),
-  )
-  const [specificDate, setSpecificDate] = useState(
-    () => searchParams.get('date') || todayIso(),
-  )
-  const [startDate, setStartDate] = useState(
-    () => searchParams.get('start') || todayIso(),
-  )
-  const [endDate, setEndDate] = useState(
-    () => searchParams.get('end') || todayIso(),
-  )
-  const [draftDateMode, setDraftDateMode] = useState('all')
-  const [draftSpecificDate, setDraftSpecificDate] = useState(() => todayIso())
-  const [draftStartDate, setDraftStartDate] = useState(() => todayIso())
-  const [draftEndDate, setDraftEndDate] = useState(() => todayIso())
   const [page, setPage] = useState(() => {
     const raw = Number(searchParams.get('page'))
     return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 1
@@ -584,37 +533,12 @@ export const ActivityPage = () => {
   const [modalView, setModalView] = useState('history') // history | record
   const [expandedHistoryId, setExpandedHistoryId] = useState(null)
 
-  // Prefer URL/session site when still in list; otherwise first available site.
-  useEffect(() => {
-    if (siteId === SITE_ALL) return
-    if (!sites.length) {
-      setSiteId(SITE_ALL)
-      return
-    }
-    const stillValid = sites.some((s) => String(s.id) === String(siteId))
-    if (stillValid) return
-    const saved = readSelectedSite()
-    const savedValid = sites.some((s) => String(s.id) === String(saved))
-    const next = String(savedValid ? saved : sites[0].id)
-    setSiteId(next)
-    writeSelectedSite(next)
-  }, [sites, siteId])
-
-  useEffect(() => {
-    if (siteId && siteId !== SITE_ALL) writeSelectedSite(siteId)
-  }, [siteId])
-
   // Keep filters in the URL so refresh restores them.
   useEffect(() => {
-    const next = filtersToSearchParams({
-      siteId,
+    const next = filtersToSearchParams(searchParams, {
       actionFilter,
       entityFilter,
       reviewedFilter,
-      dateMode,
-      specificDate,
-      startDate,
-      endDate,
       page,
     })
     if (!sameSearchParams(next, searchParams)) {
@@ -622,15 +546,11 @@ export const ActivityPage = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync outward from state
   }, [
-    siteId,
     actionFilter,
     entityFilter,
     reviewedFilter,
-    dateMode,
-    specificDate,
-    startDate,
-    endDate,
     page,
+    searchParams,
   ])
 
   useEffect(() => {
@@ -642,25 +562,21 @@ export const ActivityPage = () => {
     setSelectedIds(new Set())
   }, [
     siteId,
+    date,
+    dateEnd,
     actionFilter,
     entityFilter,
     reviewedFilter,
-    dateMode,
-    specificDate,
-    startDate,
-    endDate,
   ])
 
   useEffect(() => {
     setSelectedIds(new Set())
   }, [page])
 
-  const dateParams = createdAtFilterParams(
-    dateMode,
-    specificDate,
-    startDate,
-    endDate,
-  )
+  const createdAtStart = date ? localDayBoundIso(date, false) : ''
+  const createdAtEnd = date
+    ? localDayBoundIso(dateEnd && dateEnd !== date ? dateEnd : date, true)
+    : ''
 
   const activitiesQuery = useQuery({
     queryKey: [
@@ -671,10 +587,8 @@ export const ActivityPage = () => {
         action: actionFilter,
         entity_type: entityFilter,
         reviewed: reviewedFilter,
-        dateMode,
-        specificDate,
-        startDate,
-        endDate,
+        created_at__gte: createdAtStart,
+        created_at__lte: createdAtEnd,
         page,
         page_size: PAGE_SIZE,
       },
@@ -683,8 +597,9 @@ export const ActivityPage = () => {
       const { data } = await fetchActivities({
         page,
         page_size: PAGE_SIZE,
-        ...(siteId && siteId !== SITE_ALL ? { site: siteId } : {}),
-        ...dateParams,
+        ...(siteId ? { site: siteId } : {}),
+        created_at__gte: createdAtStart,
+        created_at__lte: createdAtEnd,
         ...(actionFilter !== 'all' ? { action: actionFilter } : {}),
         ...(entityFilter !== 'all' ? { entity_type: entityFilter } : {}),
         ...(reviewedFilter === 'pending' ? { reviewed: false } : {}),
@@ -692,7 +607,9 @@ export const ActivityPage = () => {
       })
       return data
     },
-    enabled: Boolean(canViewActivityLog && siteId),
+    enabled: Boolean(
+      canViewActivityLog && siteId && createdAtStart && createdAtEnd,
+    ),
     placeholderData: (previousData) => previousData,
   })
 
@@ -771,7 +688,7 @@ export const ActivityPage = () => {
   const activityRows = activitiesQuery.data?.results ?? []
 
   const billingSiteIds = useMemo(() => {
-    if (siteId && siteId !== SITE_ALL) return [siteId]
+    if (siteId) return [siteId]
     const ids = activityRows
       .map((row) => row.site)
       .filter((id) => id != null && id !== '')
@@ -796,32 +713,6 @@ export const ActivityPage = () => {
     setSelected(null)
     setModalView('history')
     setExpandedHistoryId(null)
-  }
-
-  const openDateFilter = () => {
-    setDraftDateMode(dateMode)
-    setDraftSpecificDate(specificDate || todayIso())
-    setDraftStartDate(startDate || todayIso())
-    setDraftEndDate(endDate || todayIso())
-    document.getElementById(DATE_FILTER_MODAL_ID)?.showModal()
-  }
-
-  const applyDateFilter = () => {
-    let nextStart = draftStartDate
-    let nextEnd = draftEndDate
-    if (
-      draftDateMode === 'range' &&
-      nextStart &&
-      nextEnd &&
-      nextStart > nextEnd
-    ) {
-      ;[nextStart, nextEnd] = [nextEnd, nextStart]
-    }
-    setDateMode(draftDateMode)
-    setSpecificDate(draftSpecificDate)
-    setStartDate(nextStart)
-    setEndDate(nextEnd)
-    document.getElementById(DATE_FILTER_MODAL_ID)?.close()
   }
 
   const exitSelectMode = () => {
@@ -901,9 +792,9 @@ export const ActivityPage = () => {
 
   return (
     <section className="flex-1 min-h-0 flex flex-col bg-base-100">
-      <div className="shrink-0 border-b border-base-300 px-2 py-1.5 flex flex-wrap gap-2">
+      <div className="shrink-0 px-2 pt-1.5 pb-1 flex items-center gap-1.5">
         <select
-          className="select select-bordered select-sm min-w-30 flex-1"
+          className="select select-xs min-h-7 h-7 min-w-0 flex-1 rounded-full border border-base-300/70 bg-base-200 font-normal focus:outline-none focus:border-primary"
           aria-label="ধরন"
           value={entityFilter}
           onChange={(e) => setEntityFilter(e.target.value)}
@@ -915,7 +806,7 @@ export const ActivityPage = () => {
           ))}
         </select>
         <select
-          className="select select-bordered select-sm min-w-30 flex-1"
+          className="select select-xs min-h-7 h-7 min-w-0 flex-1 rounded-full border border-base-300/70 bg-base-200 font-normal focus:outline-none focus:border-primary"
           aria-label="অ্যাকশন"
           value={actionFilter}
           onChange={(e) => setActionFilter(e.target.value)}
@@ -927,7 +818,7 @@ export const ActivityPage = () => {
           ))}
         </select>
         <select
-          className="select select-bordered select-sm min-w-30 flex-1"
+          className="select select-xs min-h-7 h-7 min-w-0 flex-1 rounded-full border border-base-300/70 bg-base-200 font-normal focus:outline-none focus:border-primary"
           aria-label="অডিট"
           value={reviewedFilter}
           onChange={(e) => setReviewedFilter(e.target.value)}
@@ -935,19 +826,6 @@ export const ActivityPage = () => {
           {ACTIVITY_REVIEWED_FILTER_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
-            </option>
-          ))}
-        </select>
-        <select
-          className="select select-bordered select-sm min-w-30 flex-1"
-          aria-label="সাইট"
-          value={siteId || SITE_ALL}
-          onChange={(e) => setSiteId(e.target.value)}
-        >
-          <option value={SITE_ALL}>সব সাইট</option>
-          {sites.map((site) => (
-            <option key={site.id} value={site.id}>
-              {site.name}
             </option>
           ))}
         </select>
@@ -999,20 +877,7 @@ export const ActivityPage = () => {
                     )}
                   </th>
                   <th className="min-w-0">বিবরণ</th>
-                  <th className="w-28 sm:w-36 text-right overflow-hidden">
-                    <button
-                      type="button"
-                      className="font-bold max-w-full text-right whitespace-normal wrap-break-word leading-tight"
-                      onClick={openDateFilter}
-                    >
-                      {dateFilterHeaderLabel(
-                        dateMode,
-                        specificDate,
-                        startDate,
-                        endDate,
-                      )}
-                    </button>
-                  </th>
+                  <th className="w-28 sm:w-40 text-right">তারিখ</th>
                 </tr>
               </thead>
               <tbody>
@@ -1033,6 +898,7 @@ export const ActivityPage = () => {
                     const cashNote = cashNoteFromLog(row)
                     const reviewed = isRowReviewed(row)
                     const checked = selectedIds.has(row.id)
+                    const offBusinessDate = isCreatedOffBusinessDate(row)
                     return (
                       <tr
                         key={row.id}
@@ -1087,7 +953,19 @@ export const ActivityPage = () => {
                             </div>
                           ) : null}
                         </td>
-                        <td className="text-right text-xs sm:text-sm tabular-nums text-base-content/80">
+                        <td
+                          className={[
+                            'text-right text-xs sm:text-sm tabular-nums',
+                            offBusinessDate
+                              ? 'text-error font-medium'
+                              : 'text-base-content/80',
+                          ].join(' ')}
+                          title={
+                            offBusinessDate
+                              ? 'অ্যাকশন তারিখ ব্যবসায়িক তারিখ থেকে আলাদা'
+                              : undefined
+                          }
+                        >
                           <DateTimeStacked
                             iso={row.created_at}
                             className="items-end"
@@ -1099,33 +977,32 @@ export const ActivityPage = () => {
                 )}
               </tbody>
             </table>
+            {totalCount > PAGE_SIZE ? (
+              <div className="flex items-center justify-between gap-2 px-2 py-3 border-t border-base-300 bg-base-100">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  disabled={page <= 1 || activitiesQuery.isFetching}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft className="size-4" strokeWidth={2} />
+                  পূর্ববর্তী
+                </button>
+                <span className="text-sm tabular-nums text-base-content/70">
+                  {formatBnNumber(page)} / {formatBnNumber(totalPages)}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  disabled={page >= totalPages || activitiesQuery.isFetching}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  পরবর্তী
+                  <ChevronRight className="size-4" strokeWidth={2} />
+                </button>
+              </div>
+            ) : null}
           </div>
-
-          {totalCount > PAGE_SIZE ? (
-            <div className="shrink-0 flex items-center justify-between gap-2 px-2 py-2 border-t border-base-300 bg-base-100">
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                disabled={page <= 1 || activitiesQuery.isFetching}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                <ChevronLeft className="size-4" strokeWidth={2} />
-                পূর্ববর্তী
-              </button>
-              <span className="text-sm tabular-nums text-base-content/70">
-                {formatBnNumber(page)} / {formatBnNumber(totalPages)}
-              </span>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                disabled={page >= totalPages || activitiesQuery.isFetching}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              >
-                পরবর্তী
-                <ChevronRight className="size-4" strokeWidth={2} />
-              </button>
-            </div>
-          ) : null}
         </>
       )}
 
@@ -1494,112 +1371,6 @@ export const ActivityPage = () => {
         </div>
       </dialog>
 
-      <dialog id={DATE_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
-          <form method="dialog">
-            <button
-              type="submit"
-              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-              aria-label="বন্ধ"
-            >
-              <X className="size-4" strokeWidth={1.75} />
-            </button>
-          </form>
-
-          <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">অ্যাকশন তারিখ</h3>
-
-          <div className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto">
-            <div className="join join-vertical w-full">
-              <button
-                type="button"
-                className={`btn btn-sm join-item justify-start ${
-                  draftDateMode === 'day' ? 'btn-active' : 'btn-ghost'
-                }`}
-                onClick={() => setDraftDateMode('day')}
-              >
-                নির্দিষ্ট তারিখ
-              </button>
-              <button
-                type="button"
-                className={`btn btn-sm join-item justify-start ${
-                  draftDateMode === 'range' ? 'btn-active' : 'btn-ghost'
-                }`}
-                onClick={() => setDraftDateMode('range')}
-              >
-                শুরু – শেষ তারিখ
-              </button>
-              <button
-                type="button"
-                className={`btn btn-sm join-item justify-start ${
-                  draftDateMode === 'all' ? 'btn-active' : 'btn-ghost'
-                }`}
-                onClick={() => setDraftDateMode('all')}
-              >
-                সব তারিখ
-              </button>
-            </div>
-
-            {draftDateMode === 'day' ? (
-              <label className="form-control w-full">
-                <span className="label-text mb-1">তারিখ</span>
-                <input
-                  type="date"
-                  className="input input-bordered input-sm w-full"
-                  value={draftSpecificDate}
-                  max={todayIso()}
-                  onChange={(e) =>
-                    setDraftSpecificDate(e.target.value || todayIso())
-                  }
-                />
-              </label>
-            ) : null}
-
-            {draftDateMode === 'range' ? (
-              <div className="flex flex-col gap-2">
-                <label className="form-control w-full">
-                  <span className="label-text mb-1">শুরু তারিখ</span>
-                  <input
-                    type="date"
-                    className="input input-bordered input-sm w-full"
-                    value={draftStartDate}
-                    max={todayIso()}
-                    onChange={(e) =>
-                      setDraftStartDate(e.target.value || todayIso())
-                    }
-                  />
-                </label>
-                <label className="form-control w-full">
-                  <span className="label-text mb-1">শেষ তারিখ</span>
-                  <input
-                    type="date"
-                    className="input input-bordered input-sm w-full"
-                    value={draftEndDate}
-                    max={todayIso()}
-                    onChange={(e) =>
-                      setDraftEndDate(e.target.value || todayIso())
-                    }
-                  />
-                </label>
-              </div>
-            ) : null}
-
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={applyDateFilter}
-              disabled={
-                (draftDateMode === 'day' && !draftSpecificDate) ||
-                (draftDateMode === 'range' && !draftStartDate && !draftEndDate)
-              }
-            >
-              প্রয়োগ করুন
-            </button>
-          </div>
-        </div>
-        <div className="modal-backdrop">
-          <button type="button" tabIndex={-1} aria-hidden="true" />
-        </div>
-      </dialog>
     </section>
   )
 }
