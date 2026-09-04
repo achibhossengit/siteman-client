@@ -14,6 +14,10 @@ import { cashTypeLabel } from '../../api/types/siteCash.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { formatBnNumber, formatBnSigned } from '../../utils/format.js'
+import {
+  dateFilterParams,
+  isMultiDaySelection,
+} from '../../utils/dateRange.js'
 
 const Row = ({
   icon: Icon,
@@ -45,13 +49,10 @@ const SubtotalRow = ({ value, valueClassName }) => (
 
 export const BalancePage = () => {
   const { date, dateEnd, siteId } = useOutletContext()
-  const isRange = Boolean(dateEnd && dateEnd !== date)
+  const isRange = isMultiDaySelection(date, dateEnd)
   const reportParams = useMemo(
-    () =>
-      isRange
-        ? { date__gte: date, date__lte: dateEnd }
-        : { date },
-    [isRange, date, dateEnd],
+    () => dateFilterParams(date, dateEnd),
+    [date, dateEnd],
   )
 
   const query = useQuery({

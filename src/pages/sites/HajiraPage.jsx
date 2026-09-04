@@ -97,7 +97,12 @@ import {
   readSelectedSite,
   todayIso,
 } from "../../utils/sessionSelection.js";
-import { eachIsoDate } from "../../utils/dateRange.js";
+import {
+  dateFilterParams,
+  eachIsoDate,
+  isIsoDate,
+  isMultiDaySelection,
+} from "../../utils/dateRange.js";
 import { SHOW_BILLING } from "../../config/features.js";
 
 export const HajiraPage = () => {
@@ -142,16 +147,17 @@ export const HajiraPage = () => {
 
   const siteId = selectedSiteId || readSelectedSite();
   const date = selectedDate || readSelectedDate() || todayIso();
-  const isRange = Boolean(dateEnd && dateEnd !== date);
+  const isRange = isMultiDaySelection(date, dateEnd);
   const rangeDates = useMemo(
-    () => (isRange ? eachIsoDate(date, dateEnd) : []),
+    () =>
+      isRange && isIsoDate(date) ? eachIsoDate(date, dateEnd) : [],
     [isRange, date, dateEnd],
   );
-  const showRangeDayColumns = isRange && rangeDates.length <= 31;
+  const showRangeDayColumns =
+    isRange && rangeDates.length > 0 && rangeDates.length <= 31;
   const dateParams = useMemo(
-    () =>
-      isRange ? { date__gte: date, date__lte: dateEnd } : { date },
-    [isRange, date, dateEnd],
+    () => dateFilterParams(date, dateEnd),
+    [date, dateEnd],
   );
 
   const [rows, setRows] = useState([]);

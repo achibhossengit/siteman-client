@@ -33,6 +33,7 @@ import { useBillingLookups } from '../../hooks/useBillingLookup.js'
 import { confirmAction, toastApiError, toastSuccess } from '../../utils/feedback.js'
 import { formatBnNumber, NULL_BILLING_LABEL, STATUS_LABEL } from '../../utils/format.js'
 import { PERMS, hasPermissionSuffix } from '../../utils/permissions.js'
+import { isAllDates } from '../../utils/dateRange.js'
 
 const PAGE_SIZE = 30
 const DETAIL_MODAL_ID = 'activity_detail_modal'
@@ -573,10 +574,13 @@ export const ActivityPage = () => {
     setSelectedIds(new Set())
   }, [page])
 
-  const createdAtStart = date ? localDayBoundIso(date, false) : ''
-  const createdAtEnd = date
-    ? localDayBoundIso(dateEnd && dateEnd !== date ? dateEnd : date, true)
-    : ''
+  const isAll = isAllDates(date)
+  const createdAtStart =
+    !isAll && date ? localDayBoundIso(date, false) : ''
+  const createdAtEnd =
+    !isAll && date
+      ? localDayBoundIso(dateEnd && dateEnd !== date ? dateEnd : date, true)
+      : ''
 
   const activitiesQuery = useQuery({
     queryKey: [
@@ -587,8 +591,8 @@ export const ActivityPage = () => {
         action: actionFilter,
         entity_type: entityFilter,
         reviewed: reviewedFilter,
-        created_at__gte: createdAtStart,
-        created_at__lte: createdAtEnd,
+        created_at__gte: createdAtStart || null,
+        created_at__lte: createdAtEnd || null,
         page,
         page_size: PAGE_SIZE,
       },
@@ -598,8 +602,8 @@ export const ActivityPage = () => {
         page,
         page_size: PAGE_SIZE,
         ...(siteId ? { site: siteId } : {}),
-        created_at__gte: createdAtStart,
-        created_at__lte: createdAtEnd,
+        ...(createdAtStart ? { created_at__gte: createdAtStart } : {}),
+        ...(createdAtEnd ? { created_at__lte: createdAtEnd } : {}),
         ...(actionFilter !== 'all' ? { action: actionFilter } : {}),
         ...(entityFilter !== 'all' ? { entity_type: entityFilter } : {}),
         ...(reviewedFilter === 'pending' ? { reviewed: false } : {}),
@@ -608,7 +612,7 @@ export const ActivityPage = () => {
       return data
     },
     enabled: Boolean(
-      canViewActivityLog && siteId && createdAtStart && createdAtEnd,
+      canViewActivityLog && siteId && (isAll || (createdAtStart && createdAtEnd)),
     ),
     placeholderData: (previousData) => previousData,
   })

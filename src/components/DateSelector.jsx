@@ -3,10 +3,12 @@ import { createPortal } from 'react-dom'
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { formatBnNumber } from '../utils/format.js'
 import {
+  ALL_DATES,
   DATE_PRESETS,
   WEEKDAY_LABELS_BN,
   clampIsoToToday,
   formatDateRangeBn,
+  isAllDates,
   matchPresetId,
   monthGrid,
   normalizeEndDate,
@@ -38,8 +40,12 @@ export const DateSelector = ({
   className = '',
 }) => {
   const today = todayIso()
-  const committedStart = clampIsoToToday(startDate || today)
-  const committedEnd = normalizeEndDate(committedStart, endDate)
+  const committedStart = isAllDates(startDate)
+    ? ALL_DATES
+    : clampIsoToToday(startDate || today)
+  const committedEnd = isAllDates(committedStart)
+    ? null
+    : normalizeEndDate(committedStart, endDate)
 
   const triggerRef = useRef(null)
   const panelRef = useRef(null)
@@ -140,7 +146,7 @@ export const DateSelector = ({
   const onDayClick = (iso, disabled) => {
     if (disabled) return
     const next = clampIsoToToday(iso)
-    if (!draftStart || (draftStart && draftEnd)) {
+    if (isAllDates(draftStart) || !draftStart || (draftStart && draftEnd)) {
       setDraftStart(next)
       setDraftEnd(null)
     } else if (next === draftStart) {
@@ -159,13 +165,19 @@ export const DateSelector = ({
   }
 
   const onApply = () => {
+    if (isAllDates(draftStart)) {
+      onChange?.({ start: ALL_DATES, end: null })
+      setOpen(false)
+      return
+    }
     const start = draftStart || today
     const end = normalizeEndDate(start, draftEnd)
     onChange?.({ start, end })
     setOpen(false)
   }
 
-  const rangeEnd = draftEnd || draftStart
+  const isAllDraft = isAllDates(draftStart)
+  const rangeEnd = isAllDraft ? null : draftEnd || draftStart
 
   return (
     <div className={`form-control w-full max-w-xs ${className}`}>
@@ -242,9 +254,10 @@ export const DateSelector = ({
 
                 <div className="grid grid-cols-7">
                   {cells.map((cell) => {
-                    const isStart = cell.iso === draftStart
-                    const isEnd = cell.iso === rangeEnd
+                    const isStart = !isAllDraft && cell.iso === draftStart
+                    const isEnd = !isAllDraft && cell.iso === rangeEnd
                     const inRange =
+                      !isAllDraft &&
                       draftStart &&
                       cell.iso >= draftStart &&
                       cell.iso <= rangeEnd

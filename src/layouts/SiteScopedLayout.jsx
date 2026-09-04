@@ -4,7 +4,9 @@ import { DateSelector } from '../components/DateSelector.jsx'
 import { SiteSelector } from '../components/SiteSelector.jsx'
 import { useAssignedSites } from '../hooks/useSites.js'
 import {
+  ALL_DATES,
   clampIsoToToday,
+  isAllDates,
   isIsoDate,
   normalizeEndDate,
   todayIso,
@@ -21,8 +23,12 @@ const readInitialRange = (searchParams) => {
   const today = todayIso()
   const urlStart = searchParams.get('date')
   const urlEnd = searchParams.get('date_end')
+  const savedStart = readSelectedStartDate()
+  if (urlStart === ALL_DATES || (!isIsoDate(urlStart) && savedStart === ALL_DATES)) {
+    return { start: ALL_DATES, end: null }
+  }
   const start = clampIsoToToday(
-    (isIsoDate(urlStart) ? urlStart : '') || readSelectedStartDate() || today,
+    (isIsoDate(urlStart) ? urlStart : '') || savedStart || today,
   )
   const rawEnd =
     (isIsoDate(urlEnd) ? urlEnd : '') || readSelectedEndDate() || ''
@@ -33,8 +39,8 @@ const readInitialRange = (searchParams) => {
 
 /**
  * Sticky date + site selectors; shares selection via outlet context.
- * `date` is the start day (pages still fetch a single date).
- * `dateEnd` is set only for a range; unused by pages until range fetch lands.
+ * `date` is the start day, or `all` for an unbounded window.
+ * `dateEnd` is set only for a calendar range.
  */
 export const SiteScopedLayout = () => {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -69,25 +75,41 @@ export const SiteScopedLayout = () => {
       params.set('site', String(siteId))
       changed = true
     }
-    if (startDate && params.get('date') !== startDate) {
-      params.set('date', startDate)
-      changed = true
-    }
-    const urlEnd = endDate && endDate !== startDate ? endDate : null
-    if (urlEnd) {
-      if (params.get('date_end') !== urlEnd) {
-        params.set('date_end', urlEnd)
+    if (isAllDates(startDate)) {
+      if (params.get('date') !== ALL_DATES) {
+        params.set('date', ALL_DATES)
         changed = true
       }
-    } else if (params.has('date_end')) {
-      params.delete('date_end')
-      changed = true
+      if (params.has('date_end')) {
+        params.delete('date_end')
+        changed = true
+      }
+    } else {
+      if (startDate && params.get('date') !== startDate) {
+        params.set('date', startDate)
+        changed = true
+      }
+      const urlEnd = endDate && endDate !== startDate ? endDate : null
+      if (urlEnd) {
+        if (params.get('date_end') !== urlEnd) {
+          params.set('date_end', urlEnd)
+          changed = true
+        }
+      } else if (params.has('date_end')) {
+        params.delete('date_end')
+        changed = true
+      }
     }
     if (changed) setSearchParams(params, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync only on selection
   }, [siteId, startDate, endDate])
 
   const onDateChange = ({ start, end }) => {
+    if (isAllDates(start)) {
+      setStartDate(ALL_DATES)
+      setEndDate(null)
+      return
+    }
     const nextStart = clampIsoToToday(start || todayIso())
     const nextEnd = normalizeEndDate(nextStart, end)
     setStartDate(nextStart)

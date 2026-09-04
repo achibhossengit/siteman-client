@@ -39,7 +39,13 @@ import {
   toastApiError,
   toastSuccess,
 } from "../../utils/feedback.js";
-import { formatDateBn, formatDateColBn, todayIso } from "../../utils/dateRange.js";
+import {
+  dateFilterParams,
+  formatDateBn,
+  formatDateColBn,
+  isMultiDaySelection,
+  todayIso,
+} from "../../utils/dateRange.js";
 import { SHOW_BILLING, visibleFieldItems } from "../../config/features.js";
 import { useBillingLookup } from "../../hooks/useBillingLookup.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
@@ -411,7 +417,7 @@ export const CashPage = () => {
   const dateReady = String(watchedDate ?? "").trim().length > 0;
   const formReady = noteReady && amountReady && dateReady;
 
-  const isRange = Boolean(dateEnd && dateEnd !== date);
+  const isRange = isMultiDaySelection(date, dateEnd);
   const canCreateCash = canAddCash && !isRange;
 
   useEffect(() => {
@@ -459,8 +465,8 @@ export const CashPage = () => {
       : undefined;
 
   const dateParams = useMemo(
-    () => (isRange ? { date__gte: date, date__lte: dateEnd } : { date }),
-    [isRange, date, dateEnd],
+    () => dateFilterParams(date, dateEnd),
+    [date, dateEnd],
   );
 
   const cashQueryKey = useMemo(

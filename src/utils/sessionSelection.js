@@ -1,8 +1,9 @@
 import {
+  ALL_DATES,
   clampIsoToToday,
+  isAllDates,
   isIsoDate,
   normalizeEndDate,
-  todayIso,
 } from './dateRange.js'
 
 /** Session keys for site-scoped pages (balance / hajira / cash). */
@@ -39,6 +40,7 @@ export const writeSelectedSite = (siteId) =>
 export const readSelectedStartDate = () => {
   const start =
     readSession(SELECTED_START_DATE_KEY) || readSession(SELECTED_DATE_KEY)
+  if (isAllDates(start)) return ALL_DATES
   return isIsoDate(start) ? clampIsoToToday(start) : ''
 }
 
@@ -51,6 +53,12 @@ export const readSelectedEndDate = () => {
 export const readSelectedDate = () => readSelectedStartDate()
 
 export const writeSelectedDateRange = (start, end) => {
+  if (isAllDates(start)) {
+    writeSession(SELECTED_START_DATE_KEY, ALL_DATES)
+    writeSession(SELECTED_DATE_KEY, ALL_DATES)
+    writeSession(SELECTED_END_DATE_KEY, '')
+    return
+  }
   const nextStart = isIsoDate(start) ? clampIsoToToday(start) : ''
   const nextEnd = isIsoDate(end)
     ? normalizeEndDate(nextStart, clampIsoToToday(end))

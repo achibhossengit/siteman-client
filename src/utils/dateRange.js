@@ -30,10 +30,27 @@ export const toIsoDate = (value = new Date()) => {
 
 export const todayIso = () => toIsoDate(new Date())
 
+/** Sentinel start date: unbounded range (no API date filter). */
+export const ALL_DATES = 'all'
+
+export const isAllDates = (value) => value === ALL_DATES
+
 export const clampIsoToToday = (iso) => {
   const today = todayIso()
   if (!isIsoDate(iso)) return today
   return iso > today ? today : iso
+}
+
+/** True for a calendar range or unbounded "all" (not a single day). */
+export const isMultiDaySelection = (start, end) =>
+  isAllDates(start) || Boolean(normalizeEndDate(start, end))
+
+/** Query params for site date APIs. Empty when unbounded. */
+export const dateFilterParams = (start, end) => {
+  if (isAllDates(start) || !isIsoDate(start)) return {}
+  const normalized = normalizeEndDate(start, end)
+  if (normalized) return { date__gte: start, date__lte: normalized }
+  return { date: start }
 }
 
 /** Null when missing or the same as start (single-day). */
@@ -47,6 +64,7 @@ export const DATE_PRESETS = [
   { id: 'this_week', label: 'এই সপ্তাহ' },
   { id: 'this_month', label: 'এই মাস' },
   { id: 'last_month', label: 'গত মাস' },
+  { id: 'all', label: 'সব' },
 ]
 
 /** Saturday = 0 … Friday = 6 */
@@ -113,14 +131,18 @@ export const presetRange = (id, today = new Date()) => {
       const y = t.getFullYear() - 1
       return { start: `${y}-01-01`, end: `${y}-12-31` }
     }
+    case 'all':
+      return { start: ALL_DATES, end: null }
     default:
       return { start: todayStr, end: null }
   }
 }
 
 export const matchPresetId = (start, end, today = new Date()) => {
+  if (isAllDates(start)) return 'all'
   const normalized = normalizeEndDate(start, end)
   for (const { id } of DATE_PRESETS) {
+    if (id === 'all') continue
     const range = presetRange(id, today)
     if (range.start === start && range.end === normalized) return id
   }
@@ -163,6 +185,7 @@ export const formatDateBn = (iso) => {
 }
 
 export const formatDateRangeBn = (start, end) => {
+  if (isAllDates(start)) return 'শুরু – আজ'
   const normalized = normalizeEndDate(start, end)
   if (!normalized) return formatDateBn(start)
   const from = parseIsoDate(start)
