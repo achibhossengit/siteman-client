@@ -39,7 +39,7 @@ import {
   toastApiError,
   toastSuccess,
 } from "../../utils/feedback.js";
-import { formatDateBn, todayIso } from "../../utils/dateRange.js";
+import { formatDateBn, formatDateColBn, todayIso } from "../../utils/dateRange.js";
 import { SHOW_BILLING, visibleFieldItems } from "../../config/features.js";
 import { useBillingLookup } from "../../hooks/useBillingLookup.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
@@ -328,9 +328,10 @@ const toFormValues = (cash) => ({
   billing: cash?.billing != null ? String(cash.billing) : "",
 });
 
-const colgroup = (
+const colgroup = (showDateCol) => (
   <colgroup>
     <col className="w-12" />
+    {showDateCol ? <col className="w-20 sm:w-24" /> : null}
     <col />
     {SHOW_BILLING ? <col className="w-28 sm:w-36" /> : null}
     <col className="w-24 sm:w-32" />
@@ -957,6 +958,7 @@ export const CashPage = () => {
     Boolean(fileError) ||
     (!isCreateMode && !isDirty && !fileDirty);
   const isSnapshotDetail = Boolean(selected?.fromActivitySnapshot);
+  const tableCols = (SHOW_BILLING ? 4 : 3) + (isRange ? 1 : 0);
 
   const fieldClass = (hasError, kind = "input", isDisabled = disabled) =>
     [
@@ -971,7 +973,7 @@ export const CashPage = () => {
     <section className="flex-1 min-h-0 flex flex-col relative">
       <div className="bg-base-100">
         <table className="table table-sm sm:table-md w-full">
-          {colgroup}
+          {colgroup(isRange)}
           <thead>
             <tr>
               <th>
@@ -1003,6 +1005,7 @@ export const CashPage = () => {
                   "নং"
                 )}
               </th>
+              {isRange ? <th>তারিখ</th> : null}
               <th>বিবরণ</th>
               {SHOW_BILLING ? (
                 <th>
@@ -1035,12 +1038,12 @@ export const CashPage = () => {
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         <table className="table table-sm sm:table-md w-full">
-          {colgroup}
+          {colgroup(isRange)}
           <tbody>
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={SHOW_BILLING ? 4 : 3}
+                  colSpan={tableCols}
                   className="text-center text-base-content/60 py-10"
                 >
                   {isRange
@@ -1094,6 +1097,11 @@ export const CashPage = () => {
                         formatBnNumber(slOffset + index + 1)
                       )}
                     </td>
+                    {isRange ? (
+                      <td className="tabular-nums text-base-content/70 whitespace-nowrap">
+                        {formatDateColBn(row.date)}
+                      </td>
+                    ) : null}
                     <td className="truncate">{row.note || "—"}</td>
                     {SHOW_BILLING ? (
                       <td className="max-w-0 truncate text-base-content/80">
@@ -1114,6 +1122,7 @@ export const CashPage = () => {
             <tfoot>
               <tr className="font-medium border-t border-base-300">
                 <td />
+                {isRange ? <td /> : null}
                 <td className="whitespace-nowrap">মোট</td>
                 {SHOW_BILLING ? <td /> : null}
                 <td className={`text-right tabular-nums ${totals.className}`}>
