@@ -54,7 +54,7 @@ import {
 const MODAL_ID = "site_cash_modal";
 const TYPE_FILTER_MODAL_ID = "cash_type_filter_modal";
 const BILLING_FILTER_MODAL_ID = "cash_billing_filter_modal";
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 20;
 
 const CASH_LOG_FIELD_LABELS = {
   note: "নোট",
@@ -582,23 +582,36 @@ export const CashPage = () => {
   }, [pageResults, typeFilter, billingFilter, apiType]);
 
   const apiTotals = cashListTotalsOf(pageData);
-  const selectedType = typeFilter.length === 1 ? typeFilter[0] : null;
+  const clientFiltered =
+    (!apiType && typeFilter.length !== TYPE_DEFAULT_FIELDS.length) ||
+    (SHOW_BILLING && billingFilter === "none");
 
-  const totals = useMemo(() => {
-    if (!selectedType) return null;
-    const apiAmount = apiTotals?.[selectedType];
-    const amount =
-      apiAmount != null
-        ? Math.abs(Number(apiAmount) || 0)
-        : liveRows.reduce((sum, row) => {
-            if (row.type !== selectedType) return sum;
-            return sum + Math.abs(Number(row.amount) || 0);
-          }, 0);
-    return formatCashAmount(selectedType, amount);
-  }, [selectedType, apiTotals, liveRows]);
+  const summaryTotals = useMemo(() => {
+    const fromRows = { deposit: 0, withdrawal: 0, cost: 0 };
+    for (const row of liveRows) {
+      if (row.type in fromRows) {
+        fromRows[row.type] += Math.abs(Number(row.amount) || 0);
+      }
+    }
+    const amountOf = (type) => {
+      if (!typeFilter.includes(type)) return 0;
+      if (!clientFiltered && apiTotals?.[type] != null) {
+        return Math.abs(Number(apiTotals[type]) || 0);
+      }
+      return fromRows[type];
+    };
+    return {
+      deposit: amountOf("deposit"),
+      withdrawal: amountOf("withdrawal"),
+      cost: amountOf("cost"),
+    };
+  }, [apiTotals, liveRows, typeFilter, clientFiltered]);
 
-  // All types ticked → no footer. A single type → that type's total.
-  const showTotalsRow = Boolean(selectedType) && liveRows.length > 0;
+  const showSummary =
+    liveRows.length > 0 ||
+    summaryTotals.deposit > 0 ||
+    summaryTotals.withdrawal > 0 ||
+    summaryTotals.cost > 0;
 
   const rows = useMemo(() => {
     if (!canViewActivityLog) return liveRows;
@@ -1118,20 +1131,25 @@ export const CashPage = () => {
               })
             )}
           </tbody>
-          {showTotalsRow && totals ? (
-            <tfoot>
-              <tr className="font-medium border-t border-base-300">
-                <td />
-                {isRange ? <td /> : null}
-                <td className="whitespace-nowrap">মোট</td>
-                {SHOW_BILLING ? <td /> : null}
-                <td className={`text-right tabular-nums ${totals.className}`}>
-                  {totals.text}
-                </td>
-              </tr>
-            </tfoot>
-          ) : null}
         </table>
+        {showSummary ? (
+          <div className="grid grid-cols-4 gap-2 px-2 py-3 border-t border-base-300 text-xs sm:text-sm">
+            <div className="text-left text-base-content/60 self-center">
+            সর্বমোট
+            </div>
+            {CASH_TYPES.map((t) => {
+              const style = AMOUNT_BY_TYPE[t.value] ?? AMOUNT_BY_TYPE.cost;
+              return (
+                <div
+                  key={t.value}
+                  className={`min-w-0 text-right tabular-nums font-medium ${style.className}`}
+                >
+                  {formatBnNumber(summaryTotals[t.value])}
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
         <ListPagination
           page={page}
           totalPages={totalPages}
