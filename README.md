@@ -7,11 +7,11 @@
 </h3>
 
 <p align="center">
-  <a href="https://sitemaan.netlify.app">Live app</a>
+  <a href="https://siteman.achibhossen.me">Live app</a>
   ·
   <a href="https://github.com/achibhossengit/siteman-api">Backend Repo</a>
   ·
-  <a href="https://siteman-api-production.up.railway.app/api/docs">API docs</a>
+  <a href="https://siteman-api.achibhossen.me/api/docs">API docs</a>
   ·
   <a href="https://youtube.com/playlist?list=PLB6H2J30mWdg">Tutorials</a>
 </p>
@@ -181,7 +181,7 @@ Copy `.env.example` to `.env`. Common variables:
 
 | Variable                   | Purpose                                                                 |
 | -------------------------- | ----------------------------------------------------------------------- |
-| `VITE_API_BASE_URL`        | Browser-facing API base. Leave empty in local dev (same origin + proxy). Set to the live API URL in production. |
+| `VITE_API_BASE_URL`        | Browser-facing API base. Leave empty in local dev (same origin + proxy). In production, set to `https://siteman-api.achibhossen.me`. |
 | `VITE_API_PROXY_TARGET`    | Local Vite proxy target for `/api` and `/media`.                        |
 | `VITE_SHOW_BILLING`        | Show billing-category UI. Unset or `false` hides it.                    |
 | `VITE_MAINTENANCE`         | Full-app maintenance page. Requires a rebuild.                          |
