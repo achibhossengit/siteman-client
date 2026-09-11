@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo.png" alt="SiteMan">
+  <img src="docs/banner.png" alt="SiteMan">
 </p>
 
 <h3 align="center">
