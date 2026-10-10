@@ -317,32 +317,39 @@ const asNum = (value) => {
 }
 
 const isNonZeroTotals = (t) =>
-  Boolean(t && (t.present || t.extra || t.outflow || t.returned))
+  Boolean(
+    t && (t.present || t.extra || t.khoraki || t.advance || t.returned),
+  )
 
-/** Present / extra on the left, outflow / return on the right. */
+/** Top row: হাজিরা | খোরাকি. Bottom row: বাড়তি কাজ | অ্যাডভান্স. */
 export const dailyRecordDayValues = (record) => {
   if (!record) {
-    return { present: 0, extra: 0, outflow: 0, returned: 0, empty: true }
+    return { present: 0, extra: 0, khoraki: 0, advance: 0, empty: true }
   }
   const present = asNum(record.present)
   const extra = asNum(record.extra_earn ?? record.extra)
-  const outflow =
-    asNum(record.fooding_pay ?? record.payment) +
-    asNum(record.advance_pay ?? record.advance)
+  const khoraki = asNum(record.fooding_pay ?? record.payment)
+  const advance = asNum(record.advance_pay ?? record.advance)
   const returned = asNum(record.return_amount ?? record.return)
   return {
     present,
     extra,
-    outflow,
-    returned,
-    empty: present === 0 && extra === 0 && outflow === 0 && returned === 0,
+    khoraki,
+    advance,
+    empty:
+      present === 0 &&
+      extra === 0 &&
+      khoraki === 0 &&
+      advance === 0 &&
+      returned === 0,
   }
 }
 
 export const totalsValuesOf = (totals) => ({
   present: asNum(totals?.present),
   extra: asNum(totals?.extra_earn),
-  outflow: asNum(totals?.fooding_pay) + asNum(totals?.advance_pay),
+  khoraki: asNum(totals?.fooding_pay),
+  advance: asNum(totals?.advance_pay),
   returned: asNum(totals?.return_amount),
 })
 
@@ -351,11 +358,11 @@ const sumDayValues = (days) =>
     (acc, day) => {
       acc.present += asNum(day.present)
       acc.extra += asNum(day.extra)
-      acc.outflow += asNum(day.outflow)
-      acc.returned += asNum(day.returned)
+      acc.khoraki += asNum(day.khoraki)
+      acc.advance += asNum(day.advance)
       return acc
     },
-    { present: 0, extra: 0, outflow: 0, returned: 0 },
+    { present: 0, extra: 0, khoraki: 0, advance: 0 },
   )
 
 /**
@@ -422,22 +429,22 @@ export const sumHajiraRangeFooter = (rows, dates = []) => {
     date: iso,
     present: 0,
     extra: 0,
-    outflow: 0,
-    returned: 0,
+    khoraki: 0,
+    advance: 0,
   }))
-  const totals = { present: 0, extra: 0, outflow: 0, returned: 0 }
+  const totals = { present: 0, extra: 0, khoraki: 0, advance: 0 }
   for (const row of rows ?? []) {
     totals.present += asNum(row.totals?.present)
     totals.extra += asNum(row.totals?.extra)
-    totals.outflow += asNum(row.totals?.outflow)
-    totals.returned += asNum(row.totals?.returned)
+    totals.khoraki += asNum(row.totals?.khoraki)
+    totals.advance += asNum(row.totals?.advance)
     for (let i = 0; i < byDate.length; i += 1) {
       const day = row.days?.[i]
       if (!day) continue
       byDate[i].present += asNum(day.present)
       byDate[i].extra += asNum(day.extra)
-      byDate[i].outflow += asNum(day.outflow)
-      byDate[i].returned += asNum(day.returned)
+      byDate[i].khoraki += asNum(day.khoraki)
+      byDate[i].advance += asNum(day.advance)
     }
   }
   return { byDate, totals }
