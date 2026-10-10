@@ -35,7 +35,7 @@ import { formatBnNumber, NULL_BILLING_LABEL, STATUS_LABEL } from '../../utils/fo
 import { PERMS, hasPermissionSuffix } from '../../utils/permissions.js'
 import { isAllDates } from '../../utils/dateRange.js'
 
-const PAGE_SIZE = 30
+const PAGE_SIZE = 100
 const DETAIL_MODAL_ID = 'activity_detail_modal'
 
 const localDayBoundIso = (dateStr, endOfDay = false) => {

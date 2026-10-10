@@ -60,7 +60,7 @@ import {
 const MODAL_ID = "site_cash_modal";
 const TYPE_FILTER_MODAL_ID = "cash_type_filter_modal";
 const BILLING_FILTER_MODAL_ID = "cash_billing_filter_modal";
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 100;
 
 const CASH_LOG_FIELD_LABELS = {
   note: "নোট",
