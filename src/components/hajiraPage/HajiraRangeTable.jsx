@@ -65,10 +65,10 @@ export function HajiraRangeTable({
           <thead className="sticky top-0 z-10 bg-base-100">
             <tr>
               <th className={`w-7 align-middle ${CELL}`}>নং</th>
+              <th className={`w-7 px-0 ${CELL_PIN}`} />
               <th
-                className={`w-7 px-0 ${CELL_PIN} ${STICKY_PIN_HEAD}`}
-              />
-              <th className={`w-20 max-w-20 sm:w-28 sm:max-w-28 pl-1 align-middle ${CELL}`}>
+                className={`w-20 max-w-20 sm:w-28 sm:max-w-28 pl-1 align-middle ${CELL} ${STICKY_PIN_HEAD}`}
+              >
                 <button type="button" onClick={openLabourFilterModal}>
                   {filterHeaderTitle("নাম", labourFilter, LABOUR_DEFAULT_FIELDS)}
                 </button>
@@ -117,7 +117,7 @@ export function HajiraRangeTable({
                       </td>
                       <td
                         rowSpan={2}
-                        className={`align-middle w-7 px-0 ${CELL_PIN} ${STICKY_PIN} ${stripe}`}
+                        className={`align-middle w-7 px-0 ${CELL_PIN} ${stripe}`}
                       >
                         <LabourIdentity
                           row={row}
@@ -136,7 +136,7 @@ export function HajiraRangeTable({
                       </td>
                       <td
                         rowSpan={2}
-                        className={`align-middle font-medium pl-1 w-20 max-w-20 sm:w-28 sm:max-w-28 ${CELL} ${stripe}`}
+                        className={`align-middle font-medium pl-1 w-20 max-w-20 sm:w-28 sm:max-w-28 ${CELL} ${STICKY_PIN} ${stripe}`}
                       >
                         <LabourIdentity
                           row={row}
@@ -199,11 +199,11 @@ export function HajiraRangeTable({
                 <td rowSpan={2} className={`${CELL} ${FOOT_BG}`} />
                 <td
                   rowSpan={2}
-                  className={`w-7 px-0 ${CELL_PIN} ${STICKY_PIN} ${FOOT_BG}`}
+                  className={`w-7 px-0 ${CELL_PIN} ${FOOT_BG}`}
                 />
                 <td
                   rowSpan={2}
-                  className={`align-middle whitespace-nowrap pl-1 ${CELL} ${FOOT_BG}`}
+                  className={`align-middle whitespace-nowrap pl-1 ${CELL} ${STICKY_PIN} ${FOOT_BG}`}
                 >
                   মোট
                 </td>
