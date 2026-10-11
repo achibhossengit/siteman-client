@@ -37,6 +37,10 @@ import { isAllDates } from '../../utils/dateRange.js'
 
 const PAGE_SIZE = 100
 const DETAIL_MODAL_ID = 'activity_detail_modal'
+const CELL_GRID =
+  'border-b border-b-base-content/35 border-r border-r-base-content/35'
+const TABLE_GRID =
+  'border-separate border-spacing-0 border-t border-l border-base-content/35'
 
 const localDayBoundIso = (dateStr, endOfDay = false) => {
   const d = new Date(`${dateStr}T${endOfDay ? '23:59:59.999' : '00:00:00'}`)
@@ -846,10 +850,10 @@ export const ActivityPage = () => {
       ) : (
         <>
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-            <table className="table table-fixed table-sm sm:table-md w-full">
-              <thead className="sticky top-0 z-10 bg-base-100">
-                <tr className="border-b border-base-300">
-                  <th className="w-12">
+            <table className={`table table-fixed table-sm sm:table-md w-full ${TABLE_GRID}`}>
+              <thead className="sticky top-0 z-10 bg-base-300">
+                <tr className="[&_th]:!bg-base-300">
+                  <th className={`w-12 ${CELL_GRID}`}>
                     {selectMode && canChangeActivityLog ? (
                       <input
                         type="checkbox"
@@ -880,8 +884,8 @@ export const ActivityPage = () => {
                       'নং'
                     )}
                   </th>
-                  <th className="min-w-0">বিবরণ</th>
-                  <th className="w-28 sm:w-40 text-right">তারিখ</th>
+                  <th className={`min-w-0 ${CELL_GRID}`}>বিবরণ</th>
+                  <th className={`w-28 sm:w-40 text-right ${CELL_GRID}`}>তারিখ</th>
                 </tr>
               </thead>
               <tbody>
@@ -889,7 +893,7 @@ export const ActivityPage = () => {
                   <tr>
                     <td
                       colSpan={3}
-                      className="text-center text-sm text-base-content/60 py-10"
+                      className={`text-center text-sm text-base-content/60 py-10 ${CELL_GRID}`}
                     >
                       কোনো অডিট হিস্ট্রি নেই।
                     </td>
@@ -907,7 +911,7 @@ export const ActivityPage = () => {
                       <tr
                         key={row.id}
                         className={[
-                          'border-b border-base-300/70 align-top cursor-pointer hover:bg-base-200/60',
+                          'align-top cursor-pointer hover:bg-base-200/60',
                           activityToneClass(row.action),
                           reviewed ? 'opacity-50' : '',
                         ]
@@ -916,7 +920,7 @@ export const ActivityPage = () => {
                         onClick={() => openDetail(row)}
                       >
                         <td
-                          className="tabular-nums text-base-content/60"
+                          className={`tabular-nums text-base-content/60 ${CELL_GRID}`}
                           onClick={(e) => {
                             if (!selectMode) return
                             e.stopPropagation()
@@ -937,7 +941,7 @@ export const ActivityPage = () => {
                             formatBnNumber(slOffset + index + 1)
                           )}
                         </td>
-                        <td className="text-sm leading-snug">
+                        <td className={`text-sm leading-snug ${CELL_GRID}`}>
                           <div>{title || '—'}</div>
                           {cashNote ? (
                             <div className="text-xs text-base-content/70 mt-0.5 truncate">
@@ -960,6 +964,7 @@ export const ActivityPage = () => {
                         <td
                           className={[
                             'text-right text-xs sm:text-sm tabular-nums',
+                            CELL_GRID,
                             offBusinessDate
                               ? 'text-error font-medium'
                               : 'text-base-content/80',
@@ -1110,11 +1115,11 @@ export const ActivityPage = () => {
                     কোনো অডিট হিস্ট্রি নেই।
                   </p>
                 ) : (
-                  <table className="table table-sm w-full">
+                  <table className={`table table-sm w-full ${TABLE_GRID}`}>
                     <thead>
-                      <tr className="border-b border-base-300">
-                        <th className="w-28 sm:w-32">তারিখ</th>
-                        <th>বিবরণ</th>
+                      <tr>
+                        <th className={`w-28 sm:w-32 ${CELL_GRID}`}>তারিখ</th>
+                        <th className={CELL_GRID}>বিবরণ</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1131,7 +1136,7 @@ export const ActivityPage = () => {
                           <Fragment key={log.id}>
                             <tr
                               className={[
-                                'border-b border-base-300/70 cursor-pointer hover:bg-base-200/60',
+                                'cursor-pointer hover:bg-base-200/60',
                                 activityToneClass(log.action),
                                 reviewed ? 'opacity-50' : '',
                                 isFocus ? 'ring-1 ring-inset ring-primary/50' : '',
@@ -1142,7 +1147,7 @@ export const ActivityPage = () => {
                                 setExpandedHistoryId(open ? null : log.id)
                               }
                             >
-                              <td className="text-xs tabular-nums text-base-content/70 align-middle whitespace-nowrap">
+                              <td className={`text-xs tabular-nums text-base-content/70 align-middle whitespace-nowrap ${CELL_GRID}`}>
                                 <span className="inline-flex items-start gap-1.5">
                                   {isFocus ? (
                                     <span
@@ -1156,7 +1161,7 @@ export const ActivityPage = () => {
                                   <DateTimeStacked iso={log.created_at} />
                                 </span>
                               </td>
-                              <td className="text-sm leading-snug align-middle max-w-0">
+                              <td className={`text-sm leading-snug align-middle max-w-0 ${CELL_GRID}`}>
                                 <div className="truncate">
                                   <HistoryBiboron
                                     log={log}
@@ -1168,7 +1173,6 @@ export const ActivityPage = () => {
                             {open ? (
                               <tr
                                 className={[
-                                  'border-b border-base-300/70',
                                   reviewed ? 'opacity-50' : '',
                                 ]
                                   .filter(Boolean)
@@ -1176,7 +1180,7 @@ export const ActivityPage = () => {
                               >
                                 <td
                                   colSpan={2}
-                                  className="bg-base-200/40 px-2 py-1.5"
+                                  className={`bg-base-200/40 px-2 py-1.5 ${CELL_GRID}`}
                                 >
                                   <div className="flex flex-col gap-0.5 text-xs leading-snug pb-1.5 mb-1.5 border-b border-base-300">
                                     <p>

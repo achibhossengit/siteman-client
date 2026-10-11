@@ -66,6 +66,10 @@ import {
 const MODAL_ID = "site_cash_modal";
 const BILLING_FILTER_MODAL_ID = "cash_billing_filter_modal";
 const PAGE_SIZE = 100;
+const CELL_GRID =
+  "border-b border-b-base-content/35 border-r border-r-base-content/35";
+const TABLE_GRID =
+  "border-separate border-spacing-0 border-t border-l border-base-content/35";
 
 const CASH_LOG_FIELD_LABELS = {
   note: "নোট",
@@ -1036,11 +1040,11 @@ export const CashPage = () => {
   return (
     <section className="flex-1 min-h-0 flex flex-col relative overflow-x-hidden">
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-        <table className="table table-fixed table-sm sm:table-md w-full max-w-full">
+        <table className={`table table-fixed table-sm sm:table-md w-full max-w-full ${TABLE_GRID}`}>
           {colgroup(isRange)}
           <thead className="sticky top-0 z-10 bg-base-300">
-            <tr className="border-b border-base-300 [&_th]:!bg-base-300">
-              <th className="w-7 sm:w-8 px-0.5 sm:px-1">
+            <tr className="[&_th]:!bg-base-300">
+              <th className={`w-7 sm:w-8 px-0.5 sm:px-1 ${CELL_GRID}`}>
                 {selectMode && canChangeActivityLog ? (
                   <input
                     type="checkbox"
@@ -1070,11 +1074,13 @@ export const CashPage = () => {
                 )}
               </th>
               {isRange ? (
-                <th className="px-1 sm:px-3 whitespace-nowrap">তারিখ</th>
+                <th className={`px-1 sm:px-3 whitespace-nowrap ${CELL_GRID}`}>
+                  তারিখ
+                </th>
               ) : null}
-              <th className="min-w-0 px-1 sm:px-3">বিবরণ</th>
+              <th className={`min-w-0 px-1 sm:px-3 ${CELL_GRID}`}>বিবরণ</th>
               {SHOW_BILLING ? (
-                <th className="min-w-0 px-1 sm:px-3">
+                <th className={`min-w-0 px-1 sm:px-3 ${CELL_GRID}`}>
                   <button
                     type="button"
                     className="max-w-full truncate"
@@ -1088,7 +1094,7 @@ export const CashPage = () => {
                   </button>
                 </th>
               ) : null}
-              <th className="text-right px-1 sm:px-3">পরিমাণ</th>
+              <th className={`text-right px-1 sm:px-3 ${CELL_GRID}`}>পরিমাণ</th>
             </tr>
           </thead>
           <tbody>
@@ -1096,7 +1102,7 @@ export const CashPage = () => {
               <tr>
                 <td
                   colSpan={tableCols}
-                  className="text-center text-base-content/60 py-10"
+                  className={`text-center text-base-content/60 py-10 ${CELL_GRID}`}
                 >
                   {isRange
                     ? "এই সময়ে কোনো ক্যাশ এন্ট্রি নেই।"
@@ -1120,7 +1126,7 @@ export const CashPage = () => {
                   <tr
                     key={isGhost ? `activity-${row.id}` : row.id}
                     className={[
-                      "border-b border-base-300/70 cursor-pointer hover:bg-base-200/60",
+                      "cursor-pointer hover:bg-base-200/60",
                       isGhost ? "opacity-90" : "",
                       activityToneClass(row.activityTone),
                     ]
@@ -1129,7 +1135,7 @@ export const CashPage = () => {
                     onClick={() => openDetail(row)}
                   >
                     <td
-                      className="tabular-nums text-base-content/60 w-7 sm:w-8 px-0.5 sm:px-1"
+                      className={`tabular-nums text-base-content/60 w-7 sm:w-8 px-0.5 sm:px-1 ${CELL_GRID}`}
                       onClick={(e) => {
                         if (!selectMode) return;
                         e.stopPropagation();
@@ -1151,17 +1157,17 @@ export const CashPage = () => {
                       )}
                     </td>
                     {isRange ? (
-                      <td className="tabular-nums text-base-content/70 px-1 sm:px-3 truncate">
+                      <td className={`tabular-nums text-base-content/70 px-1 sm:px-3 truncate ${CELL_GRID}`}>
                         {formatDateColBn(row.date)}
                       </td>
                     ) : null}
-                    <td className="min-w-0 max-w-0 px-1 sm:px-3">
+                    <td className={`min-w-0 max-w-0 px-1 sm:px-3 ${CELL_GRID}`}>
                       <span className="block truncate" title={row.note || undefined}>
                         {note}
                       </span>
                     </td>
                     {SHOW_BILLING ? (
-                      <td className="min-w-0 max-w-0 px-1 sm:px-3 text-base-content/80">
+                      <td className={`min-w-0 max-w-0 px-1 sm:px-3 text-base-content/80 ${CELL_GRID}`}>
                         <span
                           className="block truncate"
                           title={billingName(row.billing) || undefined}
@@ -1171,7 +1177,7 @@ export const CashPage = () => {
                       </td>
                     ) : null}
                     <td
-                      className={`text-right tabular-nums font-medium px-1 sm:px-3 whitespace-nowrap ${className}`}
+                      className={`text-right tabular-nums font-medium px-1 sm:px-3 whitespace-nowrap ${CELL_GRID} ${className}`}
                     >
                       {text}
                     </td>
@@ -1182,15 +1188,15 @@ export const CashPage = () => {
           </tbody>
           {showSummary ? (
             <tfoot>
-              <tr className="border-t border-base-300 font-medium [&_td]:bg-base-300">
+              <tr className="font-medium [&_td]:bg-base-300">
                 <td
                   colSpan={tableCols - 1}
-                  className="px-1 sm:px-3 text-right text-base-content/60 !bg-base-300 border-b border-base-300"
+                  className={`px-1 sm:px-3 text-right text-base-content/60 !bg-base-300 ${CELL_GRID}`}
                 >
                   মোট
                 </td>
                 <td
-                  className={`text-right tabular-nums px-1 sm:px-3 whitespace-nowrap !bg-base-300 border-b border-base-300 ${summaryDisplay.className}`}
+                  className={`text-right tabular-nums px-1 sm:px-3 whitespace-nowrap !bg-base-300 ${CELL_GRID} ${summaryDisplay.className}`}
                 >
                   {summaryDisplay.text}
                 </td>
@@ -1350,11 +1356,11 @@ export const CashPage = () => {
                     কোনো অডিট হিস্ট্রি নেই।
                   </p>
                 ) : (
-                  <table className="table table-sm w-full">
+                  <table className={`table table-sm w-full ${TABLE_GRID}`}>
                     <thead>
-                      <tr className="border-b border-base-300">
-                        <th className="w-28 sm:w-32">তারিখ</th>
-                        <th>বিবরণ</th>
+                      <tr>
+                        <th className={`w-28 sm:w-32 ${CELL_GRID}`}>তারিখ</th>
+                        <th className={CELL_GRID}>বিবরণ</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1369,7 +1375,7 @@ export const CashPage = () => {
                           <Fragment key={log.id}>
                             <tr
                               className={[
-                                "border-b border-base-300/70 cursor-pointer hover:bg-base-200/60",
+                                "cursor-pointer hover:bg-base-200/60",
                                 activityToneClass(log.action),
                                 reviewed ? "opacity-50" : "",
                               ]
@@ -1379,10 +1385,10 @@ export const CashPage = () => {
                                 setExpandedHistoryId(open ? null : log.id)
                               }
                             >
-                              <td className="text-xs tabular-nums text-base-content/70 align-middle whitespace-nowrap">
+                              <td className={`text-xs tabular-nums text-base-content/70 align-middle whitespace-nowrap ${CELL_GRID}`}>
                                 <DateTimeStacked iso={log.created_at} />
                               </td>
-                              <td className="text-sm leading-snug align-middle max-w-0">
+                              <td className={`text-sm leading-snug align-middle max-w-0 ${CELL_GRID}`}>
                                 <div className="truncate">
                                   <CashHistoryBiboron
                                     log={log}
@@ -1394,7 +1400,6 @@ export const CashPage = () => {
                             {open ? (
                               <tr
                                 className={[
-                                  "border-b border-base-300/70",
                                   reviewed ? "opacity-50" : "",
                                 ]
                                   .filter(Boolean)
@@ -1402,7 +1407,7 @@ export const CashPage = () => {
                               >
                                 <td
                                   colSpan={2}
-                                  className="bg-base-200/40 px-2 py-1.5"
+                                  className={`bg-base-200/40 px-2 py-1.5 ${CELL_GRID}`}
                                 >
                                   <div className="flex flex-col gap-0.5 text-xs leading-snug pb-1.5 mb-1.5 border-b border-base-300">
                                     <p>
