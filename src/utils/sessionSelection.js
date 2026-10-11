@@ -12,6 +12,7 @@ export const SELECTED_DATE_KEY = 'selectedDate'
 export const SELECTED_START_DATE_KEY = 'selectedStartDate'
 export const SELECTED_END_DATE_KEY = 'selectedEndDate'
 export const CASH_LEDGER_VIEW_KEY = 'cashLedgerView'
+export const SESSION_SHOW_SALARY_KEY = 'sessionShowSalary'
 
 export { todayIso, isIsoDate, toIsoDate } from './dateRange.js'
 
@@ -93,3 +94,9 @@ export const readCashLedgerView = () => readLocal(CASH_LEDGER_VIEW_KEY)
 
 export const writeCashLedgerView = (value) =>
   writeLocal(CASH_LEDGER_VIEW_KEY, value || '')
+
+export const readSessionShowSalary = () =>
+  readLocal(SESSION_SHOW_SALARY_KEY) === '1'
+
+export const writeSessionShowSalary = (on) =>
+  writeLocal(SESSION_SHOW_SALARY_KEY, on ? '1' : '')

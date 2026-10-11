@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useOutletContext, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Trash2 } from "lucide-react";
-import { fetchAllActivities } from "../../api/activities.js";
+import { fetchAllActivities, reviewActivities } from "../../api/activities.js";
 import {
   deleteLabourDailyRecord,
   fetchLabourDailyRecords,
@@ -13,9 +13,10 @@ import {
   updateLabourDailyRecord,
 } from "../../api/labours.js";
 import {
-  activityTextToneClass,
+  activityCellToneClass,
   activityToneClass,
   applyActivitiesToSessionRows,
+  applyPendingActivitiesToHajiraRows,
 } from "../../api/types/activity.js";
 import {
   PRESENT_OPTIONS,
@@ -30,10 +31,13 @@ import {
   RECORD_LOG_FIELD_LABELS,
   summarizeDailyRecordLog,
 } from "../../components/DailyRecordHistoryPanel.jsx";
+import { HajiraActionBars } from "../../components/hajiraPage/HajiraActionBars.jsx";
+import { formatBulkReviewError } from "../../components/hajiraPage/helpers.js";
 import { useBillingLookups } from "../../hooks/useBillingLookup.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { useSitesLookup } from "../../hooks/useSites.js";
 import {
+  concatName,
   formatBnNumber,
   NULL_BILLING_LABEL,
 } from "../../utils/format.js";
@@ -41,34 +45,86 @@ import { confirmAction, toastApiError, toastInfo, toastSuccess } from "../../uti
 import { SHOW_BILLING } from "../../config/features.js";
 import { PERMS, hasPermissionSuffix } from "../../utils/permissions.js";
 import { todayIso } from "../../utils/dateRange.js";
+import {
+  readSessionShowSalary,
+  writeSessionShowSalary,
+} from "../../utils/sessionSelection.js";
 
 const RECORD_MODAL_ID = "session_record_detail_modal";
 const DATE_FILTER_MODAL_ID = "session_record_date_filter_modal";
-const EARNINGS_FILTER_MODAL_ID = "session_record_earnings_filter_modal";
-const PAYMENT_FILTER_MODAL_ID = "session_record_payment_filter_modal";
+const SITE_FILTER_MODAL_ID = "session_record_site_filter_modal";
 const HAJIRA_FILTER_MODAL_ID = "session_record_hajira_filter_modal";
+
+const BORDER_Y = "border-b border-b-base-content/35";
+const BORDER_Y_SOFT = "border-b border-b-base-content/15";
+const BORDER_X = "border-r border-r-base-content/35";
+const BORDER_X_INNER = "border-r border-r-base-content/15";
+const CELL = `${BORDER_Y} ${BORDER_X}`;
+const CELL_TOP = `${BORDER_Y_SOFT} ${BORDER_X}`;
+const CELL_TOP_INNER = `${BORDER_Y_SOFT} ${BORDER_X_INNER}`;
+const CELL_SUB = `${BORDER_Y} ${BORDER_X}`;
+const CELL_SUB_INNER = `${BORDER_Y} ${BORDER_X_INNER}`;
+const HEAD_BG = "!bg-base-300";
+const ROW_EVEN = "!bg-base-100";
+const ROW_ODD = "!bg-base-200";
+const FOOT_BG = "!bg-base-300";
+const VALUE_CELL =
+  "text-right align-middle tabular-nums whitespace-nowrap leading-tight px-1 text-xs";
+const PAIR_COL = "w-[22%] min-w-16";
+
+const takenOf = (obj) =>
+  obj?.taken != null ? num(obj.taken) : num(obj?.payment) + num(obj?.advance);
+
+const payableOf = (obj) =>
+  obj?.payable != null ? num(obj.payable) : num(obj?.earnings) - takenOf(obj);
+
+const signedTone = (value) =>
+  value > 0 ? "text-success" : value < 0 ? "text-error" : "";
+
+const Amount = ({ value, tone }) => {
+  if (!value) {
+    return <span className="opacity-35">—</span>;
+  }
+  return (
+    <span className={tone || undefined}>{formatBnNumber(value)}</span>
+  );
+};
+
+const PresentTimesSalary = ({ present, salary, showSalary }) => (
+  <span className="inline-flex w-full items-center justify-end gap-0.5 tabular-nums">
+    <Amount value={present} />
+    {showSalary ? (
+      <>
+        <span className="opacity-50">×</span>
+        <Amount value={salary} />
+      </>
+    ) : null}
+  </span>
+);
+
+const cellFill = (row, index) => {
+  const activity = activityCellToneClass(row.activityTone);
+  if (activity) return activity;
+  return index % 2 === 0 ? ROW_EVEN : ROW_ODD;
+};
+
+const SiteNameLabel = ({ name }) => {
+  if (!name) {
+    return <span className="opacity-35">—</span>;
+  }
+  return (
+    <span className="block min-w-0 leading-tight" title={name}>
+      <span className="sm:hidden">{concatName(name, 8)}</span>
+      <span className="hidden sm:inline md:hidden">{concatName(name, 14)}</span>
+      <span className="hidden md:inline">{concatName(name, 22)}</span>
+    </span>
+  );
+};
 
 const MODAL_VIEWS = {
   detail: "detail",
   history: "history",
 };
-
-const HAJIRA_FILTER_OPTIONS = [
-  { value: "present", label: "উপস্থিতি" },
-  { value: "salary", label: "বেতন" },
-  { value: "extra", label: "বাড়তি কাজ" },
-];
-
-const EARNINGS_FILTER_OPTIONS = [
-  { value: "from_present", label: "বেতন থেকে আয়" },
-  { value: "from_extra", label: "বাড়তি কাজ থেকে আয়" },
-];
-
-const PAYMENT_FILTER_OPTIONS = [
-  { value: "payment", label: "খোরাকি" },
-  { value: "advance", label: "অ্যাডভান্স" },
-  { value: "return", label: "রিটার্ন" },
-];
 
 const num = (value, fallback = 0) => {
   if (value == null || value === "") return fallback;
@@ -145,6 +201,7 @@ const buildRows = (records) => {
       payment: numOrEmpty(record.fooding_pay),
       advance: numOrEmpty(record.advance_pay),
       return: numOrEmpty(record.return_amount),
+      pending_activities: record.pending_activities,
     });
   }
 
@@ -183,33 +240,6 @@ const rowEarnings = (row, selected = ["from_present", "from_extra"]) => {
   return total;
 };
 
-const attendanceCellLines = (row, selectedFields) => {
-  const lines = [];
-  if (selectedFields.includes("present") && hasPresent(row)) {
-    lines.push({ key: "present", value: formatBnNumber(row.present) });
-  }
-  if (
-    selectedFields.includes("salary") &&
-    row.salary !== "" &&
-    row.salary != null &&
-    hasPresent(row) &&
-    Number(row.present) !== 0
-  ) {
-    lines.push({ key: "salary", value: formatBnNumber(row.salary) });
-  }
-  if (selectedFields.includes("extra") && hasExtra(row)) {
-    lines.push({ key: "extra", value: formatBnNumber(row.extra) });
-  }
-  return lines.length ? lines : [{ key: "empty", value: "—" }];
-};
-
-const hajiraTotalValue = (row, hajiraFields) => {
-  if (hajiraFields.includes("present")) return hasPresent(row) ? num(row.present) : 0;
-  if (hajiraFields.includes("salary")) return num(row.salary);
-  if (hajiraFields.includes("extra")) return hasExtra(row) ? num(row.extra) : 0;
-  return hasPresent(row) ? num(row.present) : 0;
-};
-
 const fetchAllLabourDailyRecords = async (labourId, rangeParams) => {
   const results = [];
   let page = 1;
@@ -243,24 +273,17 @@ export const LabourSessionRecordsPage = () => {
   const canViewActivityLog =
     can(PERMS.viewActivityLog) ||
     hasPermissionSuffix(profile, "view_activitylog");
+  const canChangeActivityLog =
+    can(PERMS.changeActivityLog) ||
+    hasPermissionSuffix(profile, "change_activitylog");
 
   const allowedSiteIds = useMemo(
     () => new Set(profileAllowedSiteIds(profile).map(String)),
     [profile],
   );
 
-  const [earningsFilter, setEarningsFilter] = useState([
-    "from_present",
-    "from_extra",
-  ]);
-  const [paymentFilter, setPaymentFilter] = useState([
-    "payment",
-    "advance",
-    "return",
-  ]);
   const [billingFilter, setBillingFilter] = useState("all");
   const [siteFilter, setSiteFilter] = useState("all");
-  const [hajiraFilter, setHajiraFilter] = useState(["present", "extra"]);
   const [dateStart, setDateStart] = useState(
     () => readDateRangeFromSearch(searchParams).start,
   );
@@ -271,14 +294,16 @@ export const LabourSessionRecordsPage = () => {
   const [draftDateEnd, setDraftDateEnd] = useState("");
   const [bulkSalary, setBulkSalary] = useState("");
   const [bulkSalaryBusy, setBulkSalaryBusy] = useState(false);
-  const [bulkFooding, setBulkFooding] = useState("");
-  const [bulkFoodingBusy, setBulkFoodingBusy] = useState(false);
   const [recordModal, setRecordModal] = useState(null);
   const [recordModalView, setRecordModalView] = useState(MODAL_VIEWS.detail);
   const [modalEditing, setModalEditing] = useState(false);
   const [modalSnapshot, setModalSnapshot] = useState(null);
   const [modalApiError, setModalApiError] = useState(null);
   const [expandedHistoryId, setExpandedHistoryId] = useState(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [reviewing, setReviewing] = useState(false);
+  const [showSalary, setShowSalary] = useState(() => readSessionShowSalary());
 
   const labourQuery = useQuery({
     queryKey: ["labours", labourId],
@@ -346,7 +371,9 @@ export const LabourSessionRecordsPage = () => {
   const rows = useMemo(() => {
     const base = buildRows(dailyRecordsQuery.data ?? []);
     if (!canViewActivityLog) return base;
-    return applyActivitiesToSessionRows(base, activitiesQuery.data ?? []);
+    return applyPendingActivitiesToHajiraRows(
+      applyActivitiesToSessionRows(base, activitiesQuery.data ?? []),
+    );
   }, [dailyRecordsQuery.data, activitiesQuery.data, canViewActivityLog]);
 
   const billingSiteIds = useMemo(() => {
@@ -478,36 +505,106 @@ export const LabourSessionRecordsPage = () => {
     billingFilter,
   ]);
 
+  const activityIdsForRow = (row) =>
+    (row?.activityLogs ?? row?.pending_activities ?? [])
+      .map((log) => Number(log.id))
+      .filter((id) => Number.isFinite(id));
+
+  const pendingIds = useMemo(() => {
+    const ids = new Set();
+    for (const row of visibleRows) {
+      for (const id of activityIdsForRow(row)) ids.add(id);
+    }
+    return [...ids];
+  }, [visibleRows]);
+
+  const allPendingSelected =
+    pendingIds.length > 0 && pendingIds.every((id) => selectedIds.has(id));
+  const somePendingSelected = pendingIds.some((id) => selectedIds.has(id));
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const toggleRowSelected = (row, checked) => {
+    const ids = activityIdsForRow(row);
+    if (!ids.length) return;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (checked) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (checked) => {
+    setSelectedIds(checked ? new Set(pendingIds) : new Set());
+  };
+
+  const onAcceptChanges = async () => {
+    const ids = [...selectedIds];
+    if (!canChangeActivityLog || ids.length === 0) return;
+    const ok = await confirmAction({
+      title: "অডিট নিশ্চিত করুন",
+      text: `${formatBnNumber(ids.length)}টি হাজিরা অডিট হবে। পরে বাতিল করা যাবে না।`,
+      confirmText: "অডিট করুন",
+      cancelText: "বাতিল",
+    });
+    if (!ok) return;
+
+    setReviewing(true);
+    try {
+      await reviewActivities(ids);
+      exitSelectMode();
+      await invalidateRecordQueries();
+      await queryClient.invalidateQueries({ queryKey: ["activities"] });
+      toastSuccess("অডিট সম্পন্ন হয়েছে");
+    } catch (err) {
+      const parsed = parseApiError(err);
+      const message = formatBulkReviewError(parsed);
+      toastApiError({
+        message,
+        errors: [{ code: null, detail: message, attr: null }],
+      });
+    } finally {
+      setReviewing(false);
+    }
+  };
+
   const totals = useMemo(
     () =>
       visibleRows.reduce(
         (result, row) => {
-          result.present += hajiraTotalValue(row, hajiraFilter);
-          result.earnings += rowEarnings(row, earningsFilter);
-          if (paymentFilter.includes("payment")) {
-            result.payment += num(row.payment);
-          }
-          if (paymentFilter.includes("advance")) {
-            result.advance += num(row.advance);
-          }
-          if (paymentFilter.includes("return")) {
-            result.return += num(row.return);
-          }
+          result.present += hasPresent(row) ? num(row.present) : 0;
+          result.salary += num(row.salary);
+          result.extra += hasExtra(row) ? num(row.extra) : 0;
+          result.earnings += rowEarnings(row);
+          result.payment += num(row.payment);
+          result.advance += num(row.advance);
+          result.return += num(row.return);
           return result;
         },
-        { present: 0, earnings: 0, payment: 0, advance: 0, return: 0 },
+        {
+          present: 0,
+          salary: 0,
+          extra: 0,
+          earnings: 0,
+          payment: 0,
+          advance: 0,
+          return: 0,
+        },
       ),
-    [visibleRows, earningsFilter, paymentFilter, hajiraFilter],
+    [visibleRows],
   );
 
   const dateFilterActive = Boolean(toIsoDate(dateStart) && toIsoDate(dateEnd));
   const dateHeaderLabel = dateFilterActive ? "তারিখ*" : "তারিখ";
-  const earningsHeaderLabel =
-    earningsFilter.length === EARNINGS_FILTER_OPTIONS.length ? "আয়" : "আয়*";
-  const paymentHeaderLabel =
-    paymentFilter.length === PAYMENT_FILTER_OPTIONS.length
-      ? "লেনদেন"
-      : "লেনদেন*";
+  const siteFilterActive =
+    uniqueSites.length > 1 && selectedSiteId !== "all";
+  const siteHeaderLabel = siteFilterActive ? "সাইট*" : "সাইট";
 
   const closeDateFilterModal = () => {
     document.getElementById(DATE_FILTER_MODAL_ID)?.close();
@@ -575,47 +672,6 @@ export const LabourSessionRecordsPage = () => {
       toastApiError(parseApiError(error));
     } finally {
       setBulkSalaryBusy(false);
-    }
-  };
-
-  const applyBulkFooding = async () => {
-    const fooding = numOrEmpty(bulkFooding);
-    if (fooding === "" || !canChangeDailyRecord || bulkFoodingBusy) return;
-    const fooding_pay = Number(fooding);
-    if (!Number.isFinite(fooding_pay) || fooding_pay < 0) return;
-
-    const targets = visibleRows.filter(
-      (row) => row.recordId && !row.sealed && isSiteAllowed(row.siteId),
-    );
-    if (!targets.length) {
-      toastInfo("আপডেট করার মতো কোনো রেকর্ড নেই।");
-      return;
-    }
-
-    setBulkFoodingBusy(true);
-    try {
-      const results = await Promise.allSettled(
-        targets.map((row) =>
-          updateLabourDailyRecord(labourId, row.recordId, { fooding_pay }),
-        ),
-      );
-      const failed = results.filter((result) => result.status === "rejected");
-      await invalidateRecordQueries();
-      if (failed.length === 0) {
-        toastSuccess("খোরাকি সেট হয়েছে");
-        setBulkFooding("");
-        document.getElementById(PAYMENT_FILTER_MODAL_ID)?.close();
-      } else if (failed.length < results.length) {
-        toastInfo(
-          `${formatBnNumber(failed.length)}টি রেকর্ড আপডেট হয়নি।`,
-        );
-      } else {
-        toastApiError(parseApiError(failed[0].reason));
-      }
-    } catch (error) {
-      toastApiError(parseApiError(error));
-    } finally {
-      setBulkFoodingBusy(false);
     }
   };
 
@@ -922,49 +978,67 @@ export const LabourSessionRecordsPage = () => {
         <ApiErrorAlert error={parseApiError(recordsError)} />
       ) : null}
 
-      <div
-        className={`flex items-center gap-2 shrink-0 px-3 ${
-          SHOW_BILLING ? "justify-between" : "justify-end"
-        }`}
-      >
-        {SHOW_BILLING ? (
-        <select
-          className="select select-bordered select-sm min-w-36"
-          value={billingEnabled ? billingFilter : "all"}
-          disabled={!billingEnabled}
-          onChange={(e) => setBillingFilter(e.target.value)}
-          aria-label="বিলিং ফিল্টার"
-        >
-          {billingFilterOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        ) : null}
-        <select
-          className="select select-bordered select-sm min-w-0 w-44 max-w-44"
-          value={selectedSiteId}
-          onChange={(e) => {
-            setSiteFilter(e.target.value);
-            setBillingFilter("all");
-          }}
-          aria-label="সাইট ফিল্টার"
-        >
-          {siteFilterOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      {SHOW_BILLING ? (
+        <div className="flex items-center justify-end gap-2 shrink-0 px-3">
+          <select
+            className="select select-bordered select-sm min-w-36"
+            value={billingEnabled ? billingFilter : "all"}
+            disabled={!billingEnabled}
+            onChange={(e) => setBillingFilter(e.target.value)}
+            aria-label="বিলিং ফিল্টার"
+          >
+            {billingFilterOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
 
-      <div className="flex-1 min-h-0 overflow-auto">
-        <table className="table table-sm sm:table-md w-full">
-          <thead className="sticky top-0 z-10 bg-base-200">
-            <tr className="border-b border-base-300 text-sm">
-              <th>নং</th>
-              <th>
+      <div className="flex-1 min-h-0 overflow-auto pb-24">
+        <table className="table table-xs table-fixed w-full bg-transparent text-xs border-separate border-spacing-0 border-t border-l border-base-content/35 [&_th]:!px-1 [&_th]:!py-2 sm:[&_th]:!py-3 [&_th]:!bg-base-300 [&_td]:!px-0.5 [&_td]:!py-1 [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
+          <colgroup>
+            <col className="w-10" />
+            <col className="w-[18%] min-w-16" />
+            <col />
+            <col className={PAIR_COL} />
+            <col className={PAIR_COL} />
+          </colgroup>
+          <thead className={`sticky top-0 z-10 ${HEAD_BG}`}>
+            <tr>
+              <th className={`w-10 align-middle text-center ${CELL} ${HEAD_BG}`}>
+                <span className="inline-flex w-full items-center justify-center">
+                  {selectMode && canChangeActivityLog ? (
+                    <input
+                      type="checkbox"
+                      className="checkbox checkbox-xs"
+                      checked={allPendingSelected}
+                      ref={(el) => {
+                        if (el) {
+                          el.indeterminate =
+                            somePendingSelected && !allPendingSelected;
+                        }
+                      }}
+                      disabled={pendingIds.length === 0}
+                      aria-label="সব নির্বাচন"
+                      onChange={(e) => toggleSelectAll(e.target.checked)}
+                    />
+                  ) : canChangeActivityLog ? (
+                    <button
+                      type="button"
+                      className="font-bold"
+                      onClick={() => setSelectMode(true)}
+                      title="নির্বাচন মোড"
+                    >
+                      নং
+                    </button>
+                  ) : (
+                    "নং"
+                  )}
+                </span>
+              </th>
+              <th className={`min-w-0 pl-1 align-middle ${CELL} ${HEAD_BG}`}>
                 <button
                   type="button"
                   onClick={openDateFilter}
@@ -973,39 +1047,35 @@ export const LabourSessionRecordsPage = () => {
                   {dateHeaderLabel}
                 </button>
               </th>
-              <th className="text-right">
+              <th className={`min-w-0 pl-1 align-middle ${CELL} ${HEAD_BG}`}>
                 <button
                   type="button"
                   onClick={() =>
-                    document.getElementById(HAJIRA_FILTER_MODAL_ID)?.showModal()
+                    document.getElementById(SITE_FILTER_MODAL_ID)?.showModal()
+                  }
+                  disabled={uniqueSites.length === 0}
+                >
+                  {siteHeaderLabel}
+                </button>
+              </th>
+              <th
+                className={`text-center align-middle font-medium ${PAIR_COL} ${CELL} ${HEAD_BG}`}
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    document
+                      .getElementById(HAJIRA_FILTER_MODAL_ID)
+                      ?.showModal()
                   }
                 >
                   হাজিরা
                 </button>
               </th>
-              <th className="text-right">
-                <button
-                  type="button"
-                  onClick={() =>
-                    document
-                      .getElementById(EARNINGS_FILTER_MODAL_ID)
-                      ?.showModal()
-                  }
-                >
-                  {earningsHeaderLabel}
-                </button>
-              </th>
-              <th className="text-right">
-                <button
-                  type="button"
-                  onClick={() =>
-                    document
-                      .getElementById(PAYMENT_FILTER_MODAL_ID)
-                      ?.showModal()
-                  }
-                >
-                  {paymentHeaderLabel}
-                </button>
+              <th
+                className={`text-center align-middle font-medium ${PAIR_COL} ${CELL} ${HEAD_BG}`}
+              >
+                লেনদেন
               </th>
             </tr>
           </thead>
@@ -1014,128 +1084,198 @@ export const LabourSessionRecordsPage = () => {
               <tr>
                 <td
                   colSpan={5}
-                  className="text-center text-sm text-base-content/60 py-10"
+                  className={`text-center text-sm text-base-content/60 !py-10 ${CELL}`}
                 >
                   কোনো রেকর্ড পাওয়া যায়নি।
                 </td>
               </tr>
             ) : (
               visibleRows.map((row, index) => {
-                const earnings = rowEarnings(row, earningsFilter);
-                const paymentPart = paymentFilter.includes("payment")
-                  ? hasAmount(row.payment)
-                    ? num(row.payment)
-                    : null
-                  : null;
-                const advancePart = paymentFilter.includes("advance")
-                  ? hasAmount(row.advance)
-                    ? num(row.advance)
-                    : null
-                  : null;
-                const outflowParts = [paymentPart, advancePart].filter(
-                  (v) => v != null,
-                );
-                const showOutflow = outflowParts.length > 0;
-                const outflow = outflowParts.reduce((sum, n) => sum + n, 0);
-                const showRet =
-                  paymentFilter.includes("return") && hasAmount(row.return);
-                const attendanceLines = attendanceCellLines(row, hajiraFilter);
-                const hajiraTone =
-                  activityTextToneClass(row.activityTone) ||
-                  "text-base-content/70";
+                const fill = cellFill(row, index);
+                const auditRowClass = activityToneClass(row.activityTone);
+                const showRet = hasAmount(row.return);
+                const rowKey = `${row.date}-${row.siteId ?? ""}-${row.recordId ?? index}`;
+                const rowActivityIds = activityIdsForRow(row);
+                const selectable = rowActivityIds.length > 0;
+                const rowSelected =
+                  selectable &&
+                  rowActivityIds.every((id) => selectedIds.has(id));
 
                 return (
-                  <tr
-                    key={`${row.date}-${row.siteId ?? ""}-${row.recordId ?? index}`}
-                    className={[
-                      "border-b border-base-300/70 cursor-pointer",
-                      activityToneClass(row.activityTone),
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    onClick={() => openRecordModal(row)}
-                  >
-                    <td className="tabular-nums text-base-content/60">
-                      {formatBnNumber(index + 1)}
-                    </td>
-                    <td className="whitespace-nowrap">{formatDate(row.date)}</td>
-                    <td className={`text-right ${hajiraTone}`}>
-                      <span className="block w-full space-y-0.5 text-right leading-tight">
-                        {attendanceLines.map((line) => (
-                          <span
-                            key={line.key}
-                            className="block w-full truncate text-right tabular-nums"
-                            title={line.value}
-                          >
-                            {line.value}
-                          </span>
-                        ))}
-                      </span>
-                    </td>
-                    <td className="text-right tabular-nums">
-                      {earnings ? formatBnNumber(earnings) : "—"}
-                    </td>
-                    <td className="text-right">
-                      {showOutflow || showRet ? (
-                        <span className="block w-full tabular-nums space-y-0.5 text-right">
-                          {showOutflow ? (
-                            <span className="block w-full text-right text-error">
-                              {formatBnNumber(outflow)}
-                            </span>
-                          ) : null}
+                  <Fragment key={rowKey}>
+                    <tr className={`bg-transparent ${auditRowClass}`}>
+                      <td
+                        rowSpan={2}
+                        className={`align-middle text-center tabular-nums text-base-content/60 w-10 cursor-pointer ${CELL} ${fill}`}
+                        onClick={() => {
+                          if (selectMode && canChangeActivityLog) return;
+                          openRecordModal(row);
+                        }}
+                      >
+                        <span className="inline-flex w-full items-center justify-center">
+                          {selectMode && canChangeActivityLog ? (
+                            <input
+                              type="checkbox"
+                              className="checkbox checkbox-xs"
+                              checked={rowSelected}
+                              disabled={!selectable}
+                              aria-label={`নির্বাচন ${formatBnNumber(index + 1)}`}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) =>
+                                toggleRowSelected(row, e.target.checked)
+                              }
+                            />
+                          ) : (
+                            formatBnNumber(index + 1)
+                          )}
+                        </span>
+                      </td>
+                      <td
+                        rowSpan={2}
+                        className={`align-middle whitespace-nowrap pl-1 cursor-pointer ${CELL} ${fill}`}
+                        onClick={() => openRecordModal(row)}
+                      >
+                        {formatDate(row.date)}
+                      </td>
+                      <td
+                        rowSpan={2}
+                        className={`align-middle min-w-0 pl-1 cursor-pointer ${CELL} ${fill}`}
+                        onClick={() => openRecordModal(row)}
+                        title={
+                          row.siteId != null && row.siteId !== ""
+                            ? getSiteName(row.siteId)
+                            : undefined
+                        }
+                      >
+                        <SiteNameLabel
+                          name={
+                            row.siteId != null && row.siteId !== ""
+                              ? getSiteName(row.siteId)
+                              : ""
+                          }
+                        />
+                      </td>
+                      <td
+                        className={`${VALUE_CELL} ${CELL_TOP_INNER} ${fill} cursor-pointer`}
+                        onClick={() => openRecordModal(row)}
+                      >
+                        <PresentTimesSalary
+                          present={row.present}
+                          salary={row.salary}
+                          showSalary={showSalary}
+                        />
+                      </td>
+                      <td
+                        className={`${VALUE_CELL} ${CELL_TOP} ${fill} cursor-pointer`}
+                        onClick={() => openRecordModal(row)}
+                      >
+                        <Amount value={row.payment} tone="text-error" />
+                      </td>
+                    </tr>
+                    <tr className={`bg-transparent ${auditRowClass}`}>
+                      <td
+                        className={`${VALUE_CELL} ${CELL_SUB_INNER} ${fill} cursor-pointer`}
+                        onClick={() => openRecordModal(row)}
+                      >
+                        <Amount value={row.extra} tone="text-success" />
+                      </td>
+                      <td
+                        className={`${VALUE_CELL} ${CELL_SUB} ${fill} cursor-pointer`}
+                        onClick={() => openRecordModal(row)}
+                      >
+                        <span className="block leading-tight">
+                          <Amount value={row.advance} tone="text-error" />
                           {showRet ? (
-                            <span className="block w-full text-right text-success">
-                              {formatBnNumber(row.return)}
+                            <span className="block">
+                              <Amount value={row.return} />
                             </span>
                           ) : null}
                         </span>
-                      ) : (
-                        <span className="block w-full text-right text-base-content/60">
-                          —
-                        </span>
-                      )}
-                    </td>
-                  </tr>
+                      </td>
+                    </tr>
+                  </Fragment>
                 );
               })
             )}
           </tbody>
           {visibleRows.length > 0 ? (
             <tfoot>
-              <tr className="border-t border-base-300">
-                <td />
-                <td className="whitespace-nowrap">মোট</td>
-                <td className="text-right tabular-nums">
-                  {totals.present ? formatBnNumber(totals.present) : "—"}
+              <tr className="font-medium bg-transparent">
+                <td
+                  colSpan={3}
+                  rowSpan={2}
+                  className={`align-middle whitespace-nowrap text-right pr-1 ${CELL} ${FOOT_BG}`}
+                >
+                  মোট
                 </td>
-                <td className="text-right tabular-nums">
-                  {totals.earnings ? formatBnNumber(totals.earnings) : "—"}
+                <td className={`${VALUE_CELL} ${CELL_TOP_INNER} ${FOOT_BG}`}>
+                  <PresentTimesSalary
+                    present={totals.present}
+                    salary={totals.salary}
+                    showSalary={showSalary}
+                  />
                 </td>
-                <td className="text-right">
-                  {totals.payment || totals.advance || totals.return ? (
-                    <span className="block w-full tabular-nums space-y-0.5 text-right">
-                      {totals.payment || totals.advance ? (
-                        <span className="block w-full text-right text-error">
-                          {formatBnNumber(totals.payment + totals.advance)}
-                        </span>
-                      ) : null}
-                      {totals.return ? (
-                        <span className="block w-full text-right text-success">
-                          {formatBnNumber(totals.return)}
-                        </span>
-                      ) : null}
-                    </span>
-                  ) : (
-                    <span className="block w-full text-right text-base-content/60">
-                      —
-                    </span>
-                  )}
+                <td className={`${VALUE_CELL} ${CELL_TOP} ${FOOT_BG}`}>
+                  <Amount value={totals.payment} tone="text-error" />
+                </td>
+              </tr>
+              <tr className="font-medium bg-transparent">
+                <td className={`${VALUE_CELL} ${CELL_SUB_INNER} ${FOOT_BG}`}>
+                  <Amount value={totals.extra} tone="text-success" />
+                </td>
+                <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}>
+                  <Amount value={totals.advance} tone="text-error" />
+                </td>
+              </tr>
+              <tr className="font-medium bg-transparent">
+                <td
+                  colSpan={3}
+                  className={`align-middle whitespace-nowrap text-right pr-1 ${CELL} ${FOOT_BG}`}
+                >
+                  সর্বমোট
+                </td>
+                <td className={`${VALUE_CELL} ${CELL_SUB_INNER} ${FOOT_BG}`}>
+                  <Amount value={num(totals.earnings)} tone="text-success" />
+                </td>
+                <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}>
+                  <Amount value={takenOf(totals)} tone="text-error" />
+                </td>
+              </tr>
+              <tr className="font-medium bg-transparent">
+                <td
+                  colSpan={3}
+                  className={`align-middle whitespace-nowrap text-right pr-1 ${signedTone(payableOf(totals))} ${CELL} ${FOOT_BG}`}
+                >
+                  অবশিষ্ট
+                </td>
+                <td
+                  colSpan={2}
+                  className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}
+                >
+                  <Amount
+                    value={payableOf(totals)}
+                    tone={signedTone(payableOf(totals))}
+                  />
                 </td>
               </tr>
             </tfoot>
           ) : null}
         </table>
       </div>
+
+      <HajiraActionBars
+        hasPendingCreates={false}
+        onCancel={exitSelectMode}
+        saving={false}
+        onSave={() => {}}
+        rows={visibleRows}
+        selectMode={selectMode}
+        canChangeActivityLog={canChangeActivityLog}
+        reviewing={reviewing}
+        exitSelectMode={exitSelectMode}
+        selectedIds={selectedIds}
+        onAcceptChanges={onAcceptChanges}
+      />
 
       <dialog
         id={RECORD_MODAL_ID}
@@ -1558,6 +1698,45 @@ export const LabourSessionRecordsPage = () => {
         </div>
       </dialog>
 
+      <dialog id={SITE_FILTER_MODAL_ID} className="modal">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
+          <form method="dialog">
+            <button
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              ✕
+            </button>
+          </form>
+          <h3 className="font-bold text-lg pr-8 shrink-0">সাইট</h3>
+          <div className="flex flex-col gap-3 pt-3 flex-1 min-h-0 overflow-y-auto">
+            <div className="flex flex-col gap-2">
+              {siteFilterOptions.map((opt) => (
+                <label
+                  key={opt.value}
+                  className="inline-flex items-center gap-2 cursor-pointer text-sm"
+                >
+                  <input
+                    type="radio"
+                    className="radio radio-xs"
+                    name="session-site-filter"
+                    checked={String(selectedSiteId) === String(opt.value)}
+                    onChange={() => {
+                      setSiteFilter(opt.value);
+                      setBillingFilter("all");
+                    }}
+                  />
+                  <span className="min-w-0 truncate">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
+      </dialog>
+
       <dialog id={DATE_FILTER_MODAL_ID} className="modal">
         <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
@@ -1631,47 +1810,6 @@ export const LabourSessionRecordsPage = () => {
         </div>
       </dialog>
 
-      <dialog id={EARNINGS_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
-          <form method="dialog">
-            <button
-              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-              aria-label="বন্ধ"
-            >
-              ✕
-            </button>
-          </form>
-          <h3 className="font-bold text-lg pr-8 shrink-0">আয়</h3>
-          <div className="flex flex-col gap-3 pt-3 flex-1 min-h-0 overflow-y-auto">
-            <div className="flex flex-wrap gap-x-4 gap-y-2">
-              {EARNINGS_FILTER_OPTIONS.map((option) => (
-                <label
-                  key={option.value}
-                  className="inline-flex items-center gap-2 cursor-pointer text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    className="checkbox checkbox-xs"
-                    checked={earningsFilter.includes(option.value)}
-                    onChange={() => {
-                      setEarningsFilter((prev) =>
-                        prev.includes(option.value)
-                          ? prev.filter((value) => value !== option.value)
-                          : [...prev, option.value],
-                      );
-                    }}
-                  />
-                  <span>{option.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="modal-backdrop">
-          <button type="button" tabIndex={-1} aria-hidden="true" />
-        </div>
-      </dialog>
-
       <dialog id={HAJIRA_FILTER_MODAL_ID} className="modal">
         <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
           <form method="dialog">
@@ -1684,28 +1822,19 @@ export const LabourSessionRecordsPage = () => {
           </form>
           <h3 className="font-bold text-lg pr-8 shrink-0">হাজিরা</h3>
           <div className="flex flex-col gap-3 pt-3 flex-1 min-h-0 overflow-y-auto">
-            <div className="flex flex-wrap gap-x-4 gap-y-2">
-              {HAJIRA_FILTER_OPTIONS.map((option) => (
-                <label
-                  key={option.value}
-                  className="inline-flex items-center gap-2 cursor-pointer text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    className="checkbox checkbox-xs"
-                    checked={hajiraFilter.includes(option.value)}
-                    onChange={() => {
-                      setHajiraFilter((prev) =>
-                        prev.includes(option.value)
-                          ? prev.filter((value) => value !== option.value)
-                          : [...prev, option.value],
-                      );
-                    }}
-                  />
-                  <span>{option.label}</span>
-                </label>
-              ))}
-            </div>
+            <label className="inline-flex items-center gap-2 cursor-pointer text-sm">
+              <input
+                type="checkbox"
+                className="checkbox checkbox-xs"
+                checked={showSalary}
+                onChange={(e) => {
+                  const next = e.target.checked;
+                  setShowSalary(next);
+                  writeSessionShowSalary(next);
+                }}
+              />
+              <span>বেতন দেখুন</span>
+            </label>
             {canChangeDailyRecord ? (
               <div className="space-y-3 border-t border-base-300 pt-3">
                 <label className="form-control w-full">
@@ -1733,81 +1862,6 @@ export const LabourSessionRecordsPage = () => {
                     }
                   >
                     {bulkSalaryBusy ? (
-                      <span className="loading loading-spinner loading-sm" />
-                    ) : null}
-                    সেট করুন
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-        <div className="modal-backdrop">
-          <button type="button" tabIndex={-1} aria-hidden="true" />
-        </div>
-      </dialog>
-
-      <dialog id={PAYMENT_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
-          <form method="dialog">
-            <button
-              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-              aria-label="বন্ধ"
-            >
-              ✕
-            </button>
-          </form>
-          <h3 className="font-bold text-lg pr-8 shrink-0">লেনদেন</h3>
-          <div className="flex flex-col gap-3 pt-3 flex-1 min-h-0 overflow-y-auto">
-            <div className="flex flex-wrap gap-x-4 gap-y-2">
-              {PAYMENT_FILTER_OPTIONS.map((option) => (
-                <label
-                  key={option.value}
-                  className="inline-flex items-center gap-2 cursor-pointer text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    className="checkbox checkbox-xs"
-                    checked={paymentFilter.includes(option.value)}
-                    onChange={() => {
-                      setPaymentFilter((prev) =>
-                        prev.includes(option.value)
-                          ? prev.filter((value) => value !== option.value)
-                          : [...prev, option.value],
-                      );
-                    }}
-                  />
-                  <span>{option.label}</span>
-                </label>
-              ))}
-            </div>
-            {canChangeDailyRecord ? (
-              <div className="space-y-3 border-t border-base-300 pt-3">
-                <label className="form-control w-full">
-                  <span className="label-text text-sm">খোরাকি</span>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    step={1}
-                    className="input input-bordered input-sm w-full tabular-nums"
-                    value={bulkFooding}
-                    disabled={bulkFoodingBusy}
-                    onChange={(e) => setBulkFooding(numOrEmpty(e.target.value))}
-                  />
-                </label>
-                <div className="modal-action pt-1">
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={() => void applyBulkFooding()}
-                    disabled={
-                      bulkFoodingBusy ||
-                      bulkFooding === "" ||
-                      bulkFooding == null
-                    }
-                  >
-                    {bulkFoodingBusy ? (
                       <span className="loading loading-spinner loading-sm" />
                     ) : null}
                     সেট করুন
