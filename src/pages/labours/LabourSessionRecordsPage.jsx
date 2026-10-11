@@ -1059,7 +1059,8 @@ export const LabourSessionRecordsPage = () => {
                 </button>
               </th>
               <th
-                className={`text-center align-middle font-medium ${PAIR_COL} ${CELL} ${HEAD_BG}`}
+                colSpan={2}
+                className={`text-center align-middle font-medium ${CELL} ${HEAD_BG}`}
               >
                 <button
                   type="button"
@@ -1071,11 +1072,6 @@ export const LabourSessionRecordsPage = () => {
                 >
                   হাজিরা
                 </button>
-              </th>
-              <th
-                className={`text-center align-middle font-medium ${PAIR_COL} ${CELL} ${HEAD_BG}`}
-              >
-                লেনদেন
               </th>
             </tr>
           </thead>
@@ -1833,7 +1829,7 @@ export const LabourSessionRecordsPage = () => {
                   writeSessionShowSalary(next);
                 }}
               />
-              <span>বেতন দেখুন</span>
+              <span>বেতন দেখান</span>
             </label>
             {canChangeDailyRecord ? (
               <div className="space-y-3 border-t border-base-300 pt-3">
