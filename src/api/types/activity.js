@@ -11,17 +11,18 @@ export const ACTIVITY_TONES = {
 
 export const activityToneClass = (tone) => {
   // Apply on <tr> via child tds — row background alone often does not paint.
-  if (tone === ACTIVITY_TONES.created) return '[&>td]:bg-success/20'
-  if (tone === ACTIVITY_TONES.updated) return '[&>td]:bg-warning/20'
-  if (tone === ACTIVITY_TONES.deleted) return '[&>td]:bg-error/15'
+  // `!bg-*` beats table rules like `[&_td]:bg-transparent`.
+  if (tone === ACTIVITY_TONES.created) return '[&>td]:bg-success/20 [&>td]:!bg-success/20'
+  if (tone === ACTIVITY_TONES.updated) return '[&>td]:bg-warning/20 [&>td]:!bg-warning/20'
+  if (tone === ACTIVITY_TONES.deleted) return '[&>td]:bg-error/15 [&>td]:!bg-error/15'
   return ''
 }
 
 /** Background for a single cell / field with its own entity activity. */
 export const activityCellToneClass = (tone) => {
-  if (tone === ACTIVITY_TONES.created) return 'bg-success/20'
-  if (tone === ACTIVITY_TONES.updated) return 'bg-warning/20'
-  if (tone === ACTIVITY_TONES.deleted) return 'bg-error/15'
+  if (tone === ACTIVITY_TONES.created) return 'bg-success/20 !bg-success/20'
+  if (tone === ACTIVITY_TONES.updated) return 'bg-warning/20 !bg-warning/20'
+  if (tone === ACTIVITY_TONES.deleted) return 'bg-error/15 !bg-error/15'
   return ''
 }
 

@@ -19,7 +19,7 @@ const CELL_SUB_INNER = `${BORDER_Y} ${BORDER_X_INNER}`;
 const CELL_PIN = BORDER_Y;
 const STICKY_PIN = "sticky left-0 z-[2]";
 const STICKY_PIN_FOOT = "sticky left-0 z-[3]";
-const HEAD_BG = "!bg-base-200";
+const HEAD_BG = "!bg-base-300";
 const STICKY_PIN_HEAD = `sticky left-0 z-20 ${HEAD_BG}`;
 const ROW_EVEN = "!bg-base-100";
 const ROW_ODD = "!bg-base-200";
@@ -82,7 +82,7 @@ export function HajiraRangeTable({
         </p>
       ) : null}
       <div className="flex-1 min-h-0 overflow-auto pb-8">
-        <table className="table table-xs w-max bg-transparent text-xs border-separate border-spacing-0 border-t border-l border-base-content/35 [&_th]:!px-1 [&_th]:!py-0.5 [&_td]:!px-0.5 [&_td]:!py-1 [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
+        <table className="table table-xs w-max bg-transparent text-xs border-separate border-spacing-0 border-t border-l border-base-content/35 [&_th]:!px-1 [&_th]:!py-2 sm:[&_th]:!py-3 [&_th]:!bg-base-300 [&_td]:!px-0.5 [&_td]:!py-1 [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
           <thead className={`sticky top-0 z-10 ${HEAD_BG}`}>
             <tr>
               <th className={`w-7 align-middle ${CELL} ${HEAD_BG}`}>নং</th>

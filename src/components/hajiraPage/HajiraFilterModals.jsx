@@ -154,6 +154,7 @@ export function HajiraFilterModals({
           </form>
           <h3 className="font-bold text-lg pr-8 shrink-0">হাজিরা</h3>
           <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pt-3">
+            {HAJIRA_FILTER_OPTIONS.length > 0 ? (
             <div>
               <div className="flex flex-wrap gap-x-4 gap-y-2">
                 {HAJIRA_FILTER_OPTIONS.map((opt) => {
@@ -186,8 +187,9 @@ export function HajiraFilterModals({
                 })}
               </div>
             </div>
+            ) : null}
             {showBulkSection ? (
-              <div className="space-y-3 border-t border-base-300 pt-3">
+              <div className={`space-y-3 ${HAJIRA_FILTER_OPTIONS.length > 0 ? "border-t border-base-300 pt-3" : ""}`}>
                 <div className="grid grid-cols-2 gap-3">
                   <label className="form-control w-full min-w-0">
                     <span className="label-text text-sm">হাজিরা</span>

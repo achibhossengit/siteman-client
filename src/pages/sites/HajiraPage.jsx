@@ -51,7 +51,6 @@ import {
   emptyBulkPayment,
   formatBulkDailyRecordCreateError,
   formatBulkReviewError,
-  hajiraTotalValue,
   hasAmount,
   hasAttendanceData,
   hasMeaningfulDayValue,
@@ -182,11 +181,7 @@ export const HajiraPage = () => {
   const [earningsFilter, setEarningsFilter] = useState(() => [
     ...EARNINGS_DEFAULT_FIELDS,
   ]);
-  const [paymentFilter, setPaymentFilter] = useState([
-    "payment",
-    "advance",
-    "return",
-  ]);
+  const [paymentFilter, setPaymentFilter] = useState(["return"]);
   const [billingFilter, setBillingFilter] = useState(["all"]);
   const [hajiraFilter, setHajiraFilter] = useState([
     "present",
@@ -503,13 +498,6 @@ export const HajiraPage = () => {
   const viewPaymentFilter = paymentFilter;
   const viewBillingFilter = SHOW_BILLING ? billingFilter : ["all"];
   const viewHajiraFields = hajiraFilter.filter((field) => field !== "billing");
-  const viewHajiraFilter = viewHajiraFields.includes("present")
-    ? "present"
-    : viewHajiraFields.includes("salary")
-      ? "salary"
-      : viewHajiraFields.includes("extra")
-        ? "extra"
-        : "present";
 
   const visibleRows = useMemo(() => {
     const selected = Array.isArray(viewBillingFilter)
@@ -537,25 +525,23 @@ export const HajiraPage = () => {
 
   const totals = useMemo(() => {
     let present = 0;
+    let extra = 0;
     let earnings = 0;
     let payment = 0;
     let advance = 0;
     let ret = 0;
     for (const row of visibleRows) {
-      present += hajiraTotalValue(row, viewHajiraFilter);
+      present += Number(row.present) || 0;
+      extra += Number(row.extra) || 0;
       earnings += dayEarnings(row, viewEarningsFilter);
-      if (viewPaymentFilter.includes("payment")) {
-        payment += paymentAmountOf(row);
-      }
-      if (viewPaymentFilter.includes("advance")) {
-        advance += advanceAmountOf(row);
-      }
+      payment += paymentAmountOf(row);
+      advance += advanceAmountOf(row);
       if (viewPaymentFilter.includes("return")) {
         ret += returnAmountOf(row);
       }
     }
-    return { present, earnings, payment, advance, return: ret };
-  }, [visibleRows, viewEarningsFilter, viewPaymentFilter, viewHajiraFilter]);
+    return { present, extra, earnings, payment, advance, return: ret };
+  }, [visibleRows, viewEarningsFilter, viewPaymentFilter]);
 
   const showReturnAmount = (row) =>
     viewPaymentFilter.includes("return") && hasAmount(row.return);
@@ -1365,7 +1351,7 @@ export const HajiraPage = () => {
       : [];
 
   const tableColCount =
-    4 + (showAyColumn ? 1 : 0) + (SHOW_BILLING ? 1 : 0);
+    5 + (showAyColumn ? 1 : 0) + (SHOW_BILLING ? 1 : 0);
 
   const patchRecordModal = (patch) => {
     setRecordModal((m) => {

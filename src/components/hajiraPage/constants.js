@@ -10,11 +10,7 @@ export const PAYMENT_FILTER_MODAL_ID = "hajira_payment_filter_modal";
 export const HAJIRA_FILTER_MODAL_ID = "hajira_hajira_filter_modal";
 export const BILLING_FILTER_MODAL_ID = "hajira_billing_filter_modal";
 
-export const HAJIRA_FILTER_OPTIONS = [
-  { value: "present", label: "উপস্থিতি" },
-  { value: "salary", label: "বেতন" },
-  { value: "extra", label: "বাড়তি কাজ" },
-];
+export const HAJIRA_FILTER_OPTIONS = [];
 
 export const HAJIRA_DEFAULT_FIELDS = ["present", "extra"];
 
@@ -35,8 +31,6 @@ export const EARNINGS_DEFAULT_FIELDS = EARNINGS_FILTER_OPTIONS.map(
 );
 
 export const PAYMENT_FILTER_OPTIONS = [
-  { value: "payment", label: "খোরাকি" },
-  { value: "advance", label: "অ্যাডভান্স" },
   { value: "return", label: "রিটার্ন" },
 ];
 
