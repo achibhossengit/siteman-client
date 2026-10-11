@@ -13,7 +13,7 @@ import { z } from 'zod'
 export const CASH_TYPES = [
   { value: 'deposit', label: 'জমা' },
   { value: 'withdrawal', label: 'উত্তোলন' },
-  { value: 'cost', label: 'খরচ' },
+  { value: 'cost', label: 'সাইট খরচ' },
 ]
 
 export const cashTypeLabel = (type) =>

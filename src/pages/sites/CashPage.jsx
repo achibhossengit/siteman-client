@@ -43,9 +43,15 @@ import {
   dateFilterParams,
   formatDateBn,
   formatDateColBn,
+  isIsoDate,
   isMultiDaySelection,
+  normalizeEndDate,
   todayIso,
 } from "../../utils/dateRange.js";
+import {
+  readCashLedgerView,
+  writeCashLedgerView,
+} from "../../utils/sessionSelection.js";
 import { SHOW_BILLING, visibleFieldItems } from "../../config/features.js";
 import { useBillingLookup } from "../../hooks/useBillingLookup.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
@@ -58,7 +64,6 @@ import {
 } from "../../api/types/activity.js";
 
 const MODAL_ID = "site_cash_modal";
-const TYPE_FILTER_MODAL_ID = "cash_type_filter_modal";
 const BILLING_FILTER_MODAL_ID = "cash_billing_filter_modal";
 const PAGE_SIZE = 100;
 
@@ -214,10 +219,36 @@ const shortActionLabel = (action) => {
   return "তৈরি";
 };
 
-const TYPE_DEFAULT_FIELDS = CASH_TYPES.map((t) => t.value);
+const LEDGER_VIEWS = [
+  { id: "deposit", label: "জমা", types: ["deposit"] },
+  { id: "cost", label: "সাইট খরচ", types: ["cost"] },
+  { id: "withdrawal", label: "উত্তোলন", types: ["withdrawal"] },
+  { id: "all_cost", label: "সব খরচ", types: ["withdrawal", "cost"] },
+];
+const DEFAULT_LEDGER_VIEW = "deposit";
 
-const filterHeaderTitle = (title, selected, required) =>
-  required.every((value) => selected.includes(value)) ? title : `${title}*`;
+const createDateBounds = (start, end) => {
+  const today = todayIso();
+  if (!isMultiDaySelection(start, end)) {
+    const day = isIsoDate(start) ? start : today;
+    return { min: day, max: day };
+  }
+  if (!isIsoDate(start)) {
+    return { min: undefined, max: today };
+  }
+  const rangeEnd = normalizeEndDate(start, end) || start;
+  const max = rangeEnd < today ? rangeEnd : today;
+  return { min: start, max };
+};
+
+const defaultCreateDate = (start, end) => {
+  if (!isMultiDaySelection(start, end) && isIsoDate(start)) return start;
+  const today = todayIso();
+  const { min, max } = createDateBounds(start, end);
+  if (min && today < min) return min;
+  if (max && today > max) return max;
+  return today;
+};
 
 /** Bulk review validation: attr ids + missing id details. */
 const formatBulkReviewError = (parsed) => {
@@ -262,6 +293,15 @@ const formatCashAmount = (type, amount) => {
   return {
     text: formatBnSigned(style.sign * Math.abs(Number(amount) || 0)),
     className: style.className,
+  };
+};
+
+const formatLedgerTotal = (types, amount) => {
+  const n = Math.abs(Number(amount) || 0);
+  if (types.length === 1) return formatCashAmount(types[0], n);
+  return {
+    text: formatBnSigned(-n),
+    className: "text-error",
   };
 };
 
@@ -336,10 +376,10 @@ const toFormValues = (cash) => ({
 
 const colgroup = (showDateCol) => (
   <colgroup>
-    <col className="w-12" />
-    {showDateCol ? <col className="w-20 sm:w-24" /> : null}
+    <col className="w-7 sm:w-8" />
+    {showDateCol ? <col className="w-16 sm:w-24" /> : null}
     <col />
-    {SHOW_BILLING ? <col className="w-28 sm:w-36" /> : null}
+    {SHOW_BILLING ? <col className="w-20 sm:w-28" /> : null}
     <col className="w-24 sm:w-32" />
   </colgroup>
 );
@@ -350,7 +390,12 @@ export const CashPage = () => {
   const { can, profile } = usePermissions();
   const dialogRef = useRef(null);
 
-  const [typeFilter, setTypeFilter] = useState(() => [...TYPE_DEFAULT_FIELDS]);
+  const [ledgerView, setLedgerView] = useState(() => {
+    const saved = readCashLedgerView();
+    return LEDGER_VIEWS.some((view) => view.id === saved)
+      ? saved
+      : DEFAULT_LEDGER_VIEW;
+  });
   const [billingFilter, setBillingFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
@@ -418,10 +463,9 @@ export const CashPage = () => {
   const formReady = noteReady && amountReady && dateReady;
 
   const isRange = isMultiDaySelection(date, dateEnd);
-  const canCreateCash = canAddCash && !isRange;
+  const canCreateCash = canAddCash;
 
   useEffect(() => {
-    setTypeFilter([...TYPE_DEFAULT_FIELDS]);
     setBillingFilter("all");
     setPage(1);
     setSelectMode(false);
@@ -429,16 +473,10 @@ export const CashPage = () => {
   }, [siteId, date, dateEnd]);
 
   useEffect(() => {
-    if (!isRange) return;
-    setCreating(false);
-    setEditing(false);
-    dialogRef.current?.close();
-  }, [isRange]);
-
-  useEffect(() => {
+    writeCashLedgerView(ledgerView);
     setSelectedIds(new Set());
     setPage(1);
-  }, [typeFilter, billingFilter]);
+  }, [ledgerView, billingFilter]);
 
   useEffect(() => {
     if (!editing && !creating) {
@@ -457,7 +495,10 @@ export const CashPage = () => {
     };
   }, [editing, creating]);
 
-  /** API accepts a single type; multi-select stays client-side. */
+  const activeView =
+    LEDGER_VIEWS.find((view) => view.id === ledgerView) ?? LEDGER_VIEWS[0];
+  const typeFilter = activeView.types;
+  /** API accepts a single type; সব খরচ stays client-side. */
   const apiType = typeFilter.length === 1 ? typeFilter[0] : undefined;
   const apiBilling =
     SHOW_BILLING && billingFilter !== "all" && billingFilter !== "none"
@@ -576,21 +617,16 @@ export const CashPage = () => {
       .filter((id) => Number.isFinite(id));
 
   const liveRows = useMemo(() => {
-    let rows = pageResults;
-    // Client-side only when the API cannot express the filter (multi-type / null billing).
-    if (!apiType && typeFilter.length !== TYPE_DEFAULT_FIELDS.length) {
-      rows = rows.filter((row) => typeFilter.includes(row.type));
-    }
+    let rows = pageResults.filter((row) => typeFilter.includes(row.type));
     if (SHOW_BILLING && billingFilter === "none") {
       rows = rows.filter((row) => row.billing == null);
     }
     return rows;
-  }, [pageResults, typeFilter, billingFilter, apiType]);
+  }, [pageResults, typeFilter, billingFilter]);
 
   const apiTotals = cashListTotalsOf(pageData);
   const clientFiltered =
-    (!apiType && typeFilter.length !== TYPE_DEFAULT_FIELDS.length) ||
-    (SHOW_BILLING && billingFilter === "none");
+    !apiType || (SHOW_BILLING && billingFilter === "none");
 
   const summaryTotals = useMemo(() => {
     const fromRows = { deposit: 0, withdrawal: 0, cost: 0 };
@@ -613,11 +649,12 @@ export const CashPage = () => {
     };
   }, [apiTotals, liveRows, typeFilter, clientFiltered]);
 
-  const showSummary =
-    liveRows.length > 0 ||
-    summaryTotals.deposit > 0 ||
-    summaryTotals.withdrawal > 0 ||
-    summaryTotals.cost > 0;
+  const summaryAmount = typeFilter.reduce(
+    (sum, type) => sum + (summaryTotals[type] || 0),
+    0,
+  );
+  const summaryDisplay = formatLedgerTotal(typeFilter, summaryAmount);
+  const showSummary = liveRows.length > 0 || summaryAmount > 0;
 
   const rows = useMemo(() => {
     if (!canViewActivityLog) return liveRows;
@@ -763,7 +800,7 @@ export const CashPage = () => {
     setConfirmReady(false);
     setModalView("detail");
     setExpandedHistoryId(null);
-    reset({ ...emptyValues, date: date || todayIso() });
+    reset({ ...emptyValues, date: defaultCreateDate(date, dateEnd) });
     resetFileState();
     dialogRef.current?.showModal();
   };
@@ -861,7 +898,10 @@ export const CashPage = () => {
       setPage(1);
       await invalidateCash(data, "created");
       toastSuccess("ক্যাশ এন্ট্রি তৈরি হয়েছে");
-      reset({ ...emptyValues, date: values.date || date || todayIso() });
+      reset({
+        ...emptyValues,
+        date: values.date || defaultCreateDate(date, dateEnd),
+      });
       resetFileState();
       setConfirmReady(false);
       requestAnimationFrame(() => {
@@ -978,6 +1018,11 @@ export const CashPage = () => {
     (!isCreateMode && !isDirty && !fileDirty);
   const isSnapshotDetail = Boolean(selected?.fromActivitySnapshot);
   const tableCols = (SHOW_BILLING ? 4 : 3) + (isRange ? 1 : 0);
+  const { min: createDateMin, max: createDateMax } = createDateBounds(
+    date,
+    dateEnd,
+  );
+  const dateFieldDisabled = disabled || !isRange;
 
   const fieldClass = (hasError, kind = "input", isDisabled = disabled) =>
     [
@@ -989,13 +1034,13 @@ export const CashPage = () => {
     ].join(" ");
 
   return (
-    <section className="flex-1 min-h-0 flex flex-col relative">
-      <div className="bg-base-100">
-        <table className="table table-sm sm:table-md w-full">
+    <section className="flex-1 min-h-0 flex flex-col relative overflow-x-hidden">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+        <table className="table table-fixed table-sm sm:table-md w-full max-w-full">
           {colgroup(isRange)}
-          <thead>
-            <tr>
-              <th>
+          <thead className="sticky top-0 z-10 bg-base-300">
+            <tr className="border-b border-base-300 [&_th]:!bg-base-300">
+              <th className="w-7 sm:w-8 px-0.5 sm:px-1">
                 {selectMode && canChangeActivityLog ? (
                   <input
                     type="checkbox"
@@ -1024,12 +1069,15 @@ export const CashPage = () => {
                   "নং"
                 )}
               </th>
-              {isRange ? <th>তারিখ</th> : null}
-              <th>বিবরণ</th>
+              {isRange ? (
+                <th className="px-1 sm:px-3 whitespace-nowrap">তারিখ</th>
+              ) : null}
+              <th className="min-w-0 px-1 sm:px-3">বিবরণ</th>
               {SHOW_BILLING ? (
-                <th>
+                <th className="min-w-0 px-1 sm:px-3">
                   <button
                     type="button"
+                    className="max-w-full truncate"
                     onClick={() =>
                       document
                         .getElementById(BILLING_FILTER_MODAL_ID)
@@ -1040,24 +1088,9 @@ export const CashPage = () => {
                   </button>
                 </th>
               ) : null}
-              <th className="text-right">
-                <button
-                  type="button"
-                  onClick={() =>
-                    document.getElementById(TYPE_FILTER_MODAL_ID)?.showModal()
-                  }
-                >
-                  {filterHeaderTitle("পরিমাণ", typeFilter, TYPE_DEFAULT_FIELDS)}
-                </button>
-              </th>
+              <th className="text-right px-1 sm:px-3">পরিমাণ</th>
             </tr>
           </thead>
-        </table>
-      </div>
-
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <table className="table table-sm sm:table-md w-full">
-          {colgroup(isRange)}
           <tbody>
             {rows.length === 0 ? (
               <tr>
@@ -1082,6 +1115,7 @@ export const CashPage = () => {
                 const checked =
                   selectable &&
                   rowActivityIds.every((id) => selectedIds.has(id));
+                const note = row.note || "—";
                 return (
                   <tr
                     key={isGhost ? `activity-${row.id}` : row.id}
@@ -1095,7 +1129,7 @@ export const CashPage = () => {
                     onClick={() => openDetail(row)}
                   >
                     <td
-                      className="tabular-nums text-base-content/60"
+                      className="tabular-nums text-base-content/60 w-7 sm:w-8 px-0.5 sm:px-1"
                       onClick={(e) => {
                         if (!selectMode) return;
                         e.stopPropagation();
@@ -1117,18 +1151,27 @@ export const CashPage = () => {
                       )}
                     </td>
                     {isRange ? (
-                      <td className="tabular-nums text-base-content/70 whitespace-nowrap">
+                      <td className="tabular-nums text-base-content/70 px-1 sm:px-3 truncate">
                         {formatDateColBn(row.date)}
                       </td>
                     ) : null}
-                    <td className="truncate">{row.note || "—"}</td>
+                    <td className="min-w-0 max-w-0 px-1 sm:px-3">
+                      <span className="block truncate" title={row.note || undefined}>
+                        {note}
+                      </span>
+                    </td>
                     {SHOW_BILLING ? (
-                      <td className="max-w-0 truncate text-base-content/80">
-                        {billingName(row.billing)}
+                      <td className="min-w-0 max-w-0 px-1 sm:px-3 text-base-content/80">
+                        <span
+                          className="block truncate"
+                          title={billingName(row.billing) || undefined}
+                        >
+                          {billingName(row.billing)}
+                        </span>
                       </td>
                     ) : null}
                     <td
-                      className={`text-right tabular-nums font-medium ${className}`}
+                      className={`text-right tabular-nums font-medium px-1 sm:px-3 whitespace-nowrap ${className}`}
                     >
                       {text}
                     </td>
@@ -1137,25 +1180,24 @@ export const CashPage = () => {
               })
             )}
           </tbody>
-        </table>
-        {showSummary ? (
-          <div className="grid grid-cols-4 gap-2 px-2 py-3 border-t border-base-300 text-xs sm:text-sm">
-            <div className="text-left text-base-content/60 self-center">
-            সর্বমোট
-            </div>
-            {CASH_TYPES.map((t) => {
-              const style = AMOUNT_BY_TYPE[t.value] ?? AMOUNT_BY_TYPE.cost;
-              return (
-                <div
-                  key={t.value}
-                  className={`min-w-0 text-right tabular-nums font-medium ${style.className}`}
+          {showSummary ? (
+            <tfoot>
+              <tr className="border-t border-base-300 font-medium [&_td]:bg-base-300">
+                <td
+                  colSpan={tableCols - 1}
+                  className="px-1 sm:px-3 text-right text-base-content/60 !bg-base-300 border-b border-base-300"
                 >
-                  {formatBnNumber(summaryTotals[t.value])}
-                </div>
-              );
-            })}
-          </div>
-        ) : null}
+                  মোট
+                </td>
+                <td
+                  className={`text-right tabular-nums px-1 sm:px-3 whitespace-nowrap !bg-base-300 border-b border-base-300 ${summaryDisplay.className}`}
+                >
+                  {summaryDisplay.text}
+                </td>
+              </tr>
+            </tfoot>
+          ) : null}
+        </table>
         <ListPagination
           page={page}
           totalPages={totalPages}
@@ -1168,7 +1210,7 @@ export const CashPage = () => {
       </div>
 
       <div className="fixed bottom-16 inset-x-0 z-40 px-3 pointer-events-none">
-        <div className="max-w-5xl mx-auto flex flex-wrap justify-end gap-2 pointer-events-auto">
+        <div className="max-w-5xl mx-auto flex items-end justify-between gap-2 pointer-events-auto">
           {selectMode && canChangeActivityLog ? (
             <>
               <button
@@ -1196,17 +1238,38 @@ export const CashPage = () => {
                 ) : null}
               </button>
             </>
-          ) : canCreateCash ? (
-            <button
-              type="button"
-              className="btn btn-primary btn-circle btn-lg shadow-lg"
-              onClick={openCreate}
-              disabled={!date || siteInactive}
-              aria-label="নতুন ক্যাশ"
-            >
-              <Plus className="size-7" strokeWidth={2} />
-            </button>
-          ) : null}
+          ) : (
+            <>
+              <div className="flex items-center gap-1 overflow-x-auto overflow-y-hidden min-w-0">
+                {LEDGER_VIEWS.map((view) => (
+                  <button
+                    key={view.id}
+                    type="button"
+                    className={[
+                      "btn btn-xs h-8 min-h-8 max-h-8 leading-none shrink-0 shadow-lg border border-base-300 box-border",
+                      ledgerView === view.id
+                        ? "btn-primary"
+                        : "btn-ghost bg-base-100",
+                    ].join(" ")}
+                    onClick={() => setLedgerView(view.id)}
+                  >
+                    {view.label}
+                  </button>
+                ))}
+              </div>
+              {canCreateCash ? (
+                <button
+                  type="button"
+                  className="btn btn-primary btn-circle btn-lg shadow-lg shrink-0"
+                  onClick={openCreate}
+                  disabled={siteInactive}
+                  aria-label="নতুন ক্যাশ"
+                >
+                  <Plus className="size-7" strokeWidth={2} />
+                </button>
+              ) : null}
+            </>
+          )}
         </div>
       </div>
 
@@ -1509,10 +1572,11 @@ export const CashPage = () => {
                     className={fieldClass(
                       errors.date,
                       "input",
-                      detailsDisabled,
+                      dateFieldDisabled,
                     )}
-                    disabled={detailsDisabled}
-                    max={todayIso()}
+                    disabled={dateFieldDisabled}
+                    min={createDateMin || undefined}
+                    max={createDateMax || undefined}
                     {...register("date")}
                   />
                   {errors.date ? (
@@ -1720,50 +1784,6 @@ export const CashPage = () => {
                 ) : null}
               </form>
             )}
-          </div>
-        </div>
-        <div className="modal-backdrop">
-          <button type="button" tabIndex={-1} aria-hidden="true" />
-        </div>
-      </dialog>
-
-      <dialog id={TYPE_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
-          <form method="dialog">
-            <button
-              type="submit"
-              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-              aria-label="বন্ধ"
-            >
-              <X className="size-4" strokeWidth={1.75} />
-            </button>
-          </form>
-          <h3 className="font-bold text-lg pr-8 shrink-0">পরিমাণ</h3>
-          <div className="flex flex-col gap-3 pt-3 flex-1 min-h-0 overflow-y-auto">
-            <div className="flex flex-col gap-2">
-              {CASH_TYPES.map((opt) => (
-                <label
-                  key={opt.value}
-                  className="inline-flex items-center gap-2 cursor-pointer text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    className="checkbox checkbox-xs"
-                    checked={typeFilter.includes(opt.value)}
-                    onChange={() => {
-                      setTypeFilter((prev) => {
-                        if (prev.includes(opt.value)) {
-                          if (prev.length === 1) return prev;
-                          return prev.filter((value) => value !== opt.value);
-                        }
-                        return [...prev, opt.value];
-                      });
-                    }}
-                  />
-                  <span>{opt.label}</span>
-                </label>
-              ))}
-            </div>
           </div>
         </div>
         <div className="modal-backdrop">

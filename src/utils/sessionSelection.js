@@ -11,6 +11,7 @@ export const SELECTED_SITE_KEY = 'selectedSite'
 export const SELECTED_DATE_KEY = 'selectedDate'
 export const SELECTED_START_DATE_KEY = 'selectedStartDate'
 export const SELECTED_END_DATE_KEY = 'selectedEndDate'
+export const CASH_LEDGER_VIEW_KEY = 'cashLedgerView'
 
 export { todayIso, isIsoDate, toIsoDate } from './dateRange.js'
 
@@ -26,6 +27,23 @@ const writeSession = (key, value) => {
   try {
     if (value) sessionStorage.setItem(key, value)
     else sessionStorage.removeItem(key)
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+const readLocal = (key) => {
+  try {
+    return localStorage.getItem(key) || ''
+  } catch {
+    return ''
+  }
+}
+
+const writeLocal = (key, value) => {
+  try {
+    if (value) localStorage.setItem(key, value)
+    else localStorage.removeItem(key)
   } catch {
     // ignore quota / private mode
   }
@@ -70,3 +88,8 @@ export const writeSelectedDateRange = (start, end) => {
 
 /** @deprecated Use writeSelectedDateRange. Single-day write. */
 export const writeSelectedDate = (date) => writeSelectedDateRange(date, null)
+
+export const readCashLedgerView = () => readLocal(CASH_LEDGER_VIEW_KEY)
+
+export const writeCashLedgerView = (value) =>
+  writeLocal(CASH_LEDGER_VIEW_KEY, value || '')
