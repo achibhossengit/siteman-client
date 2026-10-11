@@ -120,7 +120,7 @@ export function HajiraRecordsTable({
     <div className="flex-1 min-h-0 overflow-auto pb-24">
       <table className="table table-xs table-fixed w-full bg-transparent text-xs border-separate border-spacing-0 border-t border-l border-base-content/35 [&_th]:!px-1 [&_th]:!py-2 sm:[&_th]:!py-3 [&_th]:!bg-base-300 [&_td]:!px-0.5 [&_td]:!py-1 [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
         <colgroup>
-          <col className="w-7" />
+          <col className="w-10" />
           <col className="w-8" />
           <col />
           <col className={PAIR_COL} />
@@ -130,34 +130,36 @@ export function HajiraRecordsTable({
         </colgroup>
         <thead className={`sticky top-0 z-10 ${HEAD_BG}`}>
           <tr>
-            <th className={`w-7 align-middle ${CELL} ${HEAD_BG}`}>
-              {selectMode && canChangeActivityLog ? (
-                <input
-                  type="checkbox"
-                  className="checkbox checkbox-xs"
-                  checked={allPendingSelected}
-                  ref={(el) => {
-                    if (el) {
-                      el.indeterminate =
-                        somePendingSelected && !allPendingSelected;
-                    }
-                  }}
-                  disabled={pendingIds.length === 0}
-                  aria-label="সব নির্বাচন"
-                  onChange={(e) => toggleSelectAll(e.target.checked)}
-                />
-              ) : canChangeActivityLog ? (
-                <button
-                  type="button"
-                  className="font-bold"
-                  onClick={() => setSelectMode(true)}
-                  title="নির্বাচন মোড"
-                >
-                  নং
-                </button>
-              ) : (
-                "নং"
-              )}
+            <th className={`w-10 align-middle text-center ${CELL} ${HEAD_BG}`}>
+              <span className="inline-flex w-full items-center justify-center">
+                {selectMode && canChangeActivityLog ? (
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-xs"
+                    checked={allPendingSelected}
+                    ref={(el) => {
+                      if (el) {
+                        el.indeterminate =
+                          somePendingSelected && !allPendingSelected;
+                      }
+                    }}
+                    disabled={pendingIds.length === 0}
+                    aria-label="সব নির্বাচন"
+                    onChange={(e) => toggleSelectAll(e.target.checked)}
+                  />
+                ) : canChangeActivityLog ? (
+                  <button
+                    type="button"
+                    className="font-bold"
+                    onClick={() => setSelectMode(true)}
+                    title="নির্বাচন মোড"
+                  >
+                    নং
+                  </button>
+                ) : (
+                  "নং"
+                )}
+              </span>
             </th>
             <th className={`w-8 px-0 ${CELL_PHOTO} ${HEAD_BG}`} />
             <th className={`min-w-0 pl-1 align-middle ${CELL} ${HEAD_BG}`}>
@@ -261,14 +263,16 @@ export function HajiraRecordsTable({
                   <tr className={`bg-transparent ${auditRowClass}`}>
                     <td
                       rowSpan={2}
-                      className={`align-middle tabular-nums text-base-content/60 w-7 cursor-pointer ${CELL} ${fill}`}
+                      className={`align-middle text-center tabular-nums text-base-content/60 w-10 cursor-pointer ${CELL} ${fill}`}
                       onClick={() => {
                         if (selectMode && canChangeActivityLog) return;
                         openRecordModal(row);
                       }}
                       title={rowTitle}
                     >
-                      <span className={sealedContentClass || undefined}>
+                      <span
+                        className={`inline-flex w-full items-center justify-center ${sealedContentClass || ""}`.trim()}
+                      >
                         {selectMode && canChangeActivityLog ? (
                           <input
                             type="checkbox"
