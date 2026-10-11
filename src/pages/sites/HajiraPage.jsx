@@ -37,7 +37,6 @@ import {
   LABOUR_FILTER_MODAL_ID,
   MEANINGFUL_DAY_VALUE_MESSAGE,
   MODAL_VIEWS,
-  PAYMENT_FILTER_MODAL_ID,
   PAYMENT_SPECS,
   RECORD_MODAL_ID,
 } from "../../components/hajiraPage/constants.js";
@@ -92,9 +91,11 @@ import {
   toastSuccess,
 } from "../../utils/feedback.js";
 import {
+  readHajiraShowSalary,
   readSelectedDate,
   readSelectedSite,
   todayIso,
+  writeHajiraShowSalary,
 } from "../../utils/sessionSelection.js";
 import {
   dateFilterParams,
@@ -190,6 +191,7 @@ export const HajiraPage = () => {
   const [bulkAttendance, setBulkAttendance] = useState(emptyBulkAttendance);
   const [bulkPayment, setBulkPayment] = useState(emptyBulkPayment);
   const [bulkBilling, setBulkBilling] = useState(emptyBulkBilling);
+  const [showSalary, setShowSalary] = useState(() => readHajiraShowSalary());
 
   const showAyColumn = Boolean(isCompanyAdmin);
 
@@ -328,12 +330,8 @@ export const HajiraPage = () => {
 
   const openHajiraModal = () => {
     setBulkAttendance(emptyBulkAttendance());
-    document.getElementById(HAJIRA_FILTER_MODAL_ID)?.showModal();
-  };
-
-  const openPaymentModal = () => {
     setBulkPayment(emptyBulkPayment());
-    document.getElementById(PAYMENT_FILTER_MODAL_ID)?.showModal();
+    document.getElementById(HAJIRA_FILTER_MODAL_ID)?.showModal();
   };
 
   const openBillingModal = () => {
@@ -526,6 +524,7 @@ export const HajiraPage = () => {
   const totals = useMemo(() => {
     let present = 0;
     let extra = 0;
+    let salary = 0;
     let earnings = 0;
     let payment = 0;
     let advance = 0;
@@ -533,6 +532,7 @@ export const HajiraPage = () => {
     for (const row of visibleRows) {
       present += Number(row.present) || 0;
       extra += Number(row.extra) || 0;
+      salary += Number(row.salary) || 0;
       earnings += dayEarnings(row, viewEarningsFilter);
       payment += paymentAmountOf(row);
       advance += advanceAmountOf(row);
@@ -540,11 +540,10 @@ export const HajiraPage = () => {
         ret += returnAmountOf(row);
       }
     }
-    return { present, extra, earnings, payment, advance, return: ret };
+    return { present, extra, salary, earnings, payment, advance, return: ret };
   }, [visibleRows, viewEarningsFilter, viewPaymentFilter]);
 
-  const showReturnAmount = (row) =>
-    viewPaymentFilter.includes("return") && hasAmount(row.return);
+  const showReturnAmount = (row) => hasAmount(row.return);
 
   const attendanceLocked = (row) =>
     recordSealedOf(row) ||
@@ -948,72 +947,96 @@ export const HajiraPage = () => {
   };
 
   const onHajiraBulkCustom = () => {
-    if (!isBulkAttendanceDirty(bulkAttendance)) return;
-    if (isBulkAttendanceZeroInvalid(bulkAttendance)) {
-      toastInfo(MEANINGFUL_DAY_VALUE_MESSAGE);
-      return;
-    }
+    const attDirty =
+      isBulkAttendanceDirty(bulkAttendance) &&
+      !isBulkAttendanceZeroInvalid(bulkAttendance);
+    const payDirty = isBulkPaymentDirty(bulkPayment);
+    if (!attDirty && !payDirty) return;
 
-    const customWouldBeInvalid = rows.some((row) => {
-      if (!isBulkTargetRow(row)) return false;
-      const next = {
-        present:
-          bulkAttendance.present !== "" && isBlank(row.present)
-            ? Number(bulkAttendance.present)
-            : row.present,
-        extra: row.extra,
-        payment: row.payment,
-        advance: row.advance,
-        return: row.return,
-      };
-      return lacksMeaningfulDayValue(next);
-    });
-    if (customWouldBeInvalid) {
-      toastInfo(MEANINGFUL_DAY_VALUE_MESSAGE);
-      return;
+    if (attDirty) {
+      const customWouldBeInvalid = rows.some((row) => {
+        if (!isBulkTargetRow(row)) return false;
+        const next = {
+          present:
+            bulkAttendance.present !== "" && isBlank(row.present)
+              ? Number(bulkAttendance.present)
+              : row.present,
+          extra: row.extra,
+          payment: payDirty
+            ? bulkPayment.payment !== "" &&
+              bulkPayment.payment != null &&
+              isBlank(row.payment)
+              ? Number(bulkPayment.payment)
+              : row.payment
+            : row.payment,
+          advance: row.advance,
+          return: row.return,
+        };
+        return lacksMeaningfulDayValue(next);
+      });
+      if (customWouldBeInvalid) {
+        toastInfo(MEANINGFUL_DAY_VALUE_MESSAGE);
+        return;
+      }
     }
 
     setRows((prev) =>
       prev.map((row) => {
         if (!isBulkTargetRow(row)) return row;
+        let next = row;
 
-        const applyingPresent =
-          bulkAttendance.present !== "" && isBlank(row.present);
-        const nextPresent = applyingPresent
-          ? Number(bulkAttendance.present)
-          : row.present;
+        if (attDirty) {
+          const applyingPresent =
+            bulkAttendance.present !== "" && isBlank(row.present);
+          const nextPresent = applyingPresent
+            ? Number(bulkAttendance.present)
+            : row.present;
 
-        let nextSalary = row.salary;
-        if (Number(nextPresent) === 0) {
-          nextSalary = "";
-        } else if (
-          bulkAttendance.salary !== "" &&
-          bulkAttendance.salary != null &&
-          isBlank(row.salary)
-        ) {
-          nextSalary = Number(bulkAttendance.salary);
-        } else if (
-          applyingPresent &&
-          isBlank(row.salary) &&
-          (bulkAttendance.salary === "" || bulkAttendance.salary == null) &&
-          !isBlank(row.defaultSalary)
-        ) {
-          nextSalary = Number(row.defaultSalary);
+          let nextSalary = row.salary;
+          if (Number(nextPresent) === 0) {
+            nextSalary = "";
+          } else if (
+            bulkAttendance.salary !== "" &&
+            bulkAttendance.salary != null &&
+            isBlank(row.salary)
+          ) {
+            nextSalary = Number(bulkAttendance.salary);
+          } else if (
+            applyingPresent &&
+            isBlank(row.salary) &&
+            (bulkAttendance.salary === "" || bulkAttendance.salary == null) &&
+            !isBlank(row.defaultSalary)
+          ) {
+            nextSalary = Number(row.defaultSalary);
+          }
+
+          next = {
+            ...next,
+            present: nextPresent,
+            salary: nextSalary,
+          };
         }
 
-        return {
-          ...row,
-          present: nextPresent,
-          salary: nextSalary,
-        };
+        if (
+          payDirty &&
+          bulkPayment.payment !== "" &&
+          bulkPayment.payment != null &&
+          isBlank(next.payment)
+        ) {
+          next = { ...next, payment: Number(bulkPayment.payment) };
+        }
+
+        return next;
       }),
     );
+    setBulkAttendance(emptyBulkAttendance());
+    setBulkPayment(emptyBulkPayment());
     document.getElementById(HAJIRA_FILTER_MODAL_ID)?.close();
   };
 
   const onPaymentBulkDefault = () => {
     applyPaymentDefaults();
-    document.getElementById(PAYMENT_FILTER_MODAL_ID)?.close();
+    document.getElementById(HAJIRA_FILTER_MODAL_ID)?.close();
   };
 
   const onPaymentBulkCustom = () => {
@@ -1032,7 +1055,7 @@ export const HajiraPage = () => {
         };
       }),
     );
-    document.getElementById(PAYMENT_FILTER_MODAL_ID)?.close();
+    document.getElementById(HAJIRA_FILTER_MODAL_ID)?.close();
   };
 
   const onBillingBulkCustom = (billingValue = bulkBilling.billing) => {
@@ -1098,7 +1121,7 @@ export const HajiraPage = () => {
       }),
     );
     setBulkPayment(emptyBulkPayment());
-    document.getElementById(PAYMENT_FILTER_MODAL_ID)?.close();
+    document.getElementById(HAJIRA_FILTER_MODAL_ID)?.close();
   };
 
   const onBillingBulkReset = () => {
@@ -1403,8 +1426,8 @@ export const HajiraPage = () => {
         showAyColumn={showAyColumn}
         openEarningsFilterModal={openEarningsFilterModal}
         earningsFilter={earningsFilter}
-        openPaymentModal={openPaymentModal}
         paymentFilter={paymentFilter}
+        showSalary={showSalary}
         openBillingModal={openBillingModal}
         billingFilterHeaderLabel={billingFilterHeaderLabel}
         tableColCount={tableColCount}
@@ -1499,6 +1522,11 @@ export const HajiraPage = () => {
         setEarningsFilter={setEarningsFilter}
         hajiraFilter={hajiraFilter}
         setHajiraFilter={setHajiraFilter}
+        showSalary={showSalary}
+        onShowSalaryChange={(next) => {
+          setShowSalary(next);
+          writeHajiraShowSalary(next);
+        }}
         showBulkSection={showBulkSection}
         bulkSetEnabled={bulkSetEnabled}
         bulkAttendance={bulkAttendance}

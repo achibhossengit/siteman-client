@@ -12,7 +12,6 @@ import { formatBnNumber } from "../../utils/format.js";
 import {
   EARNINGS_DEFAULT_FIELDS,
   LABOUR_DEFAULT_FIELDS,
-  PAYMENT_DEFAULT_FIELDS,
 } from "./constants.js";
 import {
   dayEarnings,
@@ -64,6 +63,18 @@ const Amount = ({ value, tone }) => {
   );
 };
 
+const PresentTimesSalary = ({ present, salary, showSalary }) => (
+  <span className="inline-flex w-full items-center justify-end gap-0.5 tabular-nums">
+    <Amount value={present} />
+    {showSalary ? (
+      <>
+        <span className="opacity-50">×</span>
+        <Amount value={salary} />
+      </>
+    ) : null}
+  </span>
+);
+
 const cellFill = ({ hasSaveError, pendingCreate, activityTone, index }) => {
   if (hasSaveError) return "!bg-error/10";
   if (pendingCreate) return "!bg-success/50";
@@ -87,8 +98,8 @@ export function HajiraRecordsTable({
   showAyColumn,
   openEarningsFilterModal,
   earningsFilter,
-  openPaymentModal,
   paymentFilter,
+  showSalary,
   openBillingModal,
   billingFilterHeaderLabel,
   tableColCount,
@@ -124,8 +135,8 @@ export function HajiraRecordsTable({
           <col className="w-8" />
           <col />
           <col className={PAIR_COL} />
-          {showAyColumn ? <col className="w-[12%] min-w-12" /> : null}
           <col className={PAIR_COL} />
+          {showAyColumn ? <col className="w-[12%] min-w-12" /> : null}
           {SHOW_BILLING ? <col className="w-[12%] min-w-12" /> : null}
         </colgroup>
         <thead className={`sticky top-0 z-10 ${HEAD_BG}`}>
@@ -167,7 +178,10 @@ export function HajiraRecordsTable({
                 {filterHeaderTitle("নাম", labourFilter, LABOUR_DEFAULT_FIELDS)}
               </button>
             </th>
-            <th className={`text-center align-middle font-medium ${PAIR_COL} ${CELL} ${HEAD_BG}`}>
+            <th
+              colSpan={2}
+              className={`text-center align-middle font-medium ${CELL} ${HEAD_BG}`}
+            >
               <button type="button" onClick={openHajiraModal}>
                 হাজিরা
               </button>
@@ -183,15 +197,6 @@ export function HajiraRecordsTable({
                 </button>
               </th>
             ) : null}
-            <th className={`text-center align-middle font-medium ${PAIR_COL} ${CELL} ${HEAD_BG}`}>
-              <button type="button" onClick={openPaymentModal}>
-                {filterHeaderTitle(
-                  "লেনদেন",
-                  paymentFilter,
-                  PAYMENT_DEFAULT_FIELDS,
-                )}
-              </button>
-            </th>
             {SHOW_BILLING ? (
               <th className={`text-right align-middle ${CELL} ${HEAD_BG}`}>
                 <button type="button" onClick={openBillingModal}>
@@ -329,20 +334,12 @@ export function HajiraRecordsTable({
                       onClick={() => openRecordModal(row)}
                       title={rowTitle}
                     >
-                      <Amount value={row.present} />
+                      <PresentTimesSalary
+                        present={row.present}
+                        salary={row.salary}
+                        showSalary={showSalary}
+                      />
                     </td>
-                    {showAyColumn ? (
-                      <td
-                        rowSpan={2}
-                        className={`${VALUE_CELL} ${CELL} ${fill} ${hajiraGroupTone} cursor-pointer`}
-                        onClick={() => openRecordModal(row)}
-                        title={rowTitle}
-                      >
-                        <span className={sealedContentClass || undefined}>
-                          <Amount value={earn} />
-                        </span>
-                      </td>
-                    ) : null}
                     <td
                       className={`${VALUE_CELL} ${CELL_TOP} ${fill} ${sealedContentClass} cursor-pointer ${paymentLineTone(
                         row,
@@ -356,6 +353,18 @@ export function HajiraRecordsTable({
                     >
                       <Amount value={row.payment} tone="text-error" />
                     </td>
+                    {showAyColumn ? (
+                      <td
+                        rowSpan={2}
+                        className={`${VALUE_CELL} ${CELL} ${fill} ${hajiraGroupTone} cursor-pointer`}
+                        onClick={() => openRecordModal(row)}
+                        title={rowTitle}
+                      >
+                        <span className={sealedContentClass || undefined}>
+                          <Amount value={earn} />
+                        </span>
+                      </td>
+                    ) : null}
                     {SHOW_BILLING ? (
                       <td
                         rowSpan={2}
@@ -443,16 +452,20 @@ export function HajiraRecordsTable({
                 মোট
               </td>
               <td className={`${VALUE_CELL} ${CELL_TOP_INNER} ${FOOT_BG}`}>
-                <Amount value={totals.present} />
+                <PresentTimesSalary
+                  present={totals.present}
+                  salary={totals.salary}
+                  showSalary={showSalary}
+                />
+              </td>
+              <td className={`${VALUE_CELL} ${CELL_TOP} ${FOOT_BG}`}>
+                <Amount value={totals.payment} tone="text-error" />
               </td>
               {showAyColumn ? (
                 <td className={`${VALUE_CELL} ${CELL} ${FOOT_BG}`} rowSpan={2}>
                   <Amount value={totals.earnings} />
                 </td>
               ) : null}
-              <td className={`${VALUE_CELL} ${CELL_TOP} ${FOOT_BG}`}>
-                <Amount value={totals.payment} tone="text-error" />
-              </td>
               {SHOW_BILLING ? (
                 <td
                   rowSpan={2}
@@ -481,14 +494,14 @@ export function HajiraRecordsTable({
               <td className={`${VALUE_CELL} ${CELL_SUB_INNER} ${FOOT_BG}`}>
                 <Amount value={num(totals.earnings)} tone="text-success" />
               </td>
+              <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}>
+                <Amount value={takenOf(totals)} tone="text-error" />
+              </td>
               {showAyColumn ? (
                 <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}>
                   <Amount value={num(totals.earnings)} tone="text-success" />
                 </td>
               ) : null}
-              <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}>
-                <Amount value={takenOf(totals)} tone="text-error" />
-              </td>
               {SHOW_BILLING ? (
                 <td className={`text-right align-middle ${CELL} ${FOOT_BG}`}>
                   —
@@ -504,7 +517,7 @@ export function HajiraRecordsTable({
                 অবশিষ্ট
               </td>
               <td
-                colSpan={showAyColumn ? 3 : 2}
+                colSpan={2}
                 className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_REMAIN_BG}`}
               >
                 <Amount
@@ -512,6 +525,11 @@ export function HajiraRecordsTable({
                   tone={signedTone(payableOf(totals))}
                 />
               </td>
+              {showAyColumn ? (
+                <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_REMAIN_BG}`}>
+                  —
+                </td>
+              ) : null}
               {SHOW_BILLING ? (
                 <td
                   className={`text-right align-middle ${CELL} ${FOOT_REMAIN_BG}`}

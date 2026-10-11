@@ -9,8 +9,6 @@ import {
   HAJIRA_FILTER_OPTIONS,
   LABOUR_FILTER_MODAL_ID,
   LABOUR_FILTER_OPTIONS,
-  PAYMENT_FILTER_MODAL_ID,
-  PAYMENT_FILTER_OPTIONS,
 } from "./constants.js";
 import {
   isBulkAttendanceDirty,
@@ -28,6 +26,8 @@ export function HajiraFilterModals({
   setEarningsFilter,
   hajiraFilter,
   setHajiraFilter,
+  showSalary,
+  onShowSalaryChange,
   showBulkSection,
   bulkSetEnabled = true,
   bulkAttendance,
@@ -188,9 +188,18 @@ export function HajiraFilterModals({
               </div>
             </div>
             ) : null}
+            <label className="inline-flex items-center gap-2 cursor-pointer text-sm">
+              <input
+                type="checkbox"
+                className="checkbox checkbox-xs"
+                checked={Boolean(showSalary)}
+                onChange={(e) => onShowSalaryChange(e.target.checked)}
+              />
+              <span>বেতন দেখান</span>
+            </label>
             {showBulkSection ? (
-              <div className={`space-y-3 ${HAJIRA_FILTER_OPTIONS.length > 0 ? "border-t border-base-300 pt-3" : ""}`}>
-                <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-2">
                   <label className="form-control w-full min-w-0">
                     <span className="label-text text-sm">হাজিরা</span>
                     <select
@@ -223,6 +232,7 @@ export function HajiraFilterModals({
                     <input
                       type="number"
                       min={0}
+                      inputMode="numeric"
                       className="input input-bordered input-sm w-full tabular-nums"
                       value={bulkAttendance.salary}
                       disabled={
@@ -236,13 +246,35 @@ export function HajiraFilterModals({
                       }
                     />
                   </label>
+                  <label className="form-control w-full min-w-0">
+                    <span className="label-text text-sm">খোরাকি</span>
+                    <input
+                      type="number"
+                      min={0}
+                      className="input input-bordered input-sm w-full tabular-nums"
+                      value={bulkPayment.payment}
+                      disabled={!bulkSetEnabled}
+                      onChange={(e) =>
+                        setBulkPayment((m) => ({
+                          ...m,
+                          payment: numOrEmpty(e.target.value),
+                        }))
+                      }
+                    />
+                  </label>
                 </div>
                 <div className="modal-action pt-1 flex-wrap justify-between gap-2">
                   <button
                     type="button"
                     className="btn btn-ghost btn-sm"
-                    onClick={onHajiraBulkReset}
-                    disabled={!bulkSetEnabled || !hasHajiraBulkReset}
+                    onClick={() => {
+                      onHajiraBulkReset();
+                      onPaymentBulkReset();
+                    }}
+                    disabled={
+                      !bulkSetEnabled ||
+                      (!hasHajiraBulkReset && !hasPaymentBulkReset)
+                    }
                   >
                     রিসেট
                   </button>
@@ -250,7 +282,10 @@ export function HajiraFilterModals({
                     <button
                       type="button"
                       className="btn btn-outline btn-sm"
-                      onClick={onHajiraBulkDefault}
+                      onClick={() => {
+                        onHajiraBulkDefault();
+                        onPaymentBulkDefault();
+                      }}
                       disabled={!bulkSetEnabled}
                     >
                       ডিফল্ট সেট
@@ -261,108 +296,12 @@ export function HajiraFilterModals({
                       onClick={onHajiraBulkCustom}
                       disabled={
                         !bulkSetEnabled ||
-                        !isBulkAttendanceDirty(bulkAttendance) ||
-                        isBulkAttendanceZeroInvalid(bulkAttendance)
+                        (!(
+                          isBulkAttendanceDirty(bulkAttendance) &&
+                          !isBulkAttendanceZeroInvalid(bulkAttendance)
+                        ) &&
+                          !isBulkPaymentDirty(bulkPayment))
                       }
-                    >
-                      সেট করুন
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-        <div className="modal-backdrop">
-          <button type="button" tabIndex={-1} aria-hidden="true" />
-        </div>
-      </dialog>
-
-      <dialog id={PAYMENT_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
-          <form method="dialog">
-            <button
-              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-              aria-label="বন্ধ"
-            >
-              ✕
-            </button>
-          </form>
-          <h3 className="font-bold text-lg pr-8 shrink-0">লেনদেন</h3>
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pt-3">
-            <div>
-              <div className="flex flex-wrap gap-x-4 gap-y-2">
-                {PAYMENT_FILTER_OPTIONS.map((opt) => {
-                  const checked = paymentFilter.includes(opt.value);
-                  const locked = isLastCheckedFilter(paymentFilter, opt.value);
-                  return (
-                    <label
-                      key={opt.value}
-                      className={[
-                        "inline-flex items-center gap-2 text-sm",
-                        locked
-                          ? "cursor-not-allowed opacity-70"
-                          : "cursor-pointer",
-                      ].join(" ")}
-                    >
-                      <input
-                        type="checkbox"
-                        className="checkbox checkbox-xs"
-                        checked={checked}
-                        disabled={locked}
-                        onChange={() => {
-                          setPaymentFilter((prev) =>
-                            toggleRequiredFilter(prev, opt.value),
-                          );
-                        }}
-                      />
-                      <span>{opt.label}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-            {showBulkSection ? (
-              <div className="space-y-3 border-t border-base-300 pt-3">
-                <label className="form-control w-full">
-                  <span className="label-text text-sm">খোরাকি</span>
-                  <input
-                    type="number"
-                    min={0}
-                    className="input input-bordered input-sm w-full tabular-nums"
-                    value={bulkPayment.payment}
-                    disabled={!bulkSetEnabled}
-                    onChange={(e) =>
-                      setBulkPayment((m) => ({
-                        ...m,
-                        payment: numOrEmpty(e.target.value),
-                      }))
-                    }
-                  />
-                </label>
-                <div className="modal-action pt-1 flex-wrap justify-between gap-2">
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={onPaymentBulkReset}
-                    disabled={!bulkSetEnabled || !hasPaymentBulkReset}
-                  >
-                    রিসেট
-                  </button>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-sm"
-                      onClick={onPaymentBulkDefault}
-                      disabled={!bulkSetEnabled}
-                    >
-                      ডিফল্ট সেট
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={onPaymentBulkCustom}
-                      disabled={!bulkSetEnabled || !isBulkPaymentDirty(bulkPayment)}
                     >
                       সেট করুন
                     </button>
