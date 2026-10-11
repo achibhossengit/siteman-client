@@ -331,11 +331,14 @@ export const dailyRecordDayValues = (record) => {
   const khoraki = asNum(record.fooding_pay ?? record.payment)
   const advance = asNum(record.advance_pay ?? record.advance)
   const returned = asNum(record.return_amount ?? record.return)
+  const salary = asNum(record.wage ?? record.salary)
+  const earnings = present * salary + extra
   return {
     present,
     extra,
     khoraki,
     advance,
+    earnings,
     empty:
       present === 0 &&
       extra === 0 &&
@@ -431,8 +434,9 @@ export const sumHajiraRangeFooter = (rows, dates = []) => {
     extra: 0,
     khoraki: 0,
     advance: 0,
+    earnings: 0,
   }))
-  const totals = { present: 0, extra: 0, khoraki: 0, advance: 0 }
+  const totals = { present: 0, extra: 0, khoraki: 0, advance: 0, earnings: 0 }
   for (const row of rows ?? []) {
     totals.present += asNum(row.totals?.present)
     totals.extra += asNum(row.totals?.extra)
@@ -445,6 +449,8 @@ export const sumHajiraRangeFooter = (rows, dates = []) => {
       byDate[i].extra += asNum(day.extra)
       byDate[i].khoraki += asNum(day.khoraki)
       byDate[i].advance += asNum(day.advance)
+      byDate[i].earnings += asNum(day.earnings)
+      totals.earnings += asNum(day.earnings)
     }
   }
   return { byDate, totals }

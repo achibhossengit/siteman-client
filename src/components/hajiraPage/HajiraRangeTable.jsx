@@ -18,18 +18,34 @@ const CELL_SUB = `${BORDER_Y} ${BORDER_X}`;
 const CELL_SUB_INNER = `${BORDER_Y} ${BORDER_X_INNER}`;
 const CELL_PIN = BORDER_Y;
 const STICKY_PIN = "sticky left-0 z-[2]";
-const STICKY_PIN_HEAD = "sticky left-0 z-20 !bg-base-100";
+const STICKY_PIN_FOOT = "sticky left-0 z-[3]";
+const HEAD_BG = "!bg-base-200";
+const STICKY_PIN_HEAD = `sticky left-0 z-20 ${HEAD_BG}`;
 const ROW_EVEN = "!bg-base-100";
 const ROW_ODD = "!bg-base-200";
-const FOOT_BG = "!bg-base-300";
+const FOOT_GRAY_BG = "!bg-base-300";
+const FOOT_REMAIN_BG = FOOT_GRAY_BG;
 const VALUE_CELL =
   "text-right align-middle tabular-nums whitespace-nowrap leading-tight min-w-9 w-9 px-0.5 text-xs";
 
 const rowBg = (index) => (index % 2 === 0 ? ROW_EVEN : ROW_ODD);
 
+const num = (v) => Number(v) || 0;
+
+// taken = khoraki + advance (or API-provided `taken`)
+const takenOf = (obj) =>
+  obj?.taken != null ? num(obj.taken) : num(obj?.khoraki) + num(obj?.advance);
+
+// payable = API-provided `payable`, else earnings - taken
+const payableOf = (obj) =>
+  obj?.payable != null ? num(obj.payable) : num(obj?.earnings) - takenOf(obj);
+
+const signedTone = (value) =>
+  value > 0 ? "text-success" : value < 0 ? "text-error" : "";
+
 const Amount = ({ value, tone }) => {
   if (!value) {
-    return <span className="text-base-content/35">—</span>;
+    return <span className="opacity-35">—</span>;
   }
   return (
     <span className={tone || undefined}>{formatBnNumber(value)}</span>
@@ -53,6 +69,11 @@ export function HajiraRangeTable({
   const dayCount = showDayColumns ? dates.length : 0;
   const colCount = 3 + dayCount * 2 + 2;
 
+  // Per-date earnings = Σ (present × salary + extra). Payable = earnings − taken.
+  const totalEarnings = num(footer?.totals?.earnings);
+  const totalTaken = takenOf(footer?.totals);
+  const totalPayable = payableOf(footer?.totals);
+
   return (
     <div className="flex-1 min-h-0 flex flex-col">
       {!showDayColumns ? (
@@ -62,10 +83,10 @@ export function HajiraRangeTable({
       ) : null}
       <div className="flex-1 min-h-0 overflow-auto pb-8">
         <table className="table table-xs w-max bg-transparent text-xs border-separate border-spacing-0 border-t border-l border-base-content/35 [&_th]:!px-1 [&_th]:!py-0.5 [&_td]:!px-0.5 [&_td]:!py-1 [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
-          <thead className="sticky top-0 z-10 bg-base-100">
+          <thead className={`sticky top-0 z-10 ${HEAD_BG}`}>
             <tr>
-              <th className={`w-7 align-middle ${CELL}`}>নং</th>
-              <th className={`w-7 px-0 ${CELL_PIN}`} />
+              <th className={`w-7 align-middle ${CELL} ${HEAD_BG}`}>নং</th>
+              <th className={`w-7 px-0 ${CELL_PIN} ${HEAD_BG}`} />
               <th
                 className={`w-20 max-w-20 sm:w-28 sm:max-w-28 pl-1 align-middle ${CELL} ${STICKY_PIN_HEAD}`}
               >
@@ -78,7 +99,7 @@ export function HajiraRangeTable({
                     <th
                       key={iso}
                       colSpan={2}
-                      className={`text-center align-middle font-medium whitespace-nowrap px-0.5 ${CELL}`}
+                      className={`text-center align-middle font-medium whitespace-nowrap px-0.5 ${CELL} ${HEAD_BG}`}
                     >
                       {formatDateColBn(iso)}
                     </th>
@@ -86,7 +107,7 @@ export function HajiraRangeTable({
                 : null}
               <th
                 colSpan={2}
-                className={`text-center align-middle font-medium ${CELL}`}
+                className={`text-center align-middle font-medium ${CELL} ${HEAD_BG}`}
               >
                 মোট
               </th>
@@ -196,14 +217,14 @@ export function HajiraRangeTable({
           {rows.length > 0 ? (
             <tfoot>
               <tr className="font-medium bg-transparent">
-                <td rowSpan={2} className={`${CELL} ${FOOT_BG}`} />
+                <td rowSpan={2} className={`${CELL} ${FOOT_GRAY_BG}`} />
                 <td
                   rowSpan={2}
-                  className={`w-7 px-0 ${CELL_PIN} ${FOOT_BG}`}
+                  className={`w-7 px-0 ${CELL_PIN} ${FOOT_GRAY_BG}`}
                 />
                 <td
                   rowSpan={2}
-                  className={`align-middle whitespace-nowrap pl-1 ${CELL} ${STICKY_PIN} ${FOOT_BG}`}
+                  className={`align-middle whitespace-nowrap pl-1 ${CELL} ${STICKY_PIN_FOOT} ${FOOT_GRAY_BG}`}
                 >
                   মোট
                 </td>
@@ -213,14 +234,14 @@ export function HajiraRangeTable({
                         key={`foot-${day.date}`}
                         band="top"
                         day={day}
-                        rowBg={FOOT_BG}
+                        rowBg={FOOT_GRAY_BG}
                       />
                     ))
                   : null}
-                <td className={`${VALUE_CELL} ${CELL_TOP_INNER} ${FOOT_BG}`}>
+                <td className={`${VALUE_CELL} ${CELL_TOP_INNER} ${FOOT_GRAY_BG}`}>
                   <Amount value={footer.totals.present} />
                 </td>
-                <td className={`${VALUE_CELL} ${CELL_TOP} ${FOOT_BG}`}>
+                <td className={`${VALUE_CELL} ${CELL_TOP} ${FOOT_GRAY_BG}`}>
                   <Amount value={footer.totals.khoraki} tone="text-error" />
                 </td>
               </tr>
@@ -231,15 +252,76 @@ export function HajiraRangeTable({
                         key={`foot-${day.date}-sub`}
                         band="sub"
                         day={day}
-                        rowBg={FOOT_BG}
+                        rowBg={FOOT_GRAY_BG}
                       />
                     ))
                   : null}
-                <td className={`${VALUE_CELL} ${CELL_SUB_INNER} ${FOOT_BG}`}>
+                <td className={`${VALUE_CELL} ${CELL_SUB_INNER} ${FOOT_GRAY_BG}`}>
                   <Amount value={footer.totals.extra} tone="text-success" />
                 </td>
-                <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}>
+                <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_GRAY_BG}`}>
                   <Amount value={footer.totals.advance} tone="text-error" />
+                </td>
+              </tr>
+              <tr className="font-medium bg-transparent">
+                <td className={`${CELL} ${FOOT_GRAY_BG}`} />
+                <td className={`w-7 px-0 ${CELL_PIN} ${FOOT_GRAY_BG}`} />
+                <td
+                  className={`align-middle whitespace-nowrap pl-1 ${CELL} ${STICKY_PIN_FOOT} ${FOOT_GRAY_BG}`}
+                >
+                  সর্বমোট
+                </td>
+                {showDayColumns
+                  ? footer.byDate.map((day) => (
+                      <Fragment key={`foot-${day.date}-sum`}>
+                        <td
+                          className={`${VALUE_CELL} ${CELL_SUB_INNER} ${FOOT_GRAY_BG}`}
+                        >
+                          <Amount
+                            value={num(day?.earnings)}
+                            tone="text-success"
+                          />
+                        </td>
+                        <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_GRAY_BG}`}>
+                          <Amount value={takenOf(day)} tone="text-error" />
+                        </td>
+                      </Fragment>
+                    ))
+                  : null}
+                <td className={`${VALUE_CELL} ${CELL_SUB_INNER} ${FOOT_GRAY_BG}`}>
+                  <Amount value={totalEarnings} tone="text-success" />
+                </td>
+                <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_GRAY_BG}`}>
+                  <Amount value={totalTaken} tone="text-error" />
+                </td>
+              </tr>
+              <tr className="font-medium bg-transparent">
+                <td className={`${CELL} ${FOOT_REMAIN_BG}`} />
+                <td className={`w-7 px-0 ${CELL_PIN} ${FOOT_REMAIN_BG}`} />
+                <td
+                  className={`align-middle whitespace-nowrap pl-1 ${signedTone(totalPayable)} ${CELL} ${STICKY_PIN_FOOT} ${FOOT_REMAIN_BG}`}
+                >
+                  অবশিষ্ট
+                </td>
+                {showDayColumns
+                  ? footer.byDate.map((day) => (
+                      <td
+                        key={`foot-${day.date}-payable`}
+                        colSpan={2}
+                        className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_REMAIN_BG}`}
+                      >
+                        <Amount
+                          value={payableOf(day)}
+                          tone={signedTone(payableOf(day))}
+                        />
+                      </td>
+                    ))
+                  : null}
+                <td
+                  colSpan={2}
+                  className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_REMAIN_BG}`}
+                >
+                  <Amount value={totalPayable} tone={signedTone(totalPayable)} />
                 </td>
               </tr>
             </tfoot>
