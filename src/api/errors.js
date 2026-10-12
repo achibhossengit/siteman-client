@@ -91,6 +91,10 @@ export const CODE_COPY = {
 
   // Labour sessions (UI: হিসাব)
   session_no_records: 'সিল করার মতো কোনো রেকর্ড এখন নেই।',
+  session_end_date_not_after_last:
+    'হিসাব বন্ধের তারিখ শেষ হিসাবের তারিখের পরে হতে হবে।',
+  session_end_date_after_last_record:
+    'হিসাব বন্ধের তারিখ চলমান হিসাবের শেষ রেকর্ডের তারিখের পরে হতে পারবে না।',
   session_not_latest: 'শুধু সর্বশেষ হিসাবটি মুছে ফেলা যায়।',
   session_snapshot_mismatch: 'হিসাবের তথ্য বদলে গেছে। পেজটি রিফ্রেশ করে আবার চেষ্টা করুন।',
 

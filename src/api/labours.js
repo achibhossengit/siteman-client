@@ -134,9 +134,16 @@ export const fetchLabourSessions = (
     }))
 }
 
-/** POST /labours/{labour_pk}/sessions — close the open period (no payload). */
-export const closeLabourSession = (labourId) =>
-  api.post(endpoints.labours.sessions(labourId))
+/**
+ * POST /labours/{labour_pk}/sessions — close the open period.
+ * Optional `end_date` (YYYY-MM-DD) closes only records up to that date
+ * (partial close); omit it to close the whole open period.
+ */
+export const closeLabourSession = (labourId, { end_date } = {}) =>
+  api.post(
+    endpoints.labours.sessions(labourId),
+    end_date ? { end_date } : undefined,
+  )
 
 /** GET /labours/{labour_pk}/sessions/{id} */
 export const fetchLabourSession = (labourId, sessionId) =>
@@ -148,11 +155,18 @@ export const deleteLabourSession = (labourId, sessionId) =>
 
 /**
  * GET /labours/{labour_pk}/sessions/running_session
- * Returns null when there is no open period (404).
+ * Optional `end_date` previews a partial close (same validation as POST).
+ * `data` is null when there is no open period (404) or the range is empty (204).
  */
-export const fetchLabourRunningSession = async (labourId) => {
+export const fetchLabourRunningSession = async (
+  labourId,
+  { end_date } = {},
+) => {
   try {
-    return await api.get(endpoints.labours.runningSession(labourId))
+    const res = await api.get(endpoints.labours.runningSession(labourId), {
+      params: end_date ? { end_date } : undefined,
+    })
+    return res.status === 204 ? { ...res, data: null } : res
   } catch (err) {
     if (err?.response?.status === 404) return { data: null }
     throw err

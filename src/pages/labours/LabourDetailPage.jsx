@@ -6,8 +6,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Lock, X } from 'lucide-react'
 import {
-  closeLabourSession,
-  deleteLabourSession,
   fetchLabourDetail,
   fetchLabourRunningSession,
   fetchLabourSession,
@@ -31,7 +29,7 @@ import { usePermissions } from '../../hooks/usePermissions.js'
 import { usePhotoPicker } from '../../hooks/usePhotoPicker.js'
 import { useAssignedSites, useSitesLookup } from '../../hooks/useSites.js'
 import { formatBnNumber, formatBnSigned, NULL_SITE_LABEL } from '../../utils/format.js'
-import { confirmAction, toastSuccess } from '../../utils/feedback.js'
+import { toastSuccess } from '../../utils/feedback.js'
 import { PERMS } from '../../utils/permissions.js'
 import { paths } from '../../router/paths.js'
 import { LabourDeleteModal } from './LabourDeleteModal.jsx'
@@ -126,7 +124,6 @@ export const LabourDetailPage = () => {
   const editDialogRef = useRef(null)
   const deleteModalRef = useRef(null)
   const [apiError, setApiError] = useState(null)
-  const [sessionApiError, setSessionApiError] = useState(null)
   const [page, setPage] = useState(1)
   const [openSessionKey, setOpenSessionKey] = useState(null)
   const [detailFetchEnabled, setDetailFetchEnabled] = useState(true)
@@ -135,8 +132,6 @@ export const LabourDetailPage = () => {
   const canChangeLabour = can(PERMS.changeLabour)
   const canDeleteLabour = can(PERMS.deleteLabour)
   const canViewSessions = can(PERMS.viewLabourSession)
-  const canCloseSession = can(PERMS.addLabourSession)
-  const canDeleteSession = can(PERMS.deleteLabourSession)
   const requireSite = !isCompanyAdmin
 
   const { sites: allSites, getSiteName } = useSitesLookup({
@@ -256,22 +251,8 @@ export const LabourDetailPage = () => {
     mutationFn: (values) => updateLabour(labourId, toLabourPayload(values)),
   })
 
-  const closeSessionMutation = useMutation({
-    mutationFn: () => closeLabourSession(labourId),
-  })
-
-  const deleteSessionMutation = useMutation({
-    mutationFn: (id) => deleteLabourSession(labourId, id),
-  })
-
   const invalidateLabour = () =>
     queryClient.invalidateQueries({ queryKey: ['labours', labourId] })
-
-  const invalidateSessions = () =>
-    queryClient.invalidateQueries({ queryKey: ['labours', labourId, 'sessions'] })
-
-  const invalidateSessionActivities = () =>
-    queryClient.invalidateQueries({ queryKey: ['activities'] })
 
   const openEditModal = () => {
     if (!labour) return
@@ -327,46 +308,6 @@ export const LabourDetailPage = () => {
       }
     }
   })
-
-  const onCloseSession = async () => {
-    const confirmed = await confirmAction({
-      title: 'চলমান হিসাব ক্লোজ করবেন?',
-      text: 'হাজিরা ও পেমেন্ট সিল হয়ে যাবে।',
-      confirmText: 'ক্লোজ করুন',
-    })
-    if (!confirmed) return
-    setSessionApiError(null)
-    try {
-      await closeSessionMutation.mutateAsync()
-      await invalidateSessions()
-      await invalidateLabour()
-      await invalidateSessionActivities()
-      toastSuccess('হিসাব ক্লোজ হয়েছে')
-    } catch (error) {
-      setSessionApiError(parseApiError(error))
-    }
-  }
-
-  const onDeleteSession = async (sessionId) => {
-    if (sessionId == null) return
-    const confirmed = await confirmAction({
-      title: 'হিসাব মুছে ফেলবেন?',
-      text: 'এই কাজটি ফিরিয়ে আনা যাবে না।',
-      confirmText: 'ডিলিট করুন',
-      danger: true,
-    })
-    if (!confirmed) return
-    setSessionApiError(null)
-    try {
-      await deleteSessionMutation.mutateAsync(sessionId)
-      await invalidateSessions()
-      await invalidateLabour()
-      await invalidateSessionActivities()
-      toastSuccess('হিসাব ডিলিট হয়েছে')
-    } catch (error) {
-      setSessionApiError(parseApiError(error))
-    }
-  }
 
   const onSessionsPageChange = (nextPage) => {
     setPage(nextPage)
@@ -515,8 +456,6 @@ export const LabourDetailPage = () => {
         <section className="space-y-2">
           <h2 className="text-base font-semibold">হিসাব সমূহ</h2>
 
-          {sessionApiError ? <ApiErrorAlert error={sessionApiError} /> : null}
-
           {sessionsQuery.isLoading && !sessions.length ? (
             <div className="flex justify-center py-10">
               <span className="loading loading-spinner loading-md text-primary" />
@@ -538,8 +477,6 @@ export const LabourDetailPage = () => {
                     ? sessionDetailQuery.data
                     : listSession
                 const locked = !running && Boolean(detail?.is_modified)
-                const itemSessionId =
-                  detail?.id ?? (!running && key !== 'running' ? key : null)
                 const detailLoading =
                   isOpen &&
                   sessionDetailQuery.isLoading &&
@@ -687,10 +624,10 @@ export const LabourDetailPage = () => {
                             </span>
                           </div>
 
-                          <div className="flex justify-between gap-2 items-center pt-3">
+                          <div className="flex justify-end pt-3">
                             <button
                               type="button"
-                              className="btn btn-outline btn-sm btn-secondary"
+                              className="btn btn-primary btn-outline btn-sm"
                               onClick={() =>
                                 navigate(
                                   paths.labourSessionRecords(labourId, key),
@@ -700,38 +637,6 @@ export const LabourDetailPage = () => {
                             >
                               বিস্তারিত দেখুন
                             </button>
-
-                            {canDeleteSession && !running ? (
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-error"
-                                onClick={() => void onDeleteSession(itemSessionId)}
-                                disabled={
-                                  locked ||
-                                  itemSessionId == null ||
-                                  deleteSessionMutation.isPending
-                                }
-                              >
-                                {deleteSessionMutation.isPending ? (
-                                  <span className="loading loading-spinner loading-sm" />
-                                ) : null}
-                                ডিলিট করুন
-                              </button>
-                            ) : null}
-
-                            {running && canCloseSession ? (
-                              <button
-                                type="button"
-                                className="btn btn-primary btn-sm ms-auto"
-                                onClick={() => void onCloseSession()}
-                                disabled={closeSessionMutation.isPending}
-                              >
-                                {closeSessionMutation.isPending ? (
-                                  <span className="loading loading-spinner loading-sm" />
-                                ) : null}
-                                হিসাব ক্লোজ করুন
-                              </button>
-                            ) : null}
                           </div>
                         </div>
                       )}

@@ -1,17 +1,26 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { useOutletContext, useParams, useSearchParams } from "react-router-dom";
+import {
+  useNavigate,
+  useOutletContext,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Trash2 } from "lucide-react";
 import { fetchAllActivities, reviewActivities } from "../../api/activities.js";
 import {
+  closeLabourSession,
   deleteLabourDailyRecord,
+  deleteLabourSession,
   fetchLabourDailyRecords,
   fetchLabourDetail,
   fetchLabourLatestSession,
   fetchLabourRunningSession,
   fetchLabourSession,
+  fetchLabourSessions,
   updateLabourDailyRecord,
 } from "../../api/labours.js";
+import { fetchAllPages } from "../../api/pagination.js";
 import {
   activityCellToneClass,
   activityToneClass,
@@ -39,8 +48,10 @@ import { useSitesLookup } from "../../hooks/useSites.js";
 import {
   concatName,
   formatBnNumber,
+  formatBnSigned,
   NULL_BILLING_LABEL,
 } from "../../utils/format.js";
+import { paths } from "../../router/paths.js";
 import { confirmAction, toastApiError, toastInfo, toastSuccess } from "../../utils/feedback.js";
 import { SHOW_BILLING } from "../../config/features.js";
 import { PERMS, hasPermissionSuffix } from "../../utils/permissions.js";
@@ -54,6 +65,7 @@ const RECORD_MODAL_ID = "session_record_detail_modal";
 const DATE_FILTER_MODAL_ID = "session_record_date_filter_modal";
 const SITE_FILTER_MODAL_ID = "session_record_site_filter_modal";
 const HAJIRA_FILTER_MODAL_ID = "session_record_hajira_filter_modal";
+const CLOSE_MODAL_ID = "session_close_modal";
 
 const BORDER_Y = "border-b border-b-base-content/35";
 const BORDER_Y_SOFT = "border-b border-b-base-content/15";
@@ -240,6 +252,22 @@ const rowEarnings = (row, selected = ["from_present", "from_extra"]) => {
   return total;
 };
 
+const SummaryRow = ({ label, children, className }) => (
+  <div className="flex justify-between gap-3">
+    <span className="text-base-content/70">{label}</span>
+    <span className={`tabular-nums ${className ?? ""}`}>{children}</span>
+  </div>
+);
+
+const summarizeRowDates = (list) => {
+  const dates = list.map((row) => toIsoDate(row.date)).filter(Boolean).sort();
+  return {
+    count: list.length,
+    from: dates[0] ?? "",
+    to: dates[dates.length - 1] ?? "",
+  };
+};
+
 const fetchAllLabourDailyRecords = async (labourId, rangeParams) => {
   const results = [];
   let page = 1;
@@ -261,6 +289,7 @@ const fetchAllLabourDailyRecords = async (labourId, rangeParams) => {
 export const LabourSessionRecordsPage = () => {
   const { labourId, sessionId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { setTitle, setHeaderMenu } = useOutletContext();
   const queryClient = useQueryClient();
   const { can, profile } = usePermissions();
@@ -268,6 +297,8 @@ export const LabourSessionRecordsPage = () => {
   const isLatestRoute = sessionId === "latest";
   const canView = can(PERMS.viewLabourSession);
   const { getSiteName } = useSitesLookup({ enabled: canView });
+  const canCloseSession = can(PERMS.addLabourSession);
+  const canDeleteSession = can(PERMS.deleteLabourSession);
   const canChangeDailyRecord = can(PERMS.changeDailyRecord);
   const canDeleteDailyRecord = can(PERMS.deleteDailyRecord);
   const canViewActivityLog =
@@ -304,6 +335,8 @@ export const LabourSessionRecordsPage = () => {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [reviewing, setReviewing] = useState(false);
   const [showSalary, setShowSalary] = useState(() => readSessionShowSalary());
+  const [closeModalOpen, setCloseModalOpen] = useState(false);
+  const [closeApiError, setCloseApiError] = useState(null);
 
   const labourQuery = useQuery({
     queryKey: ["labours", labourId],
@@ -605,6 +638,164 @@ export const LabourSessionRecordsPage = () => {
   const siteFilterActive =
     uniqueSites.length > 1 && selectedSiteId !== "all";
   const siteHeaderLabel = siteFilterActive ? "সাইট*" : "সাইট";
+
+  // ── Session close / delete ──────────────────────────────────────────
+  const isRunning = isRunningRoute || Boolean(session?.is_running);
+
+  const latestSessionQuery = useQuery({
+    queryKey: ["labours", labourId, "latest-session"],
+    // Latest *created* session, excluding the running (open) one.
+    queryFn: async () => {
+      const all = await fetchAllPages(({ page, page_size }) =>
+        fetchLabourSessions(labourId, { page, page_size }),
+      );
+      const sealed = all.filter((s) => s?.id != null && !s.is_running);
+      if (!sealed.length) return null;
+      return sealed.reduce((latest, s) => {
+        const a = Number(s.id);
+        const b = Number(latest.id);
+        if (Number.isFinite(a) && Number.isFinite(b)) return a > b ? s : latest;
+        return String(s.id) > String(latest.id) ? s : latest;
+      });
+    },
+    enabled: Boolean(canView && labourId),
+  });
+  const latestSession = latestSessionQuery.data ?? null;
+  const lastSessionEnd = toIsoDate(latestSession?.end_date);
+
+  // Partial close: the date filter's end date is the session end_date.
+  // No active filter → close everything up to the last record.
+  const lastRecordDate = sessionDateBounds?.max ?? "";
+  const closeEndDate = dateFilterActive ? toIsoDate(dateEnd) : lastRecordDate;
+  const closeIsPartial = Boolean(
+    closeEndDate && lastRecordDate && closeEndDate < lastRecordDate,
+  );
+
+  let closeBlockReason = "";
+  if (!latestSessionQuery.isSuccess) {
+    closeBlockReason = "loading";
+  } else if (!lastRecordDate) {
+    closeBlockReason = "সিল করার মতো কোনো রেকর্ড নেই।";
+  } else if (lastSessionEnd && closeEndDate <= lastSessionEnd) {
+    closeBlockReason = `শেষ হিসাবের তারিখ (${formatDate(lastSessionEnd)}) এর পরের তারিখ নির্বাচন করুন।`;
+  } else if (closeEndDate > lastRecordDate) {
+    closeBlockReason = `শেষ রেকর্ডের তারিখ (${formatDate(lastRecordDate)}) এর মধ্যে তারিখ নির্বাচন করুন।`;
+  }
+  const canOpenCloseModal = Boolean(
+    isRunning && canCloseSession && !closeBlockReason,
+  );
+
+  const sealRows = useMemo(
+    () =>
+      rows.filter((row) => {
+        const d = toIsoDate(row.date);
+        return Boolean(
+          d && (!lastSessionEnd || d > lastSessionEnd) && d <= closeEndDate,
+        );
+      }),
+    [rows, lastSessionEnd, closeEndDate],
+  );
+  const remainRows = useMemo(
+    () =>
+      rows.filter((row) => {
+        const d = toIsoDate(row.date);
+        return Boolean(d && closeEndDate && d > closeEndDate);
+      }),
+    [rows, closeEndDate],
+  );
+  const sealInfo = summarizeRowDates(sealRows);
+  const remainInfo = summarizeRowDates(remainRows);
+
+  const closeRangeLabel = `${formatDate(
+    sealInfo.from || session?.start_date,
+  )} থেকে ${formatDate(closeEndDate)}`;
+
+  const closePreviewQuery = useQuery({
+    queryKey: ["labours", labourId, "close-preview", closeEndDate],
+    queryFn: async () => {
+      const { data } = await fetchLabourRunningSession(labourId, {
+        end_date: closeEndDate,
+      });
+      return data || null;
+    },
+    enabled: Boolean(closeModalOpen && canOpenCloseModal && closeIsPartial),
+  });
+  // Whole close → the running session itself is the preview.
+  const closeSummary = closeIsPartial ? closePreviewQuery.data : session;
+  const closePreviewLoading = closeIsPartial && closePreviewQuery.isFetching;
+  const closeSessionMutation = useMutation({
+    mutationFn: () =>
+      closeLabourSession(labourId, {
+        end_date: closeIsPartial ? closeEndDate : undefined,
+      }),
+  });
+
+  const deleteSessionMutation = useMutation({
+    mutationFn: () => deleteLabourSession(labourId, session.id),
+  });
+
+  const closeCloseModal = () => {
+    document.getElementById(CLOSE_MODAL_ID)?.close();
+  };
+
+  const openCloseModal = () => {
+    if (!canOpenCloseModal) return;
+    setCloseApiError(null);
+    setCloseModalOpen(true);
+    document.getElementById(CLOSE_MODAL_ID)?.showModal();
+  };
+
+  const invalidateAfterSessionChange = () => {
+    // Detail page is not mounted yet; mark stale so it refetches on mount.
+    void queryClient.invalidateQueries({
+      queryKey: ["labours", labourId],
+      refetchType: "none",
+    });
+    void queryClient.invalidateQueries({ queryKey: ["activities"] });
+  };
+
+  const onConfirmClose = async () => {
+    if (!canOpenCloseModal || !closeSummary) return;
+    setCloseApiError(null);
+    try {
+      await closeSessionMutation.mutateAsync();
+      closeCloseModal();
+      toastSuccess("হিসাব বন্ধ হয়েছে");
+      navigate(paths.labourDetail(labourId), { replace: true });
+      invalidateAfterSessionChange();
+    } catch (error) {
+      setCloseApiError(parseApiError(error));
+    }
+  };
+
+  const isLatestSession = Boolean(
+    !isRunning &&
+      session?.id != null &&
+      latestSession?.id != null &&
+      String(latestSession.id) === String(session.id),
+  );
+  const canDeleteThisSession = Boolean(
+    canDeleteSession && isLatestSession && !session?.is_modified,
+  );
+
+  const onDeleteSession = async () => {
+    if (!canDeleteThisSession) return;
+    const confirmed = await confirmAction({
+      title: "হিসাব মুছে ফেলবেন?",
+      text: "এই কাজটি ফিরিয়ে আনা যাবে না।",
+      confirmText: "ডিলিট করুন",
+      danger: true,
+    });
+    if (!confirmed) return;
+    try {
+      await deleteSessionMutation.mutateAsync();
+      toastSuccess("হিসাব ডিলিট হয়েছে");
+      navigate(paths.labourDetail(labourId), { replace: true });
+      invalidateAfterSessionChange();
+    } catch (error) {
+      toastApiError(parseApiError(error));
+    }
+  };
 
   const closeDateFilterModal = () => {
     document.getElementById(DATE_FILTER_MODAL_ID)?.close();
@@ -971,6 +1162,10 @@ export const LabourSessionRecordsPage = () => {
   }
 
   const recordsError = dailyRecordsQuery.error || activitiesQuery.error;
+  const currentPayable =
+    session.cumulative_payable != null
+      ? num(session.cumulative_payable)
+      : num(session.previous_payable) + num(session.payable);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-2 py-3">
@@ -1254,9 +1449,94 @@ export const LabourSessionRecordsPage = () => {
                   />
                 </td>
               </tr>
+              <tr className="font-medium bg-transparent">
+                <td
+                  colSpan={3}
+                  className={`align-middle whitespace-nowrap text-right pr-1 ${CELL} ${FOOT_BG}`}
+                >
+                  আগের পাওনা
+                </td>
+                <td
+                  colSpan={2}
+                  className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}
+                >
+                  <Amount
+                    value={num(session.previous_payable)}
+                    tone={signedTone(num(session.previous_payable))}
+                  />
+                </td>
+              </tr>
+              <tr className="font-medium bg-transparent">
+                <td
+                  colSpan={3}
+                  className={`align-middle whitespace-nowrap text-right pr-1 ${signedTone(currentPayable)} ${CELL} ${FOOT_BG}`}
+                >
+                  বর্তমান পাওনা
+                </td>
+                <td
+                  colSpan={2}
+                  className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}
+                >
+                  <Amount
+                    value={currentPayable}
+                    tone={signedTone(currentPayable)}
+                  />
+                </td>
+              </tr>
             </tfoot>
           ) : null}
         </table>
+
+        {(isRunning && canCloseSession) ||
+        (!isRunning && canDeleteSession) ? (
+          <div className="px-3 pt-4 space-y-2">
+            {isRunning ? (
+              <>
+                {closeBlockReason && closeBlockReason !== "loading" ? (
+                  <p className="text-xs text-warning text-center">
+                    {closeBlockReason}
+                  </p>
+                ) : closeIsPartial ? (
+                  <p className="text-xs text-base-content/60 text-center">
+                    {formatDate(closeEndDate)} পর্যন্ত বন্ধ হবে। বাকি
+                    রেকর্ড চলমান থাকবে।
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  className="btn btn-primary w-full"
+                  disabled={
+                    !canOpenCloseModal || closeSessionMutation.isPending
+                  }
+                  onClick={openCloseModal}
+                >
+                  হিসাব বন্ধ করুন
+                </button>
+              </>
+            ) : (
+              <>
+                {!canDeleteThisSession && latestSessionQuery.isSuccess ? (
+                  <p className="text-xs text-base-content/60 text-center">
+                    শুধু সর্বশেষ হিসাবটি মুছে ফেলা যায়।
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  className="btn btn-error w-full"
+                  disabled={
+                    !canDeleteThisSession || deleteSessionMutation.isPending
+                  }
+                  onClick={() => void onDeleteSession()}
+                >
+                  {deleteSessionMutation.isPending ? (
+                    <span className="loading loading-spinner loading-sm" />
+                  ) : null}
+                  ডিলিট করুন
+                </button>
+              </>
+            )}
+          </div>
+        ) : null}
       </div>
 
       <HajiraActionBars
@@ -1799,6 +2079,143 @@ export const LabourSessionRecordsPage = () => {
                 প্রয়োগ করুন
               </button>
             </div>
+          </div>
+        </div>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
+      </dialog>
+
+      <dialog
+        id={CLOSE_MODAL_ID}
+        className="modal"
+        onClose={() => {
+          setCloseModalOpen(false);
+          setCloseApiError(null);
+        }}
+      >
+        <div className="modal-box max-w-sm max-h-[min(36rem,90vh)] flex flex-col">
+          <form method="dialog">
+            <button
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              ✕
+            </button>
+          </form>
+          <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">
+            হিসাব বন্ধ করবেন?
+          </h3>
+
+          <ApiErrorAlert error={closeApiError} />
+          {closeIsPartial && closePreviewQuery.isError ? (
+            <ApiErrorAlert error={parseApiError(closePreviewQuery.error)} />
+          ) : null}
+
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-3 text-sm">
+            {closePreviewLoading ? (
+              <div className="flex justify-center py-4">
+                <span className="loading loading-spinner loading-sm text-primary" />
+              </div>
+            ) : closeSummary ? (
+              <section className="space-y-1.5">
+                <div className="font-semibold">
+                  {closeRangeLabel} পর্যন্ত হিসাব
+                </div>
+                <SummaryRow label="মোট হাজিরা">
+                  {formatBnNumber(closeSummary.present_days ?? 0)}
+                </SummaryRow>
+                <SummaryRow label="মোট আয়" className="text-success">
+                  {formatBnSigned(
+                    closeSummary.total_earnings ??
+                      num(closeSummary.salary_earnings) +
+                        num(closeSummary.extra_earnings),
+                  )}
+                </SummaryRow>
+                <SummaryRow label="মোট পেমেন্ট" className="text-error">
+                  {formatBnSigned(-Math.abs(num(closeSummary.total_payment)), {
+                    showPlus: false,
+                  })}
+                </SummaryRow>
+                <SummaryRow label="মোট রিটার্ন" className="text-success">
+                  {formatBnSigned(closeSummary.total_return)}
+                </SummaryRow>
+                <div className="border-t border-base-300 pt-1.5">
+                  <SummaryRow
+                    label="পাওনা"
+                    className={`font-semibold ${signedTone(num(closeSummary.payable))}`}
+                  >
+                    {formatBnNumber(closeSummary.payable ?? 0)}
+                  </SummaryRow>
+                </div>
+                <SummaryRow
+                  label="আগের পাওনা"
+                  className={signedTone(num(closeSummary.previous_payable))}
+                >
+                  {formatBnSigned(closeSummary.previous_payable ?? 0)}
+                </SummaryRow>
+                <div className="border-t border-base-300 pt-1.5">
+                  <SummaryRow
+                    label="সর্বমোট পাওনা"
+                    className={`font-semibold ${signedTone(num(closeSummary.cumulative_payable))}`}
+                  >
+                    {formatBnNumber(closeSummary.cumulative_payable ?? 0)}
+                  </SummaryRow>
+                </div>
+              </section>
+            ) : closeIsPartial && !closePreviewQuery.isError ? (
+              <div className="text-sm text-base-content/60 text-center py-2">
+                এই সময়ের মধ্যে কোনো রেকর্ড নেই।
+              </div>
+            ) : null}
+
+            <div className="space-y-1.5">
+              <p>
+                <span className="font-semibold">{closeRangeLabel}</span>{" "}
+                পর্যন্ত হিসাব বন্ধ হবে।
+              </p>
+              {closeIsPartial && remainInfo.count > 0 ? (
+                <p>
+                  বাকি{" "}
+                  <span className="font-semibold">
+                    {formatDate(remainInfo.from)} থেকে{" "}
+                    {formatDate(remainInfo.to)}
+                  </span>{" "}
+                  পর্যন্ত হাজিরা থেকে যাবে।
+                </p>
+              ) : null}
+              <p className="text-warning">
+                হিসাব বন্ধ করার পর {closeRangeLabel} পর্যন্ত হাজিরা আর
+                পরিবর্তন করা যাবে না।
+              </p>
+            </div>
+          </div>
+
+          <div className="modal-action shrink-0 pt-3">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={closeCloseModal}
+              disabled={closeSessionMutation.isPending}
+            >
+              বাতিল
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => void onConfirmClose()}
+              disabled={
+                closeSessionMutation.isPending ||
+                closePreviewLoading ||
+                !closeSummary ||
+                !canOpenCloseModal
+              }
+            >
+              {closeSessionMutation.isPending ? (
+                <span className="loading loading-spinner loading-sm" />
+              ) : null}
+              বন্ধ করুন
+            </button>
           </div>
         </div>
         <div className="modal-backdrop">
