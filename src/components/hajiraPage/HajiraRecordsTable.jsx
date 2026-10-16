@@ -35,6 +35,7 @@ import {
   paymentLineTone,
   recordIdOf,
   recordSealedOf,
+  sessionPairClass,
 } from "./helpers.js";
 
 const BORDER_Y = "border-b border-b-base-content/35";
@@ -273,6 +274,7 @@ export function HajiraRecordsTable({
                 hasSaveError || pendingCreate || row.activityTone;
               const motFill = specialFill ? fill : MOT_COL_BG;
               const sorboFill = specialFill ? fill : SORBOMOT_BG;
+              const hasSession = settlePaid !== 0 || settleBack !== 0;
               const rowTitle = sealed
                 ? messageForCode("record_sealed")
                 : pendingCreate
@@ -348,7 +350,7 @@ export function HajiraRecordsTable({
                       </LabourIdentity>
                     </td>
                     <td
-                      className={`${VALUE_CELL} ${CELL_TOP_INNER} ${motFill} ${hajiraGroupTone} ${sealedContentClass} cursor-pointer`}
+                      className={`${VALUE_CELL} ${CELL_TOP_INNER} ${motFill} ${sessionPairClass(hasSession, "top", "left")} ${hajiraGroupTone} ${sealedContentClass} cursor-pointer`}
                       onClick={() => openRecordModal(row)}
                       title={rowTitle}
                     >
@@ -359,7 +361,7 @@ export function HajiraRecordsTable({
                       />
                     </td>
                     <td
-                      className={`${VALUE_CELL} ${CELL_TOP} ${motFill} ${hajiraGroupTone} ${sealedContentClass} cursor-pointer`}
+                      className={`${VALUE_CELL} ${CELL_TOP} ${motFill} ${sessionPairClass(hasSession, "top", "right")} ${hajiraGroupTone} ${sealedContentClass} cursor-pointer`}
                       onClick={() => openRecordModal(row)}
                       title={rowTitle}
                     >
@@ -408,7 +410,7 @@ export function HajiraRecordsTable({
                   </tr>
                   <tr className={`bg-transparent ${auditRowClass}`}>
                     <td
-                      className={`${VALUE_CELL} ${row2Left} ${motFill} ${sealedContentClass} cursor-pointer ${paymentLineTone(
+                      className={`${VALUE_CELL} ${row2Left} ${motFill} ${sessionPairClass(hasSession, "mid", "left")} ${sealedContentClass} cursor-pointer ${paymentLineTone(
                         row,
                         initial,
                         ["payment", "paymentNote"],
@@ -421,7 +423,7 @@ export function HajiraRecordsTable({
                       <Amount value={row.payment} tone="text-error" />
                     </td>
                     <td
-                      className={`${VALUE_CELL} ${row2Right} ${motFill} ${sealedContentClass} cursor-pointer`}
+                      className={`${VALUE_CELL} ${row2Right} ${motFill} ${sessionPairClass(hasSession, "mid", "right")} ${sealedContentClass} cursor-pointer`}
                       onClick={() => openRecordModal(row)}
                       title={
                         settlePaid ? "হিসাবের সময় দেওয়া হয়েছে" : rowTitle
@@ -450,14 +452,14 @@ export function HajiraRecordsTable({
                   </tr>
                   <tr className={`bg-transparent ${auditRowClass}`}>
                       <td
-                        className={`${VALUE_CELL} ${CELL_SUB_INNER} ${motFill} ${sealedContentClass} cursor-pointer`}
+                        className={`${VALUE_CELL} ${CELL_SUB_INNER} ${motFill} ${sessionPairClass(hasSession, "bot", "left")} ${sealedContentClass} cursor-pointer`}
                         onClick={() => openRecordModal(row)}
                         title={rowTitle}
                       >
                         <Amount value={row.return} tone={returnTone} />
                       </td>
                       <td
-                        className={`${VALUE_CELL} ${CELL_SUB} ${motFill} ${sealedContentClass} cursor-pointer`}
+                        className={`${VALUE_CELL} ${CELL_SUB} ${motFill} ${sessionPairClass(hasSession, "bot", "right")} ${sealedContentClass} cursor-pointer`}
                         onClick={() => openRecordModal(row)}
                         title={
                           settleBack
