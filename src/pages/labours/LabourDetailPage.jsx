@@ -98,6 +98,10 @@ const formatFullDate = (iso) => {
 const isRunningSession = (session) =>
   Boolean(session?.is_running) || session?.id == null
 
+/** Labour balance of a session: remaining_payable once settled. */
+const remainingOf = (session) =>
+  session?.remaining_payable ?? session?.cumulative_payable ?? 0
+
 const sessionKeyOf = (session) => {
   if (!session) return null
   return isRunningSession(session) ? 'running' : String(session.id)
@@ -512,8 +516,12 @@ export const LabourDetailPage = () => {
                         <span className="text-xs font-normal text-base-content/70 tabular-nums whitespace-nowrap">
                           পাওনা{' '}
                           {formatBnNumber(
-                            listSession.cumulative_payable ??
-                              listSession.payable,
+                            running
+                              ? (listSession.cumulative_payable ??
+                                  listSession.payable)
+                              : (listSession.remaining_payable ??
+                                  listSession.cumulative_payable ??
+                                  listSession.payable),
                           )}
                         </span>
                       </div>
@@ -586,7 +594,7 @@ export const LabourDetailPage = () => {
                             </span>
                           </div>
                           <div className="border-t border-base-300 pt-2 flex justify-between gap-3 font-semibold">
-                            <span>পাওনা</span>
+                            <span>বর্তমান পাওনা</span>
                             <span
                               className={
                                 Number(detail.payable) < 0
@@ -623,6 +631,30 @@ export const LabourDetailPage = () => {
                               {formatBnNumber(detail.cumulative_payable ?? 0)}
                             </span>
                           </div>
+                          {!running ? (
+                            <>
+                              <div className="flex justify-between gap-3">
+                                <span className="text-base-content/70">
+                                  হিসাবের সময় দেওয়া
+                                </span>
+                                <span>
+                                  {formatBnSigned(detail.settlement ?? 0)}
+                                </span>
+                              </div>
+                              <div className="border-t border-base-300 pt-2 flex justify-between gap-3 font-semibold">
+                                <span>অবশিষ্ট পাওনা</span>
+                                <span
+                                  className={
+                                    Number(remainingOf(detail)) < 0
+                                      ? 'text-error'
+                                      : 'text-success'
+                                  }
+                                >
+                                  {formatBnNumber(remainingOf(detail))}
+                                </span>
+                              </div>
+                            </>
+                          ) : null}
 
                           <div className="flex justify-end pt-3">
                             <button

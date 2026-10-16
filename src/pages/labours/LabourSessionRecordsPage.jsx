@@ -322,6 +322,7 @@ export const LabourSessionRecordsPage = () => {
   const [showSalary, setShowSalary] = useState(() => readSessionShowSalary());
   const [closeModalOpen, setCloseModalOpen] = useState(false);
   const [closeApiError, setCloseApiError] = useState(null);
+  const [settlement, setSettlement] = useState("");
 
   const labourQuery = useQuery({
     queryKey: ["labours", labourId],
@@ -704,10 +705,18 @@ export const LabourSessionRecordsPage = () => {
   // Whole close → the running session itself is the preview.
   const closeSummary = closeIsPartial ? closePreviewQuery.data : session;
   const closePreviewLoading = closeIsPartial && closePreviewQuery.isFetching;
+  const settlementValid =
+    settlement === "" ||
+    (settlement !== "-" && Number.isFinite(Number(settlement)));
+  const settlementAmount = settlement === "" ? 0 : num(settlement);
+  const closeRemainingPayable =
+    num(closeSummary?.cumulative_payable) - settlementAmount;
+
   const closeSessionMutation = useMutation({
     mutationFn: () =>
       closeLabourSession(labourId, {
         end_date: closeIsPartial ? closeEndDate : undefined,
+        settlement: settlementAmount,
       }),
   });
 
@@ -722,6 +731,7 @@ export const LabourSessionRecordsPage = () => {
   const openCloseModal = () => {
     if (!canOpenCloseModal) return;
     setCloseApiError(null);
+    setSettlement("");
     setCloseModalOpen(true);
     document.getElementById(CLOSE_MODAL_ID)?.showModal();
   };
@@ -736,7 +746,7 @@ export const LabourSessionRecordsPage = () => {
   };
 
   const onConfirmClose = async () => {
-    if (!canOpenCloseModal || !closeSummary) return;
+    if (!canOpenCloseModal || !closeSummary || !settlementValid) return;
     setCloseApiError(null);
     try {
       await closeSessionMutation.mutateAsync();
@@ -1147,6 +1157,10 @@ export const LabourSessionRecordsPage = () => {
     session.cumulative_payable != null
       ? num(session.cumulative_payable)
       : num(session.previous_payable) + num(session.payable);
+  const remainingPayable =
+    session.remaining_payable != null
+      ? num(session.remaining_payable)
+      : currentPayable - num(session.settlement);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-2 py-3">
@@ -1418,7 +1432,7 @@ export const LabourSessionRecordsPage = () => {
                   colSpan={2}
                   className={`align-middle whitespace-nowrap text-right pr-1 ${signedTone(payableOf(totals))} ${CELL} ${FOOT_BG}`}
                 >
-                  অবশিষ্ট
+                  বর্তমান পাওনা
                 </td>
                 <td
                   colSpan={2}
@@ -1452,7 +1466,7 @@ export const LabourSessionRecordsPage = () => {
                   colSpan={2}
                   className={`align-middle whitespace-nowrap text-right pr-1 ${signedTone(currentPayable)} ${CELL} ${FOOT_BG}`}
                 >
-                  বর্তমান পাওনা
+                  সর্বমোট পাওনা
                 </td>
                 <td
                   colSpan={2}
@@ -1464,6 +1478,41 @@ export const LabourSessionRecordsPage = () => {
                   />
                 </td>
               </tr>
+              {!isRunning ? (
+                <>
+                  <tr className="font-medium bg-transparent">
+                    <td
+                      colSpan={2}
+                      className={`align-middle whitespace-nowrap text-right pr-1 ${CELL} ${FOOT_BG}`}
+                    >
+                      হিসাবের সময় দেওয়া
+                    </td>
+                    <td
+                      colSpan={2}
+                      className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}
+                    >
+                      <Amount value={num(session.settlement)} />
+                    </td>
+                  </tr>
+                  <tr className="font-medium bg-transparent">
+                    <td
+                      colSpan={2}
+                      className={`align-middle whitespace-nowrap text-right pr-1 ${signedTone(remainingPayable)} ${CELL} ${FOOT_BG}`}
+                    >
+                      অবশিষ্ট পাওনা
+                    </td>
+                    <td
+                      colSpan={2}
+                      className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}
+                    >
+                      <Amount
+                        value={remainingPayable}
+                        tone={signedTone(remainingPayable)}
+                      />
+                    </td>
+                  </tr>
+                </>
+              ) : null}
             </tfoot>
           ) : null}
         </table>
@@ -2104,6 +2153,31 @@ export const LabourSessionRecordsPage = () => {
                     {formatBnNumber(closeSummary.cumulative_payable ?? 0)}
                   </SummaryRow>
                 </div>
+                <label className="form-control w-full pt-1">
+                  <span className="label-text mb-1">
+                    সেটেলমেন্ট (দেওয়া হলে +, ফেরত নিলে −)
+                  </span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step={1}
+                    className={`input input-bordered input-sm w-full tabular-nums ${
+                      settlementValid ? "" : "input-error"
+                    }`}
+                    placeholder="০"
+                    value={settlement}
+                    disabled={closeSessionMutation.isPending}
+                    onChange={(e) => setSettlement(e.target.value)}
+                  />
+                </label>
+                {settlementAmount !== 0 && settlementValid ? (
+                  <SummaryRow
+                    label="অবশিষ্ট পাওনা"
+                    className={`font-semibold ${signedTone(closeRemainingPayable)}`}
+                  >
+                    {formatBnNumber(closeRemainingPayable)}
+                  </SummaryRow>
+                ) : null}
               </section>
             ) : closeIsPartial && !closePreviewQuery.isError ? (
               <div className="text-sm text-base-content/60 text-center py-2">
@@ -2150,6 +2224,7 @@ export const LabourSessionRecordsPage = () => {
                 closeSessionMutation.isPending ||
                 closePreviewLoading ||
                 !closeSummary ||
+                !settlementValid ||
                 !canOpenCloseModal
               }
             >

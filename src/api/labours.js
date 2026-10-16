@@ -138,12 +138,22 @@ export const fetchLabourSessions = (
  * POST /labours/{labour_pk}/sessions — close the open period.
  * Optional `end_date` (YYYY-MM-DD) closes only records up to that date
  * (partial close); omit it to close the whole open period.
+ * Optional `settlement`: positive = site paid the labour, negative = labour
+ * paid back. The session's `remaining_payable` becomes the next session's
+ * `previous_payable`.
  */
-export const closeLabourSession = (labourId, { end_date } = {}) =>
-  api.post(
+export const closeLabourSession = (labourId, { end_date, settlement } = {}) => {
+  const body = {
+    ...(end_date ? { end_date } : {}),
+    ...(settlement != null && settlement !== '' && Number(settlement) !== 0
+      ? { settlement: Number(settlement) }
+      : {}),
+  }
+  return api.post(
     endpoints.labours.sessions(labourId),
-    end_date ? { end_date } : undefined,
+    Object.keys(body).length ? body : undefined,
   )
+}
 
 /** GET /labours/{labour_pk}/sessions/{id} */
 export const fetchLabourSession = (labourId, sessionId) =>
