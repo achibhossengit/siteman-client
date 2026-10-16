@@ -1153,10 +1153,8 @@ export const LabourSessionRecordsPage = () => {
   }
 
   const recordsError = dailyRecordsQuery.error || activitiesQuery.error;
-  const currentPayable =
-    session.cumulative_payable != null
-      ? num(session.cumulative_payable)
-      : num(session.previous_payable) + num(session.payable);
+  // সর্বমোট পাওনা = বর্তমান পাওনা (table totals) + আগের পাওনা, computed at runtime.
+  const currentPayable = payableOf(totals) + num(session.previous_payable);
   const remainingPayable =
     session.remaining_payable != null
       ? num(session.remaining_payable)
@@ -1529,7 +1527,7 @@ export const LabourSessionRecordsPage = () => {
                 ) : closeIsPartial ? (
                   <p className="text-xs text-base-content/60 text-center">
                     {formatDate(closeEndDate)} পর্যন্ত বন্ধ হবে। বাকি
-                    রেকর্ড চলমান থাকবে।
+                    হিসাব চলমান থাকবে।
                   </p>
                 ) : null}
                 <button
@@ -2085,67 +2083,43 @@ export const LabourSessionRecordsPage = () => {
           setCloseApiError(null);
         }}
       >
-        <div className="modal-box max-w-sm max-h-[min(36rem,90vh)] flex flex-col">
+        <div className="modal-box max-w-xs p-4 max-h-[min(36rem,90vh)] flex flex-col">
           <form method="dialog">
             <button
-              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              className="btn btn-xs btn-circle btn-ghost absolute right-2 top-2"
               aria-label="বন্ধ"
             >
               ✕
             </button>
           </form>
-          <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">
-            হিসাব বন্ধ করবেন?
-          </h3>
-
           <ApiErrorAlert error={closeApiError} />
           {closeIsPartial && closePreviewQuery.isError ? (
             <ApiErrorAlert error={parseApiError(closePreviewQuery.error)} />
           ) : null}
 
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-3 text-sm">
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 text-xs">
             {closePreviewLoading ? (
               <div className="flex justify-center py-4">
                 <span className="loading loading-spinner loading-sm text-primary" />
               </div>
             ) : closeSummary ? (
-              <section className="space-y-1.5">
-                <div className="font-semibold">
+              <section className="space-y-1">
+                <div className="font-semibold pr-8">
                   {closeRangeLabel} পর্যন্ত হিসাব
                 </div>
-                <SummaryRow label="মোট হাজিরা">
-                  {formatBnNumber(closeSummary.present_days ?? 0)}
+                <SummaryRow
+                  label="পাওনা"
+                  className={signedTone(num(closeSummary.payable))}
+                >
+                  {formatBnNumber(closeSummary.payable ?? 0)}
                 </SummaryRow>
-                <SummaryRow label="মোট আয়" className="text-success">
-                  {formatBnSigned(
-                    closeSummary.total_earnings ??
-                      num(closeSummary.salary_earnings) +
-                        num(closeSummary.extra_earnings),
-                  )}
-                </SummaryRow>
-                <SummaryRow label="মোট পেমেন্ট" className="text-error">
-                  {formatBnSigned(-Math.abs(num(closeSummary.total_payment)), {
-                    showPlus: false,
-                  })}
-                </SummaryRow>
-                <SummaryRow label="মোট রিটার্ন" className="text-success">
-                  {formatBnSigned(closeSummary.total_return)}
-                </SummaryRow>
-                <div className="border-t border-base-300 pt-1.5">
-                  <SummaryRow
-                    label="পাওনা"
-                    className={`font-semibold ${signedTone(num(closeSummary.payable))}`}
-                  >
-                    {formatBnNumber(closeSummary.payable ?? 0)}
-                  </SummaryRow>
-                </div>
                 <SummaryRow
                   label="আগের পাওনা"
                   className={signedTone(num(closeSummary.previous_payable))}
                 >
                   {formatBnSigned(closeSummary.previous_payable ?? 0)}
                 </SummaryRow>
-                <div className="border-t border-base-300 pt-1.5">
+                <div className="border-t border-base-300 pt-1">
                   <SummaryRow
                     label="সর্বমোট পাওনা"
                     className={`font-semibold ${signedTone(num(closeSummary.cumulative_payable))}`}
@@ -2153,15 +2127,15 @@ export const LabourSessionRecordsPage = () => {
                     {formatBnNumber(closeSummary.cumulative_payable ?? 0)}
                   </SummaryRow>
                 </div>
-                <label className="form-control w-full pt-1">
-                  <span className="label-text mb-1">
-                    সেটেলমেন্ট (দেওয়া হলে +, ফেরত নিলে −)
+                <label className="flex items-center justify-between gap-3 pt-1">
+                  <span className="text-base-content/70">
+                    হিসাবের সময় দেওয়া
                   </span>
                   <input
                     type="number"
                     inputMode="decimal"
                     step={1}
-                    className={`input input-bordered input-sm w-full tabular-nums ${
+                    className={`input input-bordered input-xs w-28 text-right tabular-nums ${
                       settlementValid ? "" : "input-error"
                     }`}
                     placeholder="০"
@@ -2170,13 +2144,15 @@ export const LabourSessionRecordsPage = () => {
                     onChange={(e) => setSettlement(e.target.value)}
                   />
                 </label>
-                {settlementAmount !== 0 && settlementValid ? (
-                  <SummaryRow
-                    label="অবশিষ্ট পাওনা"
-                    className={`font-semibold ${signedTone(closeRemainingPayable)}`}
-                  >
-                    {formatBnNumber(closeRemainingPayable)}
-                  </SummaryRow>
+                {settlementValid ? (
+                  <div className="border-t border-base-300 pt-1">
+                    <SummaryRow
+                      label="এই হিসাব বন্ধের পর এই শ্রমিকের পাওনা থাকবে"
+                      className={`font-semibold whitespace-nowrap ${signedTone(closeRemainingPayable)}`}
+                    >
+                      {formatBnNumber(closeRemainingPayable)}
+                    </SummaryRow>
+                  </div>
                 ) : null}
               </section>
             ) : closeIsPartial && !closePreviewQuery.isError ? (
@@ -2186,28 +2162,26 @@ export const LabourSessionRecordsPage = () => {
             ) : null}
 
             <div className="space-y-1.5">
-              <p>
+              <p className="text-warning">
                 <span className="font-semibold">{closeRangeLabel}</span>{" "}
-                পর্যন্ত হিসাব বন্ধ হবে।
+                পর্যন্ত হিসাব বন্ধ হবে। হিসাব বন্ধ করার পর{" "}
+                <span className="font-semibold">{formatDate(closeEndDate)}</span>{" "}
+                তারিখ পর্যন্ত হাজিরা আর পরিবর্তন করা যাবে না।
               </p>
               {closeIsPartial && remainInfo.count > 0 ? (
                 <p>
-                  বাকি{" "}
+                  বাকি হিসাব:{" "}
                   <span className="font-semibold">
                     {formatDate(remainInfo.from)} থেকে{" "}
                     {formatDate(remainInfo.to)}
                   </span>{" "}
-                  পর্যন্ত হাজিরা থেকে যাবে।
+                  চলমান থাকবে।
                 </p>
               ) : null}
-              <p className="text-warning">
-                হিসাব বন্ধ করার পর {closeRangeLabel} পর্যন্ত হাজিরা আর
-                পরিবর্তন করা যাবে না।
-              </p>
             </div>
           </div>
 
-          <div className="modal-action shrink-0 pt-3">
+          <div className="modal-action shrink-0 mt-3 pt-0">
             <button
               type="button"
               className="btn btn-ghost btn-sm"
