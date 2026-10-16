@@ -13,6 +13,7 @@ import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { formatBnNumber, formatBnSigned } from '../../utils/format.js'
 import { paths } from '../../router/paths.js'
 import {
+  writeCashFocus,
   writeCashLedgerView,
   writeHajiraFocus,
 } from '../../utils/sessionSelection.js'
@@ -125,10 +126,10 @@ export const BalancePage = () => {
     balance,
   } = report
 
-  // Open the cash page on the matching ledger tab.
-  const openCash = (view) => () => {
-    writeCashLedgerView(view)
-    navigate(paths.cash)
+  const openCashFocus = (cashFocus) => () => {
+    writeCashLedgerView(cashFocus)
+    writeCashFocus(cashFocus)
+    navigate(paths.cash, { state: { cashFocus } })
   }
 
   const openHajiraFocus = (hajiraFocus) => () => {
@@ -150,7 +151,7 @@ export const BalancePage = () => {
       <Row
         icon={Wallet}
         label={cashTypeLabel('deposit')}
-        onLabelClick={openCash('deposit')}
+        onLabelClick={openCashFocus('deposit')}
         value={formatBnSigned(deposit, { showPlus: true })}
         valueClassName="font-semibold tabular-nums text-success"
       />
@@ -163,16 +164,16 @@ export const BalancePage = () => {
       <Row
         icon={Wallet}
         label={cashTypeLabel('withdrawal')}
-        onLabelClick={openCash('withdrawal')}
+        onLabelClick={openCashFocus('withdrawal')}
         value={formatBnSigned(-(Math.abs(Number(withdrawal) || 0)), {
           showPlus: false,
         })}
-        valueClassName="font-semibold tabular-nums text-error"
+        valueClassName="font-semibold tabular-nums text-warning"
       />
       <Row
         icon={Wallet}
         label={cashTypeLabel('cost')}
-        onLabelClick={openCash('cost')}
+        onLabelClick={openCashFocus('cost')}
         value={formatBnSigned(-(Math.abs(Number(site_cost) || 0)), {
           showPlus: false,
         })}

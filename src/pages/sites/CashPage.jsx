@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -48,9 +48,13 @@ import {
   todayIso,
 } from "../../utils/dateRange.js";
 import {
+  clearCashFocus,
+  readCashFocus,
   readCashLedgerView,
   writeCashLedgerView,
 } from "../../utils/sessionSelection.js";
+import { playMotFocusTour, waitForId } from "../../utils/focusTour.js";
+import { paths } from "../../router/paths.js";
 import { SHOW_BILLING, visibleFieldItems } from "../../config/features.js";
 import { useBillingLookup } from "../../hooks/useBillingLookup.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
@@ -64,6 +68,10 @@ import {
 
 const MODAL_ID = "site_cash_modal";
 const BILLING_FILTER_MODAL_ID = "cash_billing_filter_modal";
+const TYPE_FILTER_MODAL_ID = "cash_type_filter_modal";
+const CASH_FOCUS_VIEWS = new Set(["deposit", "withdrawal", "cost"]);
+const cashMotRowId = (view) => `cash-mot-${view}-row`;
+const cashSorbomotId = (view) => `cash-sorbomot-${view}`;
 const PAGE_SIZE = 100;
 const CELL_GRID =
   "border-b border-b-base-content/35 border-r border-r-base-content/35";
@@ -241,7 +249,7 @@ const LEDGER_VIEWS = [
     id: "withdrawal",
     label: "উত্তোলন",
     types: ["withdrawal"],
-    tone: "text-error",
+    tone: "text-warning",
     empty: "কোনো উত্তোলন নেই।",
   },
   {
@@ -299,13 +307,13 @@ const formatBulkReviewError = (parsed) => {
 const filterLabel = (options, value) =>
   options.find((opt) => opt.value === value)?.label ?? options[0]?.label ?? "";
 
-/** Distinct colour per type (no +/− prefix): deposit green, withdrawal / cost red. */
+/** Distinct colour per type (no +/− prefix): deposit green, withdrawal warning, cost red. */
 const AMOUNT_BY_TYPE = {
   deposit: {
     className: "text-success",
   },
   withdrawal: {
-    className: "text-error",
+    className: "text-warning",
   },
   cost: {
     className: "text-error",
@@ -410,11 +418,16 @@ const colgroup = (showDateCol) => (
 
 export const CashPage = () => {
   const { date, dateEnd, siteId, sites } = useOutletContext();
+  const location = useLocation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { can, profile } = usePermissions();
   const dialogRef = useRef(null);
+  const focusedCellRef = useRef(null);
 
   const [ledgerView, setLedgerView] = useState(() => {
+    const focus = readCashFocus();
+    if (CASH_FOCUS_VIEWS.has(focus)) return focus;
     const saved = readCashLedgerView();
     return LEDGER_VIEWS.some((view) => view.id === saved)
       ? saved
@@ -522,7 +535,7 @@ export const CashPage = () => {
   const activeView =
     LEDGER_VIEWS.find((view) => view.id === ledgerView) ?? LEDGER_VIEWS[0];
   const typeFilter = activeView.types;
-  /** সব রেকর্ড: every type; the total splits into জমা (top) / খরচ (bottom). */
+  /** সব রেকর্ড: every type; the total splits into জমা / উত্তোলন / খরচ. */
   const isAllRecords = activeView.id === "all_records";
   const createDefaults = {
     ...emptyValues,
@@ -571,6 +584,62 @@ export const CashPage = () => {
     enabled: Boolean(canViewCash && siteId && date),
     placeholderData: (previousData) => previousData,
   });
+
+  useEffect(() => {
+    const focus =
+      readCashFocus() ||
+      (CASH_FOCUS_VIEWS.has(location.state?.cashFocus)
+        ? location.state.cashFocus
+        : "");
+    if (!CASH_FOCUS_VIEWS.has(focus)) return;
+    if (cashQuery.isLoading) return;
+
+    let cancelled = false;
+    const isCancelled = () => cancelled;
+
+    void (async () => {
+      const row = await waitForId(cashMotRowId(focus), isCancelled, 2000);
+      const cell = row
+        ? await waitForId(cashSorbomotId(focus), isCancelled, 2000)
+        : null;
+      if (cancelled) return;
+      focusedCellRef.current?.classList.remove("hajira-focus-cell");
+      focusedCellRef.current = null;
+      if (row && cell) {
+        const done = await playMotFocusTour(row, cell, isCancelled);
+        if (cancelled || !done) return;
+        focusedCellRef.current = cell;
+      }
+      clearCashFocus();
+      if (location.state?.cashFocus) {
+        navigate(paths.cash, { replace: true, state: {} });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      document
+        .getElementById(cashMotRowId(focus))
+        ?.classList.remove("hajira-focus-row");
+    };
+  }, [
+    location.state,
+    cashQuery.isLoading,
+    cashQuery.isSuccess,
+    navigate,
+  ]);
+
+  useEffect(() => {
+    const clearMark = () => {
+      focusedCellRef.current?.classList.remove("hajira-focus-cell");
+      focusedCellRef.current = null;
+    };
+    document.addEventListener("pointerdown", clearMark, true);
+    return () => {
+      document.removeEventListener("pointerdown", clearMark, true);
+      clearMark();
+    };
+  }, []);
 
   const pageData = cashQuery.data ?? {
     results: [],
@@ -1065,25 +1134,6 @@ export const CashPage = () => {
 
   return (
     <section className="flex-1 min-h-0 flex flex-col relative overflow-x-hidden">
-      {selectMode && canChangeActivityLog ? null : (
-        <div className="shrink-0 px-2 pt-1.5 pb-1 flex items-center gap-1.5 overflow-x-auto overflow-y-hidden">
-          {LEDGER_VIEWS.map((view) => (
-            <button
-              key={view.id}
-              type="button"
-              className={[
-                "btn btn-xs h-7 min-h-7 max-h-7 leading-none shrink-0 rounded-full border border-base-300/70 box-border font-normal",
-                ledgerView === view.id
-                  ? "btn-primary"
-                  : `btn-ghost bg-base-200 ${view.tone}`,
-              ].join(" ")}
-              onClick={() => setLedgerView(view.id)}
-            >
-              {view.label}
-            </button>
-          ))}
-        </div>
-      )}
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
         <table className={`table table-fixed table-sm sm:table-md w-full max-w-full ${TABLE_GRID}`}>
           {colgroup(isRange)}
@@ -1139,7 +1189,17 @@ export const CashPage = () => {
                   </button>
                 </th>
               ) : null}
-              <th className={`text-right px-1 sm:px-3 ${CELL_GRID}`}>পরিমাণ</th>
+              <th className={`text-right px-1 sm:px-3 ${CELL_GRID}`}>
+                <button
+                  type="button"
+                  className={`max-w-full truncate ${activeView.tone}`}
+                  onClick={() =>
+                    document.getElementById(TYPE_FILTER_MODAL_ID)?.showModal()
+                  }
+                >
+                  {activeView.label}
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -1249,18 +1309,34 @@ export const CashPage = () => {
                   colSpan={tableCols - 1}
                   className={`px-1 sm:px-3 !py-0.5 sm:!py-0.5 leading-tight text-right text-base-content/60 !bg-base-300 ${CELL_GRID}`}
                 >
+                  মোট উত্তোলন
+                </td>
+                <td
+                  className={`text-right tabular-nums leading-tight px-1 sm:px-3 !py-0.5 sm:!py-0.5 whitespace-nowrap !bg-base-300 ${CELL_GRID} text-warning`}
+                >
+                  {formatBnNumber(summaryTotals.withdrawal)}
+                </td>
+              </tr>
+              <tr className="font-medium [&_td]:bg-base-300">
+                <td
+                  colSpan={tableCols - 1}
+                  className={`px-1 sm:px-3 !py-0.5 sm:!py-0.5 leading-tight text-right text-base-content/60 !bg-base-300 ${CELL_GRID}`}
+                >
                   মোট খরচ
                 </td>
                 <td
                   className={`text-right tabular-nums leading-tight px-1 sm:px-3 !py-0.5 sm:!py-0.5 whitespace-nowrap !bg-base-300 ${CELL_GRID} text-error`}
                 >
-                  {formatBnNumber(summaryTotals.withdrawal + summaryTotals.cost)}
+                  {formatBnNumber(summaryTotals.cost)}
                 </td>
               </tr>
             </tfoot>
           ) : showSummary ? (
             <tfoot>
-              <tr className="font-medium [&_td]:bg-base-300">
+              <tr
+                id={cashMotRowId(activeView.id)}
+                className="font-medium [&_td]:bg-base-300"
+              >
                 <td
                   colSpan={tableCols - 1}
                   className={`px-1 sm:px-3 text-right text-base-content/60 !bg-base-300 ${CELL_GRID}`}
@@ -1268,6 +1344,7 @@ export const CashPage = () => {
                   মোট
                 </td>
                 <td
+                  id={cashSorbomotId(activeView.id)}
                   className={`text-right tabular-nums px-1 sm:px-3 whitespace-nowrap !bg-base-300 ${CELL_GRID} ${summaryDisplay.className}`}
                 >
                   {summaryDisplay.text}
@@ -1844,6 +1921,41 @@ export const CashPage = () => {
                 ) : null}
               </form>
             )}
+          </div>
+        </div>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
+      </dialog>
+
+      <dialog id={TYPE_FILTER_MODAL_ID} className="modal">
+        <div className="modal-box max-w-xs max-h-[min(32rem,85vh)] overflow-y-auto">
+          <form method="dialog">
+            <button
+              type="submit"
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              aria-label="বন্ধ"
+            >
+              <X className="size-4" strokeWidth={1.75} />
+            </button>
+          </form>
+          <h3 className="font-semibold text-base">পরিমাণ ফিল্টার</h3>
+          <div className="menu bg-base-100 w-full p-0 pt-3">
+            {LEDGER_VIEWS.map((view) => (
+              <button
+                key={view.id}
+                type="button"
+                className={`btn btn-ghost btn-sm justify-start ${
+                  view.tone
+                } ${ledgerView === view.id ? "btn-active" : ""}`}
+                onClick={() => {
+                  setLedgerView(view.id);
+                  document.getElementById(TYPE_FILTER_MODAL_ID)?.close();
+                }}
+              >
+                {view.label}
+              </button>
+            ))}
           </div>
         </div>
         <div className="modal-backdrop">

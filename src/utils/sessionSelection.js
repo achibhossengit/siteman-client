@@ -16,6 +16,9 @@ export const SESSION_SHOW_SALARY_KEY = 'sessionShowSalary'
 export const HAJIRA_SHOW_SALARY_KEY = 'hajiraShowSalary'
 export const HAJIRA_SHOW_EARNINGS_KEY = 'hajiraShowEarnings'
 export const HAJIRA_FOCUS_KEY = 'hajiraFocus'
+export const CASH_FOCUS_KEY = 'cashFocus'
+
+const CASH_FOCUS_VIEWS = new Set(['deposit', 'withdrawal', 'cost'])
 
 export { todayIso, isIsoDate, toIsoDate } from './dateRange.js'
 
@@ -129,3 +132,13 @@ export const writeHajiraFocus = (value) =>
   )
 
 export const clearHajiraFocus = () => writeSession(HAJIRA_FOCUS_KEY, '')
+
+export const readCashFocus = () => {
+  const value = readSession(CASH_FOCUS_KEY)
+  return CASH_FOCUS_VIEWS.has(value) ? value : ''
+}
+
+export const writeCashFocus = (value) =>
+  writeSession(CASH_FOCUS_KEY, CASH_FOCUS_VIEWS.has(value) ? value : '')
+
+export const clearCashFocus = () => writeSession(CASH_FOCUS_KEY, '')

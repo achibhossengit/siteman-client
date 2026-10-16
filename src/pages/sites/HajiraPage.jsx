@@ -111,75 +111,7 @@ import {
 } from "../../utils/dateRange.js";
 import { SHOW_BILLING } from "../../config/features.js";
 import { paths } from "../../router/paths.js";
-
-const waitMs = (ms, isCancelled) =>
-  new Promise((resolve) => {
-    window.setTimeout(() => resolve(!isCancelled()), ms);
-  });
-
-const waitForId = (id, isCancelled, timeoutMs = 5000) =>
-  new Promise((resolve) => {
-    const started = Date.now();
-    const tick = () => {
-      if (isCancelled()) {
-        resolve(null);
-        return;
-      }
-      const el = document.getElementById(id);
-      if (el) {
-        resolve(el);
-        return;
-      }
-      if (Date.now() - started > timeoutMs) {
-        resolve(null);
-        return;
-      }
-      requestAnimationFrame(tick);
-    };
-    tick();
-  });
-
-const scrollParentOf = (el) => {
-  let node = el.parentElement;
-  while (node && node !== document.body) {
-    const style = window.getComputedStyle(node);
-    const canY =
-      (style.overflowY === "auto" || style.overflowY === "scroll") &&
-      node.scrollHeight > node.clientHeight + 1;
-    const canX =
-      (style.overflowX === "auto" || style.overflowX === "scroll") &&
-      node.scrollWidth > node.clientWidth + 1;
-    if (canY || canX) return node;
-    node = node.parentElement;
-  }
-  return document.scrollingElement || document.documentElement;
-};
-
-const scrollAxis = (scroller, el, axis) => {
-  const s = scroller.getBoundingClientRect();
-  const e = el.getBoundingClientRect();
-  if (axis === "y") {
-    const next =
-      scroller.scrollTop + (e.top - s.top) - (s.height - e.height) / 2;
-    scroller.scrollTo({ top: Math.max(0, next), behavior: "smooth" });
-    return;
-  }
-  const next = scroller.scrollLeft + (e.right - s.right) + 8;
-  scroller.scrollTo({ left: Math.max(0, next), behavior: "smooth" });
-};
-
-const playHajiraFocusTour = async (row, cell, isCancelled) => {
-  row.classList.add("hajira-focus-row");
-  const scroller = scrollParentOf(row);
-  const label = row.querySelector("td") || row;
-  scrollAxis(scroller, label, "y");
-  if (!(await waitMs(500, isCancelled))) return false;
-  scrollAxis(scroller, cell, "x");
-  if (!(await waitMs(500, isCancelled))) return false;
-  row.classList.remove("hajira-focus-row");
-  cell.classList.add("hajira-focus-cell");
-  return true;
-};
+import { playFocusTour, waitForId } from "../../utils/focusTour.js";
 
 export const HajiraPage = () => {
   const { date: selectedDate, dateEnd, siteId: selectedSiteId } =
@@ -549,7 +481,7 @@ export const HajiraPage = () => {
       if (cancelled || !row || !cell) return;
       focusedCellRef.current?.classList.remove("hajira-focus-cell");
       focusedCellRef.current = null;
-      const done = await playHajiraFocusTour(row, cell, isCancelled);
+      const done = await playFocusTour(row, cell, isCancelled);
       if (cancelled || !done) return;
       focusedCellRef.current = cell;
       clearHajiraFocus();
