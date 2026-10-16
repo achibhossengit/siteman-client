@@ -224,10 +224,20 @@ const shortActionLabel = (action) => {
 };
 
 const LEDGER_VIEWS = [
-  { id: "deposit", label: "জমা", types: ["deposit"] },
-  { id: "cost", label: "সাইট খরচ", types: ["cost"] },
-  { id: "withdrawal", label: "উত্তোলন", types: ["withdrawal"] },
-  { id: "all_cost", label: "সব খরচ", types: ["withdrawal", "cost"] },
+  { id: "deposit", label: "জমা", types: ["deposit"], tone: "text-success" },
+  { id: "cost", label: "সাইট খরচ", types: ["cost"], tone: "text-error" },
+  {
+    id: "withdrawal",
+    label: "উত্তোলন",
+    types: ["withdrawal"],
+    tone: "text-error",
+  },
+  {
+    id: "all_cost",
+    label: "সব খরচ",
+    types: ["withdrawal", "cost"],
+    tone: "text-error",
+  },
 ];
 const DEFAULT_LEDGER_VIEW = "deposit";
 
@@ -284,7 +294,7 @@ const AMOUNT_BY_TYPE = {
   },
   withdrawal: {
     sign: -1,
-    className: "text-warning",
+    className: "text-error",
   },
   cost: {
     sign: -1,
@@ -1255,7 +1265,7 @@ export const CashPage = () => {
                       "btn btn-xs h-8 min-h-8 max-h-8 leading-none shrink-0 shadow-lg border border-base-300 box-border",
                       ledgerView === view.id
                         ? "btn-primary"
-                        : "btn-ghost bg-base-100",
+                        : `btn-ghost bg-base-100 ${view.tone}`,
                     ].join(" ")}
                     onClick={() => setLedgerView(view.id)}
                   >
