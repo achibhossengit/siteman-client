@@ -6,7 +6,7 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, Pencil, Trash2 } from "lucide-react";
 import { fetchAllActivities, reviewActivities } from "../../api/activities.js";
 import {
   closeLabourSession,
@@ -46,7 +46,6 @@ import { useBillingLookups } from "../../hooks/useBillingLookup.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { useSitesLookup } from "../../hooks/useSites.js";
 import {
-  concatName,
   formatBnNumber,
   formatBnSigned,
   NULL_BILLING_LABEL,
@@ -63,7 +62,6 @@ import {
 
 const RECORD_MODAL_ID = "session_record_detail_modal";
 const DATE_FILTER_MODAL_ID = "session_record_date_filter_modal";
-const SITE_FILTER_MODAL_ID = "session_record_site_filter_modal";
 const HAJIRA_FILTER_MODAL_ID = "session_record_hajira_filter_modal";
 const CLOSE_MODAL_ID = "session_close_modal";
 
@@ -118,19 +116,6 @@ const cellFill = (row, index) => {
   const activity = activityCellToneClass(row.activityTone);
   if (activity) return activity;
   return index % 2 === 0 ? ROW_EVEN : ROW_ODD;
-};
-
-const SiteNameLabel = ({ name }) => {
-  if (!name) {
-    return <span className="opacity-35">—</span>;
-  }
-  return (
-    <span className="block min-w-0 leading-tight" title={name}>
-      <span className="sm:hidden">{concatName(name, 8)}</span>
-      <span className="hidden sm:inline md:hidden">{concatName(name, 14)}</span>
-      <span className="hidden md:inline">{concatName(name, 22)}</span>
-    </span>
-  );
 };
 
 const MODAL_VIEWS = {
@@ -449,14 +434,14 @@ export const LabourSessionRecordsPage = () => {
 
   const uniqueSites = useMemo(() => {
     const seen = new Map();
-    for (const row of dateFilteredRows) {
+    for (const row of rows) {
       if (row.siteId == null || row.siteId === "") continue;
       const value = String(row.siteId);
       if (seen.has(value)) continue;
       seen.set(value, { value, label: getSiteName(row.siteId) });
     }
     return [...seen.values()];
-  }, [dateFilteredRows, getSiteName]);
+  }, [rows, getSiteName]);
 
   const sessionDateBounds = useMemo(() => {
     const dates = [];
@@ -469,16 +454,7 @@ export const LabourSessionRecordsPage = () => {
     return { min: dates[0], max: dates[dates.length - 1] };
   }, [rows]);
 
-  const siteFilterOptions = useMemo(() => {
-    if (uniqueSites.length === 0) {
-      return [{ value: "all", label: "সব" }];
-    }
-    if (uniqueSites.length === 1) return uniqueSites;
-    return [{ value: "all", label: "সব" }, ...uniqueSites];
-  }, [uniqueSites]);
-
-  const selectedSiteId =
-    uniqueSites.length === 1 ? uniqueSites[0].value : siteFilter;
+  const selectedSiteId = siteFilter;
   const billingEnabled =
     SHOW_BILLING && selectedSiteId !== "all" && uniqueSites.length > 0;
 
@@ -502,13 +478,8 @@ export const LabourSessionRecordsPage = () => {
   }, [billingEnabled, dateFilteredRows, selectedSiteId, getBillingName]);
 
   useEffect(() => {
-    if (uniqueSites.length === 1) {
-      const only = uniqueSites[0].value;
-      if (siteFilter !== only) setSiteFilter(only);
-      return;
-    }
     if (
-      uniqueSites.length > 1 &&
+      uniqueSites.length > 0 &&
       siteFilter !== "all" &&
       !uniqueSites.some((site) => site.value === siteFilter)
     ) {
@@ -634,10 +605,14 @@ export const LabourSessionRecordsPage = () => {
   );
 
   const dateFilterActive = Boolean(toIsoDate(dateStart) && toIsoDate(dateEnd));
-  const dateHeaderLabel = dateFilterActive ? "তারিখ*" : "তারিখ";
-  const siteFilterActive =
-    uniqueSites.length > 1 && selectedSiteId !== "all";
-  const siteHeaderLabel = siteFilterActive ? "সাইট*" : "সাইট";
+  const dateRangeLabel = (() => {
+    if (!dateFilterActive) return "সব হাজিরা";
+    const start = toIsoDate(dateStart);
+    const end = toIsoDate(dateEnd);
+    return start === end
+      ? formatDate(start)
+      : `${formatDate(start)} – ${formatDate(end)}`;
+  })();
 
   // ── Session close / delete ──────────────────────────────────────────
   const isRunning = isRunningRoute || Boolean(session?.is_running);
@@ -676,6 +651,12 @@ export const LabourSessionRecordsPage = () => {
     closeBlockReason = "loading";
   } else if (!lastRecordDate) {
     closeBlockReason = "সিল করার মতো কোনো রেকর্ড নেই।";
+  } else if (
+    dateFilterActive &&
+    toIsoDate(dateStart) > (sessionDateBounds?.min ?? "")
+  ) {
+    closeBlockReason =
+      "শুরুর তারিখ ফিল্টার থাকলে হিসাব বন্ধ করা যাবে না। শুধু শেষ তারিখ দিয়ে ভাগ করা যায়।";
   } else if (lastSessionEnd && closeEndDate <= lastSessionEnd) {
     closeBlockReason = `শেষ হিসাবের তারিখ (${formatDate(lastSessionEnd)}) এর পরের তারিখ নির্বাচন করুন।`;
   } else if (closeEndDate > lastRecordDate) {
@@ -1173,6 +1154,42 @@ export const LabourSessionRecordsPage = () => {
         <ApiErrorAlert error={parseApiError(recordsError)} />
       ) : null}
 
+      <div className="flex items-stretch justify-between gap-2 shrink-0 px-3">
+        <button
+          type="button"
+          className="input input-bordered input-sm w-full max-w-xs flex items-center justify-between gap-1 cursor-pointer text-left font-normal"
+          onClick={openDateFilter}
+          disabled={!sessionDateBounds}
+          aria-haspopup="dialog"
+          aria-label="তারিখ নির্বাচন"
+        >
+          <span className="truncate tabular-nums">{dateRangeLabel}</span>
+          <ChevronDown
+            className="size-4 shrink-0 opacity-60"
+            strokeWidth={1.75}
+          />
+        </button>
+        <label className="form-control w-full max-w-xs">
+          <select
+            className="select select-bordered select-sm w-full"
+            value={selectedSiteId}
+            disabled={uniqueSites.length === 0}
+            onChange={(e) => {
+              setSiteFilter(e.target.value);
+              setBillingFilter("all");
+            }}
+            aria-label="সাইট"
+          >
+            <option value="all">সব সাইট</option>
+            {uniqueSites.map((site) => (
+              <option key={site.value} value={site.value}>
+                {site.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
       {SHOW_BILLING ? (
         <div className="flex items-center justify-end gap-2 shrink-0 px-3">
           <select
@@ -1195,7 +1212,6 @@ export const LabourSessionRecordsPage = () => {
         <table className="table table-xs table-fixed w-full bg-transparent text-xs border-separate border-spacing-0 border-t border-l border-base-content/35 [&_th]:!px-1 [&_th]:!py-2 sm:[&_th]:!py-3 [&_th]:!bg-base-300 [&_td]:!px-0.5 [&_td]:!py-1 [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
           <colgroup>
             <col className="w-10" />
-            <col className="w-[18%] min-w-16" />
             <col />
             <col className={PAIR_COL} />
             <col className={PAIR_COL} />
@@ -1234,24 +1250,7 @@ export const LabourSessionRecordsPage = () => {
                 </span>
               </th>
               <th className={`min-w-0 pl-1 align-middle ${CELL} ${HEAD_BG}`}>
-                <button
-                  type="button"
-                  onClick={openDateFilter}
-                  disabled={!sessionDateBounds}
-                >
-                  {dateHeaderLabel}
-                </button>
-              </th>
-              <th className={`min-w-0 pl-1 align-middle ${CELL} ${HEAD_BG}`}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    document.getElementById(SITE_FILTER_MODAL_ID)?.showModal()
-                  }
-                  disabled={uniqueSites.length === 0}
-                >
-                  {siteHeaderLabel}
-                </button>
+                তারিখ
               </th>
               <th
                 colSpan={2}
@@ -1274,7 +1273,7 @@ export const LabourSessionRecordsPage = () => {
             {visibleRows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={4}
                   className={`text-center text-sm text-base-content/60 !py-10 ${CELL}`}
                 >
                   কোনো রেকর্ড পাওয়া যায়নি।
@@ -1329,24 +1328,6 @@ export const LabourSessionRecordsPage = () => {
                         {formatDate(row.date)}
                       </td>
                       <td
-                        rowSpan={2}
-                        className={`align-middle min-w-0 pl-1 cursor-pointer ${CELL} ${fill}`}
-                        onClick={() => openRecordModal(row)}
-                        title={
-                          row.siteId != null && row.siteId !== ""
-                            ? getSiteName(row.siteId)
-                            : undefined
-                        }
-                      >
-                        <SiteNameLabel
-                          name={
-                            row.siteId != null && row.siteId !== ""
-                              ? getSiteName(row.siteId)
-                              : ""
-                          }
-                        />
-                      </td>
-                      <td
                         className={`${VALUE_CELL} ${CELL_TOP_INNER} ${fill} cursor-pointer`}
                         onClick={() => openRecordModal(row)}
                       >
@@ -1393,7 +1374,7 @@ export const LabourSessionRecordsPage = () => {
             <tfoot>
               <tr className="font-medium bg-transparent">
                 <td
-                  colSpan={3}
+                  colSpan={2}
                   rowSpan={2}
                   className={`align-middle whitespace-nowrap text-right pr-1 ${CELL} ${FOOT_BG}`}
                 >
@@ -1420,7 +1401,7 @@ export const LabourSessionRecordsPage = () => {
               </tr>
               <tr className="font-medium bg-transparent">
                 <td
-                  colSpan={3}
+                  colSpan={2}
                   className={`align-middle whitespace-nowrap text-right pr-1 ${CELL} ${FOOT_BG}`}
                 >
                   সর্বমোট
@@ -1434,7 +1415,7 @@ export const LabourSessionRecordsPage = () => {
               </tr>
               <tr className="font-medium bg-transparent">
                 <td
-                  colSpan={3}
+                  colSpan={2}
                   className={`align-middle whitespace-nowrap text-right pr-1 ${signedTone(payableOf(totals))} ${CELL} ${FOOT_BG}`}
                 >
                   অবশিষ্ট
@@ -1451,7 +1432,7 @@ export const LabourSessionRecordsPage = () => {
               </tr>
               <tr className="font-medium bg-transparent">
                 <td
-                  colSpan={3}
+                  colSpan={2}
                   className={`align-middle whitespace-nowrap text-right pr-1 ${CELL} ${FOOT_BG}`}
                 >
                   আগের পাওনা
@@ -1468,7 +1449,7 @@ export const LabourSessionRecordsPage = () => {
               </tr>
               <tr className="font-medium bg-transparent">
                 <td
-                  colSpan={3}
+                  colSpan={2}
                   className={`align-middle whitespace-nowrap text-right pr-1 ${signedTone(currentPayable)} ${CELL} ${FOOT_BG}`}
                 >
                   বর্তমান পাওনা
@@ -1967,45 +1948,6 @@ export const LabourSessionRecordsPage = () => {
                 )}
               </div>
             ) : null}
-          </div>
-        </div>
-        <div className="modal-backdrop">
-          <button type="button" tabIndex={-1} aria-hidden="true" />
-        </div>
-      </dialog>
-
-      <dialog id={SITE_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
-          <form method="dialog">
-            <button
-              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-              aria-label="বন্ধ"
-            >
-              ✕
-            </button>
-          </form>
-          <h3 className="font-bold text-lg pr-8 shrink-0">সাইট</h3>
-          <div className="flex flex-col gap-3 pt-3 flex-1 min-h-0 overflow-y-auto">
-            <div className="flex flex-col gap-2">
-              {siteFilterOptions.map((opt) => (
-                <label
-                  key={opt.value}
-                  className="inline-flex items-center gap-2 cursor-pointer text-sm"
-                >
-                  <input
-                    type="radio"
-                    className="radio radio-xs"
-                    name="session-site-filter"
-                    checked={String(selectedSiteId) === String(opt.value)}
-                    onChange={() => {
-                      setSiteFilter(opt.value);
-                      setBillingFilter("all");
-                    }}
-                  />
-                  <span className="min-w-0 truncate">{opt.label}</span>
-                </label>
-              ))}
-            </div>
           </div>
         </div>
         <div className="modal-backdrop">
