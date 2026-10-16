@@ -4,6 +4,10 @@ export const MODAL_VIEWS = {
 };
 
 export const RECORD_MODAL_ID = "hajira_record_modal";
+export const HAJIRA_SORBOMOT_DOYA_ID = "hajira-sorbomot-doya";
+export const HAJIRA_SORBOMOT_FEROT_ID = "hajira-sorbomot-ferot";
+export const HAJIRA_MOT_DOYA_ROW_ID = "hajira-mot-doya-row";
+export const HAJIRA_MOT_FEROT_ROW_ID = "hajira-mot-ferot-row";
 export const LABOUR_FILTER_MODAL_ID = "hajira_labour_filter_modal";
 export const EARNINGS_FILTER_MODAL_ID = "hajira_earnings_filter_modal";
 export const PAYMENT_FILTER_MODAL_ID = "hajira_payment_filter_modal";

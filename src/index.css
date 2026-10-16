@@ -138,3 +138,13 @@ dialog .swal2-container {
   font-size: 0.875rem;
   border-radius: var(--radius-field);
 }
+
+.hajira-focus-row > td {
+  box-shadow:
+    inset 0 2px 0 0 var(--color-primary),
+    inset 0 -2px 0 0 var(--color-primary);
+}
+
+.hajira-focus-cell {
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+}

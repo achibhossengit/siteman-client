@@ -20,6 +20,10 @@ import {
 } from "./JoinedAmounts.jsx";
 import {
   EARNINGS_DEFAULT_FIELDS,
+  HAJIRA_MOT_DOYA_ROW_ID,
+  HAJIRA_MOT_FEROT_ROW_ID,
+  HAJIRA_SORBOMOT_DOYA_ID,
+  HAJIRA_SORBOMOT_FEROT_ID,
   LABOUR_DEFAULT_FIELDS,
 } from "./constants.js";
 import {
@@ -109,14 +113,10 @@ export function HajiraRecordsTable({
   void viewHajiraFields;
   void showReturnAmount;
 
-  // Third subrow (return / session return) only when some row has one.
-  const hasReturn = visibleRows.some(
-    (row) => num(row.return) !== 0 || splitSettlement(row.settlement).back !== 0,
-  );
-  const pairRows = hasReturn ? 3 : 2;
+  const pairRows = 3;
   const colCount = tableColCount;
-  const row2Left = hasReturn ? CELL_TOP_INNER : CELL_SUB_INNER;
-  const row2Right = hasReturn ? CELL_TOP : CELL_SUB;
+  const row2Left = CELL_TOP_INNER;
+  const row2Right = CELL_TOP;
   const remainTotal = remainingOf(totals);
   const footRows = pairRows + 1;
   return (
@@ -461,8 +461,7 @@ export function HajiraRecordsTable({
                       />
                     </td>
                   </tr>
-                  {hasReturn ? (
-                    <tr className={`bg-transparent ${auditRowClass}`}>
+                  <tr className={`bg-transparent ${auditRowClass}`}>
                       <td
                         className={`${VALUE_CELL} ${CELL_SUB_INNER} ${motSubFill} ${sealedContentClass} cursor-pointer`}
                         onClick={() => openRecordModal(row)}
@@ -492,7 +491,6 @@ export function HajiraRecordsTable({
                         />
                       </td>
                     </tr>
-                  ) : null}
                   {hasSaveError ? (
                     <tr className="bg-transparent">
                       <td
@@ -549,7 +547,7 @@ export function HajiraRecordsTable({
                 </td>
               ) : null}
             </tr>
-            <tr className="font-medium bg-transparent">
+            <tr id={HAJIRA_MOT_DOYA_ROW_ID} className="font-medium bg-transparent">
               <td
                 colSpan={3}
                 className={`align-middle text-right whitespace-nowrap pr-1 ${CELL} ${FOOT_BG}`}
@@ -568,7 +566,10 @@ export function HajiraRecordsTable({
                   ]}
                 />
               </td>
-              <td className={`${VALUE_CELL} ${row2Right} ${SORBOMOT_BG}`}>
+              <td
+                id={HAJIRA_SORBOMOT_DOYA_ID}
+                className={`${VALUE_CELL} ${row2Right} ${SORBOMOT_BG}`}
+              >
                 <Amount
                   value={
                     num(totals.payment) +
@@ -579,8 +580,7 @@ export function HajiraRecordsTable({
                 />
               </td>
             </tr>
-            {hasReturn ? (
-              <tr className="font-medium bg-transparent">
+            <tr id={HAJIRA_MOT_FEROT_ROW_ID} className="font-medium bg-transparent">
                 <td
                   colSpan={3}
                   className={`align-middle text-right whitespace-nowrap pr-1 ${CELL} ${FOOT_BG}`}
@@ -596,7 +596,10 @@ export function HajiraRecordsTable({
                     tone={RETURN_TONE}
                   />
                 </td>
-                <td className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}>
+                <td
+                  id={HAJIRA_SORBOMOT_FEROT_ID}
+                  className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}
+                >
                   <Amount
                     value={
                       num(totals.return) +
@@ -606,7 +609,6 @@ export function HajiraRecordsTable({
                   />
                 </td>
               </tr>
-            ) : null}
             <tr className="font-medium bg-transparent">
               <td
                 colSpan={3}

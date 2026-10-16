@@ -14,7 +14,13 @@ import {
   remainingOf,
   splitSettlement,
 } from "./JoinedAmounts.jsx";
-import { LABOUR_DEFAULT_FIELDS } from "./constants.js";
+import {
+  HAJIRA_MOT_DOYA_ROW_ID,
+  HAJIRA_MOT_FEROT_ROW_ID,
+  HAJIRA_SORBOMOT_DOYA_ID,
+  HAJIRA_SORBOMOT_FEROT_ID,
+  LABOUR_DEFAULT_FIELDS,
+} from "./constants.js";
 
 const BORDER_Y = "border-b border-b-base-content/35";
 const BORDER_Y_SOFT = "border-b border-b-base-content/15";
@@ -58,25 +64,10 @@ export function HajiraRangeTable({
   onOpenDay,
   showLabourDetailDenied,
 }) {
-  // The return column (return / session return) only appears for a date (and
-  // for the total) when some labour has one; otherwise just two sub columns.
-  const hasReturnOf = (d) =>
-    num(d?.returned) !== 0 || splitSettlement(d?.settlement).back !== 0;
-  const dayReturn = showDayColumns
-    ? dates.map(
-        (_, i) =>
-          rows.some((row) => hasReturnOf(row.days?.[i])) ||
-          hasReturnOf(footer?.byDate?.[i]),
-      )
-    : [];
-  const totalReturn =
-    rows.some((row) => hasReturnOf(row.totals)) || hasReturnOf(footer?.totals);
-  // Body rows are shared across dates, so a third subrow is all-or-nothing.
-  const hasReturnRow = totalReturn || dayReturn.some(Boolean);
-  const pairRows = hasReturnRow ? 3 : 2;
+  const pairRows = 3;
   const colCount = 3 + (showDayColumns ? dates.length * 2 : 0) + 3;
-  const row2Left = hasReturnRow ? CELL_TOP_INNER : CELL_SUB_INNER;
-  const row2Right = hasReturnRow ? CELL_TOP : CELL_SUB;
+  const row2Left = CELL_TOP_INNER;
+  const row2Right = CELL_TOP;
   const remainTotal = remainingOf(footer?.totals);
 
   // Per-date earnings = Σ (present × salary + extra). Payable = earnings − taken.
@@ -228,7 +219,7 @@ export function HajiraRangeTable({
                               band="mid"
                               day={day}
                               rowBg={stripe}
-                              lastBand={!hasReturnRow}
+                              lastBand={false}
                               canCreateDay={canCreateDay}
                               onOpen={() => onOpenDay(row, day)}
                             />
@@ -257,8 +248,7 @@ export function HajiraRangeTable({
                         />
                       </td>
                     </tr>
-                    {hasReturnRow ? (
-                      <tr className="bg-transparent">
+                    <tr className="bg-transparent">
                         {showDayColumns
                           ? row.days.map((day) => (
                               <DayPair
@@ -300,7 +290,6 @@ export function HajiraRangeTable({
                           />
                         </td>
                       </tr>
-                    ) : null}
                   </Fragment>
                 );
               })
@@ -341,15 +330,15 @@ export function HajiraRangeTable({
                   />
                 </td>
               </tr>
-              <tr className="font-medium bg-transparent">
-                <FootTitle lastBand={!hasReturnRow}>মোট দেওয়া</FootTitle>
+              <tr id={HAJIRA_MOT_DOYA_ROW_ID} className="font-medium bg-transparent">
+                <FootTitle lastBand={false}>মোট দেওয়া</FootTitle>
                 {showDayColumns
                   ? footer.byDate.map((day) => (
                       <DayPair
                         key={`foot-${day.date}-mid`}
                         band="mid"
                         total
-                        lastBand={!hasReturnRow}
+                        lastBand={false}
                         day={day}
                         rowBg={FOOT_GRAY_BG}
                       />
@@ -367,7 +356,10 @@ export function HajiraRangeTable({
                     tone="text-error"
                   />
                 </td>
-                <td className={`${VALUE_CELL} ${row2Right} ${SORBOMOT_BG}`}>
+                <td
+                  id={HAJIRA_SORBOMOT_DOYA_ID}
+                  className={`${VALUE_CELL} ${row2Right} ${SORBOMOT_BG}`}
+                >
                   <Amount
                     value={
                       num(footer.totals.khoraki) +
@@ -378,8 +370,7 @@ export function HajiraRangeTable({
                   />
                 </td>
               </tr>
-              {hasReturnRow ? (
-                <tr className="font-medium bg-transparent">
+              <tr id={HAJIRA_MOT_FEROT_ROW_ID} className="font-medium bg-transparent">
                   <FootTitle lastBand>মোট ফেরত</FootTitle>
                   {showDayColumns
                     ? footer.byDate.map((day) => (
@@ -409,7 +400,10 @@ export function HajiraRangeTable({
                       tone={RETURN_TONE}
                     />
                   </td>
-                  <td className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}>
+                  <td
+                    id={HAJIRA_SORBOMOT_FEROT_ID}
+                    className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}
+                  >
                     <Amount
                       value={
                         num(footer.totals.returned) +
@@ -419,7 +413,6 @@ export function HajiraRangeTable({
                     />
                   </td>
                 </tr>
-              ) : null}
               <tr className="font-medium bg-transparent">
                 <FootTitle lastBand bg={SORBOMOT_BG}>
                   অবশিষ্ট

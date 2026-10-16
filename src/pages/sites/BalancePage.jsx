@@ -12,7 +12,10 @@ import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { formatBnNumber, formatBnSigned } from '../../utils/format.js'
 import { paths } from '../../router/paths.js'
-import { writeCashLedgerView } from '../../utils/sessionSelection.js'
+import {
+  writeCashLedgerView,
+  writeHajiraFocus,
+} from '../../utils/sessionSelection.js'
 import {
   dateFilterParams,
   isMultiDaySelection,
@@ -128,10 +131,13 @@ export const BalancePage = () => {
     navigate(paths.cash)
   }
 
+  const openHajiraFocus = (hajiraFocus) => () => {
+    writeHajiraFocus(hajiraFocus)
+    navigate(paths.hajira, { state: { hajiraFocus } })
+  }
+
   const creditTotal =
-    (Number(previous_balance) || 0) +
-    (Number(deposit) || 0) +
-    (Number(labour_return) || 0)
+    (Number(previous_balance) || 0) + (Number(deposit) || 0)
 
   return (
     <section className="flex-1 min-h-0 overflow-y-auto p-2">
@@ -146,12 +152,6 @@ export const BalancePage = () => {
         label={cashTypeLabel('deposit')}
         onLabelClick={openCash('deposit')}
         value={formatBnSigned(deposit, { showPlus: true })}
-        valueClassName="font-semibold tabular-nums text-success"
-      />
-      <Row
-        icon={CalendarCheck}
-        label="শ্রমিকদের থেকে ফেরত"
-        value={formatBnSigned(labour_return, { showPlus: true })}
         valueClassName="font-semibold tabular-nums text-success"
       />
 
@@ -181,10 +181,18 @@ export const BalancePage = () => {
       <Row
         icon={CalendarCheck}
         label="শ্রমিকদের দেওয়া"
+        onLabelClick={openHajiraFocus('given')}
         value={formatBnSigned(-(Math.abs(Number(labour_payment) || 0)), {
           showPlus: false,
         })}
         valueClassName="font-semibold tabular-nums text-error"
+      />
+      <Row
+        icon={CalendarCheck}
+        label="শ্রমিকদের ফেরত"
+        onLabelClick={openHajiraFocus('returned')}
+        value={formatBnSigned(labour_return, { showPlus: true })}
+        valueClassName="font-semibold tabular-nums text-success"
       />
 
       <div className="flex items-center gap-2 border-t border-base-content/20 mt-1 pt-2">

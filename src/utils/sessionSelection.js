@@ -15,6 +15,7 @@ export const CASH_LEDGER_VIEW_KEY = 'cashLedgerView'
 export const SESSION_SHOW_SALARY_KEY = 'sessionShowSalary'
 export const HAJIRA_SHOW_SALARY_KEY = 'hajiraShowSalary'
 export const HAJIRA_SHOW_EARNINGS_KEY = 'hajiraShowEarnings'
+export const HAJIRA_FOCUS_KEY = 'hajiraFocus'
 
 export { todayIso, isIsoDate, toIsoDate } from './dateRange.js'
 
@@ -115,3 +116,16 @@ export const readHajiraShowEarnings = () =>
 
 export const writeHajiraShowEarnings = (on) =>
   writeLocal(HAJIRA_SHOW_EARNINGS_KEY, on ? '1' : '')
+
+export const readHajiraFocus = () => {
+  const value = readSession(HAJIRA_FOCUS_KEY)
+  return value === 'given' || value === 'returned' ? value : ''
+}
+
+export const writeHajiraFocus = (value) =>
+  writeSession(
+    HAJIRA_FOCUS_KEY,
+    value === 'given' || value === 'returned' ? value : '',
+  )
+
+export const clearHajiraFocus = () => writeSession(HAJIRA_FOCUS_KEY, '')
