@@ -59,7 +59,19 @@ const recordsOf = (item) => {
   return []
 }
 
-/** Normalize `{ labour, records, totals }` (or legacy `{ labour, record }`). */
+/**
+ * Net session settlement for a roster entry.
+ * `sessions` lists work sessions that settled cash on this site in the
+ * window: [{ id, date, start_date, end_date, settlement, created_at }].
+ * Positive = site paid the labour, negative = labour paid back.
+ */
+export const settlementOfSessions = (sessions) =>
+  (Array.isArray(sessions) ? sessions : []).reduce((sum, session) => {
+    const n = Number(session?.settlement)
+    return sum + (Number.isFinite(n) ? n : 0)
+  }, 0)
+
+/** Normalize `{ labour, records, sessions, totals }` (or legacy `{ labour, record }`). */
 const asRosterEntries = (items = [], date) => {
   if (!Array.isArray(items) || !items.length) return []
   if (isRosterEntry(items[0])) {
@@ -68,6 +80,7 @@ const asRosterEntries = (items = [], date) => {
       return {
         labour: item.labour,
         records,
+        sessions: Array.isArray(item.sessions) ? item.sessions : [],
         totals: item.totals ?? null,
         record: pickRecordForDate(records, date),
       }
@@ -168,6 +181,10 @@ export const buildHajiraRowFromEntry = (entry) => {
     advanceSealed: sealed,
     returnId: record?.id ?? null,
     returnSealed: sealed,
+    // Cash settled by work sessions on this site (read-only; not part of
+    // the editable record, so it never makes a row dirty).
+    sessions: Array.isArray(entry?.sessions) ? entry.sessions : [],
+    settlement: settlementOfSessions(entry?.sessions),
     recordCreatedAt: record?.created_at ?? null,
     recordUpdatedAt: record?.updated_at ?? null,
     attendanceCreatedAt: record?.created_at ?? null,
@@ -230,7 +247,11 @@ export const buildHajiraRowsFromRoster = (
     const onSite =
       site == null || Number(entry.labour.current_site) === site
     const hasRecord = entry.record != null
-    if (includeLabour && includeRecord) return onSite || hasRecord
+    // A session settlement booked on this site keeps the labour listed.
+    const hasSettlement = settlementOfSessions(entry.sessions) !== 0
+    if (includeLabour && includeRecord) {
+      return onSite || hasRecord || hasSettlement
+    }
     if (includeLabour) return onSite
     return hasRecord
   })
@@ -318,13 +339,26 @@ const asNum = (value) => {
 
 const isNonZeroTotals = (t) =>
   Boolean(
-    t && (t.present || t.extra || t.khoraki || t.advance || t.returned),
+    t &&
+      (t.present ||
+        t.extra ||
+        t.khoraki ||
+        t.advance ||
+        t.returned ||
+        t.settlement),
   )
 
 /** Top row: হাজিরা | খোরাকি. Bottom row: বাড়তি কাজ | অ্যাডভান্স. */
 export const dailyRecordDayValues = (record) => {
   if (!record) {
-    return { present: 0, extra: 0, khoraki: 0, advance: 0, empty: true }
+    return {
+      present: 0,
+      extra: 0,
+      khoraki: 0,
+      advance: 0,
+      returned: 0,
+      empty: true,
+    }
   }
   const present = asNum(record.present)
   const extra = asNum(record.extra_earn ?? record.extra)
@@ -401,12 +435,26 @@ export const buildHajiraRangeRows = (
       for (const rec of entry.records ?? []) {
         if (rec?.date) byDate.set(rec.date, rec)
       }
+      const settleByDate = new Map()
+      for (const session of entry.sessions ?? []) {
+        const key = session?.date
+        if (!key) continue
+        settleByDate.set(key, (settleByDate.get(key) ?? 0) + asNum(session.settlement))
+      }
       const days = (dates ?? []).map((iso) => {
         const record = byDate.get(iso) ?? null
-        return { date: iso, record, ...dailyRecordDayValues(record) }
+        return {
+          date: iso,
+          record,
+          ...dailyRecordDayValues(record),
+          settlement: settleByDate.get(iso) ?? 0,
+        }
       })
       const fromApi = totalsValuesOf(entry.totals)
       const totals = isNonZeroTotals(fromApi) ? fromApi : sumDayValues(days)
+      if (!totals.settlement) {
+        totals.settlement = settlementOfSessions(entry.sessions)
+      }
       const labourCurrentSite =
         labour.current_site == null || labour.current_site === ''
           ? null
@@ -434,14 +482,26 @@ export const sumHajiraRangeFooter = (rows, dates = []) => {
     extra: 0,
     khoraki: 0,
     advance: 0,
+    returned: 0,
+    settlement: 0,
     earnings: 0,
   }))
-  const totals = { present: 0, extra: 0, khoraki: 0, advance: 0, earnings: 0 }
+  const totals = {
+    present: 0,
+    extra: 0,
+    khoraki: 0,
+    advance: 0,
+    returned: 0,
+    settlement: 0,
+    earnings: 0,
+  }
   for (const row of rows ?? []) {
     totals.present += asNum(row.totals?.present)
     totals.extra += asNum(row.totals?.extra)
     totals.khoraki += asNum(row.totals?.khoraki)
     totals.advance += asNum(row.totals?.advance)
+    totals.returned += asNum(row.totals?.returned)
+    totals.settlement += asNum(row.totals?.settlement)
     for (let i = 0; i < byDate.length; i += 1) {
       const day = row.days?.[i]
       if (!day) continue
@@ -449,6 +509,8 @@ export const sumHajiraRangeFooter = (rows, dates = []) => {
       byDate[i].extra += asNum(day.extra)
       byDate[i].khoraki += asNum(day.khoraki)
       byDate[i].advance += asNum(day.advance)
+      byDate[i].returned += asNum(day.returned)
+      byDate[i].settlement += asNum(day.settlement)
       byDate[i].earnings += asNum(day.earnings)
       totals.earnings += asNum(day.earnings)
     }

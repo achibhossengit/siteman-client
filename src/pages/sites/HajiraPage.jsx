@@ -526,21 +526,35 @@ export const HajiraPage = () => {
     let extra = 0;
     let salary = 0;
     let earnings = 0;
+    let presentEarn = 0;
     let payment = 0;
     let advance = 0;
     let ret = 0;
+    let settlement = 0;
     for (const row of visibleRows) {
+      settlement += Number(row.settlement) || 0;
       present += Number(row.present) || 0;
       extra += Number(row.extra) || 0;
       salary += Number(row.salary) || 0;
       earnings += dayEarnings(row, viewEarningsFilter);
+      presentEarn += dayEarnings(row, ["from_present"]);
       payment += paymentAmountOf(row);
       advance += advanceAmountOf(row);
       if (viewPaymentFilter.includes("return")) {
         ret += returnAmountOf(row);
       }
     }
-    return { present, extra, salary, earnings, payment, advance, return: ret };
+    return {
+      present,
+      extra,
+      salary,
+      earnings,
+      presentEarn,
+      payment,
+      advance,
+      return: ret,
+      settlement,
+    };
   }, [visibleRows, viewEarningsFilter, viewPaymentFilter]);
 
   const showReturnAmount = (row) => hasAmount(row.return);

@@ -5,6 +5,13 @@ import { paths } from "../../router/paths.js";
 import { concatLabourName, formatBnNumber } from "../../utils/format.js";
 import { formatDateColBn } from "../../utils/dateRange.js";
 import { filterHeaderTitle } from "./helpers.js";
+import {
+  JoinedAmounts,
+  PresentEarningsTotal,
+  RETURN_TONE,
+  SETTLEMENT_TONE,
+  splitSettlement,
+} from "./JoinedAmounts.jsx";
 import { LABOUR_DEFAULT_FIELDS } from "./constants.js";
 
 const BORDER_Y = "border-b border-b-base-content/35";
@@ -32,9 +39,11 @@ const rowBg = (index) => (index % 2 === 0 ? ROW_EVEN : ROW_ODD);
 
 const num = (v) => Number(v) || 0;
 
-// taken = khoraki + advance (or API-provided `taken`)
+// taken = khoraki + advance + session settlement (or API-provided `taken`)
 const takenOf = (obj) =>
-  obj?.taken != null ? num(obj.taken) : num(obj?.khoraki) + num(obj?.advance);
+  obj?.taken != null
+    ? num(obj.taken)
+    : num(obj?.khoraki) + num(obj?.advance) + num(obj?.settlement);
 
 // payable = API-provided `payable`, else earnings - taken
 const payableOf = (obj) =>
@@ -71,6 +80,10 @@ export function HajiraRangeTable({
 
   // Per-date earnings = Σ (present × salary + extra). Payable = earnings − taken.
   const totalEarnings = num(footer?.totals?.earnings);
+  const footerDayExtra = (footer?.byDate ?? []).reduce(
+    (sum, d) => sum + num(d.extra),
+    0,
+  );
   const totalTaken = takenOf(footer?.totals);
   const totalPayable = payableOf(footer?.totals);
 
@@ -183,7 +196,19 @@ export function HajiraRangeTable({
                           ))
                         : null}
                       <td className={`${VALUE_CELL} ${CELL_TOP_INNER} ${stripe}`}>
-                        <Amount value={row.totals.present} />
+                        <PresentEarningsTotal
+                          present={row.totals.present}
+                          earnings={
+                            showDayColumns
+                              ? row.days.reduce(
+                                  (sum, d) =>
+                                    sum + num(d.earnings) - num(d.extra),
+                                  0,
+                                )
+                              : null
+                          }
+                          extra={row.totals.extra}
+                        />
                       </td>
                       <td className={`${VALUE_CELL} ${CELL_TOP} ${stripe}`}>
                         <Amount value={row.totals.khoraki} tone="text-error" />
@@ -202,11 +227,31 @@ export function HajiraRangeTable({
                             />
                           ))
                         : null}
-                      <td className={`${VALUE_CELL} ${CELL_SUB_INNER} ${stripe}`}>
-                        <Amount value={row.totals.extra} tone="text-success" />
+                      <td
+                        className={`${VALUE_CELL} ${CELL_SUB_INNER} ${num(row.totals.settlement) !== 0 ? "!bg-info/15" : stripe}`}
+                      >
+                        <JoinedAmounts
+                          parts={[
+                            { value: row.totals.returned, tone: RETURN_TONE },
+                            {
+                              value: splitSettlement(row.totals.settlement).back,
+                              tone: SETTLEMENT_TONE,
+                            },
+                          ]}
+                        />
                       </td>
-                      <td className={`${VALUE_CELL} ${CELL_SUB} ${stripe}`}>
-                        <Amount value={row.totals.advance} tone="text-error" />
+                      <td
+                        className={`${VALUE_CELL} ${CELL_SUB} ${num(row.totals.settlement) !== 0 ? "!bg-info/15" : stripe}`}
+                      >
+                        <JoinedAmounts
+                          parts={[
+                            { value: row.totals.advance, tone: "text-error" },
+                            {
+                              value: splitSettlement(row.totals.settlement).paid,
+                              tone: SETTLEMENT_TONE,
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   </Fragment>
@@ -233,15 +278,29 @@ export function HajiraRangeTable({
                       <DayPair
                         key={`foot-${day.date}`}
                         band="top"
+                        total
                         day={day}
                         rowBg={FOOT_GRAY_BG}
                       />
                     ))
                   : null}
-                <td className={`${VALUE_CELL} ${CELL_TOP_INNER} ${FOOT_GRAY_BG}`}>
-                  <Amount value={footer.totals.present} />
+                <td
+                  className={`${VALUE_CELL} ${CELL_TOP_INNER} ${FOOT_GRAY_BG} !align-baseline`}
+                >
+                  <PresentEarningsTotal
+                    present={footer.totals.present}
+                    earnings={
+                      showDayColumns
+                        ? totalEarnings - footerDayExtra
+                        : null
+                    }
+                    extra={footer.totals.extra}
+                    stacked
+                  />
                 </td>
-                <td className={`${VALUE_CELL} ${CELL_TOP} ${FOOT_GRAY_BG}`}>
+                <td
+                  className={`${VALUE_CELL} ${CELL_TOP} ${FOOT_GRAY_BG} !align-baseline`}
+                >
                   <Amount value={footer.totals.khoraki} tone="text-error" />
                 </td>
               </tr>
@@ -251,16 +310,35 @@ export function HajiraRangeTable({
                       <DayPair
                         key={`foot-${day.date}-sub`}
                         band="sub"
+                        total
                         day={day}
                         rowBg={FOOT_GRAY_BG}
                       />
                     ))
                   : null}
-                <td className={`${VALUE_CELL} ${CELL_SUB_INNER} ${FOOT_GRAY_BG}`}>
-                  <Amount value={footer.totals.extra} tone="text-success" />
+                <td
+                  className={`${VALUE_CELL} ${CELL_SUB_INNER} ${FOOT_GRAY_BG}`}
+                >
+                  <JoinedAmounts
+                    parts={[
+                      { value: footer.totals.returned, tone: RETURN_TONE },
+                      {
+                        value: splitSettlement(footer.totals.settlement).back,
+                        tone: SETTLEMENT_TONE,
+                      },
+                    ]}
+                  />
                 </td>
                 <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_GRAY_BG}`}>
-                  <Amount value={footer.totals.advance} tone="text-error" />
+                  <JoinedAmounts
+                    parts={[
+                      { value: footer.totals.advance, tone: "text-error" },
+                      {
+                        value: splitSettlement(footer.totals.settlement).paid,
+                        tone: SETTLEMENT_TONE,
+                      },
+                    ]}
+                  />
                 </td>
               </tr>
               <tr className="font-medium bg-transparent">
@@ -332,7 +410,7 @@ export function HajiraRangeTable({
   );
 }
 
-function DayPair({ day, band, rowBg: stripe, canCreateDay, onOpen }) {
+function DayPair({ day, band, total, rowBg: stripe, canCreateDay, onOpen }) {
   const sub = band === "sub";
   const clickable = Boolean(onOpen) && (Boolean(day.record) || Boolean(canCreateDay));
   const title = clickable
@@ -343,7 +421,15 @@ function DayPair({ day, band, rowBg: stripe, canCreateDay, onOpen }) {
   const open = clickable ? onOpen : undefined;
   const leftClass = sub ? CELL_SUB_INNER : CELL_TOP_INNER;
   const rightClass = sub ? CELL_SUB : CELL_TOP;
-  const cellClass = [VALUE_CELL, stripe, clickable ? "cursor-pointer" : ""]
+  const { paid, back } = splitSettlement(day.settlement);
+  // Settled days get a tinted bottom pair (settlement merges into it).
+  const settled = !total && sub && (paid !== 0 || back !== 0);
+  const cellClass = [
+    VALUE_CELL,
+    settled ? "!bg-info/15" : stripe,
+    clickable ? "cursor-pointer" : "",
+    total && !sub ? "!align-baseline" : "",
+  ]
     .filter(Boolean)
     .join(" ");
 
@@ -354,17 +440,44 @@ function DayPair({ day, band, rowBg: stripe, canCreateDay, onOpen }) {
         onClick={open}
         title={title}
       >
-        <Amount
-          value={sub ? day.extra : day.present}
-          tone={sub ? "text-success" : ""}
-        />
+        {sub ? (
+          <JoinedAmounts
+            parts={[
+              { value: day.returned, tone: RETURN_TONE },
+              { value: back, tone: SETTLEMENT_TONE },
+            ]}
+          />
+        ) : total ? (
+          <PresentEarningsTotal
+            present={day.present}
+            earnings={num(day.earnings) - num(day.extra)}
+            extra={day.extra}
+            stacked
+          />
+        ) : (
+          <JoinedAmounts
+            parts={[
+              { value: day.present, tone: "" },
+              { value: day.extra, tone: "text-success" },
+            ]}
+          />
+        )}
       </td>
       <td
         className={[cellClass, rightClass].join(" ")}
         onClick={open}
         title={title}
       >
-        <Amount value={sub ? day.advance : day.khoraki} tone="text-error" />
+        {sub ? (
+          <JoinedAmounts
+            parts={[
+              { value: day.advance, tone: "text-error" },
+              { value: paid, tone: SETTLEMENT_TONE },
+            ]}
+          />
+        ) : (
+          <Amount value={day.khoraki} tone="text-error" />
+        )}
       </td>
     </>
   );
