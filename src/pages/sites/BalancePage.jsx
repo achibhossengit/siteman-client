@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   Banknote,
@@ -14,6 +14,8 @@ import { cashTypeLabel } from '../../api/types/siteCash.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
 import { formatBnNumber, formatBnSigned } from '../../utils/format.js'
+import { paths } from '../../router/paths.js'
+import { writeCashLedgerView } from '../../utils/sessionSelection.js'
 import {
   dateFilterParams,
   isMultiDaySelection,
@@ -26,11 +28,22 @@ const Row = ({
   iconClassName = 'text-base-content/55',
   labelClassName = '',
   valueClassName = 'font-medium tabular-nums',
+  onLabelClick,
 }) => (
   <div className="flex items-center gap-2 py-2">
     <Icon className={`size-5 shrink-0 ${iconClassName}`} strokeWidth={1.75} />
     <span className={`flex-1 text-sm sm:text-base ${labelClassName}`}>
-      {label}
+      {onLabelClick ? (
+        <button
+          type="button"
+          className="link underline underline-offset-2"
+          onClick={onLabelClick}
+        >
+          {label}
+        </button>
+      ) : (
+        label
+      )}
     </span>
     <span className={`text-sm sm:text-base text-right ${valueClassName}`}>
       {value}
@@ -49,6 +62,7 @@ const SubtotalRow = ({ value, valueClassName }) => (
 
 export const BalancePage = () => {
   const { date, dateEnd, siteId } = useOutletContext()
+  const navigate = useNavigate()
   const isRange = isMultiDaySelection(date, dateEnd)
   const reportParams = useMemo(
     () => dateFilterParams(date, dateEnd),
@@ -111,6 +125,12 @@ export const BalancePage = () => {
     balance,
   } = report
 
+  // Open the cash page on the matching ledger tab.
+  const openCash = (view) => () => {
+    writeCashLedgerView(view)
+    navigate(paths.cash)
+  }
+
   const creditTotal =
     (Number(previous_balance) || 0) +
     (Number(deposit) || 0) +
@@ -127,12 +147,13 @@ export const BalancePage = () => {
       <Row
         icon={Landmark}
         label={cashTypeLabel('deposit')}
+        onLabelClick={openCash('deposit')}
         value={formatBnSigned(deposit, { showPlus: true })}
         valueClassName="font-semibold tabular-nums text-success"
       />
       <Row
         icon={Undo2}
-        label="শ্রমিক রিটার্ন"
+        label="শ্রমিকদের থেকে ফেরত"
         value={formatBnSigned(labour_return, { showPlus: true })}
         valueClassName="font-semibold tabular-nums text-success"
       />
@@ -145,6 +166,7 @@ export const BalancePage = () => {
       <Row
         icon={ArrowUpFromLine}
         label={cashTypeLabel('withdrawal')}
+        onLabelClick={openCash('withdrawal')}
         value={formatBnSigned(-(Math.abs(Number(withdrawal) || 0)), {
           showPlus: false,
         })}
@@ -153,6 +175,7 @@ export const BalancePage = () => {
       <Row
         icon={Hammer}
         label={cashTypeLabel('cost')}
+        onLabelClick={openCash('cost')}
         value={formatBnSigned(-(Math.abs(Number(site_cost) || 0)), {
           showPlus: false,
         })}
@@ -160,7 +183,7 @@ export const BalancePage = () => {
       />
       <Row
         icon={Wallet}
-        label="শ্রমিক পেমেন্ট"
+        label="শ্রমিকদের দেওয়া"
         value={formatBnSigned(-(Math.abs(Number(labour_payment) || 0)), {
           showPlus: false,
         })}

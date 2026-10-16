@@ -31,7 +31,6 @@ import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { ListPagination } from "../../components/ListPagination.jsx";
 import {
   formatBnNumber,
-  formatBnSigned,
   NULL_BILLING_LABEL,
 } from "../../utils/format.js";
 import {
@@ -286,18 +285,15 @@ const formatBulkReviewError = (parsed) => {
 const filterLabel = (options, value) =>
   options.find((opt) => opt.value === value)?.label ?? options[0]?.label ?? "";
 
-/** deposit = credit (+); withdrawal / cost = debit (−). Distinct color per type. */
+/** Distinct colour per type (no +/− prefix): deposit green, withdrawal / cost red. */
 const AMOUNT_BY_TYPE = {
   deposit: {
-    sign: 1,
     className: "text-success",
   },
   withdrawal: {
-    sign: -1,
     className: "text-error",
   },
   cost: {
-    sign: -1,
     className: "text-error",
   },
 };
@@ -305,7 +301,7 @@ const AMOUNT_BY_TYPE = {
 const formatCashAmount = (type, amount) => {
   const style = AMOUNT_BY_TYPE[type] ?? AMOUNT_BY_TYPE.cost;
   return {
-    text: formatBnSigned(style.sign * Math.abs(Number(amount) || 0)),
+    text: formatBnNumber(Math.abs(Number(amount) || 0)),
     className: style.className,
   };
 };
@@ -314,7 +310,7 @@ const formatLedgerTotal = (types, amount) => {
   const n = Math.abs(Number(amount) || 0);
   if (types.length === 1) return formatCashAmount(types[0], n);
   return {
-    text: formatBnSigned(-n),
+    text: formatBnNumber(n),
     className: "text-error",
   };
 };
