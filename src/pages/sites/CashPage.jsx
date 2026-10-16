@@ -223,19 +223,33 @@ const shortActionLabel = (action) => {
 };
 
 const LEDGER_VIEWS = [
-  { id: "deposit", label: "জমা", types: ["deposit"], tone: "text-success" },
-  { id: "cost", label: "সাইট খরচ", types: ["cost"], tone: "text-error" },
+  {
+    id: "deposit",
+    label: "জমা",
+    types: ["deposit"],
+    tone: "text-success",
+    empty: "কোনো জমা নেই।",
+  },
+  {
+    id: "cost",
+    label: "সাইট খরচ",
+    types: ["cost"],
+    tone: "text-error",
+    empty: "কোনো সাইট খরচ নেই।",
+  },
   {
     id: "withdrawal",
     label: "উত্তোলন",
     types: ["withdrawal"],
     tone: "text-error",
+    empty: "কোনো উত্তোলন নেই।",
   },
   {
-    id: "all_cost",
-    label: "সব খরচ",
-    types: ["withdrawal", "cost"],
-    tone: "text-error",
+    id: "all_records",
+    label: "সব রেকর্ড",
+    types: ["deposit", "withdrawal", "cost"],
+    tone: "",
+    empty: "কোনো জমা, সাইট খরচ ও উত্তোলন রেকর্ড নেই।",
   },
 ];
 const DEFAULT_LEDGER_VIEW = "deposit";
@@ -508,7 +522,13 @@ export const CashPage = () => {
   const activeView =
     LEDGER_VIEWS.find((view) => view.id === ledgerView) ?? LEDGER_VIEWS[0];
   const typeFilter = activeView.types;
-  /** API accepts a single type; সব খরচ stays client-side. */
+  /** সব রেকর্ড: every type; the total splits into জমা (top) / খরচ (bottom). */
+  const isAllRecords = activeView.id === "all_records";
+  const createDefaults = {
+    ...emptyValues,
+    type: activeView.types.length === 1 ? activeView.types[0] : emptyValues.type,
+  };
+  /** API accepts a single type; সব রেকর্ড fetches every type. */
   const apiType = typeFilter.length === 1 ? typeFilter[0] : undefined;
   const apiBilling =
     SHOW_BILLING && billingFilter !== "all" && billingFilter !== "none"
@@ -636,7 +656,7 @@ export const CashPage = () => {
 
   const apiTotals = cashListTotalsOf(pageData);
   const clientFiltered =
-    !apiType || (SHOW_BILLING && billingFilter === "none");
+    (!apiType && !isAllRecords) || (SHOW_BILLING && billingFilter === "none");
 
   const summaryTotals = useMemo(() => {
     const fromRows = { deposit: 0, withdrawal: 0, cost: 0 };
@@ -810,7 +830,7 @@ export const CashPage = () => {
     setConfirmReady(false);
     setModalView("detail");
     setExpandedHistoryId(null);
-    reset({ ...emptyValues, date: defaultCreateDate(date, dateEnd) });
+    reset({ ...createDefaults, date: defaultCreateDate(date, dateEnd) });
     resetFileState();
     dialogRef.current?.showModal();
   };
@@ -909,7 +929,7 @@ export const CashPage = () => {
       await invalidateCash(data, "created");
       toastSuccess("ক্যাশ এন্ট্রি তৈরি হয়েছে");
       reset({
-        ...emptyValues,
+        ...createDefaults,
         date: values.date || defaultCreateDate(date, dateEnd),
       });
       resetFileState();
@@ -1017,8 +1037,8 @@ export const CashPage = () => {
 
   const disabled = !editing;
   const busy = isSubmitting || saveMutation.isPending;
-  const amountDisabled = disabled || !noteReady;
-  const detailsDisabled = disabled || !amountReady;
+  const amountDisabled = disabled;
+  const detailsDisabled = disabled;
   const saveDisabled =
     !confirmReady ||
     !formReady ||
@@ -1045,6 +1065,25 @@ export const CashPage = () => {
 
   return (
     <section className="flex-1 min-h-0 flex flex-col relative overflow-x-hidden">
+      {selectMode && canChangeActivityLog ? null : (
+        <div className="shrink-0 px-2 pt-1.5 pb-1 flex items-center gap-1.5 overflow-x-auto overflow-y-hidden">
+          {LEDGER_VIEWS.map((view) => (
+            <button
+              key={view.id}
+              type="button"
+              className={[
+                "btn btn-xs h-7 min-h-7 max-h-7 leading-none shrink-0 rounded-full border border-base-300/70 box-border font-normal",
+                ledgerView === view.id
+                  ? "btn-primary"
+                  : `btn-ghost bg-base-200 ${view.tone}`,
+              ].join(" ")}
+              onClick={() => setLedgerView(view.id)}
+            >
+              {view.label}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
         <table className={`table table-fixed table-sm sm:table-md w-full max-w-full ${TABLE_GRID}`}>
           {colgroup(isRange)}
@@ -1110,9 +1149,7 @@ export const CashPage = () => {
                   colSpan={tableCols}
                   className={`text-center text-base-content/60 py-10 ${CELL_GRID}`}
                 >
-                  {isRange
-                    ? "এই সময়ে কোনো ক্যাশ এন্ট্রি নেই।"
-                    : "এই তারিখে কোনো ক্যাশ এন্ট্রি নেই।"}
+                  {`${isRange ? "এই সময়ে" : "এই তারিখে"} ${activeView.empty}`}
                 </td>
               </tr>
             ) : (
@@ -1192,7 +1229,36 @@ export const CashPage = () => {
               })
             )}
           </tbody>
-          {showSummary ? (
+          {showSummary && isAllRecords ? (
+            <tfoot>
+              <tr className="font-medium [&_td]:bg-base-300">
+                <td
+                  colSpan={tableCols - 1}
+                  className={`px-1 sm:px-3 !py-0.5 sm:!py-0.5 leading-tight text-right text-base-content/60 !bg-base-300 ${CELL_GRID}`}
+                >
+                  মোট জমা
+                </td>
+                <td
+                  className={`text-right tabular-nums leading-tight px-1 sm:px-3 !py-0.5 sm:!py-0.5 whitespace-nowrap !bg-base-300 ${CELL_GRID} text-success`}
+                >
+                  {formatBnNumber(summaryTotals.deposit)}
+                </td>
+              </tr>
+              <tr className="font-medium [&_td]:bg-base-300">
+                <td
+                  colSpan={tableCols - 1}
+                  className={`px-1 sm:px-3 !py-0.5 sm:!py-0.5 leading-tight text-right text-base-content/60 !bg-base-300 ${CELL_GRID}`}
+                >
+                  মোট খরচ
+                </td>
+                <td
+                  className={`text-right tabular-nums leading-tight px-1 sm:px-3 !py-0.5 sm:!py-0.5 whitespace-nowrap !bg-base-300 ${CELL_GRID} text-error`}
+                >
+                  {formatBnNumber(summaryTotals.withdrawal + summaryTotals.cost)}
+                </td>
+              </tr>
+            </tfoot>
+          ) : showSummary ? (
             <tfoot>
               <tr className="font-medium [&_td]:bg-base-300">
                 <td
@@ -1252,27 +1318,10 @@ export const CashPage = () => {
             </>
           ) : (
             <>
-              <div className="flex items-center gap-1 overflow-x-auto overflow-y-hidden min-w-0">
-                {LEDGER_VIEWS.map((view) => (
-                  <button
-                    key={view.id}
-                    type="button"
-                    className={[
-                      "btn btn-xs h-8 min-h-8 max-h-8 leading-none shrink-0 shadow-lg border border-base-300 box-border",
-                      ledgerView === view.id
-                        ? "btn-primary"
-                        : `btn-ghost bg-base-100 ${view.tone}`,
-                    ].join(" ")}
-                    onClick={() => setLedgerView(view.id)}
-                  >
-                    {view.label}
-                  </button>
-                ))}
-              </div>
               {canCreateCash ? (
                 <button
                   type="button"
-                  className="btn btn-primary btn-circle btn-lg shadow-lg shrink-0"
+                  className="btn btn-primary btn-circle btn-lg shadow-lg shrink-0 ml-auto"
                   onClick={openCreate}
                   disabled={siteInactive}
                   aria-label="নতুন ক্যাশ"

@@ -345,8 +345,8 @@ export const SitePrivateCashPanel = ({
 
   const disabled = !editing
   const busy = isSubmitting || saveMutation.isPending
-  const amountDisabled = disabled || !noteReady
-  const detailsDisabled = disabled || !amountReady
+  const amountDisabled = disabled
+  const detailsDisabled = disabled
   const saveDisabled = !confirmReady || !formReady || busy
   const fieldClass = (hasError, kind = 'input', isDisabled = disabled) =>
     [
