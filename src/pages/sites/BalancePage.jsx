@@ -3,11 +3,8 @@ import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   Banknote,
-  Landmark,
-  Hammer,
-  ArrowUpFromLine,
+  CalendarCheck,
   Wallet,
-  Undo2,
 } from 'lucide-react'
 import { fetchDailyReport } from '../../api/sites.js'
 import { cashTypeLabel } from '../../api/types/siteCash.js'
@@ -145,14 +142,14 @@ export const BalancePage = () => {
         valueClassName={`font-semibold tabular-nums ${Number(previous_balance) >= 0 ? 'text-success' : 'text-error'}`}
       />
       <Row
-        icon={Landmark}
+        icon={Wallet}
         label={cashTypeLabel('deposit')}
         onLabelClick={openCash('deposit')}
         value={formatBnSigned(deposit, { showPlus: true })}
         valueClassName="font-semibold tabular-nums text-success"
       />
       <Row
-        icon={Undo2}
+        icon={CalendarCheck}
         label="শ্রমিকদের থেকে ফেরত"
         value={formatBnSigned(labour_return, { showPlus: true })}
         valueClassName="font-semibold tabular-nums text-success"
@@ -164,7 +161,7 @@ export const BalancePage = () => {
       />
 
       <Row
-        icon={ArrowUpFromLine}
+        icon={Wallet}
         label={cashTypeLabel('withdrawal')}
         onLabelClick={openCash('withdrawal')}
         value={formatBnSigned(-(Math.abs(Number(withdrawal) || 0)), {
@@ -173,7 +170,7 @@ export const BalancePage = () => {
         valueClassName="font-semibold tabular-nums text-error"
       />
       <Row
-        icon={Hammer}
+        icon={Wallet}
         label={cashTypeLabel('cost')}
         onLabelClick={openCash('cost')}
         value={formatBnSigned(-(Math.abs(Number(site_cost) || 0)), {
@@ -182,7 +179,7 @@ export const BalancePage = () => {
         valueClassName="font-semibold tabular-nums text-error"
       />
       <Row
-        icon={Wallet}
+        icon={CalendarCheck}
         label="শ্রমিকদের দেওয়া"
         value={formatBnSigned(-(Math.abs(Number(labour_payment) || 0)), {
           showPlus: false,
