@@ -6,10 +6,12 @@ import { concatLabourName, formatBnNumber } from "../../utils/format.js";
 import { formatDateColBn } from "../../utils/dateRange.js";
 import { filterHeaderTitle } from "./helpers.js";
 import {
+  FitAmount as Amount,
   JoinedAmounts,
-  PresentEarningsTotal,
+  PresentLine,
   RETURN_TONE,
-  SETTLEMENT_TONE,
+  remainTone,
+  remainingOf,
   splitSettlement,
 } from "./JoinedAmounts.jsx";
 import { LABOUR_DEFAULT_FIELDS } from "./constants.js";
@@ -31,35 +33,15 @@ const STICKY_PIN_HEAD = `sticky left-0 z-20 ${HEAD_BG}`;
 const ROW_EVEN = "!bg-base-100";
 const ROW_ODD = "!bg-base-200";
 const FOOT_GRAY_BG = "!bg-base-300";
-const FOOT_REMAIN_BG = FOOT_GRAY_BG;
+const MOT_COL_BG = FOOT_GRAY_BG;
+const SORBOMOT_BG =
+  "!bg-[color-mix(in_oklab,var(--color-base-300),var(--color-base-content)_6%)]";
 const VALUE_CELL =
-  "text-right align-middle tabular-nums whitespace-nowrap leading-tight min-w-9 w-9 px-0.5 text-xs";
+  "text-right align-middle tabular-nums whitespace-nowrap leading-none min-w-10 max-w-20 px-0.5 !py-px text-xs";
 
 const rowBg = (index) => (index % 2 === 0 ? ROW_EVEN : ROW_ODD);
 
 const num = (v) => Number(v) || 0;
-
-// taken = khoraki + advance + session settlement (or API-provided `taken`)
-const takenOf = (obj) =>
-  obj?.taken != null
-    ? num(obj.taken)
-    : num(obj?.khoraki) + num(obj?.advance) + num(obj?.settlement);
-
-// payable = API-provided `payable`, else earnings - taken
-const payableOf = (obj) =>
-  obj?.payable != null ? num(obj.payable) : num(obj?.earnings) - takenOf(obj);
-
-const signedTone = (value) =>
-  value > 0 ? "text-success" : value < 0 ? "text-error" : "";
-
-const Amount = ({ value, tone }) => {
-  if (!value) {
-    return <span className="opacity-35">—</span>;
-  }
-  return (
-    <span className={tone || undefined}>{formatBnNumber(value)}</span>
-  );
-};
 
 export function HajiraRangeTable({
   dates,
@@ -69,24 +51,35 @@ export function HajiraRangeTable({
   footer,
   openLabourFilterModal,
   labourFilter,
+  showSalary,
   isLabourOffSite,
   canOpenLabourDetail,
   canCreateDay,
   onOpenDay,
   showLabourDetailDenied,
 }) {
-  const dayCount = showDayColumns ? dates.length : 0;
-  const colCount = 3 + dayCount * 2 + 2;
+  // The return column (return / session return) only appears for a date (and
+  // for the total) when some labour has one; otherwise just two sub columns.
+  const hasReturnOf = (d) =>
+    num(d?.returned) !== 0 || splitSettlement(d?.settlement).back !== 0;
+  const dayReturn = showDayColumns
+    ? dates.map(
+        (_, i) =>
+          rows.some((row) => hasReturnOf(row.days?.[i])) ||
+          hasReturnOf(footer?.byDate?.[i]),
+      )
+    : [];
+  const totalReturn =
+    rows.some((row) => hasReturnOf(row.totals)) || hasReturnOf(footer?.totals);
+  // Body rows are shared across dates, so a third subrow is all-or-nothing.
+  const hasReturnRow = totalReturn || dayReturn.some(Boolean);
+  const pairRows = hasReturnRow ? 3 : 2;
+  const colCount = 3 + (showDayColumns ? dates.length * 2 : 0) + 3;
+  const row2Left = hasReturnRow ? CELL_TOP_INNER : CELL_SUB_INNER;
+  const row2Right = hasReturnRow ? CELL_TOP : CELL_SUB;
+  const remainTotal = remainingOf(footer?.totals);
 
   // Per-date earnings = Σ (present × salary + extra). Payable = earnings − taken.
-  const totalEarnings = num(footer?.totals?.earnings);
-  const footerDayExtra = (footer?.byDate ?? []).reduce(
-    (sum, d) => sum + num(d.extra),
-    0,
-  );
-  const totalTaken = takenOf(footer?.totals);
-  const totalPayable = payableOf(footer?.totals);
-
   return (
     <div className="flex-1 min-h-0 flex flex-col">
       {!showDayColumns ? (
@@ -95,7 +88,7 @@ export function HajiraRangeTable({
         </p>
       ) : null}
       <div className="flex-1 min-h-0 overflow-auto pb-8">
-        <table className="table table-xs w-max bg-transparent text-xs border-separate border-spacing-0 border-t border-l border-base-content/35 [&_th]:!px-1 [&_th]:!py-2 sm:[&_th]:!py-3 [&_th]:!bg-base-300 [&_td]:!px-0.5 [&_td]:!py-1 [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
+        <table className="table table-xs w-max bg-transparent text-xs border-separate border-spacing-0 border-t border-l border-base-content/35 [&_th]:!px-1 [&_th]:!py-2 sm:[&_th]:!py-3 [&_th]:bg-base-300 [&_td]:!px-0.5 [&_td]:!py-px [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
           <thead className={`sticky top-0 z-10 ${HEAD_BG}`}>
             <tr>
               <th className={`w-7 align-middle ${CELL} ${HEAD_BG}`}>নং</th>
@@ -108,7 +101,7 @@ export function HajiraRangeTable({
                 </button>
               </th>
               {showDayColumns
-                ? dates.map((iso) => (
+                ? dates.map((iso, i) => (
                     <th
                       key={iso}
                       colSpan={2}
@@ -120,9 +113,14 @@ export function HajiraRangeTable({
                 : null}
               <th
                 colSpan={2}
-                className={`text-center align-middle font-medium ${CELL} ${HEAD_BG}`}
+                className={`text-center align-middle font-medium ${CELL} ${MOT_COL_BG}`}
               >
                 মোট
+              </th>
+              <th
+                className={`text-center align-middle font-medium ${CELL} ${SORBOMOT_BG}`}
+              >
+                সর্বমোট
               </th>
             </tr>
           </thead>
@@ -140,17 +138,22 @@ export function HajiraRangeTable({
               rows.map((row, index) => {
                 const offSite = isLabourOffSite(row);
                 const stripe = rowBg(index);
+                const totSettled = num(row.totals.settlement) !== 0;
+                const motFill = MOT_COL_BG;
+                const sorboFill = SORBOMOT_BG;
+                const motSubFill = totSettled ? "!bg-info/15" : motFill;
+                const sorboSubFill = totSettled ? "!bg-info/15" : sorboFill;
                 return (
                   <Fragment key={row.labourId}>
                     <tr className="bg-transparent">
                       <td
-                        rowSpan={2}
+                        rowSpan={pairRows}
                         className={`align-middle tabular-nums text-base-content/60 w-7 ${CELL} ${stripe}`}
                       >
                         {formatBnNumber(index + 1)}
                       </td>
                       <td
-                        rowSpan={2}
+                        rowSpan={pairRows}
                         className={`align-middle w-7 px-0 ${CELL_PIN} ${stripe}`}
                       >
                         <LabourIdentity
@@ -169,7 +172,7 @@ export function HajiraRangeTable({
                         </LabourIdentity>
                       </td>
                       <td
-                        rowSpan={2}
+                        rowSpan={pairRows}
                         className={`align-middle font-medium pl-1 w-20 max-w-20 sm:w-28 sm:max-w-28 ${CELL} ${STICKY_PIN} ${stripe}`}
                       >
                         <LabourIdentity
@@ -184,76 +187,120 @@ export function HajiraRangeTable({
                         </LabourIdentity>
                       </td>
                       {showDayColumns
-                        ? row.days.map((day) => (
+                        ? row.days.map((day, dayIdx) => (
                             <DayPair
                               key={day.date}
                               band="top"
                               day={day}
                               rowBg={stripe}
+                              showSalary={showSalary}
+                              lastBand={false}
                               canCreateDay={canCreateDay}
                               onOpen={() => onOpenDay(row, day)}
                             />
                           ))
                         : null}
-                      <td className={`${VALUE_CELL} ${CELL_TOP_INNER} ${stripe}`}>
-                        <PresentEarningsTotal
-                          present={row.totals.present}
-                          earnings={
+                      <td className={`${VALUE_CELL} ${CELL_TOP_INNER} ${motFill}`}>
+                        <Amount value={row.totals.present} />
+                      </td>
+                      <td className={`${VALUE_CELL} ${CELL_TOP} ${motFill}`}>
+                        <Amount value={row.totals.extra} tone="text-success" />
+                      </td>
+                      <td className={`${VALUE_CELL} ${CELL_TOP} ${sorboFill}`}>
+                        <Amount
+                          value={
                             showDayColumns
                               ? row.days.reduce(
-                                  (sum, d) =>
-                                    sum + num(d.earnings) - num(d.extra),
+                                  (sum, d) => sum + num(d.earnings),
                                   0,
                                 )
-                              : null
+                              : num(row.totals.earnings)
                           }
-                          extra={row.totals.extra}
+                          tone="text-success"
                         />
-                      </td>
-                      <td className={`${VALUE_CELL} ${CELL_TOP} ${stripe}`}>
-                        <Amount value={row.totals.khoraki} tone="text-error" />
                       </td>
                     </tr>
                     <tr className="bg-transparent">
                       {showDayColumns
                         ? row.days.map((day) => (
                             <DayPair
-                              key={`${day.date}-sub`}
-                              band="sub"
+                              key={`${day.date}-mid`}
+                              band="mid"
                               day={day}
                               rowBg={stripe}
+                              lastBand={!hasReturnRow}
                               canCreateDay={canCreateDay}
                               onOpen={() => onOpenDay(row, day)}
                             />
                           ))
                         : null}
-                      <td
-                        className={`${VALUE_CELL} ${CELL_SUB_INNER} ${num(row.totals.settlement) !== 0 ? "!bg-info/15" : stripe}`}
-                      >
-                        <JoinedAmounts
-                          parts={[
-                            { value: row.totals.returned, tone: RETURN_TONE },
-                            {
-                              value: splitSettlement(row.totals.settlement).back,
-                              tone: SETTLEMENT_TONE,
-                            },
-                          ]}
+                      <td className={`${VALUE_CELL} ${row2Left} ${motFill}`}>
+                        <Amount value={row.totals.khoraki} tone="text-error" />
+                      </td>
+                      <td className={`${VALUE_CELL} ${row2Right} ${motFill}`}>
+                        <Amount
+                          value={
+                            num(row.totals.advance) +
+                            splitSettlement(row.totals.settlement).paid
+                          }
+                          tone="text-error"
                         />
                       </td>
-                      <td
-                        className={`${VALUE_CELL} ${CELL_SUB} ${num(row.totals.settlement) !== 0 ? "!bg-info/15" : stripe}`}
-                      >
-                        <JoinedAmounts
-                          parts={[
-                            { value: row.totals.advance, tone: "text-error" },
-                            {
-                              value: splitSettlement(row.totals.settlement).paid,
-                              tone: SETTLEMENT_TONE,
-                            },
-                          ]}
+                      <td className={`${VALUE_CELL} ${row2Right} ${sorboFill}`}>
+                        <Amount
+                          value={
+                            num(row.totals.khoraki) +
+                            num(row.totals.advance) +
+                            splitSettlement(row.totals.settlement).paid
+                          }
+                          tone="text-error"
                         />
                       </td>
                     </tr>
+                    {hasReturnRow ? (
+                      <tr className="bg-transparent">
+                        {showDayColumns
+                          ? row.days.map((day) => (
+                              <DayPair
+                                key={`${day.date}-bot`}
+                                band="bot"
+                                day={day}
+                                rowBg={stripe}
+                                lastBand
+                                canCreateDay={canCreateDay}
+                                onOpen={() => onOpenDay(row, day)}
+                              />
+                            ))
+                          : null}
+                        <td
+                          className={`${VALUE_CELL} ${CELL_SUB_INNER} ${motSubFill}`}
+                        >
+                          <Amount
+                            value={row.totals.returned}
+                            tone={RETURN_TONE}
+                          />
+                        </td>
+                        <td
+                          className={`${VALUE_CELL} ${CELL_SUB} ${motSubFill}`}
+                        >
+                          <Amount
+                            value={splitSettlement(row.totals.settlement).back}
+                            tone={RETURN_TONE}
+                          />
+                        </td>
+                        <td
+                          className={`${VALUE_CELL} ${CELL_SUB} ${sorboSubFill}`}
+                        >
+                          <Amount
+                            value={
+                              num(row.totals.returned) +
+                              splitSettlement(row.totals.settlement).back
+                            }
+                            tone={RETURN_TONE}
+                          />
+                        </td>
+                      </tr>
+                    ) : null}
                   </Fragment>
                 );
               })
@@ -262,23 +309,14 @@ export function HajiraRangeTable({
           {rows.length > 0 ? (
             <tfoot>
               <tr className="font-medium bg-transparent">
-                <td rowSpan={2} className={`${CELL} ${FOOT_GRAY_BG}`} />
-                <td
-                  rowSpan={2}
-                  className={`w-7 px-0 ${CELL_PIN} ${FOOT_GRAY_BG}`}
-                />
-                <td
-                  rowSpan={2}
-                  className={`align-middle whitespace-nowrap pl-1 ${CELL} ${STICKY_PIN_FOOT} ${FOOT_GRAY_BG}`}
-                >
-                  মোট
-                </td>
+                <FootTitle lastBand={false}>মোট উপার্জন</FootTitle>
                 {showDayColumns
                   ? footer.byDate.map((day) => (
                       <DayPair
                         key={`foot-${day.date}`}
                         band="top"
                         total
+                        lastBand={false}
                         day={day}
                         rowBg={FOOT_GRAY_BG}
                       />
@@ -287,119 +325,127 @@ export function HajiraRangeTable({
                 <td
                   className={`${VALUE_CELL} ${CELL_TOP_INNER} ${FOOT_GRAY_BG} !align-baseline`}
                 >
-                  <PresentEarningsTotal
-                    present={footer.totals.present}
-                    earnings={
-                      showDayColumns
-                        ? totalEarnings - footerDayExtra
-                        : null
-                    }
-                    extra={footer.totals.extra}
-                    stacked
-                  />
+                  <Amount value={footer.totals.present} />
                 </td>
                 <td
                   className={`${VALUE_CELL} ${CELL_TOP} ${FOOT_GRAY_BG} !align-baseline`}
                 >
-                  <Amount value={footer.totals.khoraki} tone="text-error" />
+                  <Amount value={footer.totals.extra} tone="text-success" />
+                </td>
+                <td
+                  className={`${VALUE_CELL} ${CELL_TOP} ${SORBOMOT_BG} !align-baseline`}
+                >
+                  <Amount
+                    value={num(footer.totals.earnings)}
+                    tone="text-success"
+                  />
                 </td>
               </tr>
               <tr className="font-medium bg-transparent">
+                <FootTitle lastBand={!hasReturnRow}>মোট দেওয়া</FootTitle>
                 {showDayColumns
                   ? footer.byDate.map((day) => (
                       <DayPair
-                        key={`foot-${day.date}-sub`}
-                        band="sub"
+                        key={`foot-${day.date}-mid`}
+                        band="mid"
                         total
+                        lastBand={!hasReturnRow}
                         day={day}
                         rowBg={FOOT_GRAY_BG}
                       />
                     ))
                   : null}
-                <td
-                  className={`${VALUE_CELL} ${CELL_SUB_INNER} ${FOOT_GRAY_BG}`}
-                >
-                  <JoinedAmounts
-                    parts={[
-                      { value: footer.totals.returned, tone: RETURN_TONE },
-                      {
-                        value: splitSettlement(footer.totals.settlement).back,
-                        tone: SETTLEMENT_TONE,
-                      },
-                    ]}
+                <td className={`${VALUE_CELL} ${row2Left} ${FOOT_GRAY_BG}`}>
+                  <Amount value={footer.totals.khoraki} tone="text-error" />
+                </td>
+                <td className={`${VALUE_CELL} ${row2Right} ${FOOT_GRAY_BG}`}>
+                  <Amount
+                    value={
+                      num(footer.totals.advance) +
+                      splitSettlement(footer.totals.settlement).paid
+                    }
+                    tone="text-error"
                   />
                 </td>
-                <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_GRAY_BG}`}>
-                  <JoinedAmounts
-                    parts={[
-                      { value: footer.totals.advance, tone: "text-error" },
-                      {
-                        value: splitSettlement(footer.totals.settlement).paid,
-                        tone: SETTLEMENT_TONE,
-                      },
-                    ]}
+                <td className={`${VALUE_CELL} ${row2Right} ${SORBOMOT_BG}`}>
+                  <Amount
+                    value={
+                      num(footer.totals.khoraki) +
+                      num(footer.totals.advance) +
+                      splitSettlement(footer.totals.settlement).paid
+                    }
+                    tone="text-error"
                   />
                 </td>
               </tr>
-              <tr className="font-medium bg-transparent">
-                <td className={`${CELL} ${FOOT_GRAY_BG}`} />
-                <td className={`w-7 px-0 ${CELL_PIN} ${FOOT_GRAY_BG}`} />
-                <td
-                  className={`align-middle whitespace-nowrap pl-1 ${CELL} ${STICKY_PIN_FOOT} ${FOOT_GRAY_BG}`}
-                >
-                  সর্বমোট
-                </td>
-                {showDayColumns
-                  ? footer.byDate.map((day) => (
-                      <Fragment key={`foot-${day.date}-sum`}>
-                        <td
-                          className={`${VALUE_CELL} ${CELL_SUB_INNER} ${FOOT_GRAY_BG}`}
-                        >
-                          <Amount
-                            value={num(day?.earnings)}
-                            tone="text-success"
-                          />
-                        </td>
-                        <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_GRAY_BG}`}>
-                          <Amount value={takenOf(day)} tone="text-error" />
-                        </td>
-                      </Fragment>
-                    ))
-                  : null}
-                <td className={`${VALUE_CELL} ${CELL_SUB_INNER} ${FOOT_GRAY_BG}`}>
-                  <Amount value={totalEarnings} tone="text-success" />
-                </td>
-                <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_GRAY_BG}`}>
-                  <Amount value={totalTaken} tone="text-error" />
-                </td>
-              </tr>
-              <tr className="font-medium bg-transparent">
-                <td className={`${CELL} ${FOOT_REMAIN_BG}`} />
-                <td className={`w-7 px-0 ${CELL_PIN} ${FOOT_REMAIN_BG}`} />
-                <td
-                  className={`align-middle whitespace-nowrap pl-1 ${signedTone(totalPayable)} ${CELL} ${STICKY_PIN_FOOT} ${FOOT_REMAIN_BG}`}
-                >
-                  অবশিষ্ট
-                </td>
-                {showDayColumns
-                  ? footer.byDate.map((day) => (
-                      <td
-                        key={`foot-${day.date}-payable`}
-                        colSpan={2}
-                        className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_REMAIN_BG}`}
-                      >
-                        <Amount
-                          value={payableOf(day)}
-                          tone={signedTone(payableOf(day))}
+              {hasReturnRow ? (
+                <tr className="font-medium bg-transparent">
+                  <FootTitle lastBand>মোট ফেরত</FootTitle>
+                  {showDayColumns
+                    ? footer.byDate.map((day) => (
+                        <DayPair
+                          key={`foot-${day.date}-bot`}
+                          band="bot"
+                          total
+                          lastBand
+                          day={day}
+                          rowBg={FOOT_GRAY_BG}
                         />
-                      </td>
-                    ))
+                      ))
+                    : null}
+                  <td
+                    className={`${VALUE_CELL} ${CELL_SUB_INNER} ${FOOT_GRAY_BG}`}
+                  >
+                    <Amount
+                      value={footer.totals.returned}
+                      tone={RETURN_TONE}
+                    />
+                  </td>
+                  <td
+                    className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_GRAY_BG}`}
+                  >
+                    <Amount
+                      value={splitSettlement(footer.totals.settlement).back}
+                      tone={RETURN_TONE}
+                    />
+                  </td>
+                  <td className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}>
+                    <Amount
+                      value={
+                        num(footer.totals.returned) +
+                        splitSettlement(footer.totals.settlement).back
+                      }
+                      tone={RETURN_TONE}
+                    />
+                  </td>
+                </tr>
+              ) : null}
+              <tr className="font-medium bg-transparent">
+                <FootTitle lastBand bg={SORBOMOT_BG}>
+                  অবশিষ্ট
+                </FootTitle>
+                {showDayColumns
+                  ? footer.byDate.map((day) => {
+                      const remain = remainingOf(day);
+                      return (
+                        <td
+                          key={`foot-${day.date}-remain`}
+                          colSpan={2}
+                          className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}
+                        >
+                          <Amount value={remain} tone={remainTone(remain)} />
+                        </td>
+                      );
+                    })
                   : null}
                 <td
-                  colSpan={2}
-                  className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_REMAIN_BG}`}
+                  colSpan={3}
+                  className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}
                 >
-                  <Amount value={totalPayable} tone={signedTone(totalPayable)} />
+                  <Amount
+                    value={remainTotal}
+                    tone={remainTone(remainTotal)}
+                  />
                 </td>
               </tr>
             </tfoot>
@@ -410,28 +456,74 @@ export function HajiraRangeTable({
   );
 }
 
-function DayPair({ day, band, total, rowBg: stripe, canCreateDay, onOpen }) {
-  const sub = band === "sub";
-  const clickable = Boolean(onOpen) && (Boolean(day.record) || Boolean(canCreateDay));
+function FootTitle({ children, lastBand, bg = FOOT_GRAY_BG }) {
+  const y = lastBand ? BORDER_Y : BORDER_Y_SOFT;
+  return (
+    <>
+      <td className={`${y} ${bg}`} />
+      <td className={`w-7 px-0 ${y} ${bg}`} />
+      <td
+        className={`align-middle text-right whitespace-nowrap pr-1 ${y} ${BORDER_X} ${STICKY_PIN_FOOT} ${bg}`}
+      >
+        {children}
+      </td>
+    </>
+  );
+}
+
+function DayPair({
+  day,
+  band,
+  total,
+  rowBg: stripe,
+  canCreateDay,
+  onOpen,
+  showSalary,
+  lastBand = false,
+}) {
+  const clickable =
+    Boolean(onOpen) && (Boolean(day.record) || Boolean(canCreateDay));
   const title = clickable
     ? day.record
       ? undefined
       : "নতুন হাজিরা"
     : undefined;
   const open = clickable ? onOpen : undefined;
-  const leftClass = sub ? CELL_SUB_INNER : CELL_TOP_INNER;
-  const rightClass = sub ? CELL_SUB : CELL_TOP;
   const { paid, back } = splitSettlement(day.settlement);
-  // Settled days get a tinted bottom pair (settlement merges into it).
-  const settled = !total && sub && (paid !== 0 || back !== 0);
+  const settled = !total && band === "bot" && (paid !== 0 || back !== 0);
   const cellClass = [
     VALUE_CELL,
     settled ? "!bg-info/15" : stripe,
     clickable ? "cursor-pointer" : "",
-    total && !sub ? "!align-baseline" : "",
+    total && band === "top" ? "!align-baseline" : "",
   ]
     .filter(Boolean)
     .join(" ");
+  const leftClass = lastBand ? CELL_SUB_INNER : CELL_TOP_INNER;
+  const rightClass = lastBand ? CELL_SUB : CELL_TOP;
+  let left;
+  let right;
+  if (band === "top") {
+    left = (
+      <PresentLine
+        present={day.present}
+        salary={total ? null : day.salary}
+        showSalary={!total && showSalary}
+      />
+    );
+    right = <Amount value={day.extra} tone="text-success" />;
+  } else if (band === "mid") {
+    left = <Amount value={day.khoraki} tone="text-error" />;
+    right = (
+      <JoinedAmounts
+        tone="text-error"
+        parts={[{ value: day.advance }, { value: paid }]}
+      />
+    );
+  } else {
+    left = <Amount value={day.returned} tone={RETURN_TONE} />;
+    right = <Amount value={back} tone={RETURN_TONE} />;
+  }
 
   return (
     <>
@@ -440,49 +532,18 @@ function DayPair({ day, band, total, rowBg: stripe, canCreateDay, onOpen }) {
         onClick={open}
         title={title}
       >
-        {sub ? (
-          <JoinedAmounts
-            parts={[
-              { value: day.returned, tone: RETURN_TONE },
-              { value: back, tone: SETTLEMENT_TONE },
-            ]}
-          />
-        ) : total ? (
-          <PresentEarningsTotal
-            present={day.present}
-            earnings={num(day.earnings) - num(day.extra)}
-            extra={day.extra}
-            stacked
-          />
-        ) : (
-          <JoinedAmounts
-            parts={[
-              { value: day.present, tone: "" },
-              { value: day.extra, tone: "text-success" },
-            ]}
-          />
-        )}
+        {left}
       </td>
       <td
         className={[cellClass, rightClass].join(" ")}
         onClick={open}
         title={title}
       >
-        {sub ? (
-          <JoinedAmounts
-            parts={[
-              { value: day.advance, tone: "text-error" },
-              { value: paid, tone: SETTLEMENT_TONE },
-            ]}
-          />
-        ) : (
-          <Amount value={day.khoraki} tone="text-error" />
-        )}
+        {right}
       </td>
     </>
   );
 }
-
 function LabourIdentity({ row, offSite, canOpen, onDenied, children }) {
   const muted = offSite ? "text-base-content/45" : "";
   if (row.labourId != null && canOpen) {

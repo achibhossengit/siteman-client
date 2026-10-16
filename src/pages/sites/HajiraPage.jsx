@@ -1388,7 +1388,7 @@ export const HajiraPage = () => {
       : [];
 
   const tableColCount =
-    5 + (showAyColumn ? 1 : 0) + (SHOW_BILLING ? 1 : 0);
+    6 + (showAyColumn ? 1 : 0) + (SHOW_BILLING ? 1 : 0);
 
   const patchRecordModal = (patch) => {
     setRecordModal((m) => {
@@ -1418,6 +1418,7 @@ export const HajiraPage = () => {
           footer={rangeFooter}
           openLabourFilterModal={openLabourFilterModal}
           labourFilter={labourFilter}
+          showSalary={showSalary}
           isLabourOffSite={isLabourOffSite}
           canOpenLabourDetail={canOpenLabourDetail}
           showLabourDetailDenied={showLabourDetailDenied}

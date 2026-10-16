@@ -1,10 +1,9 @@
-import { Fragment } from "react";
 import { formatBnNumber } from "../../utils/format.js";
 
 const num = (v) => Number(v) || 0;
 
 /** Colour of a session settlement amount (distinct from extra/return/advance). */
-export const SETTLEMENT_TONE = "text-secondary";
+export const SETTLEMENT_TONE = "text-purple-500";
 /** Colour of a return amount. */
 export const RETURN_TONE = "text-info";
 
@@ -18,69 +17,81 @@ export const splitSettlement = (settlement) => {
   return { paid: n > 0 ? n : 0, back: n < 0 ? -n : 0 };
 };
 
+/** Earnings minus given, plus returned (session settlement included). */
+export const remainingOf = (d) => {
+  const { paid, back } = splitSettlement(d?.settlement);
+  return (
+    num(d?.earnings) -
+    num(d?.khoraki ?? d?.payment) -
+    num(d?.advance) -
+    paid +
+    num(d?.returned ?? d?.return) +
+    back
+  );
+};
+
+export const remainTone = (value) =>
+  num(value) > 0 ? "text-success" : num(value) < 0 ? "text-error" : "";
+
 /**
- * Totals cell: "(present) earnings + extra". `earnings` is the earnings from
- * attendance only (null when unknown); `extra` is the extra earnings.
+ * Text size that steps down as a figure gets longer, so it still fits the
+ * cell's max width. Short figures keep the cell's normal size.
  */
-export function PresentEarningsTotal({ present, earnings, extra, stacked }) {
-  const p = num(present);
-  const e = earnings == null ? 0 : num(earnings);
-  const x = num(extra);
-  if (!p && !e && !x) {
+export const fitSizeClass = (text) => {
+  const len = String(text ?? "").length;
+  if (len <= 6) return "";
+  if (len <= 8) return "text-[11px]";
+  if (len <= 10) return "text-[10px]";
+  return "text-[9px]";
+};
+
+/** A single amount; shows "—" when zero, shrinks when long. */
+export function FitAmount({ value, tone }) {
+  if (!num(value)) {
     return <span className="opacity-35">—</span>;
   }
-  if (stacked) {
-    // Total present on top, earnings (+ extra) underneath.
-    return (
-      <span className="inline-flex flex-col items-end tabular-nums">
-        {p ? <span>{formatBnNumber(p)}</span> : null}
-        {e || x ? (
-          <span className="inline-flex items-baseline justify-end gap-0.5">
-            {e ? <span>{formatBnNumber(e)}</span> : null}
-            {x ? (
-              <>
-                {e ? <span className="opacity-60">+</span> : null}
-                <span className="text-success">{formatBnNumber(x)}</span>
-              </>
-            ) : null}
-          </span>
-        ) : null}
-      </span>
-    );
-  }
+  const text = formatBnNumber(num(value));
   return (
-    <span className="inline-flex items-baseline justify-end gap-0.5 tabular-nums">
-      {p ? <span className="opacity-70">({formatBnNumber(p)})</span> : null}
-      {e ? <span>{formatBnNumber(e)}</span> : null}
-      {x ? (
-        <>
-          {p || e ? <span className="opacity-60">+</span> : null}
-          <span className="text-success">{formatBnNumber(x)}</span>
-        </>
-      ) : null}
+    <span className={[tone, fitSizeClass(text)].filter(Boolean).join(" ")}>
+      {text}
     </span>
   );
 }
 
 /**
- * Non-zero amounts joined with "+", each in its own colour.
- * `parts`: [{ value, tone }]. Shows "—" when nothing is non-zero.
+ * Present cell. Salary mode: `present × salary`. Earnings mode:
+ * `(present) earnings`. Otherwise just the present. Salary is omitted when
+ * unknown (e.g. footers); earnings are omitted when zero.
  */
-export function JoinedAmounts({ parts }) {
-  const shown = (parts ?? []).filter((part) => num(part.value) !== 0);
-  if (!shown.length) {
+export function PresentLine({ present, salary, showSalary }) {
+  const p = num(present);
+  if (!p) {
     return <span className="opacity-35">—</span>;
   }
-  return (
-    <span className="inline-flex items-baseline justify-end gap-0.5">
-      {shown.map((part, i) => (
-        <Fragment key={i}>
-          {i > 0 ? <span className="opacity-60">+</span> : null}
-          <span className={part.tone || undefined}>
-            {formatBnNumber(num(part.value))}
-          </span>
-        </Fragment>
-      ))}
-    </span>
-  );
+  const pText = formatBnNumber(p);
+  if (showSalary && salary != null && num(salary)) {
+    const sText = formatBnNumber(num(salary));
+    return (
+      <span
+        className={`inline-flex items-baseline justify-end gap-0.5 tabular-nums ${fitSizeClass(pText + sText + "×")}`}
+      >
+        <span>{pText}</span>
+        <span className="opacity-50">×</span>
+        <span>{sText}</span>
+      </span>
+    );
+  }
+  return <span className={fitSizeClass(pText) || undefined}>{pText}</span>;
+}
+
+/**
+ * Sum of the amounts in one cell, shown as a single figure.
+ * `parts`: [{ value, tone }]. `tone` colours the sum; when omitted, the tone
+ * of the first non-zero part is used. Shows "—" when the sum is zero.
+ */
+export function JoinedAmounts({ parts, tone }) {
+  const shown = (parts ?? []).filter((part) => num(part.value) !== 0);
+  const total = shown.reduce((sum, part) => sum + num(part.value), 0);
+  const sumTone = tone !== undefined ? tone : shown[0]?.tone;
+  return <FitAmount value={total} tone={sumTone} />;
 }

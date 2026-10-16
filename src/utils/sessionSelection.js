@@ -14,6 +14,7 @@ export const SELECTED_END_DATE_KEY = 'selectedEndDate'
 export const CASH_LEDGER_VIEW_KEY = 'cashLedgerView'
 export const SESSION_SHOW_SALARY_KEY = 'sessionShowSalary'
 export const HAJIRA_SHOW_SALARY_KEY = 'hajiraShowSalary'
+export const HAJIRA_SHOW_EARNINGS_KEY = 'hajiraShowEarnings'
 
 export { todayIso, isIsoDate, toIsoDate } from './dateRange.js'
 
@@ -107,3 +108,10 @@ export const readHajiraShowSalary = () =>
 
 export const writeHajiraShowSalary = (on) =>
   writeLocal(HAJIRA_SHOW_SALARY_KEY, on ? '1' : '')
+
+/** Salary and earnings are mutually exclusive; salary wins if both are stored. */
+export const readHajiraShowEarnings = () =>
+  readLocal(HAJIRA_SHOW_EARNINGS_KEY) === '1' && !readHajiraShowSalary()
+
+export const writeHajiraShowEarnings = (on) =>
+  writeLocal(HAJIRA_SHOW_EARNINGS_KEY, on ? '1' : '')

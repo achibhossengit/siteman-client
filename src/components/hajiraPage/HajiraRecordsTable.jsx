@@ -10,10 +10,12 @@ import { SHOW_BILLING } from "../../config/features.js";
 import { paths } from "../../router/paths.js";
 import { formatBnNumber } from "../../utils/format.js";
 import {
+  FitAmount as Amount,
   JoinedAmounts,
-  PresentEarningsTotal,
+  PresentLine,
   RETURN_TONE,
-  SETTLEMENT_TONE,
+  remainTone,
+  remainingOf,
   splitSettlement,
 } from "./JoinedAmounts.jsx";
 import {
@@ -45,57 +47,14 @@ const HEAD_BG = "!bg-base-300";
 const ROW_EVEN = "!bg-base-100";
 const ROW_ODD = "!bg-base-200";
 const FOOT_BG = "!bg-base-300";
-const FOOT_REMAIN_BG = FOOT_BG;
+const MOT_COL_BG = FOOT_BG;
+const SORBOMOT_BG =
+  "!bg-[color-mix(in_oklab,var(--color-base-300),var(--color-base-content)_6%)]";
 const VALUE_CELL =
-  "text-right align-middle tabular-nums whitespace-nowrap leading-tight px-1 text-xs";
-const PAIR_COL = "w-[22%] min-w-16";
+  "text-right align-middle tabular-nums whitespace-nowrap leading-none px-1 !py-px text-xs w-[1%] min-w-14 max-w-24";
+const PAIR_COL = "w-[1%] min-w-14";
 
 const num = (v) => Number(v) || 0;
-
-/** Paid to the labour: খোরাকি + অ্যাডভান্স + session settlement (± ). */
-const takenOf = (obj) =>
-  obj?.taken != null
-    ? num(obj.taken)
-    : num(obj?.payment) + num(obj?.advance) + num(obj?.settlement);
-
-const payableOf = (obj) =>
-  obj?.payable != null ? num(obj.payable) : num(obj?.earnings) - takenOf(obj);
-
-const signedTone = (value) =>
-  value > 0 ? "text-success" : value < 0 ? "text-error" : "";
-
-const Amount = ({ value, tone }) => {
-  if (!value) {
-    return <span className="opacity-35">—</span>;
-  }
-  return (
-    <span className={tone || undefined}>{formatBnNumber(value)}</span>
-  );
-};
-
-
-/** `present × salary` (salary only when enabled) `+ extra` (green, if any). */
-const PresentTimesSalary = ({ present, salary, showSalary, extra }) => {
-  const hasExtra = num(extra) !== 0;
-  const showBase = !hasExtra || num(present) !== 0;
-  return (
-    <span className="inline-flex w-full items-center justify-end gap-0.5 tabular-nums">
-      {showBase ? <Amount value={present} /> : null}
-      {showBase && showSalary ? (
-        <>
-          <span className="opacity-50">×</span>
-          <Amount value={salary} />
-        </>
-      ) : null}
-      {hasExtra ? (
-        <>
-          {showBase ? <span className="opacity-60">+</span> : null}
-          <Amount value={extra} tone="text-success" />
-        </>
-      ) : null}
-    </span>
-  );
-};
 
 const cellFill = ({ hasSaveError, pendingCreate, activityTone, index }) => {
   if (hasSaveError) return "!bg-error/10";
@@ -149,13 +108,25 @@ export function HajiraRecordsTable({
   void viewPaymentFilter;
   void viewHajiraFields;
   void showReturnAmount;
+
+  // Third subrow (return / session return) only when some row has one.
+  const hasReturn = visibleRows.some(
+    (row) => num(row.return) !== 0 || splitSettlement(row.settlement).back !== 0,
+  );
+  const pairRows = hasReturn ? 3 : 2;
+  const colCount = tableColCount;
+  const row2Left = hasReturn ? CELL_TOP_INNER : CELL_SUB_INNER;
+  const row2Right = hasReturn ? CELL_TOP : CELL_SUB;
+  const remainTotal = remainingOf(totals);
+  const footRows = pairRows + 1;
   return (
     <div className="flex-1 min-h-0 overflow-auto pb-24">
-      <table className="table table-xs table-fixed w-full bg-transparent text-xs border-separate border-spacing-0 border-t border-l border-base-content/35 [&_th]:!px-1 [&_th]:!py-2 sm:[&_th]:!py-3 [&_th]:!bg-base-300 [&_td]:!px-0.5 [&_td]:!py-1 [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
+      <table className="table table-xs table-auto w-full bg-transparent text-xs border-separate border-spacing-0 border-t border-l border-base-content/35 [&_th]:!px-1 [&_th]:!py-2 sm:[&_th]:!py-3 [&_th]:bg-base-300 [&_td]:!px-0.5 [&_td]:!py-px [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
         <colgroup>
           <col className="w-10" />
           <col className="w-8" />
           <col />
+          <col className={PAIR_COL} />
           <col className={PAIR_COL} />
           <col className={PAIR_COL} />
           {showAyColumn ? <col className="w-[12%] min-w-12" /> : null}
@@ -202,11 +173,16 @@ export function HajiraRecordsTable({
             </th>
             <th
               colSpan={2}
-              className={`text-center align-middle font-medium ${CELL} ${HEAD_BG}`}
+              className={`text-center align-middle font-medium ${CELL} ${MOT_COL_BG}`}
             >
               <button type="button" onClick={openHajiraModal}>
                 হাজিরা
               </button>
+            </th>
+            <th
+              className={`text-center align-middle font-medium ${CELL} ${SORBOMOT_BG}`}
+            >
+              সর্বমোট
             </th>
             {showAyColumn ? (
               <th className={`text-right align-middle ${CELL} ${HEAD_BG}`}>
@@ -232,7 +208,7 @@ export function HajiraRecordsTable({
           {visibleRows.length === 0 ? (
             <tr>
               <td
-                colSpan={tableColCount}
+                colSpan={colCount}
                 className={`text-center text-sm text-base-content/60 !py-10 ${CELL}`}
               >
                 {emptyMessage}
@@ -270,6 +246,20 @@ export function HajiraRecordsTable({
                 rowSaveErrors && rowSaveErrors.length,
               );
               const sealed = recordSealedOf(row);
+              const advanceTone = paymentLineTone(
+                row,
+                initial,
+                ["advance", "advanceNote"],
+                "paymentId",
+                "text-error",
+              );
+              const returnTone = paymentLineTone(
+                row,
+                initial,
+                ["return", "returnNote"],
+                "returnId",
+                RETURN_TONE,
+              );
               const offSite = isLabourOffSite(row);
               const nameMutedClass = offSite ? "text-base-content/45" : "";
               const sealedContentClass = sealed ? "opacity-50" : "";
@@ -286,6 +276,16 @@ export function HajiraRecordsTable({
                 settled && !hasSaveError && !pendingCreate && !row.activityTone
                   ? "!bg-info/15"
                   : fill;
+              const specialFill =
+                hasSaveError || pendingCreate || row.activityTone;
+              const motFill = specialFill ? fill : MOT_COL_BG;
+              const sorboFill = specialFill ? fill : SORBOMOT_BG;
+              const motSubFill = specialFill ? subFill : settled ? "!bg-info/15" : MOT_COL_BG;
+              const sorboSubFill = specialFill
+                ? subFill
+                : settled
+                  ? "!bg-info/15"
+                  : SORBOMOT_BG;
               const rowTitle = sealed
                 ? messageForCode("record_sealed")
                 : pendingCreate
@@ -298,7 +298,7 @@ export function HajiraRecordsTable({
                 <Fragment key={row.labourId}>
                   <tr className={`bg-transparent ${auditRowClass}`}>
                     <td
-                      rowSpan={2}
+                      rowSpan={pairRows}
                       className={`align-middle text-center tabular-nums text-base-content/60 w-10 cursor-pointer ${CELL} ${fill}`}
                       onClick={() => {
                         if (selectMode && canChangeActivityLog) return;
@@ -327,7 +327,7 @@ export function HajiraRecordsTable({
                       </span>
                     </td>
                     <td
-                      rowSpan={2}
+                      rowSpan={pairRows}
                       className={`align-middle w-8 px-0 ${CELL_PHOTO} ${fill}`}
                     >
                       <LabourIdentity
@@ -346,7 +346,7 @@ export function HajiraRecordsTable({
                       </LabourIdentity>
                     </td>
                     <td
-                      rowSpan={2}
+                      rowSpan={pairRows}
                       className={`align-middle font-medium pl-1 min-w-0 ${CELL} ${fill} ${nameMutedClass}`}
                     >
                       <LabourIdentity
@@ -361,33 +361,36 @@ export function HajiraRecordsTable({
                       </LabourIdentity>
                     </td>
                     <td
-                      className={`${VALUE_CELL} ${CELL_TOP_INNER} ${fill} ${hajiraGroupTone} ${sealedContentClass} cursor-pointer`}
+                      className={`${VALUE_CELL} ${CELL_TOP_INNER} ${motFill} ${hajiraGroupTone} ${sealedContentClass} cursor-pointer`}
                       onClick={() => openRecordModal(row)}
                       title={rowTitle}
                     >
-                      <PresentTimesSalary
+                      <PresentLine
                         present={row.present}
                         salary={row.salary}
                         showSalary={showSalary}
-                        extra={row.extra}
                       />
                     </td>
                     <td
-                      className={`${VALUE_CELL} ${CELL_TOP} ${fill} ${sealedContentClass} cursor-pointer ${paymentLineTone(
-                        row,
-                        initial,
-                        ["payment", "paymentNote"],
-                        "paymentId",
-                        "text-error",
-                      )}`}
+                      className={`${VALUE_CELL} ${CELL_TOP} ${motFill} ${hajiraGroupTone} ${sealedContentClass} cursor-pointer`}
                       onClick={() => openRecordModal(row)}
                       title={rowTitle}
                     >
-                      <Amount value={row.payment} tone="text-error" />
+                      <Amount
+                        value={row.extra}
+                        tone={hajiraGroupTone || "text-success"}
+                      />
+                    </td>
+                    <td
+                      className={`${VALUE_CELL} ${CELL_TOP} ${sorboFill} ${hajiraGroupTone} ${sealedContentClass} cursor-pointer`}
+                      onClick={() => openRecordModal(row)}
+                      title={rowTitle}
+                    >
+                      <Amount value={earn} tone="text-success" />
                     </td>
                     {showAyColumn ? (
                       <td
-                        rowSpan={2}
+                        rowSpan={pairRows}
                         className={`${VALUE_CELL} ${CELL} ${fill} ${hajiraGroupTone} cursor-pointer`}
                         onClick={() => openRecordModal(row)}
                         title={rowTitle}
@@ -399,7 +402,7 @@ export function HajiraRecordsTable({
                     ) : null}
                     {SHOW_BILLING ? (
                       <td
-                        rowSpan={2}
+                        rowSpan={pairRows}
                         className={`text-right align-middle text-xs whitespace-nowrap ${CELL} ${fill} cursor-pointer`}
                         title={
                           hasBilling(row) || recordIdOf(row)
@@ -418,56 +421,82 @@ export function HajiraRecordsTable({
                   </tr>
                   <tr className={`bg-transparent ${auditRowClass}`}>
                     <td
-                      className={`${VALUE_CELL} ${CELL_SUB_INNER} ${subFill} ${sealedContentClass} cursor-pointer`}
+                      className={`${VALUE_CELL} ${row2Left} ${motFill} ${sealedContentClass} cursor-pointer ${paymentLineTone(
+                        row,
+                        initial,
+                        ["payment", "paymentNote"],
+                        "paymentId",
+                        "text-error",
+                      )}`}
                       onClick={() => openRecordModal(row)}
-                      title={
-                        settleBack ? "হিসাবের সময় ফেরত নেওয়া হয়েছে" : rowTitle
-                      }
+                      title={rowTitle}
                     >
-                      <JoinedAmounts
-                        parts={[
-                          {
-                            value: row.return,
-                            tone: paymentLineTone(
-                              row,
-                              initial,
-                              ["return", "returnNote"],
-                              "returnId",
-                              RETURN_TONE,
-                            ),
-                          },
-                          { value: settleBack, tone: SETTLEMENT_TONE },
-                        ]}
-                      />
+                      <Amount value={row.payment} tone="text-error" />
                     </td>
                     <td
-                      className={`${VALUE_CELL} ${CELL_SUB} ${subFill} ${sealedContentClass} cursor-pointer`}
+                      className={`${VALUE_CELL} ${row2Right} ${motFill} ${sealedContentClass} cursor-pointer`}
                       onClick={() => openRecordModal(row)}
                       title={
                         settlePaid ? "হিসাবের সময় দেওয়া হয়েছে" : rowTitle
                       }
                     >
                       <JoinedAmounts
+                        tone={advanceTone}
                         parts={[
-                          {
-                            value: row.advance,
-                            tone: paymentLineTone(
-                              row,
-                              initial,
-                              ["advance", "advanceNote"],
-                              "paymentId",
-                              "text-error",
-                            ),
-                          },
-                          { value: settlePaid, tone: SETTLEMENT_TONE },
+                          { value: row.advance },
+                          { value: settlePaid },
                         ]}
                       />
                     </td>
+                    <td
+                      className={`${VALUE_CELL} ${row2Right} ${sorboFill} ${sealedContentClass} cursor-pointer`}
+                      onClick={() => openRecordModal(row)}
+                      title={rowTitle}
+                    >
+                      <Amount
+                        value={
+                          num(row.payment) + num(row.advance) + settlePaid
+                        }
+                        tone="text-error"
+                      />
+                    </td>
                   </tr>
+                  {hasReturn ? (
+                    <tr className={`bg-transparent ${auditRowClass}`}>
+                      <td
+                        className={`${VALUE_CELL} ${CELL_SUB_INNER} ${motSubFill} ${sealedContentClass} cursor-pointer`}
+                        onClick={() => openRecordModal(row)}
+                        title={rowTitle}
+                      >
+                        <Amount value={row.return} tone={returnTone} />
+                      </td>
+                      <td
+                        className={`${VALUE_CELL} ${CELL_SUB} ${motSubFill} ${sealedContentClass} cursor-pointer`}
+                        onClick={() => openRecordModal(row)}
+                        title={
+                          settleBack
+                            ? "হিসাবের সময় ফেরত নেওয়া হয়েছে"
+                            : rowTitle
+                        }
+                      >
+                        <Amount value={settleBack} tone={RETURN_TONE} />
+                      </td>
+                      <td
+                        className={`${VALUE_CELL} ${CELL_SUB} ${sorboSubFill} ${sealedContentClass} cursor-pointer`}
+                        onClick={() => openRecordModal(row)}
+                        title={rowTitle}
+                      >
+                        <Amount
+                          value={num(row.return) + settleBack}
+                          tone={RETURN_TONE}
+                        />
+                      </td>
+                    </tr>
+                  ) : null}
                   {hasSaveError ? (
                     <tr className="bg-transparent">
                       <td
-                        colSpan={tableColCount}
+                        colSpan={colCount}
                         className={`py-1 text-xs text-error font-normal whitespace-normal leading-snug ${CELL} !bg-error/10`}
                       >
                         {rowSaveErrors.join(" · ")}
@@ -482,43 +511,38 @@ export function HajiraRecordsTable({
         {visibleRows.length > 0 ? (
           <tfoot>
             <tr className="font-medium bg-transparent">
-              <td rowSpan={2} className={`${CELL} ${FOOT_BG}`} />
               <td
-                rowSpan={2}
-                className={`w-8 px-0 ${CELL_PHOTO} ${FOOT_BG}`}
-              />
-              <td
-                rowSpan={2}
-                className={`align-middle whitespace-nowrap pl-1 ${CELL} ${FOOT_BG}`}
+                colSpan={3}
+                className={`align-middle text-right whitespace-nowrap pr-1 ${CELL} ${FOOT_BG}`}
               >
-                মোট
+                মোট উপার্জন
               </td>
               <td
                 className={`${VALUE_CELL} ${CELL_TOP_INNER} ${FOOT_BG} !align-baseline`}
               >
-                <PresentEarningsTotal
-                  present={totals.present}
-                  earnings={totals.presentEarn}
-                  extra={totals.extra}
-                  stacked
-                />
+                <Amount value={totals.present} />
               </td>
               <td
                 className={`${VALUE_CELL} ${CELL_TOP} ${FOOT_BG} !align-baseline`}
               >
-                <Amount value={totals.payment} tone="text-error" />
+                <Amount value={totals.extra} tone="text-success" />
+              </td>
+              <td
+                className={`${VALUE_CELL} ${CELL_TOP} ${SORBOMOT_BG} !align-baseline`}
+              >
+                <Amount value={totals.earnings} tone="text-success" />
               </td>
               {showAyColumn ? (
                 <td
                   className={`${VALUE_CELL} ${CELL} ${FOOT_BG}`}
-                  rowSpan={2}
+                  rowSpan={footRows}
                 >
                   <Amount value={totals.earnings} />
                 </td>
               ) : null}
               {SHOW_BILLING ? (
                 <td
-                  rowSpan={2}
+                  rowSpan={footRows}
                   className={`text-right align-middle ${CELL} ${FOOT_BG}`}
                 >
                   —
@@ -526,83 +550,79 @@ export function HajiraRecordsTable({
               ) : null}
             </tr>
             <tr className="font-medium bg-transparent">
-              <td className={`${VALUE_CELL} ${CELL_SUB_INNER} ${FOOT_BG}`}>
-                <JoinedAmounts
-                  parts={[
-                    { value: totals.return, tone: RETURN_TONE },
-                    {
-                      value: splitSettlement(totals.settlement).back,
-                      tone: SETTLEMENT_TONE,
-                    },
-                  ]}
-                />
-              </td>
-              <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}>
-                <JoinedAmounts
-                  parts={[
-                    { value: totals.advance, tone: "text-error" },
-                    {
-                      value: splitSettlement(totals.settlement).paid,
-                      tone: SETTLEMENT_TONE,
-                    },
-                  ]}
-                />
-              </td>
-            </tr>
-            <tr className="font-medium bg-transparent">
-              <td className={`${CELL} ${FOOT_BG}`} />
-              <td className={`w-8 px-0 ${CELL_PHOTO} ${FOOT_BG}`} />
               <td
-                className={`align-middle whitespace-nowrap pl-1 ${CELL} ${FOOT_BG}`}
+                colSpan={3}
+                className={`align-middle text-right whitespace-nowrap pr-1 ${CELL} ${FOOT_BG}`}
               >
-                সর্বমোট
+                মোট দেওয়া
               </td>
-              <td className={`${VALUE_CELL} ${CELL_SUB_INNER} ${FOOT_BG}`}>
-                <Amount value={num(totals.earnings)} tone="text-success" />
+              <td className={`${VALUE_CELL} ${row2Left} ${FOOT_BG}`}>
+                <Amount value={totals.payment} tone="text-error" />
               </td>
-              <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}>
-                <Amount value={takenOf(totals)} tone="text-error" />
+              <td className={`${VALUE_CELL} ${row2Right} ${FOOT_BG}`}>
+                <JoinedAmounts
+                  tone="text-error"
+                  parts={[
+                    { value: totals.advance },
+                    { value: splitSettlement(totals.settlement).paid },
+                  ]}
+                />
               </td>
-              {showAyColumn ? (
-                <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}>
-                  <Amount value={num(totals.earnings)} tone="text-success" />
-                </td>
-              ) : null}
-              {SHOW_BILLING ? (
-                <td className={`text-right align-middle ${CELL} ${FOOT_BG}`}>
-                  —
-                </td>
-              ) : null}
+              <td className={`${VALUE_CELL} ${row2Right} ${SORBOMOT_BG}`}>
+                <Amount
+                  value={
+                    num(totals.payment) +
+                    num(totals.advance) +
+                    splitSettlement(totals.settlement).paid
+                  }
+                  tone="text-error"
+                />
+              </td>
             </tr>
+            {hasReturn ? (
+              <tr className="font-medium bg-transparent">
+                <td
+                  colSpan={3}
+                  className={`align-middle text-right whitespace-nowrap pr-1 ${CELL} ${FOOT_BG}`}
+                >
+                  মোট ফেরত
+                </td>
+                <td className={`${VALUE_CELL} ${CELL_SUB_INNER} ${FOOT_BG}`}>
+                  <Amount value={totals.return} tone={RETURN_TONE} />
+                </td>
+                <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}>
+                  <Amount
+                    value={splitSettlement(totals.settlement).back}
+                    tone={RETURN_TONE}
+                  />
+                </td>
+                <td className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}>
+                  <Amount
+                    value={
+                      num(totals.return) +
+                      splitSettlement(totals.settlement).back
+                    }
+                    tone={RETURN_TONE}
+                  />
+                </td>
+              </tr>
+            ) : null}
             <tr className="font-medium bg-transparent">
-              <td className={`${CELL} ${FOOT_REMAIN_BG}`} />
-              <td className={`w-8 px-0 ${CELL_PHOTO} ${FOOT_REMAIN_BG}`} />
               <td
-                className={`align-middle whitespace-nowrap pl-1 ${signedTone(payableOf(totals))} ${CELL} ${FOOT_REMAIN_BG}`}
+                colSpan={3}
+                className={`align-middle text-right whitespace-nowrap pr-1 ${CELL} ${SORBOMOT_BG}`}
               >
                 অবশিষ্ট
               </td>
               <td
-                colSpan={2}
-                className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_REMAIN_BG}`}
+                colSpan={3}
+                className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}
               >
                 <Amount
-                  value={payableOf(totals)}
-                  tone={signedTone(payableOf(totals))}
+                  value={remainTotal}
+                  tone={remainTone(remainTotal)}
                 />
               </td>
-              {showAyColumn ? (
-                <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_REMAIN_BG}`}>
-                  —
-                </td>
-              ) : null}
-              {SHOW_BILLING ? (
-                <td
-                  className={`text-right align-middle ${CELL} ${FOOT_REMAIN_BG}`}
-                >
-                  —
-                </td>
-              ) : null}
             </tr>
           </tfoot>
         ) : null}

@@ -372,6 +372,8 @@ export const dailyRecordDayValues = (record) => {
     extra,
     khoraki,
     advance,
+    returned,
+    salary,
     earnings,
     empty:
       present === 0 &&
@@ -397,9 +399,11 @@ const sumDayValues = (days) =>
       acc.extra += asNum(day.extra)
       acc.khoraki += asNum(day.khoraki)
       acc.advance += asNum(day.advance)
+      acc.returned += asNum(day.returned)
+      acc.earnings += asNum(day.earnings)
       return acc
     },
-    { present: 0, extra: 0, khoraki: 0, advance: 0 },
+    { present: 0, extra: 0, khoraki: 0, advance: 0, returned: 0, earnings: 0 },
   )
 
 /**
@@ -455,6 +459,12 @@ export const buildHajiraRangeRows = (
       if (!totals.settlement) {
         totals.settlement = settlementOfSessions(entry.sessions)
       }
+      if (!totals.earnings) {
+        totals.earnings = (days ?? []).reduce(
+          (sum, day) => sum + asNum(day.earnings),
+          0,
+        )
+      }
       const labourCurrentSite =
         labour.current_site == null || labour.current_site === ''
           ? null
@@ -502,6 +512,7 @@ export const sumHajiraRangeFooter = (rows, dates = []) => {
     totals.advance += asNum(row.totals?.advance)
     totals.returned += asNum(row.totals?.returned)
     totals.settlement += asNum(row.totals?.settlement)
+    totals.earnings += asNum(row.totals?.earnings)
     for (let i = 0; i < byDate.length; i += 1) {
       const day = row.days?.[i]
       if (!day) continue
@@ -512,7 +523,6 @@ export const sumHajiraRangeFooter = (rows, dates = []) => {
       byDate[i].returned += asNum(day.returned)
       byDate[i].settlement += asNum(day.settlement)
       byDate[i].earnings += asNum(day.earnings)
-      totals.earnings += asNum(day.earnings)
     }
   }
   return { byDate, totals }
