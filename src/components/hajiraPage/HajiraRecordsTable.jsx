@@ -234,7 +234,6 @@ export function HajiraRecordsTable({
                   : "";
               const earn = dayEarnings(row, viewEarningsFilter);
               const pendingCreate = isPendingCreateRow(row, initial, date);
-              const settled = num(row.settlement) !== 0;
               const { paid: settlePaid, back: settleBack } = splitSettlement(
                 row.settlement,
               );
@@ -270,22 +269,10 @@ export function HajiraRecordsTable({
                 index,
               });
               const auditRowClass = activityToneClass(row.activityTone);
-              // Rows with a session settlement get a tinted second subrow,
-              // unless an audit / pending / error fill already owns the row.
-              const subFill =
-                settled && !hasSaveError && !pendingCreate && !row.activityTone
-                  ? "!bg-info/15"
-                  : fill;
               const specialFill =
                 hasSaveError || pendingCreate || row.activityTone;
               const motFill = specialFill ? fill : MOT_COL_BG;
               const sorboFill = specialFill ? fill : SORBOMOT_BG;
-              const motSubFill = specialFill ? subFill : settled ? "!bg-info/15" : MOT_COL_BG;
-              const sorboSubFill = specialFill
-                ? subFill
-                : settled
-                  ? "!bg-info/15"
-                  : SORBOMOT_BG;
               const rowTitle = sealed
                 ? messageForCode("record_sealed")
                 : pendingCreate
@@ -463,14 +450,14 @@ export function HajiraRecordsTable({
                   </tr>
                   <tr className={`bg-transparent ${auditRowClass}`}>
                       <td
-                        className={`${VALUE_CELL} ${CELL_SUB_INNER} ${motSubFill} ${sealedContentClass} cursor-pointer`}
+                        className={`${VALUE_CELL} ${CELL_SUB_INNER} ${motFill} ${sealedContentClass} cursor-pointer`}
                         onClick={() => openRecordModal(row)}
                         title={rowTitle}
                       >
                         <Amount value={row.return} tone={returnTone} />
                       </td>
                       <td
-                        className={`${VALUE_CELL} ${CELL_SUB} ${motSubFill} ${sealedContentClass} cursor-pointer`}
+                        className={`${VALUE_CELL} ${CELL_SUB} ${motFill} ${sealedContentClass} cursor-pointer`}
                         onClick={() => openRecordModal(row)}
                         title={
                           settleBack
@@ -481,7 +468,7 @@ export function HajiraRecordsTable({
                         <Amount value={settleBack} tone={RETURN_TONE} />
                       </td>
                       <td
-                        className={`${VALUE_CELL} ${CELL_SUB} ${sorboSubFill} ${sealedContentClass} cursor-pointer`}
+                        className={`${VALUE_CELL} ${CELL_SUB} ${sorboFill} ${sealedContentClass} cursor-pointer`}
                         onClick={() => openRecordModal(row)}
                         title={rowTitle}
                       >

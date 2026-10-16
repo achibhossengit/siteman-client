@@ -4,7 +4,7 @@ import { PersonAvatar } from "../PersonAvatar.jsx";
 import { paths } from "../../router/paths.js";
 import { concatLabourName, formatBnNumber } from "../../utils/format.js";
 import { formatDateColBn } from "../../utils/dateRange.js";
-import { filterHeaderTitle } from "./helpers.js";
+import { filterHeaderTitle, sessionPairClass } from "./helpers.js";
 import {
   FitAmount as Amount,
   JoinedAmounts,
@@ -129,11 +129,8 @@ export function HajiraRangeTable({
               rows.map((row, index) => {
                 const offSite = isLabourOffSite(row);
                 const stripe = rowBg(index);
-                const totSettled = num(row.totals.settlement) !== 0;
                 const motFill = MOT_COL_BG;
                 const sorboFill = SORBOMOT_BG;
-                const motSubFill = totSettled ? "!bg-info/15" : motFill;
-                const sorboSubFill = totSettled ? "!bg-info/15" : sorboFill;
                 return (
                   <Fragment key={row.labourId}>
                     <tr className="bg-transparent">
@@ -263,7 +260,7 @@ export function HajiraRangeTable({
                             ))
                           : null}
                         <td
-                          className={`${VALUE_CELL} ${CELL_SUB_INNER} ${motSubFill}`}
+                          className={`${VALUE_CELL} ${CELL_SUB_INNER} ${motFill}`}
                         >
                           <Amount
                             value={row.totals.returned}
@@ -271,7 +268,7 @@ export function HajiraRangeTable({
                           />
                         </td>
                         <td
-                          className={`${VALUE_CELL} ${CELL_SUB} ${motSubFill}`}
+                          className={`${VALUE_CELL} ${CELL_SUB} ${motFill}`}
                         >
                           <Amount
                             value={splitSettlement(row.totals.settlement).back}
@@ -279,7 +276,7 @@ export function HajiraRangeTable({
                           />
                         </td>
                         <td
-                          className={`${VALUE_CELL} ${CELL_SUB} ${sorboSubFill}`}
+                          className={`${VALUE_CELL} ${CELL_SUB} ${sorboFill}`}
                         >
                           <Amount
                             value={
@@ -483,10 +480,10 @@ function DayPair({
     : undefined;
   const open = clickable ? onOpen : undefined;
   const { paid, back } = splitSettlement(day.settlement);
-  const settled = !total && band === "bot" && (paid !== 0 || back !== 0);
+  const hasSession = !total && (paid !== 0 || back !== 0);
   const cellClass = [
     VALUE_CELL,
-    settled ? "!bg-info/15" : stripe,
+    stripe,
     clickable ? "cursor-pointer" : "",
     total && band === "top" ? "!align-baseline" : "",
   ]
@@ -521,14 +518,22 @@ function DayPair({
   return (
     <>
       <td
-        className={[cellClass, leftClass].join(" ")}
+        className={[
+          cellClass,
+          leftClass,
+          sessionPairClass(hasSession, band, "left"),
+        ].join(" ")}
         onClick={open}
         title={title}
       >
         {left}
       </td>
       <td
-        className={[cellClass, rightClass].join(" ")}
+        className={[
+          cellClass,
+          rightClass,
+          sessionPairClass(hasSession, band, "right"),
+        ].join(" ")}
         onClick={open}
         title={title}
       >

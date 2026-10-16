@@ -380,3 +380,7 @@ export const toggleRequiredFilter = (prev, value) => {
   }
   return [...selected, value];
 };
+
+/** Outline class for one side of a 2×3 session pair (`top|mid|bot` × `left|right`). */
+export const sessionPairClass = (hasSession, band, side) =>
+  hasSession ? `hajira-session-${band}-${side}` : "";
