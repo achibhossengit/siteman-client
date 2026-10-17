@@ -21,6 +21,7 @@ import {
   fetchLabourSession,
   fetchLabourSessions,
   updateLabourDailyRecord,
+  updateLabourSession,
 } from "../../api/labours.js";
 import { fetchAllPages } from "../../api/pagination.js";
 import {
@@ -72,6 +73,7 @@ import {
 
 const RECORD_MODAL_ID = "session_record_detail_modal";
 const CLOSE_MODAL_ID = "session_close_modal";
+const SETTLE_MODAL_ID = "session_settle_modal";
 
 const BORDER_Y = "border-b border-b-base-content/35";
 const BORDER_Y_SOFT = "border-b border-b-base-content/15";
@@ -263,6 +265,7 @@ export const LabourSessionRecordsPage = () => {
   const canView = can(PERMS.viewLabourSession);
   const { getSiteName } = useSitesLookup({ enabled: canView });
   const canCloseSession = can(PERMS.addLabourSession);
+  const canChangeSession = can(PERMS.changeLabourSession);
   const canDeleteSession = can(PERMS.deleteLabourSession);
   const canChangeDailyRecord = can(PERMS.changeDailyRecord);
   const canDeleteDailyRecord = can(PERMS.deleteDailyRecord);
@@ -301,6 +304,7 @@ export const LabourSessionRecordsPage = () => {
   const [hajiraFilterOpen, setHajiraFilterOpen] = useState(false);
   const [closeModalOpen, setCloseModalOpen] = useState(false);
   const [closeApiError, setCloseApiError] = useState(null);
+  const [settleApiError, setSettleApiError] = useState(null);
   const [settlement, setSettlement] = useState("");
 
   const labourQuery = useQuery({
@@ -698,13 +702,24 @@ export const LabourSessionRecordsPage = () => {
     settlement === "" ||
     (settlement !== "-" && Number.isFinite(Number(settlement)));
   const settlementAmount = settlement === "" ? 0 : num(settlement);
+  const settlementDirty =
+    settlementValid && settlementAmount !== num(session?.settlement);
   const closeRemainingPayable =
     num(closeSummary?.cumulative_payable) - settlementAmount;
+  const settleRemainingPayable =
+    num(session?.cumulative_payable) - settlementAmount;
 
   const closeSessionMutation = useMutation({
     mutationFn: () =>
       closeLabourSession(labourId, {
         end_date: closeIsPartial ? closeEndDate : undefined,
+        settlement: settlementAmount,
+      }),
+  });
+
+  const updateSessionMutation = useMutation({
+    mutationFn: () =>
+      updateLabourSession(labourId, session.id, {
         settlement: settlementAmount,
       }),
   });
@@ -754,9 +769,38 @@ export const LabourSessionRecordsPage = () => {
       latestSession?.id != null &&
       String(latestSession.id) === String(session.id),
   );
+  const canChangeThisSession = Boolean(
+    canChangeSession && isLatestSession && !session?.is_modified,
+  );
   const canDeleteThisSession = Boolean(
     canDeleteSession && isLatestSession && !session?.is_modified,
   );
+
+  const closeSettleModal = () => {
+    document.getElementById(SETTLE_MODAL_ID)?.close();
+  };
+
+  const openSettleModal = () => {
+    if (!canChangeThisSession) return;
+    setSettleApiError(null);
+    const current = num(session?.settlement);
+    setSettlement(current === 0 ? "" : String(current));
+    document.getElementById(SETTLE_MODAL_ID)?.showModal();
+  };
+
+  const onConfirmSettle = async () => {
+    if (!canChangeThisSession || !settlementValid || !settlementDirty) return;
+    setSettleApiError(null);
+    try {
+      await updateSessionMutation.mutateAsync();
+      closeSettleModal();
+      toastSuccess("হিসাবের সময় দেওয়া আপডেট হয়েছে");
+      void queryClient.invalidateQueries({ queryKey: ["labours", labourId] });
+      void queryClient.invalidateQueries({ queryKey: ["activities"] });
+    } catch (error) {
+      setSettleApiError(parseApiError(error));
+    }
+  };
 
   const onDeleteSession = async () => {
     if (!canDeleteThisSession) return;
@@ -1567,7 +1611,7 @@ export const LabourSessionRecordsPage = () => {
         </table>
 
         {(isRunning && canCloseSession) ||
-        (!isRunning && canDeleteSession) ? (
+        (!isRunning && (canChangeSession || canDeleteSession)) ? (
           <div className="px-3 pt-4 space-y-2">
             {isRunning ? (
               <>
@@ -1594,24 +1638,49 @@ export const LabourSessionRecordsPage = () => {
               </>
             ) : (
               <>
-                {!canDeleteThisSession && latestSessionQuery.isSuccess ? (
+                {!isLatestSession && latestSessionQuery.isSuccess ? (
                   <p className="text-xs text-base-content/60 text-center">
-                    শুধু সর্বশেষ হিসাবটি মুছে ফেলা যায়।
+                    {canChangeSession && canDeleteSession
+                      ? "শুধু সর্বশেষ হিসাবটি পরিবর্তন বা মুছে ফেলা যায়।"
+                      : canChangeSession
+                        ? "শুধু সর্বশেষ হিসাবটি পরিবর্তন করা যায়।"
+                        : "শুধু সর্বশেষ হিসাবটি মুছে ফেলা যায়।"}
                   </p>
                 ) : null}
-                <button
-                  type="button"
-                  className="btn btn-error w-full"
-                  disabled={
-                    !canDeleteThisSession || deleteSessionMutation.isPending
-                  }
-                  onClick={() => void onDeleteSession()}
-                >
-                  {deleteSessionMutation.isPending ? (
-                    <span className="loading loading-spinner loading-sm" />
+                <div className="flex gap-2">
+                  {canDeleteSession ? (
+                    <button
+                      type="button"
+                      className="btn btn-error flex-1"
+                      disabled={
+                        !canDeleteThisSession ||
+                        deleteSessionMutation.isPending
+                      }
+                      onClick={() => void onDeleteSession()}
+                    >
+                      {deleteSessionMutation.isPending ? (
+                        <span className="loading loading-spinner loading-sm" />
+                      ) : null}
+                      ডিলিট করুন
+                    </button>
                   ) : null}
-                  ডিলিট করুন
-                </button>
+                  {canChangeSession ? (
+                    <button
+                      type="button"
+                      className="btn btn-primary flex-1"
+                      disabled={
+                        !canChangeThisSession ||
+                        updateSessionMutation.isPending
+                      }
+                      onClick={openSettleModal}
+                    >
+                      {updateSessionMutation.isPending ? (
+                        <span className="loading loading-spinner loading-sm" />
+                      ) : null}
+                      আপডেট করুন
+                    </button>
+                  ) : null}
+                </div>
               </>
             )}
           </div>
@@ -2178,6 +2247,109 @@ export const LabourSessionRecordsPage = () => {
                 <span className="loading loading-spinner loading-sm" />
               ) : null}
               বন্ধ করুন
+            </button>
+          </div>
+        </div>
+        <div className="modal-backdrop">
+          <button type="button" tabIndex={-1} aria-hidden="true" />
+        </div>
+      </dialog>
+
+      <dialog
+        id={SETTLE_MODAL_ID}
+        className="modal"
+        onClose={() => {
+          setSettleApiError(null);
+        }}
+      >
+        <div className="modal-box max-w-sm p-4 max-h-[min(36rem,90vh)] flex flex-col overflow-hidden!">
+          <form method="dialog" className="flex justify-end shrink-0 -mt-1 -mr-1 mb-1">
+            <button
+              className="btn btn-xs btn-circle btn-ghost"
+              aria-label="বন্ধ"
+            >
+              ✕
+            </button>
+          </form>
+          <ApiErrorAlert error={settleApiError} />
+
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-3 text-sm">
+            {session ? (
+              <section className="space-y-1">
+                <SummaryRow
+                  label="বর্তমান পাওনা"
+                  className={signedTone(num(session.payable))}
+                >
+                  {formatBnNumber(session.payable ?? 0)}
+                </SummaryRow>
+                <SummaryRow
+                  label="আগের পাওনা"
+                  className={signedTone(num(session.previous_payable))}
+                >
+                  {formatBnSigned(session.previous_payable ?? 0)}
+                </SummaryRow>
+                <div className="border-t border-base-300 pt-1">
+                  <SummaryRow
+                    label="সর্বমোট পাওনা"
+                    className={`font-semibold ${signedTone(num(session.cumulative_payable))}`}
+                  >
+                    {formatBnNumber(session.cumulative_payable ?? 0)}
+                  </SummaryRow>
+                </div>
+                <label className="flex items-center justify-between gap-3 pt-1">
+                  <span className="text-base-content/70">
+                    হিসাবের সময় দেওয়া
+                  </span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step={1}
+                    className={`input input-bordered input-sm w-28 text-right tabular-nums ${
+                      settlementValid ? "" : "input-error"
+                    }`}
+                    placeholder="০"
+                    value={settlement}
+                    disabled={updateSessionMutation.isPending}
+                    onChange={(e) => setSettlement(e.target.value)}
+                  />
+                </label>
+                {settlementValid ? (
+                  <div className="border-t border-base-300 pt-1">
+                    <SummaryRow
+                      label="হিসাব শেষে পাওনা"
+                      className={`font-semibold whitespace-nowrap ${signedTone(settleRemainingPayable)}`}
+                    >
+                      {formatBnNumber(settleRemainingPayable)}
+                    </SummaryRow>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+          </div>
+
+          <div className="modal-action shrink-0 mt-3 pt-0">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={closeSettleModal}
+              disabled={updateSessionMutation.isPending}
+            >
+              বাতিল
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => void onConfirmSettle()}
+              disabled={
+                updateSessionMutation.isPending ||
+                !settlementDirty ||
+                !canChangeThisSession
+              }
+            >
+              {updateSessionMutation.isPending ? (
+                <span className="loading loading-spinner loading-sm" />
+              ) : null}
+              আপডেট নিশ্চিত
             </button>
           </div>
         </div>

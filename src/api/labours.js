@@ -159,6 +159,17 @@ export const closeLabourSession = (labourId, { end_date, settlement } = {}) => {
 export const fetchLabourSession = (labourId, sessionId) =>
   api.get(endpoints.labours.session(labourId, sessionId))
 
+/**
+ * PATCH /labours/{labour_pk}/sessions/{id} — latest session only.
+ * Only `settlement` is writable. Same eligibility as delete: most recent
+ * session, and daily-record count in the session window still matches.
+ * `remaining_payable` becomes cumulative_payable − settlement.
+ */
+export const updateLabourSession = (labourId, sessionId, { settlement } = {}) =>
+  api.patch(endpoints.labours.session(labourId, sessionId), {
+    settlement: Number(settlement) || 0,
+  })
+
 /** DELETE /labours/{labour_pk}/sessions/{id} — latest session only. */
 export const deleteLabourSession = (labourId, sessionId) =>
   api.delete(endpoints.labours.session(labourId, sessionId))
