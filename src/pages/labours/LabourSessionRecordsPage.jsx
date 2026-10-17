@@ -34,6 +34,7 @@ import { profileAllowedSiteIds } from "../../api/types/user.js";
 import { parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { PersonAvatar } from "../../components/PersonAvatar.jsx";
+import { SiteSelector } from "../../components/SiteSelector.jsx";
 import {
   DailyRecordHistoryPanel,
   RECORD_LOG_FIELD_LABELS,
@@ -1194,25 +1195,20 @@ export const LabourSessionRecordsPage = () => {
             strokeWidth={1.75}
           />
         </button>
-        <label className="form-control w-full max-w-xs">
-          <select
-            className="select select-bordered select-sm w-full"
-            value={selectedSiteId}
-            disabled={uniqueSites.length === 0}
-            onChange={(e) => {
-              setSiteFilter(e.target.value);
-              setBillingFilter("all");
-            }}
-            aria-label="সাইট"
-          >
-            <option value="all">সব সাইট</option>
-            {uniqueSites.map((site) => (
-              <option key={site.value} value={site.value}>
-                {site.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SiteSelector
+          sites={[
+            { id: "all", name: "সব সাইট" },
+            ...uniqueSites.map((site) => ({
+              id: site.value,
+              name: site.label,
+            })),
+          ]}
+          value={selectedSiteId}
+          onChange={(id) => {
+            setSiteFilter(id);
+            setBillingFilter("all");
+          }}
+        />
       </div>
 
       {SHOW_BILLING ? (

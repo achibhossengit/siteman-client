@@ -2,8 +2,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
 
+const PANEL_WIDTH = 224
+
 const panelClass =
-  'bg-base-100 rounded-box shadow-lg border border-base-300 overflow-hidden flex flex-col w-80 max-w-[calc(100vw-16px)]'
+  'bg-base-100 rounded-box shadow-lg border border-base-300 overflow-hidden flex flex-col w-56 max-w-[calc(100vw-16px)]'
 
 export const SiteSelector = ({
   sites = [],
@@ -23,7 +25,7 @@ export const SiteSelector = ({
     const el = triggerRef.current
     if (!el) return
     const r = el.getBoundingClientRect()
-    const width = Math.min(window.innerWidth - 16, 320)
+    const width = Math.min(window.innerWidth - 16, PANEL_WIDTH)
     const left = Math.min(
       Math.max(8, r.right - width),
       window.innerWidth - width - 8,
