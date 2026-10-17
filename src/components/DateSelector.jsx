@@ -1,6 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  openPanelMotionClass,
+  useOpenTransition,
+} from '../hooks/useOpenTransition.js'
 import { formatBnNumber } from '../utils/format.js'
 import {
   ALL_DATES,
@@ -19,7 +23,7 @@ import {
 } from '../utils/dateRange.js'
 
 const panelClass =
-  'bg-base-100 rounded-box shadow-lg border border-base-300 overflow-hidden flex flex-col w-80 max-w-[calc(100vw-16px)]'
+  'bg-base-100 rounded-box shadow-lg border border-base-300 overflow-hidden flex flex-col w-80 max-w-[calc(100vw-16px)] origin-top-left'
 
 const chipClass = 'btn btn-ghost btn-xs font-normal h-7 min-h-7'
 const chipSelectedClass = `${chipClass} bg-base-300 hover:bg-base-300 pointer-events-none`
@@ -62,6 +66,7 @@ export const DateSelector = ({
   const triggerRef = useRef(null)
   const panelRef = useRef(null)
   const [open, setOpen] = useState(false)
+  const { mounted, shown } = useOpenTransition(open)
   const [pos, setPos] = useState({ top: 0, left: 0 })
   const [draftStart, setDraftStart] = useState(committedStart)
   const [draftEnd, setDraftEnd] = useState(committedEnd)
@@ -236,16 +241,21 @@ export const DateSelector = ({
             ? allDatesLabel
             : formatDateRangeBn(committedStart, committedEnd)}
         </span>
-        <ChevronDown className="size-4 shrink-0 opacity-60" strokeWidth={1.75} />
+        <ChevronDown
+          className={`size-4 shrink-0 opacity-60 transition-transform duration-200 ${
+            open ? 'rotate-180' : ''
+          }`}
+          strokeWidth={1.75}
+        />
       </button>
 
-      {open
+      {mounted
         ? createPortal(
             <div
               ref={panelRef}
               role="dialog"
               aria-label="তারিখ নির্বাচন"
-              className={panelClass}
+              className={`${panelClass} ${openPanelMotionClass(shown)}`}
               style={{
                 position: 'fixed',
                 top: pos.top,

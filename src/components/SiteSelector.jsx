@@ -1,11 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
+import {
+  openPanelMotionClass,
+  useOpenTransition,
+} from '../hooks/useOpenTransition.js'
 
 const PANEL_WIDTH = 224
 
 const panelClass =
-  'bg-base-100 rounded-box shadow-lg border border-base-300 overflow-hidden flex flex-col w-56 max-w-[calc(100vw-16px)]'
+  'bg-base-100 rounded-box shadow-lg border border-base-300 overflow-hidden flex flex-col w-56 max-w-[calc(100vw-16px)] origin-top-right'
 
 export const SiteSelector = ({
   sites = [],
@@ -16,6 +20,7 @@ export const SiteSelector = ({
   const triggerRef = useRef(null)
   const panelRef = useRef(null)
   const [open, setOpen] = useState(false)
+  const { mounted, shown } = useOpenTransition(open)
   const [pos, setPos] = useState({ top: 0, left: 0 })
 
   const selected = sites.find((site) => String(site.id) === String(value))
@@ -85,16 +90,21 @@ export const SiteSelector = ({
         onClick={() => setOpen((next) => !next)}
       >
         <span className="truncate">{label}</span>
-        <ChevronDown className="size-4 shrink-0 opacity-60" strokeWidth={1.75} />
+        <ChevronDown
+          className={`size-4 shrink-0 opacity-60 transition-transform duration-200 ${
+            open ? 'rotate-180' : ''
+          }`}
+          strokeWidth={1.75}
+        />
       </button>
 
-      {open
+      {mounted
         ? createPortal(
             <div
               ref={panelRef}
               role="dialog"
               aria-label="সাইট নির্বাচন"
-              className={panelClass}
+              className={`${panelClass} ${openPanelMotionClass(shown)}`}
               style={{
                 position: 'fixed',
                 top: pos.top,
