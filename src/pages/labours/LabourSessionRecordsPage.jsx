@@ -133,6 +133,10 @@ const formatDate = (iso) => {
   }).format(date);
 };
 
+const CloseWarnDate = ({ iso }) => (
+  <span className="font-bold text-base-content/60">{formatDate(iso)}</span>
+);
+
 const formatReadableDate = (iso) => {
   if (!iso) return "—";
   const date = new Date(iso);
@@ -230,15 +234,6 @@ const SummaryRow = ({ label, children, className }) => (
     <span className={`tabular-nums ${className ?? ""}`}>{children}</span>
   </div>
 );
-
-const summarizeRowDates = (list) => {
-  const dates = list.map((row) => toIsoDate(row.date)).filter(Boolean).sort();
-  return {
-    count: list.length,
-    from: dates[0] ?? "",
-    to: dates[dates.length - 1] ?? "",
-  };
-};
 
 const fetchAllLabourDailyRecords = async (labourId, rangeParams) => {
   const results = [];
@@ -713,30 +708,9 @@ export const LabourSessionRecordsPage = () => {
     isRunning && canCloseSession && !closeBlockReason,
   );
 
-  const sealRows = useMemo(
-    () =>
-      rows.filter((row) => {
-        const d = toIsoDate(row.date);
-        return Boolean(
-          d && (!lastSessionEnd || d > lastSessionEnd) && d <= closeEndDate,
-        );
-      }),
-    [rows, lastSessionEnd, closeEndDate],
-  );
-  const remainRows = useMemo(
-    () =>
-      rows.filter((row) => {
-        const d = toIsoDate(row.date);
-        return Boolean(d && closeEndDate && d > closeEndDate);
-      }),
-    [rows, closeEndDate],
-  );
-  const sealInfo = summarizeRowDates(sealRows);
-  const remainInfo = summarizeRowDates(remainRows);
-
-  const closeRangeLabel = `${formatDate(
-    sealInfo.from || session?.start_date,
-  )} থেকে ${formatDate(closeEndDate)}`;
+  const runningStartDate =
+    session?.start_date || sessionDateBounds?.min || "";
+  const runningEndDate = lastRecordDate;
 
   const closePreviewQuery = useQuery({
     queryKey: ["labours", labourId, "close-preview", closeEndDate],
@@ -2122,10 +2096,10 @@ export const LabourSessionRecordsPage = () => {
           setCloseApiError(null);
         }}
       >
-        <div className="modal-box max-w-xs p-4 max-h-[min(36rem,90vh)] flex flex-col">
-          <form method="dialog">
+        <div className="modal-box max-w-sm p-4 max-h-[min(36rem,90vh)] flex flex-col">
+          <form method="dialog" className="flex justify-end shrink-0 -mt-1 -mr-1 mb-1">
             <button
-              className="btn btn-xs btn-circle btn-ghost absolute right-2 top-2"
+              className="btn btn-xs btn-circle btn-ghost"
               aria-label="বন্ধ"
             >
               ✕
@@ -2136,18 +2110,15 @@ export const LabourSessionRecordsPage = () => {
             <ApiErrorAlert error={parseApiError(closePreviewQuery.error)} />
           ) : null}
 
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 text-xs">
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-3 text-sm">
             {closePreviewLoading ? (
               <div className="flex justify-center py-4">
                 <span className="loading loading-spinner loading-sm text-primary" />
               </div>
             ) : closeSummary ? (
               <section className="space-y-1">
-                <div className="font-semibold pr-8">
-                  {closeRangeLabel} পর্যন্ত হিসাব
-                </div>
                 <SummaryRow
-                  label="পাওনা"
+                  label="বর্তমান পাওনা"
                   className={signedTone(num(closeSummary.payable))}
                 >
                   {formatBnNumber(closeSummary.payable ?? 0)}
@@ -2174,7 +2145,7 @@ export const LabourSessionRecordsPage = () => {
                     type="number"
                     inputMode="decimal"
                     step={1}
-                    className={`input input-bordered input-xs w-28 text-right tabular-nums ${
+                    className={`input input-bordered input-sm w-28 text-right tabular-nums ${
                       settlementValid ? "" : "input-error"
                     }`}
                     placeholder="০"
@@ -2186,7 +2157,7 @@ export const LabourSessionRecordsPage = () => {
                 {settlementValid ? (
                   <div className="border-t border-base-300 pt-1">
                     <SummaryRow
-                      label="এই হিসাব বন্ধের পর এই শ্রমিকের পাওনা থাকবে"
+                      label="হিসাব বন্ধের পর পাওনা থাকবে"
                       className={`font-semibold whitespace-nowrap ${signedTone(closeRemainingPayable)}`}
                     >
                       {formatBnNumber(closeRemainingPayable)}
@@ -2200,24 +2171,21 @@ export const LabourSessionRecordsPage = () => {
               </div>
             ) : null}
 
-            <div className="space-y-1.5">
-              <p className="text-warning">
-                <span className="font-semibold">{closeRangeLabel}</span>{" "}
-                পর্যন্ত হিসাব বন্ধ হবে। হিসাব বন্ধ করার পর{" "}
-                <span className="font-semibold">{formatDate(closeEndDate)}</span>{" "}
-                তারিখ পর্যন্ত হাজিরা আর পরিবর্তন করা যাবে না।
-              </p>
-              {closeIsPartial && remainInfo.count > 0 ? (
-                <p>
-                  বাকি হিসাব:{" "}
-                  <span className="font-semibold">
-                    {formatDate(remainInfo.from)} থেকে{" "}
-                    {formatDate(remainInfo.to)}
-                  </span>{" "}
-                  চলমান থাকবে।
-                </p>
-              ) : null}
-            </div>
+            <p className="text-xs text-warning">
+              এই শ্রমিকের চলমান হিসাবে হাজিরা আছে{" "}
+              <CloseWarnDate iso={runningStartDate} /> থেকে{" "}
+              <CloseWarnDate iso={runningEndDate} /> তারিখ পর্যন্ত{closeIsPartial ? (
+                <>
+                  {", "}এখন <CloseWarnDate iso={runningStartDate} /> থেকে{" "}
+                  <CloseWarnDate iso={closeEndDate} /> তারিখ পর্যন্ত হিসাব
+                  বন্ধ করা হবে, বাকি হাজিরা চলমান থাকবে।
+                </>
+              ) : (
+                <>, এখন এই সব হাজিরার হিসাব বন্ধ করা হবে।</>
+              )}{" "}
+              হিসাব বন্ধ করার পর <CloseWarnDate iso={closeEndDate} /> তারিখ
+              পর্যন্ত হাজিরা আর পরিবর্তন করা যাবে না।
+            </p>
           </div>
 
           <div className="modal-action shrink-0 mt-3 pt-0">

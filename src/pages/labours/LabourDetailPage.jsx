@@ -656,7 +656,7 @@ export const LabourDetailPage = () => {
                             </>
                           ) : null}
 
-                          <div className="flex justify-end pt-3">
+                          <div className="flex justify-center pt-3">
                             <button
                               type="button"
                               className="btn btn-primary btn-outline btn-sm"
