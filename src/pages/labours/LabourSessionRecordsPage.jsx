@@ -23,7 +23,6 @@ import {
 import { fetchAllPages } from "../../api/pagination.js";
 import {
   activityCellToneClass,
-  activityToneClass,
   applyActivitiesToSessionRows,
   applyPendingActivitiesToHajiraRows,
 } from "../../api/types/activity.js";
@@ -41,7 +40,16 @@ import {
   summarizeDailyRecordLog,
 } from "../../components/DailyRecordHistoryPanel.jsx";
 import { HajiraActionBars } from "../../components/hajiraPage/HajiraActionBars.jsx";
-import { formatBulkReviewError } from "../../components/hajiraPage/helpers.js";
+import { formatBulkReviewError, sessionPairClass } from "../../components/hajiraPage/helpers.js";
+import {
+  FitAmount as Amount,
+  JoinedAmounts,
+  PresentLine,
+  RETURN_TONE,
+  remainTone,
+  remainingOf,
+  splitSettlement,
+} from "../../components/hajiraPage/JoinedAmounts.jsx";
 import { useBillingLookups } from "../../hooks/useBillingLookup.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { useSitesLookup } from "../../hooks/useSites.js";
@@ -78,39 +86,16 @@ const HEAD_BG = "!bg-base-300";
 const ROW_EVEN = "!bg-base-100";
 const ROW_ODD = "!bg-base-200";
 const FOOT_BG = "!bg-base-300";
+const SORBOMOT_BG =
+  "!bg-[color-mix(in_oklab,var(--color-base-300),var(--color-base-content)_6%)]";
 const VALUE_CELL =
-  "text-right align-middle tabular-nums whitespace-nowrap leading-tight px-1 text-xs";
-const PAIR_COL = "w-[22%] min-w-16";
+  "text-right align-middle tabular-nums whitespace-nowrap leading-none px-1 !py-px text-xs w-[1%] min-w-14 max-w-24";
+const PAIR_COL = "w-[1%] min-w-14";
+const PAIR_ROWS = 3;
+const ROW2_LEFT = CELL_TOP_INNER;
+const ROW2_RIGHT = CELL_TOP;
 
-const takenOf = (obj) =>
-  obj?.taken != null ? num(obj.taken) : num(obj?.payment) + num(obj?.advance);
-
-const payableOf = (obj) =>
-  obj?.payable != null ? num(obj.payable) : num(obj?.earnings) - takenOf(obj);
-
-const signedTone = (value) =>
-  value > 0 ? "text-success" : value < 0 ? "text-error" : "";
-
-const Amount = ({ value, tone }) => {
-  if (!value) {
-    return <span className="opacity-35">—</span>;
-  }
-  return (
-    <span className={tone || undefined}>{formatBnNumber(value)}</span>
-  );
-};
-
-const PresentTimesSalary = ({ present, salary, showSalary }) => (
-  <span className="inline-flex w-full items-center justify-end gap-0.5 tabular-nums">
-    <Amount value={present} />
-    {showSalary ? (
-      <>
-        <span className="opacity-50">×</span>
-        <Amount value={salary} />
-      </>
-    ) : null}
-  </span>
-);
+const signedTone = (value) => remainTone(value);
 
 const cellFill = (row, index) => {
   const activity = activityCellToneClass(row.activityTone);
@@ -198,6 +183,7 @@ const buildRows = (records) => {
       payment: numOrEmpty(record.fooding_pay),
       advance: numOrEmpty(record.advance_pay),
       return: numOrEmpty(record.return_amount),
+      settlement: 0,
       pending_activities: record.pending_activities,
     });
   }
@@ -207,7 +193,6 @@ const buildRows = (records) => {
 
 const hasPresent = (row) => row.present !== "" && row.present != null;
 const hasExtra = (row) => row.extra !== "" && row.extra != null;
-const hasAmount = (value) => value !== "" && value != null;
 const amountPositive = (value) => {
   if (value === "" || value == null) return false;
   return Number(value) > 0;
@@ -389,11 +374,38 @@ export const LabourSessionRecordsPage = () => {
 
   const rows = useMemo(() => {
     const base = buildRows(dailyRecordsQuery.data ?? []);
-    if (!canViewActivityLog) return base;
-    return applyPendingActivitiesToHajiraRows(
-      applyActivitiesToSessionRows(base, activitiesQuery.data ?? []),
-    );
-  }, [dailyRecordsQuery.data, activitiesQuery.data, canViewActivityLog]);
+    const withActivity = canViewActivityLog
+      ? applyPendingActivitiesToHajiraRows(
+          applyActivitiesToSessionRows(base, activitiesQuery.data ?? []),
+        )
+      : base;
+    const settleAmt = num(session?.settlement);
+    const settleDates = [
+      toIsoDate(session?.date),
+      toIsoDate(session?.created_date),
+      toIsoDate(session?.end_date),
+    ].filter(Boolean);
+    const withSettle = withActivity.map((row) => ({ ...row, settlement: 0 }));
+    if (settleAmt) {
+      settleSearch: for (const settleDate of settleDates) {
+        for (let i = withSettle.length - 1; i >= 0; i -= 1) {
+          if (toIsoDate(withSettle[i].date) === settleDate) {
+            withSettle[i] = { ...withSettle[i], settlement: settleAmt };
+            break settleSearch;
+          }
+        }
+      }
+    }
+    return withSettle;
+  }, [
+    dailyRecordsQuery.data,
+    activitiesQuery.data,
+    canViewActivityLog,
+    session?.date,
+    session?.created_date,
+    session?.end_date,
+    session?.settlement,
+  ]);
 
   const billingSiteIds = useMemo(() => {
     const ids = rows.map((row) => row.siteId).filter((id) => id != null && id !== "");
@@ -579,31 +591,35 @@ export const LabourSessionRecordsPage = () => {
     }
   };
 
-  const totals = useMemo(
-    () =>
-      visibleRows.reduce(
-        (result, row) => {
-          result.present += hasPresent(row) ? num(row.present) : 0;
-          result.salary += num(row.salary);
-          result.extra += hasExtra(row) ? num(row.extra) : 0;
-          result.earnings += rowEarnings(row);
-          result.payment += num(row.payment);
-          result.advance += num(row.advance);
-          result.return += num(row.return);
-          return result;
-        },
-        {
-          present: 0,
-          salary: 0,
-          extra: 0,
-          earnings: 0,
-          payment: 0,
-          advance: 0,
-          return: 0,
-        },
-      ),
-    [visibleRows],
-  );
+  const totals = useMemo(() => {
+    const result = visibleRows.reduce(
+      (acc, row) => {
+        acc.present += hasPresent(row) ? num(row.present) : 0;
+        acc.salary += num(row.salary);
+        acc.extra += hasExtra(row) ? num(row.extra) : 0;
+        acc.earnings += rowEarnings(row);
+        acc.payment += num(row.payment);
+        acc.advance += num(row.advance);
+        acc.return += num(row.return);
+        acc.settlement += num(row.settlement);
+        return acc;
+      },
+      {
+        present: 0,
+        salary: 0,
+        extra: 0,
+        earnings: 0,
+        payment: 0,
+        advance: 0,
+        return: 0,
+        settlement: 0,
+      },
+    );
+    if (!result.settlement) {
+      result.settlement = num(session?.settlement);
+    }
+    return result;
+  }, [visibleRows, session?.settlement]);
 
   const dateFilterActive = Boolean(toIsoDate(dateStart) && toIsoDate(dateEnd));
   const dateRangeLabel = (() => {
@@ -1153,12 +1169,9 @@ export const LabourSessionRecordsPage = () => {
   }
 
   const recordsError = dailyRecordsQuery.error || activitiesQuery.error;
-  // সর্বমোট পাওনা = বর্তমান পাওনা (table totals) + আগের পাওনা, computed at runtime.
-  const currentPayable = payableOf(totals) + num(session.previous_payable);
-  const remainingPayable =
-    session.remaining_payable != null
-      ? num(session.remaining_payable)
-      : currentPayable - num(session.settlement);
+  const remainTotal = remainingOf(totals);
+  // সর্বমোট পাওনা = বর্তমান পাওনা (table totals, settlement included) + আগের পাওনা.
+  const currentPayable = remainTotal + num(session.previous_payable);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-2 py-3">
@@ -1221,10 +1234,11 @@ export const LabourSessionRecordsPage = () => {
       ) : null}
 
       <div className="flex-1 min-h-0 overflow-auto pb-24">
-        <table className="table table-xs table-fixed w-full bg-transparent text-xs border-separate border-spacing-0 border-t border-l border-base-content/35 [&_th]:!px-1 [&_th]:!py-2 sm:[&_th]:!py-3 [&_th]:!bg-base-300 [&_td]:!px-0.5 [&_td]:!py-1 [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
+        <table className="table table-xs table-auto w-full bg-transparent text-xs border-separate border-spacing-0 border-t border-l border-base-content/35 [&_th]:!px-1 [&_th]:!py-2 sm:[&_th]:!py-3 [&_th]:bg-base-300 [&_td]:!px-0.5 [&_td]:!py-px [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
           <colgroup>
             <col className="w-10" />
             <col />
+            <col className={PAIR_COL} />
             <col className={PAIR_COL} />
             <col className={PAIR_COL} />
           </colgroup>
@@ -1279,13 +1293,18 @@ export const LabourSessionRecordsPage = () => {
                   হাজিরা
                 </button>
               </th>
+              <th
+                className={`text-center align-middle font-medium ${CELL} ${SORBOMOT_BG}`}
+              >
+                সর্বমোট
+              </th>
             </tr>
           </thead>
           <tbody>
             {visibleRows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={5}
                   className={`text-center text-sm text-base-content/60 !py-10 ${CELL}`}
                 >
                   কোনো রেকর্ড পাওয়া যায়নি।
@@ -1294,20 +1313,28 @@ export const LabourSessionRecordsPage = () => {
             ) : (
               visibleRows.map((row, index) => {
                 const fill = cellFill(row, index);
-                const auditRowClass = activityToneClass(row.activityTone);
-                const showRet = hasAmount(row.return);
+                const { paid: settlePaid, back: settleBack } = splitSettlement(
+                  row.settlement,
+                );
+                const hasSession = settlePaid !== 0 || settleBack !== 0;
+                const earn = rowEarnings(row);
                 const rowKey = `${row.date}-${row.siteId ?? ""}-${row.recordId ?? index}`;
                 const rowActivityIds = activityIdsForRow(row);
                 const selectable = rowActivityIds.length > 0;
                 const rowSelected =
                   selectable &&
                   rowActivityIds.every((id) => selectedIds.has(id));
+                const rowTitle = hasSession
+                  ? settlePaid
+                    ? "হিসাবের সময় দেওয়া হয়েছে"
+                    : "হিসাবের সময় ফেরত নেওয়া হয়েছে"
+                  : undefined;
 
                 return (
                   <Fragment key={rowKey}>
-                    <tr className={`bg-transparent ${auditRowClass}`}>
+                    <tr className="bg-transparent">
                       <td
-                        rowSpan={2}
+                        rowSpan={PAIR_ROWS}
                         className={`align-middle text-center tabular-nums text-base-content/60 w-10 cursor-pointer ${CELL} ${fill}`}
                         onClick={() => {
                           if (selectMode && canChangeActivityLog) return;
@@ -1333,48 +1360,89 @@ export const LabourSessionRecordsPage = () => {
                         </span>
                       </td>
                       <td
-                        rowSpan={2}
+                        rowSpan={PAIR_ROWS}
                         className={`align-middle whitespace-nowrap pl-1 cursor-pointer ${CELL} ${fill}`}
                         onClick={() => openRecordModal(row)}
                       >
                         {formatDate(row.date)}
                       </td>
                       <td
-                        className={`${VALUE_CELL} ${CELL_TOP_INNER} ${fill} cursor-pointer`}
+                        className={`${VALUE_CELL} ${CELL_TOP_INNER} ${fill} ${sessionPairClass(hasSession, "top", "left")} cursor-pointer`}
                         onClick={() => openRecordModal(row)}
                       >
-                        <PresentTimesSalary
+                        <PresentLine
                           present={row.present}
                           salary={row.salary}
                           showSalary={showSalary}
                         />
                       </td>
                       <td
-                        className={`${VALUE_CELL} ${CELL_TOP} ${fill} cursor-pointer`}
-                        onClick={() => openRecordModal(row)}
-                      >
-                        <Amount value={row.payment} tone="text-error" />
-                      </td>
-                    </tr>
-                    <tr className={`bg-transparent ${auditRowClass}`}>
-                      <td
-                        className={`${VALUE_CELL} ${CELL_SUB_INNER} ${fill} cursor-pointer`}
+                        className={`${VALUE_CELL} ${CELL_TOP} ${fill} ${sessionPairClass(hasSession, "top", "right")} cursor-pointer`}
                         onClick={() => openRecordModal(row)}
                       >
                         <Amount value={row.extra} tone="text-success" />
                       </td>
                       <td
-                        className={`${VALUE_CELL} ${CELL_SUB} ${fill} cursor-pointer`}
+                        className={`${VALUE_CELL} ${CELL_TOP} ${SORBOMOT_BG} cursor-pointer`}
                         onClick={() => openRecordModal(row)}
                       >
-                        <span className="block leading-tight">
-                          <Amount value={row.advance} tone="text-error" />
-                          {showRet ? (
-                            <span className="block">
-                              <Amount value={row.return} />
-                            </span>
-                          ) : null}
-                        </span>
+                        <Amount value={earn} tone="text-success" />
+                      </td>
+                    </tr>
+                    <tr className="bg-transparent">
+                      <td
+                        className={`${VALUE_CELL} ${ROW2_LEFT} ${fill} ${sessionPairClass(hasSession, "mid", "left")} cursor-pointer`}
+                        onClick={() => openRecordModal(row)}
+                      >
+                        <Amount value={row.payment} tone="text-error" />
+                      </td>
+                      <td
+                        className={`${VALUE_CELL} ${ROW2_RIGHT} ${fill} ${sessionPairClass(hasSession, "mid", "right")} cursor-pointer`}
+                        onClick={() => openRecordModal(row)}
+                        title={settlePaid ? rowTitle : undefined}
+                      >
+                        <JoinedAmounts
+                          tone="text-error"
+                          parts={[
+                            { value: row.advance },
+                            { value: settlePaid },
+                          ]}
+                        />
+                      </td>
+                      <td
+                        className={`${VALUE_CELL} ${ROW2_RIGHT} ${SORBOMOT_BG} cursor-pointer`}
+                        onClick={() => openRecordModal(row)}
+                      >
+                        <Amount
+                          value={
+                            num(row.payment) + num(row.advance) + settlePaid
+                          }
+                          tone="text-error"
+                        />
+                      </td>
+                    </tr>
+                    <tr className="bg-transparent">
+                      <td
+                        className={`${VALUE_CELL} ${CELL_SUB_INNER} ${fill} ${sessionPairClass(hasSession, "bot", "left")} cursor-pointer`}
+                        onClick={() => openRecordModal(row)}
+                      >
+                        <Amount value={row.return} tone={RETURN_TONE} />
+                      </td>
+                      <td
+                        className={`${VALUE_CELL} ${CELL_SUB} ${fill} ${sessionPairClass(hasSession, "bot", "right")} cursor-pointer`}
+                        onClick={() => openRecordModal(row)}
+                        title={settleBack ? rowTitle : undefined}
+                      >
+                        <Amount value={settleBack} tone={RETURN_TONE} />
+                      </td>
+                      <td
+                        className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG} cursor-pointer`}
+                        onClick={() => openRecordModal(row)}
+                      >
+                        <Amount
+                          value={num(row.return) + settleBack}
+                          tone={RETURN_TONE}
+                        />
                       </td>
                     </tr>
                   </Fragment>
@@ -1387,71 +1455,109 @@ export const LabourSessionRecordsPage = () => {
               <tr className="font-medium bg-transparent">
                 <td
                   colSpan={2}
-                  rowSpan={2}
-                  className={`align-middle whitespace-nowrap text-right pr-1 ${CELL} ${FOOT_BG}`}
+                  className={`align-middle text-right whitespace-nowrap pr-1 ${CELL} ${FOOT_BG}`}
                 >
-                  মোট
+                  মোট উপার্জন
                 </td>
-                <td className={`${VALUE_CELL} ${CELL_TOP_INNER} ${FOOT_BG}`}>
-                  <PresentTimesSalary
-                    present={totals.present}
-                    salary={totals.salary}
-                    showSalary={showSalary}
-                  />
+                <td
+                  className={`${VALUE_CELL} ${CELL_TOP_INNER} ${FOOT_BG} !align-baseline`}
+                >
+                  <Amount value={totals.present} />
                 </td>
-                <td className={`${VALUE_CELL} ${CELL_TOP} ${FOOT_BG}`}>
-                  <Amount value={totals.payment} tone="text-error" />
-                </td>
-              </tr>
-              <tr className="font-medium bg-transparent">
-                <td className={`${VALUE_CELL} ${CELL_SUB_INNER} ${FOOT_BG}`}>
+                <td
+                  className={`${VALUE_CELL} ${CELL_TOP} ${FOOT_BG} !align-baseline`}
+                >
                   <Amount value={totals.extra} tone="text-success" />
                 </td>
-                <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}>
-                  <Amount value={totals.advance} tone="text-error" />
+                <td
+                  className={`${VALUE_CELL} ${CELL_TOP} ${SORBOMOT_BG} !align-baseline`}
+                >
+                  <Amount value={totals.earnings} tone="text-success" />
                 </td>
               </tr>
               <tr className="font-medium bg-transparent">
                 <td
                   colSpan={2}
-                  className={`align-middle whitespace-nowrap text-right pr-1 ${CELL} ${FOOT_BG}`}
+                  className={`align-middle text-right whitespace-nowrap pr-1 ${CELL} ${FOOT_BG}`}
                 >
-                  সর্বমোট
+                  মোট দেওয়া
+                </td>
+                <td className={`${VALUE_CELL} ${ROW2_LEFT} ${FOOT_BG}`}>
+                  <Amount value={totals.payment} tone="text-error" />
+                </td>
+                <td className={`${VALUE_CELL} ${ROW2_RIGHT} ${FOOT_BG}`}>
+                  <JoinedAmounts
+                    tone="text-error"
+                    parts={[
+                      { value: totals.advance },
+                      { value: splitSettlement(totals.settlement).paid },
+                    ]}
+                  />
+                </td>
+                <td className={`${VALUE_CELL} ${ROW2_RIGHT} ${SORBOMOT_BG}`}>
+                  <Amount
+                    value={
+                      num(totals.payment) +
+                      num(totals.advance) +
+                      splitSettlement(totals.settlement).paid
+                    }
+                    tone="text-error"
+                  />
+                </td>
+              </tr>
+              <tr className="font-medium bg-transparent">
+                <td
+                  colSpan={2}
+                  className={`align-middle text-right whitespace-nowrap pr-1 ${CELL} ${FOOT_BG}`}
+                >
+                  মোট ফেরত
                 </td>
                 <td className={`${VALUE_CELL} ${CELL_SUB_INNER} ${FOOT_BG}`}>
-                  <Amount value={num(totals.earnings)} tone="text-success" />
+                  <Amount value={totals.return} tone={RETURN_TONE} />
                 </td>
                 <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}>
-                  <Amount value={takenOf(totals)} tone="text-error" />
+                  <Amount
+                    value={splitSettlement(totals.settlement).back}
+                    tone={RETURN_TONE}
+                  />
+                </td>
+                <td className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}>
+                  <Amount
+                    value={
+                      num(totals.return) +
+                      splitSettlement(totals.settlement).back
+                    }
+                    tone={RETURN_TONE}
+                  />
                 </td>
               </tr>
               <tr className="font-medium bg-transparent">
                 <td
                   colSpan={2}
-                  className={`align-middle whitespace-nowrap text-right pr-1 ${signedTone(payableOf(totals))} ${CELL} ${FOOT_BG}`}
+                  className={`align-middle text-right whitespace-nowrap pr-1 ${CELL} ${SORBOMOT_BG}`}
                 >
                   বর্তমান পাওনা
                 </td>
                 <td
-                  colSpan={2}
-                  className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}
+                  colSpan={3}
+                  className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}
                 >
                   <Amount
-                    value={payableOf(totals)}
-                    tone={signedTone(payableOf(totals))}
+                    value={remainTotal}
+                    tone={remainTone(remainTotal)}
                   />
                 </td>
               </tr>
               <tr className="font-medium bg-transparent">
                 <td
                   colSpan={2}
-                  className={`align-middle whitespace-nowrap text-right pr-1 ${CELL} ${FOOT_BG}`}
+                  className={`align-middle whitespace-nowrap text-right pr-1 ${CELL} ${SORBOMOT_BG}`}
                 >
                   আগের পাওনা
                 </td>
                 <td
-                  colSpan={2}
-                  className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}
+                  colSpan={3}
+                  className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}
                 >
                   <Amount
                     value={num(session.previous_payable)}
@@ -1462,13 +1568,13 @@ export const LabourSessionRecordsPage = () => {
               <tr className="font-medium bg-transparent">
                 <td
                   colSpan={2}
-                  className={`align-middle whitespace-nowrap text-right pr-1 ${signedTone(currentPayable)} ${CELL} ${FOOT_BG}`}
+                  className={`align-middle whitespace-nowrap text-right pr-1 ${signedTone(currentPayable)} ${CELL} ${SORBOMOT_BG}`}
                 >
                   সর্বমোট পাওনা
                 </td>
                 <td
-                  colSpan={2}
-                  className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}
+                  colSpan={3}
+                  className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}
                 >
                   <Amount
                     value={currentPayable}
@@ -1476,41 +1582,6 @@ export const LabourSessionRecordsPage = () => {
                   />
                 </td>
               </tr>
-              {!isRunning ? (
-                <>
-                  <tr className="font-medium bg-transparent">
-                    <td
-                      colSpan={2}
-                      className={`align-middle whitespace-nowrap text-right pr-1 ${CELL} ${FOOT_BG}`}
-                    >
-                      হিসাবের সময় দেওয়া
-                    </td>
-                    <td
-                      colSpan={2}
-                      className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}
-                    >
-                      <Amount value={num(session.settlement)} />
-                    </td>
-                  </tr>
-                  <tr className="font-medium bg-transparent">
-                    <td
-                      colSpan={2}
-                      className={`align-middle whitespace-nowrap text-right pr-1 ${signedTone(remainingPayable)} ${CELL} ${FOOT_BG}`}
-                    >
-                      অবশিষ্ট পাওনা
-                    </td>
-                    <td
-                      colSpan={2}
-                      className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}
-                    >
-                      <Amount
-                        value={remainingPayable}
-                        tone={signedTone(remainingPayable)}
-                      />
-                    </td>
-                  </tr>
-                </>
-              ) : null}
             </tfoot>
           ) : null}
         </table>
