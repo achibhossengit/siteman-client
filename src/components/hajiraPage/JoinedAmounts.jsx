@@ -17,9 +17,17 @@ export const splitSettlement = (settlement) => {
   return { paid: n > 0 ? n : 0, back: n < 0 ? -n : 0 };
 };
 
+/** Prefer per-side totals so opposite sessions do not cancel. */
+export const settlementSides = (d) => {
+  if (d && (d.settlementPaid != null || d.settlementBack != null)) {
+    return { paid: num(d.settlementPaid), back: num(d.settlementBack) };
+  }
+  return splitSettlement(d?.settlement);
+};
+
 /** Earnings minus given, plus returned (session settlement included). */
 export const remainingOf = (d) => {
-  const { paid, back } = splitSettlement(d?.settlement);
+  const { paid, back } = settlementSides(d);
   return (
     num(d?.earnings) -
     num(d?.khoraki ?? d?.payment) -

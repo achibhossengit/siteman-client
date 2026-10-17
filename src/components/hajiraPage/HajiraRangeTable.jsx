@@ -12,7 +12,7 @@ import {
   RETURN_TONE,
   remainTone,
   remainingOf,
-  splitSettlement,
+  settlementSides,
 } from "./JoinedAmounts.jsx";
 import {
   HAJIRA_MOT_DOYA_ROW_ID,
@@ -225,7 +225,7 @@ export function HajiraRangeTable({
                         <Amount
                           value={
                             num(row.totals.advance) +
-                            splitSettlement(row.totals.settlement).paid
+                            settlementSides(row.totals).paid
                           }
                           tone="text-error"
                         />
@@ -235,7 +235,7 @@ export function HajiraRangeTable({
                           value={
                             num(row.totals.khoraki) +
                             num(row.totals.advance) +
-                            splitSettlement(row.totals.settlement).paid
+                            settlementSides(row.totals).paid
                           }
                           tone="text-error"
                         />
@@ -267,7 +267,7 @@ export function HajiraRangeTable({
                           className={`${VALUE_CELL} ${CELL_SUB} ${motFill}`}
                         >
                           <Amount
-                            value={splitSettlement(row.totals.settlement).back}
+                            value={settlementSides(row.totals).back}
                             tone={RETURN_TONE}
                           />
                         </td>
@@ -277,7 +277,7 @@ export function HajiraRangeTable({
                           <Amount
                             value={
                               num(row.totals.returned) +
-                              splitSettlement(row.totals.settlement).back
+                              settlementSides(row.totals).back
                             }
                             tone={RETURN_TONE}
                           />
@@ -344,7 +344,7 @@ export function HajiraRangeTable({
                   <Amount
                     value={
                       num(footer.totals.advance) +
-                      splitSettlement(footer.totals.settlement).paid
+                      settlementSides(footer.totals).paid
                     }
                     tone="text-error"
                   />
@@ -357,7 +357,7 @@ export function HajiraRangeTable({
                     value={
                       num(footer.totals.khoraki) +
                       num(footer.totals.advance) +
-                      splitSettlement(footer.totals.settlement).paid
+                      settlementSides(footer.totals).paid
                     }
                     tone="text-error"
                   />
@@ -389,7 +389,7 @@ export function HajiraRangeTable({
                     className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_GRAY_BG}`}
                   >
                     <Amount
-                      value={splitSettlement(footer.totals.settlement).back}
+                      value={settlementSides(footer.totals).back}
                       tone={RETURN_TONE}
                     />
                   </td>
@@ -400,7 +400,7 @@ export function HajiraRangeTable({
                     <Amount
                       value={
                         num(footer.totals.returned) +
-                        splitSettlement(footer.totals.settlement).back
+                        settlementSides(footer.totals).back
                       }
                       tone={RETURN_TONE}
                     />
@@ -476,7 +476,7 @@ function DayPair({
       : "নতুন হাজিরা"
     : undefined;
   const open = clickable ? onOpen : undefined;
-  const { paid, back } = splitSettlement(day.settlement);
+  const { paid, back } = settlementSides(day);
   const hasSession = !total && Boolean(day.hasSession || paid || back);
   const cellClass = [
     VALUE_CELL,

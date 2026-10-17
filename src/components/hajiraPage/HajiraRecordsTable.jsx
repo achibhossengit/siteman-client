@@ -13,7 +13,7 @@ import {
   RETURN_TONE,
   remainTone,
   remainingOf,
-  splitSettlement,
+  settlementSides,
 } from "./JoinedAmounts.jsx";
 import {
   EARNINGS_DEFAULT_FIELDS,
@@ -223,8 +223,8 @@ export function HajiraRecordsTable({
                   : "";
               const earn = dayEarnings(row, viewEarningsFilter);
               const pendingCreate = isPendingCreateRow(row, initial, date);
-              const { paid: settlePaid, back: settleBack } = splitSettlement(
-                row.settlement,
+              const { paid: settlePaid, back: settleBack } = settlementSides(
+                row,
               );
               const rowSaveErrors =
                 saveRowErrors[Number(row.labourId)] ??
@@ -530,7 +530,7 @@ export function HajiraRecordsTable({
                   tone="text-error"
                   parts={[
                     { value: totals.advance },
-                    { value: splitSettlement(totals.settlement).paid },
+                    { value: settlementSides(totals).paid },
                   ]}
                 />
               </td>
@@ -542,7 +542,7 @@ export function HajiraRecordsTable({
                   value={
                     num(totals.payment) +
                     num(totals.advance) +
-                    splitSettlement(totals.settlement).paid
+                    settlementSides(totals).paid
                   }
                   tone="text-error"
                 />
@@ -560,7 +560,7 @@ export function HajiraRecordsTable({
                 </td>
                 <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}>
                   <Amount
-                    value={splitSettlement(totals.settlement).back}
+                    value={settlementSides(totals).back}
                     tone={RETURN_TONE}
                   />
                 </td>
@@ -571,7 +571,7 @@ export function HajiraRecordsTable({
                   <Amount
                     value={
                       num(totals.return) +
-                      splitSettlement(totals.settlement).back
+                      settlementSides(totals).back
                     }
                     tone={RETURN_TONE}
                   />

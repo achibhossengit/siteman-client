@@ -159,6 +159,8 @@ export const recordModalFromRow = (row) => ({
   sessions: Array.isArray(row.sessions) ? row.sessions : [],
   hasSession: Boolean(row.hasSession),
   settlement: row.settlement ?? 0,
+  settlementPaid: row.settlementPaid ?? 0,
+  settlementBack: row.settlementBack ?? 0,
   recordId: row.recordId ?? row.attendanceId ?? null,
   recordSealed: row.recordSealed ?? row.attendanceSealed,
   attendanceSealed: row.attendanceSealed,

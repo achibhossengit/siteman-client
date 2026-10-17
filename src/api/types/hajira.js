@@ -60,16 +60,27 @@ const recordsOf = (item) => {
 }
 
 /**
- * Net session settlement for a roster entry.
+ * Session cash on a roster entry, kept as both sides (not a net).
  * `sessions` lists work sessions that settled cash on this site in the
  * window: [{ id, date, start_date, end_date, settlement, created_at }].
  * Positive = site paid the labour, negative = labour paid back.
+ * A labour can close more than one session in the same window; those
+ * must not cancel before মোট দেওয়া / মোট ফেরত.
  */
-export const settlementOfSessions = (sessions) =>
-  (Array.isArray(sessions) ? sessions : []).reduce((sum, session) => {
+export const settlementPartsOfSessions = (sessions) => {
+  let paid = 0
+  let back = 0
+  for (const session of Array.isArray(sessions) ? sessions : []) {
     const n = Number(session?.settlement)
-    return sum + (Number.isFinite(n) ? n : 0)
-  }, 0)
+    if (!Number.isFinite(n) || n === 0) continue
+    if (n > 0) paid += n
+    else back += -n
+  }
+  return { paid, back, net: paid - back }
+}
+
+export const settlementOfSessions = (sessions) =>
+  settlementPartsOfSessions(sessions).net
 
 const isoDay = (value) => {
   if (value == null || value === '') return ''
@@ -94,17 +105,21 @@ export const hasSessionMark = (sessions, date, lastSessionDate) => {
   return Boolean(day) && isoDay(lastSessionDate) === day
 }
 
-/** Session closed on `date`, if the roster included it. */
-export const sessionOnDate = (sessions, date) => {
+const sessionClosedOnDay = (session, day) =>
+  isoDay(session?.date) === day || isoDay(session?.end_date) === day
+
+/** Sessions closed on `date` (a labour can close more than one that day). */
+export const sessionsOnDate = (sessions, date) => {
   const day = isoDay(date)
-  if (!day) return null
-  return (
-    (Array.isArray(sessions) ? sessions : []).find(
-      (session) =>
-        isoDay(session?.date) === day || isoDay(session?.end_date) === day,
-    ) ?? null
+  if (!day) return []
+  return (Array.isArray(sessions) ? sessions : []).filter((session) =>
+    sessionClosedOnDay(session, day),
   )
 }
+
+/** First session closed on `date`, if the roster included it. */
+export const sessionOnDate = (sessions, date) =>
+  sessionsOnDate(sessions, date)[0] ?? null
 
 /** Normalize `{ labour, records, sessions, totals }` (or legacy `{ labour, record }`). */
 const asRosterEntries = (items = [], date) => {
@@ -194,6 +209,7 @@ export const buildHajiraRowFromEntry = (entry) => {
     labour.current_site == null || labour.current_site === ''
       ? null
       : Number(labour.current_site)
+  const settleParts = settlementPartsOfSessions(entry?.sessions)
 
   return {
     labourId,
@@ -219,7 +235,9 @@ export const buildHajiraRowFromEntry = (entry) => {
     // Cash settled by work sessions on this site (read-only; not part of
     // the editable record, so it never makes a row dirty).
     sessions: Array.isArray(entry?.sessions) ? entry.sessions : [],
-    settlement: settlementOfSessions(entry?.sessions),
+    settlement: settleParts.net,
+    settlementPaid: settleParts.paid,
+    settlementBack: settleParts.back,
     recordCreatedAt: record?.created_at ?? null,
     recordUpdatedAt: record?.updated_at ?? null,
     attendanceCreatedAt: record?.created_at ?? null,
@@ -488,30 +506,41 @@ export const buildHajiraRangeRows = (
       for (const rec of entry.records ?? []) {
         if (rec?.date) byDate.set(rec.date, rec)
       }
-      const settleByDate = new Map()
+      const settlePaidByDate = new Map()
+      const settleBackByDate = new Map()
       const sessionDates = new Set()
       for (const session of entry.sessions ?? []) {
         const key = isoDay(session?.date) || isoDay(session?.end_date)
         if (!key) continue
         sessionDates.add(key)
-        settleByDate.set(key, (settleByDate.get(key) ?? 0) + asNum(session.settlement))
+        const n = asNum(session.settlement)
+        if (n > 0) {
+          settlePaidByDate.set(key, (settlePaidByDate.get(key) ?? 0) + n)
+        } else if (n < 0) {
+          settleBackByDate.set(key, (settleBackByDate.get(key) ?? 0) + -n)
+        }
       }
       const lastSessionDay = isoDay(labour.last_session_date)
       const days = (dates ?? []).map((iso) => {
         const record = byDate.get(iso) ?? null
+        const settlementPaid = settlePaidByDate.get(iso) ?? 0
+        const settlementBack = settleBackByDate.get(iso) ?? 0
         return {
           date: iso,
           record,
           ...dailyRecordDayValues(record),
-          settlement: settleByDate.get(iso) ?? 0,
+          settlementPaid,
+          settlementBack,
+          settlement: settlementPaid - settlementBack,
           hasSession: sessionDates.has(iso) || lastSessionDay === iso,
         }
       })
       const fromApi = totalsValuesOf(entry.totals)
       const totals = isNonZeroTotals(fromApi) ? fromApi : sumDayValues(days)
-      if (!totals.settlement) {
-        totals.settlement = settlementOfSessions(entry.sessions)
-      }
+      const settleParts = settlementPartsOfSessions(entry.sessions)
+      totals.settlementPaid = settleParts.paid
+      totals.settlementBack = settleParts.back
+      totals.settlement = settleParts.net
       if (!totals.earnings) {
         totals.earnings = (days ?? []).reduce(
           (sum, day) => sum + asNum(day.earnings),
@@ -541,31 +570,30 @@ export const buildHajiraRangeRows = (
 }
 
 export const sumHajiraRangeFooter = (rows, dates = []) => {
+  const emptySettle = () => ({
+    present: 0,
+    extra: 0,
+    khoraki: 0,
+    advance: 0,
+    returned: 0,
+    settlementPaid: 0,
+    settlementBack: 0,
+    settlement: 0,
+    earnings: 0,
+  })
   const byDate = (dates ?? []).map((iso) => ({
     date: iso,
-    present: 0,
-    extra: 0,
-    khoraki: 0,
-    advance: 0,
-    returned: 0,
-    settlement: 0,
-    earnings: 0,
+    ...emptySettle(),
   }))
-  const totals = {
-    present: 0,
-    extra: 0,
-    khoraki: 0,
-    advance: 0,
-    returned: 0,
-    settlement: 0,
-    earnings: 0,
-  }
+  const totals = emptySettle()
   for (const row of rows ?? []) {
     totals.present += asNum(row.totals?.present)
     totals.extra += asNum(row.totals?.extra)
     totals.khoraki += asNum(row.totals?.khoraki)
     totals.advance += asNum(row.totals?.advance)
     totals.returned += asNum(row.totals?.returned)
+    totals.settlementPaid += asNum(row.totals?.settlementPaid)
+    totals.settlementBack += asNum(row.totals?.settlementBack)
     totals.settlement += asNum(row.totals?.settlement)
     totals.earnings += asNum(row.totals?.earnings)
     for (let i = 0; i < byDate.length; i += 1) {
@@ -576,6 +604,8 @@ export const sumHajiraRangeFooter = (rows, dates = []) => {
       byDate[i].khoraki += asNum(day.khoraki)
       byDate[i].advance += asNum(day.advance)
       byDate[i].returned += asNum(day.returned)
+      byDate[i].settlementPaid += asNum(day.settlementPaid)
+      byDate[i].settlementBack += asNum(day.settlementBack)
       byDate[i].settlement += asNum(day.settlement)
       byDate[i].earnings += asNum(day.earnings)
     }

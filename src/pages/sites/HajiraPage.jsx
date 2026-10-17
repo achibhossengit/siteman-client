@@ -602,9 +602,11 @@ export const HajiraPage = () => {
     let payment = 0;
     let advance = 0;
     let ret = 0;
-    let settlement = 0;
+    let settlementPaid = 0;
+    let settlementBack = 0;
     for (const row of visibleRows) {
-      settlement += Number(row.settlement) || 0;
+      settlementPaid += Number(row.settlementPaid) || 0;
+      settlementBack += Number(row.settlementBack) || 0;
       present += Number(row.present) || 0;
       extra += Number(row.extra) || 0;
       salary += Number(row.salary) || 0;
@@ -625,7 +627,9 @@ export const HajiraPage = () => {
       payment,
       advance,
       return: ret,
-      settlement,
+      settlementPaid,
+      settlementBack,
+      settlement: settlementPaid - settlementBack,
     };
   }, [visibleRows, viewEarningsFilter, viewPaymentFilter]);
 
@@ -697,6 +701,8 @@ export const HajiraPage = () => {
       sessions: rangeRow.sessions ?? [],
       hasSession: Boolean(day?.hasSession),
       settlement: day?.settlement ?? 0,
+      settlementPaid: day?.settlementPaid ?? 0,
+      settlementBack: day?.settlementBack ?? 0,
       lastSessionDate:
         rangeRow.lastSessionDate ?? rangeRow.labour?.last_session_date ?? null,
     };

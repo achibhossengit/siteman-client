@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Pencil, Trash2, X } from "lucide-react";
-import { PRESENT_OPTIONS, sessionOnDate } from "../../api/types/hajira.js";
+import { PRESENT_OPTIONS, sessionsOnDate } from "../../api/types/hajira.js";
 import { messageForCode } from "../../api/errors.js";
 import {
   DailyRecordHistoryPanel,
@@ -48,24 +48,38 @@ const sessionPeriodLabel = (start, end) => {
   return from || to;
 };
 
-const sessionLinkOf = (modal) => {
-  if (!modal?.labourId) return null;
-  const matched = sessionOnDate(modal.sessions, modal.date);
-  if (matched?.id != null) {
-    return {
-      labourId: modal.labourId,
-      sessionId: String(matched.id),
-      settlement: matched.settlement ?? modal.settlement ?? 0,
-      period: sessionPeriodLabel(matched.start_date, matched.end_date),
-    };
+const sessionLinkOf = (session, labourId) => ({
+  labourId,
+  sessionId: String(session.id),
+  settlement: session.settlement ?? 0,
+  period: sessionPeriodLabel(session.start_date, session.end_date),
+});
+
+const sessionLinksOf = (modal) => {
+  if (!modal?.labourId) return [];
+  const matched = sessionsOnDate(modal.sessions, modal.date).filter(
+    (session) => session?.id != null,
+  );
+  if (matched.length) {
+    return [...matched]
+      .sort((a, b) => {
+        const start = String(a.start_date ?? "").localeCompare(
+          String(b.start_date ?? ""),
+        );
+        if (start) return start;
+        return Number(a.id) - Number(b.id);
+      })
+      .map((session) => sessionLinkOf(session, modal.labourId));
   }
-  if (!modal.hasSession) return null;
-  return {
-    labourId: modal.labourId,
-    sessionId: "latest",
-    settlement: modal.settlement ?? 0,
-    period: sessionPeriodLabel(null, modal.lastSessionDate),
-  };
+  if (!modal.hasSession) return [];
+  return [
+    {
+      labourId: modal.labourId,
+      sessionId: "latest",
+      settlement: modal.settlement ?? 0,
+      period: sessionPeriodLabel(null, modal.lastSessionDate),
+    },
+  ];
 };
 
 const minDateAfterLastSession = (lastSessionDate) => {
@@ -119,7 +133,7 @@ export function RecordDetailModal({
   startModalEdit,
   date,
 }) {
-  const sessionLink = sessionLinkOf(recordModal);
+  const sessionLinks = sessionLinksOf(recordModal);
   return (
       <dialog
         id={RECORD_MODAL_ID}
@@ -504,22 +518,27 @@ export function RecordDetailModal({
                     ) : null}
                   </>
                 )}
-                {sessionLink ? (
-                  <div className="border-t border-base-300 pt-2 flex items-center justify-between gap-3">
-                    <span className="label-text leading-snug">
-                      হিসাবে দেওয়া
-                      {sessionLink.period ? (
-                        <span className="block whitespace-nowrap">
-                          ({sessionLink.period})
+                {sessionLinks.length ? (
+                  <div className="border-t border-base-300 pt-2 flex flex-col gap-1.5">
+                    <span className="label-text">হিসাবে দেওয়া</span>
+                    {sessionLinks.map((sessionLink) => (
+                      <div
+                        key={sessionLink.sessionId}
+                        className="flex items-center justify-between gap-3"
+                      >
+                        <span className="label-text leading-snug whitespace-nowrap">
+                          {sessionLink.period
+                            ? `(${sessionLink.period})`
+                            : "—"}
                         </span>
-                      ) : null}
-                    </span>
-                    <Link
-                      to={`${paths.labourDetail(sessionLink.labourId)}?session=${encodeURIComponent(sessionLink.sessionId)}`}
-                      className="link link-primary text-sm tabular-nums whitespace-nowrap"
-                    >
-                      {formatBnSigned(sessionLink.settlement)}
-                    </Link>
+                        <Link
+                          to={`${paths.labourDetail(sessionLink.labourId)}?session=${encodeURIComponent(sessionLink.sessionId)}`}
+                          className="link link-primary text-sm tabular-nums whitespace-nowrap"
+                        >
+                          {formatBnSigned(sessionLink.settlement)}
+                        </Link>
+                      </div>
+                    ))}
                   </div>
                 ) : null}
               </div>
