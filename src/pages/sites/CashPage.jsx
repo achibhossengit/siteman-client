@@ -51,8 +51,6 @@ import {
 import {
   clearCashFocus,
   readCashFocus,
-  readCashLedgerView,
-  writeCashLedgerView,
 } from "../../utils/sessionSelection.js";
 import { playMotFocusTour, waitForId } from "../../utils/focusTour.js";
 import { paths } from "../../router/paths.js";
@@ -260,7 +258,7 @@ const LEDGER_VIEWS = [
     empty: "কোনো জমা, সাইট খরচ ও উত্তোলন রেকর্ড নেই।",
   },
 ];
-const DEFAULT_LEDGER_VIEW = "deposit";
+const DEFAULT_LEDGER_VIEW = "all_records";
 
 const createDateBounds = (start, end) => {
   const today = todayIso();
@@ -425,14 +423,7 @@ export const CashPage = () => {
   const dialogRef = useRef(null);
   const focusedCellRef = useRef(null);
 
-  const [ledgerView, setLedgerView] = useState(() => {
-    const focus = readCashFocus();
-    if (CASH_FOCUS_VIEWS.has(focus)) return focus;
-    const saved = readCashLedgerView();
-    return LEDGER_VIEWS.some((view) => view.id === saved)
-      ? saved
-      : DEFAULT_LEDGER_VIEW;
-  });
+  const [ledgerView, setLedgerView] = useState(DEFAULT_LEDGER_VIEW);
   const [billingFilter, setBillingFilter] = useState("all");
   const [typeFilterOpen, setTypeFilterOpen] = useState(false);
   const [page, setPage] = useState(1);
@@ -511,7 +502,6 @@ export const CashPage = () => {
   }, [siteId, date, dateEnd]);
 
   useEffect(() => {
-    writeCashLedgerView(ledgerView);
     setSelectedIds(new Set());
     setPage(1);
   }, [ledgerView, billingFilter]);
@@ -593,24 +583,23 @@ export const CashPage = () => {
         ? location.state.cashFocus
         : "");
     if (!CASH_FOCUS_VIEWS.has(focus)) return;
-    if (cashQuery.isLoading) return;
+    // Wait for the real সব রেকর্ড table — placeholder rows have no মোট cells.
+    if (cashQuery.isLoading || cashQuery.isPlaceholderData) return;
 
     let cancelled = false;
     const isCancelled = () => cancelled;
 
     void (async () => {
-      const row = await waitForId(cashMotRowId(focus), isCancelled, 2000);
+      const row = await waitForId(cashMotRowId(focus), isCancelled);
       const cell = row
-        ? await waitForId(cashSorbomotId(focus), isCancelled, 2000)
+        ? await waitForId(cashSorbomotId(focus), isCancelled)
         : null;
-      if (cancelled) return;
+      if (cancelled || !row || !cell) return;
       focusedCellRef.current?.classList.remove("hajira-focus-cell");
       focusedCellRef.current = null;
-      if (row && cell) {
-        const done = await playMotFocusTour(row, cell, isCancelled);
-        if (cancelled || !done) return;
-        focusedCellRef.current = cell;
-      }
+      const done = await playMotFocusTour(row, cell, isCancelled);
+      if (cancelled || !done) return;
+      focusedCellRef.current = cell;
       clearCashFocus();
       if (location.state?.cashFocus) {
         navigate(paths.cash, { replace: true, state: {} });
@@ -626,7 +615,9 @@ export const CashPage = () => {
   }, [
     location.state,
     cashQuery.isLoading,
+    cashQuery.isPlaceholderData,
     cashQuery.isSuccess,
+    cashQuery.data,
     navigate,
   ]);
 
@@ -1314,7 +1305,10 @@ export const CashPage = () => {
           </tbody>
           {showSummary && isAllRecords ? (
             <tfoot>
-              <tr className="font-medium [&_td]:bg-base-300">
+              <tr
+                id={cashMotRowId("deposit")}
+                className="font-medium [&_td]:bg-base-300"
+              >
                 <td
                   colSpan={tableCols - 1}
                   className={`px-1 sm:px-3 !py-0.5 sm:!py-0.5 leading-tight text-right text-base-content/60 !bg-base-300 ${CELL_GRID}`}
@@ -1322,12 +1316,16 @@ export const CashPage = () => {
                   মোট জমা
                 </td>
                 <td
+                  id={cashSorbomotId("deposit")}
                   className={`text-right tabular-nums leading-tight px-1 sm:px-3 !py-0.5 sm:!py-0.5 whitespace-nowrap !bg-base-300 ${CELL_GRID} text-success`}
                 >
                   {formatBnNumber(summaryTotals.deposit)}
                 </td>
               </tr>
-              <tr className="font-medium [&_td]:bg-base-300">
+              <tr
+                id={cashMotRowId("withdrawal")}
+                className="font-medium [&_td]:bg-base-300"
+              >
                 <td
                   colSpan={tableCols - 1}
                   className={`px-1 sm:px-3 !py-0.5 sm:!py-0.5 leading-tight text-right text-base-content/60 !bg-base-300 ${CELL_GRID}`}
@@ -1335,12 +1333,16 @@ export const CashPage = () => {
                   মোট উত্তোলন
                 </td>
                 <td
+                  id={cashSorbomotId("withdrawal")}
                   className={`text-right tabular-nums leading-tight px-1 sm:px-3 !py-0.5 sm:!py-0.5 whitespace-nowrap !bg-base-300 ${CELL_GRID} text-warning`}
                 >
                   {formatBnNumber(summaryTotals.withdrawal)}
                 </td>
               </tr>
-              <tr className="font-medium [&_td]:bg-base-300">
+              <tr
+                id={cashMotRowId("cost")}
+                className="font-medium [&_td]:bg-base-300"
+              >
                 <td
                   colSpan={tableCols - 1}
                   className={`px-1 sm:px-3 !py-0.5 sm:!py-0.5 leading-tight text-right text-base-content/60 !bg-base-300 ${CELL_GRID}`}
@@ -1348,6 +1350,7 @@ export const CashPage = () => {
                   মোট খরচ
                 </td>
                 <td
+                  id={cashSorbomotId("cost")}
                   className={`text-right tabular-nums leading-tight px-1 sm:px-3 !py-0.5 sm:!py-0.5 whitespace-nowrap !bg-base-300 ${CELL_GRID} text-error`}
                 >
                   {formatBnNumber(summaryTotals.cost)}

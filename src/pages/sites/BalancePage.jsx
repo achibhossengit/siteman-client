@@ -14,7 +14,6 @@ import { formatBnNumber, formatBnSigned } from '../../utils/format.js'
 import { paths } from '../../router/paths.js'
 import {
   writeCashFocus,
-  writeCashLedgerView,
   writeHajiraFocus,
 } from '../../utils/sessionSelection.js'
 import {
@@ -127,7 +126,6 @@ export const BalancePage = () => {
   } = report
 
   const openCashFocus = (cashFocus) => () => {
-    writeCashLedgerView(cashFocus)
     writeCashFocus(cashFocus)
     navigate(paths.cash, { state: { cashFocus } })
   }

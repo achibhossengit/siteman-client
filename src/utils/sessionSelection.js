@@ -11,7 +11,6 @@ export const SELECTED_SITE_KEY = 'selectedSite'
 export const SELECTED_DATE_KEY = 'selectedDate'
 export const SELECTED_START_DATE_KEY = 'selectedStartDate'
 export const SELECTED_END_DATE_KEY = 'selectedEndDate'
-export const CASH_LEDGER_VIEW_KEY = 'cashLedgerView'
 export const SESSION_SHOW_SALARY_KEY = 'sessionShowSalary'
 export const HAJIRA_SHOW_SALARY_KEY = 'hajiraShowSalary'
 export const HAJIRA_SHOW_EARNINGS_KEY = 'hajiraShowEarnings'
@@ -95,11 +94,6 @@ export const writeSelectedDateRange = (start, end) => {
 
 /** @deprecated Use writeSelectedDateRange. Single-day write. */
 export const writeSelectedDate = (date) => writeSelectedDateRange(date, null)
-
-export const readCashLedgerView = () => readLocal(CASH_LEDGER_VIEW_KEY)
-
-export const writeCashLedgerView = (value) =>
-  writeLocal(CASH_LEDGER_VIEW_KEY, value || '')
 
 export const readSessionShowSalary = () =>
   readLocal(SESSION_SHOW_SALARY_KEY) === '1'
