@@ -1405,11 +1405,7 @@ export const LabourSessionRecordsPage = () => {
                     <tr className="bg-transparent">
                       <td
                         rowSpan={PAIR_ROWS}
-                        className={`align-middle text-center tabular-nums text-base-content/60 w-10 cursor-pointer ${CELL} ${fill}`}
-                        onClick={() => {
-                          if (selectMode && canChangeActivityLog) return;
-                          openRecordModal(row);
-                        }}
+                        className={`align-middle text-center tabular-nums text-base-content/60 w-10 ${CELL} ${fill}`}
                       >
                         <span className="inline-flex w-full items-center justify-center">
                           {selectMode && canChangeActivityLog ? (
@@ -1431,8 +1427,7 @@ export const LabourSessionRecordsPage = () => {
                       </td>
                       <td
                         rowSpan={PAIR_ROWS}
-                        className={`align-middle whitespace-nowrap pl-1 cursor-pointer ${CELL} ${fill}`}
-                        onClick={() => openRecordModal(row)}
+                        className={`align-middle whitespace-nowrap pl-1 ${CELL} ${fill}`}
                       >
                         {formatDate(row.date)}
                       </td>
@@ -1453,8 +1448,7 @@ export const LabourSessionRecordsPage = () => {
                         <Amount value={row.extra} tone="text-success" />
                       </td>
                       <td
-                        className={`${VALUE_CELL} ${CELL_TOP} ${SORBOMOT_BG} cursor-pointer`}
-                        onClick={() => openRecordModal(row)}
+                        className={`${VALUE_CELL} ${CELL_TOP} ${SORBOMOT_BG}`}
                       >
                         <Amount value={earn} tone="text-success" />
                       </td>
@@ -1480,8 +1474,7 @@ export const LabourSessionRecordsPage = () => {
                         />
                       </td>
                       <td
-                        className={`${VALUE_CELL} ${ROW2_RIGHT} ${SORBOMOT_BG} cursor-pointer`}
-                        onClick={() => openRecordModal(row)}
+                        className={`${VALUE_CELL} ${ROW2_RIGHT} ${SORBOMOT_BG}`}
                       >
                         <Amount
                           value={
@@ -1506,8 +1499,7 @@ export const LabourSessionRecordsPage = () => {
                         <Amount value={settleBack} tone={RETURN_TONE} />
                       </td>
                       <td
-                        className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG} cursor-pointer`}
-                        onClick={() => openRecordModal(row)}
+                        className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}
                       >
                         <Amount
                           value={num(row.return) + settleBack}
