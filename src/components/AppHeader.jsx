@@ -31,12 +31,15 @@ export const AppHeader = () => {
                 {companyName || userName ? (
                   <div className="min-w-0 leading-tight text-right">
                     {companyName ? (
-                      <p className="text-sm font-medium text-base-content truncate max-w-28 sm:max-w-44">
+                      <p
+                        className="text-sm font-medium text-base-content truncate max-w-48 sm:max-w-72"
+                        title={companyName}
+                      >
                         {companyName}
                       </p>
                     ) : null}
                     {userName ? (
-                      <p className="text-xs text-base-content/55 truncate max-w-28 sm:max-w-44">
+                      <p className="text-xs text-base-content/55 truncate max-w-48 sm:max-w-72">
                         {userName}
                       </p>
                     ) : null}
