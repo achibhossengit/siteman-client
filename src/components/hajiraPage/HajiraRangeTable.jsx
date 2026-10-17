@@ -4,7 +4,7 @@ import { PersonAvatar } from "../PersonAvatar.jsx";
 import { paths } from "../../router/paths.js";
 import { concatLabourName, formatBnNumber } from "../../utils/format.js";
 import { formatDateColBn } from "../../utils/dateRange.js";
-import { filterHeaderTitle, sessionPairClass } from "./helpers.js";
+import { sessionPairClass } from "./helpers.js";
 import {
   FitAmount as Amount,
   JoinedAmounts,
@@ -19,7 +19,6 @@ import {
   HAJIRA_MOT_FEROT_ROW_ID,
   HAJIRA_SORBOMOT_DOYA_ID,
   HAJIRA_SORBOMOT_FEROT_ID,
-  LABOUR_DEFAULT_FIELDS,
 } from "./constants.js";
 
 const BORDER_Y = "border-b border-b-base-content/35";
@@ -55,8 +54,7 @@ export function HajiraRangeTable({
   rows,
   emptyMessage,
   footer,
-  openLabourFilterModal,
-  labourFilter,
+  labourHeader,
   showSalary,
   isLabourOffSite,
   canOpenLabourDetail,
@@ -87,9 +85,7 @@ export function HajiraRangeTable({
               <th
                 className={`w-20 max-w-20 sm:w-28 sm:max-w-28 pl-1 align-middle ${CELL} ${STICKY_PIN_HEAD}`}
               >
-                <button type="button" onClick={openLabourFilterModal}>
-                  {filterHeaderTitle("নাম", labourFilter, LABOUR_DEFAULT_FIELDS)}
-                </button>
+                {labourHeader}
               </th>
               {showDayColumns
                 ? dates.map((iso, i) => (

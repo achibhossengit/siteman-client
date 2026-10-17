@@ -19,8 +19,8 @@ export const HAJIRA_FILTER_OPTIONS = [];
 export const HAJIRA_DEFAULT_FIELDS = ["present", "extra"];
 
 export const LABOUR_FILTER_OPTIONS = [
-  { value: "record", label: "হাজিরা" },
-  { value: "labour", label: "শ্রমিক" },
+  { value: "record", label: "শুধু হাজিরা আছে এমন শ্রমিক" },
+  { value: "labour", label: "সব শ্রমিক, হাজিরা না থাকলেও দেখাবে" },
 ];
 
 export const LABOUR_DEFAULT_FIELDS = ["record", "labour"];

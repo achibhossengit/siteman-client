@@ -23,7 +23,12 @@ import { fetchAllActivities, reviewActivities } from "../../api/activities.js";
 import { messageForCode, parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
 import { HajiraActionBars } from "../../components/hajiraPage/HajiraActionBars.jsx";
-import { HajiraFilterModals } from "../../components/hajiraPage/HajiraFilterModals.jsx";
+import { HeaderFilterPopover } from "../../components/HeaderFilterPopover.jsx";
+import {
+  HajiraColumnFilterPanel,
+  HajiraFilterModals,
+  LabourFilterPanel,
+} from "../../components/hajiraPage/HajiraFilterModals.jsx";
 import { HajiraRangeTable } from "../../components/hajiraPage/HajiraRangeTable.jsx";
 import { HajiraRecordsTable } from "../../components/hajiraPage/HajiraRecordsTable.jsx";
 import { RecordDetailModal } from "../../components/hajiraPage/RecordDetailModal.jsx";
@@ -32,13 +37,11 @@ import {
   BULK_ROW_FIX_TOAST,
   EARNINGS_DEFAULT_FIELDS,
   EARNINGS_FILTER_MODAL_ID,
-  HAJIRA_FILTER_MODAL_ID,
   HAJIRA_MOT_DOYA_ROW_ID,
   HAJIRA_MOT_FEROT_ROW_ID,
   HAJIRA_SORBOMOT_DOYA_ID,
   HAJIRA_SORBOMOT_FEROT_ID,
   LABOUR_DEFAULT_FIELDS,
-  LABOUR_FILTER_MODAL_ID,
   MEANINGFUL_DAY_VALUE_MESSAGE,
   MODAL_VIEWS,
   PAYMENT_SPECS,
@@ -52,6 +55,7 @@ import {
   emptyBulkAttendance,
   emptyBulkBilling,
   emptyBulkPayment,
+  filterHeaderTitle,
   formatBulkDailyRecordCreateError,
   formatBulkReviewError,
   hasAmount,
@@ -203,6 +207,8 @@ export const HajiraPage = () => {
   const [bulkPayment, setBulkPayment] = useState(emptyBulkPayment);
   const [bulkBilling, setBulkBilling] = useState(emptyBulkBilling);
   const [showSalary, setShowSalary] = useState(() => readHajiraShowSalary());
+  const [labourFilterOpen, setLabourFilterOpen] = useState(false);
+  const [hajiraFilterOpen, setHajiraFilterOpen] = useState(false);
 
   const showAyColumn = Boolean(isCompanyAdmin);
 
@@ -339,19 +345,9 @@ export const HajiraPage = () => {
     });
   };
 
-  const openHajiraModal = () => {
-    setBulkAttendance(emptyBulkAttendance());
-    setBulkPayment(emptyBulkPayment());
-    document.getElementById(HAJIRA_FILTER_MODAL_ID)?.showModal();
-  };
-
   const openBillingModal = () => {
     setBulkBilling(emptyBulkBilling());
     document.getElementById(BILLING_FILTER_MODAL_ID)?.showModal();
-  };
-
-  const openLabourFilterModal = () => {
-    document.getElementById(LABOUR_FILTER_MODAL_ID)?.showModal();
   };
 
   const openEarningsFilterModal = () => {
@@ -1031,8 +1027,15 @@ export const HajiraPage = () => {
   };
 
   const onHajiraBulkDefault = () => {
-    applyAttendanceDefaults();
-    document.getElementById(HAJIRA_FILTER_MODAL_ID)?.close();
+    const target = rows.find(isBulkTargetRow);
+    if (!target) return;
+    const presentRaw = target.defaultAttendance;
+    const present =
+      presentRaw === "" || presentRaw == null ? "0" : String(presentRaw);
+    const salary =
+      Number(present) === 0 ? "" : numOrEmpty(target.defaultSalary);
+    setBulkAttendance({ present, salary });
+    setBulkPayment({ payment: numOrEmpty(target.defaultFooding) });
   };
 
   const onHajiraBulkCustom = () => {
@@ -1120,12 +1123,12 @@ export const HajiraPage = () => {
     );
     setBulkAttendance(emptyBulkAttendance());
     setBulkPayment(emptyBulkPayment());
-    document.getElementById(HAJIRA_FILTER_MODAL_ID)?.close();
+    setHajiraFilterOpen(false);
   };
 
   const onPaymentBulkDefault = () => {
     applyPaymentDefaults();
-    document.getElementById(HAJIRA_FILTER_MODAL_ID)?.close();
+    setHajiraFilterOpen(false);
   };
 
   const onPaymentBulkCustom = () => {
@@ -1144,7 +1147,7 @@ export const HajiraPage = () => {
         };
       }),
     );
-    document.getElementById(HAJIRA_FILTER_MODAL_ID)?.close();
+    setHajiraFilterOpen(false);
   };
 
   const onBillingBulkCustom = (billingValue = bulkBilling.billing) => {
@@ -1190,7 +1193,7 @@ export const HajiraPage = () => {
       }),
     );
     setBulkAttendance(emptyBulkAttendance());
-    document.getElementById(HAJIRA_FILTER_MODAL_ID)?.close();
+    setHajiraFilterOpen(false);
   };
 
   const onPaymentBulkReset = () => {
@@ -1210,7 +1213,7 @@ export const HajiraPage = () => {
       }),
     );
     setBulkPayment(emptyBulkPayment());
-    document.getElementById(HAJIRA_FILTER_MODAL_ID)?.close();
+    setHajiraFilterOpen(false);
   };
 
   const onBillingBulkReset = () => {
@@ -1465,6 +1468,59 @@ export const HajiraPage = () => {
   const tableColCount =
     6 + (showAyColumn ? 1 : 0) + (SHOW_BILLING ? 1 : 0);
 
+  const labourHeader = (
+    <HeaderFilterPopover
+      open={labourFilterOpen}
+      onOpenChange={(next) => {
+        setLabourFilterOpen(next);
+        if (next) setHajiraFilterOpen(false);
+      }}
+      title="নাম"
+      label={filterHeaderTitle("নাম", labourFilter, LABOUR_DEFAULT_FIELDS)}
+      triggerClassName="inline-flex items-center gap-0.5"
+      width={256}
+    >
+      <LabourFilterPanel
+        labourFilter={labourFilter}
+        setLabourFilter={setLabourFilter}
+        onClose={() => setLabourFilterOpen(false)}
+      />
+    </HeaderFilterPopover>
+  );
+
+  const hajiraHeader = (
+    <HeaderFilterPopover
+      open={hajiraFilterOpen}
+      onOpenChange={(next) => {
+        if (next) {
+          setBulkAttendance(emptyBulkAttendance());
+          setBulkPayment(emptyBulkPayment());
+          setLabourFilterOpen(false);
+        }
+        setHajiraFilterOpen(next);
+      }}
+      title="হাজিরা"
+    >
+      <HajiraColumnFilterPanel
+        hajiraFilter={hajiraFilter}
+        setHajiraFilter={setHajiraFilter}
+        showSalary={showSalary}
+        onShowSalaryChange={(next) => {
+          setShowSalary(next);
+          writeHajiraShowSalary(next);
+        }}
+        showBulkSection={showBulkSection}
+        bulkSetEnabled={bulkSetEnabled}
+        bulkAttendance={bulkAttendance}
+        setBulkAttendance={setBulkAttendance}
+        onHajiraBulkDefault={onHajiraBulkDefault}
+        onHajiraBulkCustom={onHajiraBulkCustom}
+        bulkPayment={bulkPayment}
+        setBulkPayment={setBulkPayment}
+      />
+    </HeaderFilterPopover>
+  );
+
   const patchRecordModal = (patch) => {
     setRecordModal((m) => {
       if (!m) return m;
@@ -1491,8 +1547,7 @@ export const HajiraPage = () => {
           rows={rangeRows}
           emptyMessage={emptyMessage}
           footer={rangeFooter}
-          openLabourFilterModal={openLabourFilterModal}
-          labourFilter={labourFilter}
+          labourHeader={labourHeader}
           showSalary={showSalary}
           isLabourOffSite={isLabourOffSite}
           canOpenLabourDetail={canOpenLabourDetail}
@@ -1509,10 +1564,8 @@ export const HajiraPage = () => {
         pendingIds={pendingIds}
         toggleSelectAll={toggleSelectAll}
         setSelectMode={setSelectMode}
-        openLabourFilterModal={openLabourFilterModal}
-        labourFilter={labourFilter}
-        openHajiraModal={openHajiraModal}
-        hajiraFilter={hajiraFilter}
+        labourHeader={labourHeader}
+        hajiraHeader={hajiraHeader}
         showAyColumn={showAyColumn}
         openEarningsFilterModal={openEarningsFilterModal}
         earningsFilter={earningsFilter}
@@ -1606,33 +1659,9 @@ export const HajiraPage = () => {
       />
 
       <HajiraFilterModals
-        labourFilter={labourFilter}
-        setLabourFilter={setLabourFilter}
         earningsFilter={earningsFilter}
         setEarningsFilter={setEarningsFilter}
-        hajiraFilter={hajiraFilter}
-        setHajiraFilter={setHajiraFilter}
-        showSalary={showSalary}
-        onShowSalaryChange={(next) => {
-          setShowSalary(next);
-          writeHajiraShowSalary(next);
-        }}
         showBulkSection={showBulkSection}
-        bulkSetEnabled={bulkSetEnabled}
-        bulkAttendance={bulkAttendance}
-        setBulkAttendance={setBulkAttendance}
-        onHajiraBulkReset={onHajiraBulkReset}
-        hasHajiraBulkReset={hasHajiraBulkReset}
-        onHajiraBulkDefault={onHajiraBulkDefault}
-        onHajiraBulkCustom={onHajiraBulkCustom}
-        paymentFilter={paymentFilter}
-        setPaymentFilter={setPaymentFilter}
-        bulkPayment={bulkPayment}
-        setBulkPayment={setBulkPayment}
-        onPaymentBulkReset={onPaymentBulkReset}
-        hasPaymentBulkReset={hasPaymentBulkReset}
-        onPaymentBulkDefault={onPaymentBulkDefault}
-        onPaymentBulkCustom={onPaymentBulkCustom}
         billingFilterOptions={billingFilterOptions}
         billingFilter={billingFilter}
         toggleBillingFilter={toggleBillingFilter}

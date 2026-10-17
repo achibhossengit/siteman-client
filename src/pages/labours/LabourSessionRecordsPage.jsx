@@ -1,5 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   Link,
   useNavigate,
@@ -8,7 +7,8 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
+import { HeaderFilterPopover } from "../../components/HeaderFilterPopover.jsx";
 import { fetchAllActivities, reviewActivities } from "../../api/activities.js";
 import {
   closeLabourSession,
@@ -54,10 +54,6 @@ import {
   remainingOf,
   splitSettlement,
 } from "../../components/hajiraPage/JoinedAmounts.jsx";
-import {
-  openPanelMotionClass,
-  useOpenTransition,
-} from "../../hooks/useOpenTransition.js";
 import { useBillingLookups } from "../../hooks/useBillingLookup.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { useSitesLookup } from "../../hooks/useSites.js";
@@ -78,9 +74,6 @@ import {
 
 const RECORD_MODAL_ID = "session_record_detail_modal";
 const CLOSE_MODAL_ID = "session_close_modal";
-const HAJIRA_PANEL_WIDTH = 320;
-const HAJIRA_PANEL_CLASS =
-  "bg-base-100 rounded-box shadow-lg border border-base-300 overflow-hidden flex flex-col w-80 max-w-[calc(100vw-16px)] origin-top";
 
 const BORDER_Y = "border-b border-b-base-content/35";
 const BORDER_Y_SOFT = "border-b border-b-base-content/15";
@@ -313,11 +306,6 @@ export const LabourSessionRecordsPage = () => {
   const [reviewing, setReviewing] = useState(false);
   const [showSalary, setShowSalary] = useState(() => readSessionShowSalary());
   const [hajiraFilterOpen, setHajiraFilterOpen] = useState(false);
-  const hajiraTriggerRef = useRef(null);
-  const hajiraPanelRef = useRef(null);
-  const { mounted: hajiraMounted, shown: hajiraShown } =
-    useOpenTransition(hajiraFilterOpen);
-  const [hajiraPos, setHajiraPos] = useState({ top: 0, left: 0, width: HAJIRA_PANEL_WIDTH });
   const [closeModalOpen, setCloseModalOpen] = useState(false);
   const [closeApiError, setCloseApiError] = useState(null);
   const [settlement, setSettlement] = useState("");
@@ -914,52 +902,6 @@ export const LabourSessionRecordsPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync outward from state
   }, [dateStart, dateEnd]);
 
-  const updateHajiraPos = () => {
-    const el = hajiraTriggerRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const width = Math.min(window.innerWidth - 16, HAJIRA_PANEL_WIDTH);
-    const left = Math.min(
-      Math.max(8, r.left + r.width / 2 - width / 2),
-      window.innerWidth - width - 8,
-    );
-    setHajiraPos({ top: r.bottom + 8, left, width });
-  };
-
-  useLayoutEffect(() => {
-    if (!hajiraFilterOpen) return;
-    updateHajiraPos();
-  }, [hajiraFilterOpen]);
-
-  useEffect(() => {
-    if (!hajiraFilterOpen) return;
-    const onWin = () => updateHajiraPos();
-    window.addEventListener("resize", onWin);
-    window.addEventListener("scroll", onWin, true);
-    return () => {
-      window.removeEventListener("resize", onWin);
-      window.removeEventListener("scroll", onWin, true);
-    };
-  }, [hajiraFilterOpen]);
-
-  useEffect(() => {
-    if (!hajiraFilterOpen) return;
-    const onDown = (e) => {
-      if (hajiraPanelRef.current?.contains(e.target)) return;
-      if (hajiraTriggerRef.current?.contains(e.target)) return;
-      setHajiraFilterOpen(false);
-    };
-    const onKey = (e) => {
-      if (e.key === "Escape") setHajiraFilterOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [hajiraFilterOpen]);
-
   const historyQuery = useQuery({
     queryKey: [
       "activities",
@@ -1346,22 +1288,59 @@ export const LabourSessionRecordsPage = () => {
                 colSpan={2}
                 className={`text-center align-middle font-medium ${CELL} ${HEAD_BG}`}
               >
-                <button
-                  ref={hajiraTriggerRef}
-                  type="button"
-                  className="inline-flex items-center justify-center gap-0.5"
-                  aria-haspopup="dialog"
-                  aria-expanded={hajiraFilterOpen}
-                  onClick={() => setHajiraFilterOpen((next) => !next)}
+                <HeaderFilterPopover
+                  open={hajiraFilterOpen}
+                  onOpenChange={setHajiraFilterOpen}
+                  title="হাজিরা"
                 >
-                  হাজিরা
-                  <ChevronDown
-                    className={`size-3.5 shrink-0 opacity-60 transition-transform duration-200 ${
-                      hajiraFilterOpen ? "rotate-180" : ""
-                    }`}
-                    strokeWidth={1.75}
-                  />
-                </button>
+                  <label className="inline-flex items-center gap-2 cursor-pointer text-sm">
+                    <input
+                      type="checkbox"
+                      className="checkbox checkbox-xs"
+                      checked={showSalary}
+                      onChange={(e) => {
+                        const next = e.target.checked;
+                        setShowSalary(next);
+                        writeSessionShowSalary(next);
+                      }}
+                    />
+                    <span>বেতন দেখান</span>
+                  </label>
+                  {canChangeDailyRecord ? (
+                    <div className="flex flex-col gap-2 mt-3">
+                      <label className="form-control w-full">
+                        <span className="label-text text-sm">বেতন</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          step={1}
+                          className="input input-bordered input-sm w-full tabular-nums"
+                          value={bulkSalary}
+                          disabled={bulkSalaryBusy}
+                          onChange={(e) =>
+                            setBulkSalary(numOrEmpty(e.target.value))
+                          }
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm w-full"
+                        onClick={() => void applyBulkSalary()}
+                        disabled={
+                          bulkSalaryBusy ||
+                          bulkSalary === "" ||
+                          bulkSalary == null
+                        }
+                      >
+                        {bulkSalaryBusy ? (
+                          <span className="loading loading-spinner loading-sm" />
+                        ) : null}
+                        আপডেট করুন
+                      </button>
+                    </div>
+                  ) : null}
+                </HeaderFilterPopover>
               </th>
               <th
                 className={`text-center align-middle font-medium ${CELL} ${SORBOMOT_BG}`}
@@ -2273,76 +2252,6 @@ export const LabourSessionRecordsPage = () => {
           <button type="button" tabIndex={-1} aria-hidden="true" />
         </div>
       </dialog>
-
-      {hajiraMounted
-        ? createPortal(
-            <div
-              ref={hajiraPanelRef}
-              role="dialog"
-              aria-label="হাজিরা"
-              className={`${HAJIRA_PANEL_CLASS} ${openPanelMotionClass(hajiraShown)}`}
-              style={{
-                position: "fixed",
-                top: hajiraPos.top,
-                left: hajiraPos.left,
-                zIndex: 80,
-                maxWidth: "calc(100vw - 16px)",
-              }}
-            >
-              <div className="p-3">
-                <p className="text-sm font-medium mb-2">হাজিরা</p>
-                <label className="inline-flex items-center gap-2 cursor-pointer text-sm">
-                  <input
-                    type="checkbox"
-                    className="checkbox checkbox-xs"
-                    checked={showSalary}
-                    onChange={(e) => {
-                      const next = e.target.checked;
-                      setShowSalary(next);
-                      writeSessionShowSalary(next);
-                    }}
-                  />
-                  <span>বেতন দেখান</span>
-                </label>
-                {canChangeDailyRecord ? (
-                  <div className="flex flex-col gap-2 mt-3">
-                    <label className="form-control w-full">
-                      <span className="label-text text-sm">বেতন</span>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        step={1}
-                        className="input input-bordered input-sm w-full tabular-nums"
-                        value={bulkSalary}
-                        disabled={bulkSalaryBusy}
-                        onChange={(e) =>
-                          setBulkSalary(numOrEmpty(e.target.value))
-                        }
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className="btn btn-neutral btn-sm w-full"
-                      onClick={() => void applyBulkSalary()}
-                      disabled={
-                        bulkSalaryBusy ||
-                        bulkSalary === "" ||
-                        bulkSalary == null
-                      }
-                    >
-                      {bulkSalaryBusy ? (
-                        <span className="loading loading-spinner loading-sm" />
-                      ) : null}
-                      আপডেট করুন
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
     </div>
   );
 };

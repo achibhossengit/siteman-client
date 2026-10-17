@@ -1,9 +1,6 @@
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
-import {
-  activityCellToneClass,
-  activityToneClass,
-} from "../../api/types/activity.js";
+import { activityCellToneClass } from "../../api/types/activity.js";
 import { messageForCode } from "../../api/errors.js";
 import { PersonAvatar } from "../PersonAvatar.jsx";
 import { SHOW_BILLING } from "../../config/features.js";
@@ -24,7 +21,6 @@ import {
   HAJIRA_MOT_FEROT_ROW_ID,
   HAJIRA_SORBOMOT_DOYA_ID,
   HAJIRA_SORBOMOT_FEROT_ID,
-  LABOUR_DEFAULT_FIELDS,
 } from "./constants.js";
 import {
   dayEarnings,
@@ -52,7 +48,6 @@ const HEAD_BG = "!bg-base-300";
 const ROW_EVEN = "!bg-base-100";
 const ROW_ODD = "!bg-base-200";
 const FOOT_BG = "!bg-base-300";
-const MOT_COL_BG = FOOT_BG;
 const SORBOMOT_BG =
   "!bg-[color-mix(in_oklab,var(--color-base-300),var(--color-base-content)_6%)]";
 const VALUE_CELL =
@@ -77,10 +72,8 @@ export function HajiraRecordsTable({
   pendingIds,
   toggleSelectAll,
   setSelectMode,
-  openLabourFilterModal,
-  labourFilter,
-  openHajiraModal,
-  hajiraFilter,
+  labourHeader,
+  hajiraHeader,
   showAyColumn,
   openEarningsFilterModal,
   earningsFilter,
@@ -109,7 +102,6 @@ export function HajiraRecordsTable({
   totals,
   date,
 }) {
-  void hajiraFilter;
   void viewPaymentFilter;
   void viewHajiraFields;
   void showReturnAmount;
@@ -168,17 +160,13 @@ export function HajiraRecordsTable({
             </th>
             <th className={`w-8 px-0 ${CELL_PHOTO} ${HEAD_BG}`} />
             <th className={`min-w-0 pl-1 align-middle ${CELL} ${HEAD_BG}`}>
-              <button type="button" onClick={openLabourFilterModal}>
-                {filterHeaderTitle("নাম", labourFilter, LABOUR_DEFAULT_FIELDS)}
-              </button>
+              {labourHeader}
             </th>
             <th
               colSpan={2}
-              className={`text-center align-middle font-medium ${CELL} ${MOT_COL_BG}`}
+              className={`text-center align-middle font-medium ${CELL} ${HEAD_BG}`}
             >
-              <button type="button" onClick={openHajiraModal}>
-                হাজিরা
-              </button>
+              {hajiraHeader}
             </th>
             <th
               className={`text-center align-middle font-medium ${CELL} ${SORBOMOT_BG}`}
@@ -269,11 +257,6 @@ export function HajiraRecordsTable({
                 activityTone: row.activityTone,
                 index,
               });
-              const auditRowClass = activityToneClass(row.activityTone);
-              const specialFill =
-                hasSaveError || pendingCreate || row.activityTone;
-              const motFill = specialFill ? fill : MOT_COL_BG;
-              const sorboFill = specialFill ? fill : SORBOMOT_BG;
               const hasSession = settlePaid !== 0 || settleBack !== 0;
               const rowTitle = sealed
                 ? messageForCode("record_sealed")
@@ -285,14 +268,10 @@ export function HajiraRecordsTable({
 
               return (
                 <Fragment key={row.labourId}>
-                  <tr className={`bg-transparent ${auditRowClass}`}>
+                  <tr className="bg-transparent">
                     <td
                       rowSpan={pairRows}
-                      className={`align-middle text-center tabular-nums text-base-content/60 w-10 cursor-pointer ${CELL} ${fill}`}
-                      onClick={() => {
-                        if (selectMode && canChangeActivityLog) return;
-                        openRecordModal(row);
-                      }}
+                      className={`align-middle text-center tabular-nums text-base-content/60 w-10 ${CELL} ${fill}`}
                       title={rowTitle}
                     >
                       <span
@@ -350,7 +329,7 @@ export function HajiraRecordsTable({
                       </LabourIdentity>
                     </td>
                     <td
-                      className={`${VALUE_CELL} ${CELL_TOP_INNER} ${motFill} ${sessionPairClass(hasSession, "top", "left")} ${hajiraGroupTone} ${sealedContentClass} cursor-pointer`}
+                      className={`${VALUE_CELL} ${CELL_TOP_INNER} ${fill} ${sessionPairClass(hasSession, "top", "left")} ${hajiraGroupTone} ${sealedContentClass} cursor-pointer`}
                       onClick={() => openRecordModal(row)}
                       title={rowTitle}
                     >
@@ -361,7 +340,7 @@ export function HajiraRecordsTable({
                       />
                     </td>
                     <td
-                      className={`${VALUE_CELL} ${CELL_TOP} ${motFill} ${sessionPairClass(hasSession, "top", "right")} ${hajiraGroupTone} ${sealedContentClass} cursor-pointer`}
+                      className={`${VALUE_CELL} ${CELL_TOP} ${fill} ${sessionPairClass(hasSession, "top", "right")} ${hajiraGroupTone} ${sealedContentClass} cursor-pointer`}
                       onClick={() => openRecordModal(row)}
                       title={rowTitle}
                     >
@@ -371,8 +350,7 @@ export function HajiraRecordsTable({
                       />
                     </td>
                     <td
-                      className={`${VALUE_CELL} ${CELL_TOP} ${sorboFill} ${hajiraGroupTone} ${sealedContentClass} cursor-pointer`}
-                      onClick={() => openRecordModal(row)}
+                      className={`${VALUE_CELL} ${CELL_TOP} ${SORBOMOT_BG} ${sealedContentClass}`}
                       title={rowTitle}
                     >
                       <Amount value={earn} tone="text-success" />
@@ -408,9 +386,9 @@ export function HajiraRecordsTable({
                       </td>
                     ) : null}
                   </tr>
-                  <tr className={`bg-transparent ${auditRowClass}`}>
+                  <tr className="bg-transparent">
                     <td
-                      className={`${VALUE_CELL} ${row2Left} ${motFill} ${sessionPairClass(hasSession, "mid", "left")} ${sealedContentClass} cursor-pointer ${paymentLineTone(
+                      className={`${VALUE_CELL} ${row2Left} ${fill} ${sessionPairClass(hasSession, "mid", "left")} ${sealedContentClass} cursor-pointer ${paymentLineTone(
                         row,
                         initial,
                         ["payment", "paymentNote"],
@@ -423,7 +401,7 @@ export function HajiraRecordsTable({
                       <Amount value={row.payment} tone="text-error" />
                     </td>
                     <td
-                      className={`${VALUE_CELL} ${row2Right} ${motFill} ${sessionPairClass(hasSession, "mid", "right")} ${sealedContentClass} cursor-pointer`}
+                      className={`${VALUE_CELL} ${row2Right} ${fill} ${sessionPairClass(hasSession, "mid", "right")} ${sealedContentClass} cursor-pointer`}
                       onClick={() => openRecordModal(row)}
                       title={
                         settlePaid ? "হিসাবের সময় দেওয়া হয়েছে" : rowTitle
@@ -438,8 +416,7 @@ export function HajiraRecordsTable({
                       />
                     </td>
                     <td
-                      className={`${VALUE_CELL} ${row2Right} ${sorboFill} ${sealedContentClass} cursor-pointer`}
-                      onClick={() => openRecordModal(row)}
+                      className={`${VALUE_CELL} ${row2Right} ${SORBOMOT_BG} ${sealedContentClass}`}
                       title={rowTitle}
                     >
                       <Amount
@@ -450,16 +427,16 @@ export function HajiraRecordsTable({
                       />
                     </td>
                   </tr>
-                  <tr className={`bg-transparent ${auditRowClass}`}>
+                  <tr className="bg-transparent">
                       <td
-                        className={`${VALUE_CELL} ${CELL_SUB_INNER} ${motFill} ${sessionPairClass(hasSession, "bot", "left")} ${sealedContentClass} cursor-pointer`}
+                        className={`${VALUE_CELL} ${CELL_SUB_INNER} ${fill} ${sessionPairClass(hasSession, "bot", "left")} ${sealedContentClass} cursor-pointer`}
                         onClick={() => openRecordModal(row)}
                         title={rowTitle}
                       >
                         <Amount value={row.return} tone={returnTone} />
                       </td>
                       <td
-                        className={`${VALUE_CELL} ${CELL_SUB} ${motFill} ${sessionPairClass(hasSession, "bot", "right")} ${sealedContentClass} cursor-pointer`}
+                        className={`${VALUE_CELL} ${CELL_SUB} ${fill} ${sessionPairClass(hasSession, "bot", "right")} ${sealedContentClass} cursor-pointer`}
                         onClick={() => openRecordModal(row)}
                         title={
                           settleBack
@@ -470,8 +447,7 @@ export function HajiraRecordsTable({
                         <Amount value={settleBack} tone={RETURN_TONE} />
                       </td>
                       <td
-                        className={`${VALUE_CELL} ${CELL_SUB} ${sorboFill} ${sealedContentClass} cursor-pointer`}
-                        onClick={() => openRecordModal(row)}
+                        className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG} ${sealedContentClass}`}
                         title={rowTitle}
                       >
                         <Amount
