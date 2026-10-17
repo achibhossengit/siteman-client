@@ -1,5 +1,6 @@
+import { Link } from "react-router-dom";
 import { Pencil, Trash2, X } from "lucide-react";
-import { PRESENT_OPTIONS } from "../../api/types/hajira.js";
+import { PRESENT_OPTIONS, sessionOnDate } from "../../api/types/hajira.js";
 import { messageForCode } from "../../api/errors.js";
 import {
   DailyRecordHistoryPanel,
@@ -9,8 +10,10 @@ import {
 import { SHOW_BILLING } from "../../config/features.js";
 import {
   formatBnNumber,
+  formatBnSigned,
   NULL_BILLING_LABEL,
 } from "../../utils/format.js";
+import { paths } from "../../router/paths.js";
 import { formatDateBn, parseIsoDate, toIsoDate, todayIso } from "../../utils/dateRange.js";
 import {
   MEANINGFUL_DAY_VALUE_MESSAGE,
@@ -27,6 +30,43 @@ import {
   recordIdOf,
   recordSealedOf,
 } from "./helpers.js";
+
+const formatSessionDay = (iso) => {
+  const d = parseIsoDate(iso);
+  if (!d) return "";
+  return new Intl.DateTimeFormat("bn-BD", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  }).format(d);
+};
+
+const sessionPeriodLabel = (start, end) => {
+  const from = formatSessionDay(start);
+  const to = formatSessionDay(end);
+  if (from && to) return `${from} – ${to}`;
+  return from || to;
+};
+
+const sessionLinkOf = (modal) => {
+  if (!modal?.labourId) return null;
+  const matched = sessionOnDate(modal.sessions, modal.date);
+  if (matched?.id != null) {
+    return {
+      labourId: modal.labourId,
+      sessionId: String(matched.id),
+      settlement: matched.settlement ?? modal.settlement ?? 0,
+      period: sessionPeriodLabel(matched.start_date, matched.end_date),
+    };
+  }
+  if (!modal.hasSession) return null;
+  return {
+    labourId: modal.labourId,
+    sessionId: "latest",
+    settlement: modal.settlement ?? 0,
+    period: sessionPeriodLabel(null, modal.lastSessionDate),
+  };
+};
 
 const minDateAfterLastSession = (lastSessionDate) => {
   const d = parseIsoDate(lastSessionDate);
@@ -79,6 +119,7 @@ export function RecordDetailModal({
   startModalEdit,
   date,
 }) {
+  const sessionLink = sessionLinkOf(recordModal);
   return (
       <dialog
         id={RECORD_MODAL_ID}
@@ -90,7 +131,7 @@ export function RecordDetailModal({
           resetModalEditState();
         }}
       >
-        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col overflow-hidden!">
+        <div className="modal-box max-w-sm p-4 max-h-[min(32rem,85vh)] flex flex-col overflow-hidden!">
           <form method="dialog">
             <button
               type="submit"
@@ -101,7 +142,7 @@ export function RecordDetailModal({
             </button>
           </form>
 
-          <h3 className="font-semibold text-base mb-3 pr-8 shrink-0">
+          <h3 className="font-semibold text-base mb-2 pr-8 shrink-0">
             {recordModal &&
             canViewActivityLog &&
             canShowRecordHistory &&
@@ -161,7 +202,7 @@ export function RecordDetailModal({
                 summarize={summarizeDailyRecordLog}
               />
             ) : recordModal ? (
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2">
                 {modalEditable ? (
                   <>
                     <label className="form-control w-full">
@@ -191,7 +232,7 @@ export function RecordDetailModal({
                       </p>
                     ) : null}
 
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-3 gap-2">
                       <label className="form-control w-full min-w-0 overflow-hidden">
                         <span className="label-text mb-1">হাজিরা</span>
                         <select
@@ -267,8 +308,8 @@ export function RecordDetailModal({
                       </label>
                     </div>
 
-                    <div className="flex flex-col gap-3 border-t border-dashed border-base-300 opacity-50 hover:opacity-85 focus-within:opacity-100 transition-opacity [&_.label-text]:text-xs">
-                      <div className="grid grid-cols-3 gap-3">
+                    <div className="flex flex-col gap-2 border-t border-dashed border-base-300 opacity-50 hover:opacity-85 focus-within:opacity-100 transition-opacity [&_.label-text]:text-xs">
+                      <div className="grid grid-cols-3 gap-2">
                         <label className="form-control w-full min-w-0">
                           <span className="label-text mb-1">বাড়তি কাজ</span>
                           <input
@@ -396,73 +437,91 @@ export function RecordDetailModal({
                 ) : (
                   <>
                     <div className="form-control w-full">
-                      <span className="label-text mb-1">তারিখ</span>
-                      <div className="min-h-8 flex items-center px-1 text-sm">
+                      <span className="label-text mb-0.5">তারিখ</span>
+                      <div className="min-h-6 flex items-center px-1 text-sm">
                         {recordModal.date
                           ? formatDateBn(String(recordModal.date))
                           : "—"}
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-3 gap-2">
                       <div className="form-control w-full min-w-0">
-                        <span className="label-text mb-1">হাজিরা</span>
-                        <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                        <span className="label-text mb-0.5">হাজিরা</span>
+                        <div className="min-h-6 flex items-center px-1 text-sm tabular-nums">
                           {recordModal.present === ""
                             ? "—"
                             : formatBnNumber(recordModal.present)}
                         </div>
                       </div>
                       <div className="form-control w-full min-w-0">
-                        <span className="label-text mb-1">বেতন</span>
-                        <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                        <span className="label-text mb-0.5">বেতন</span>
+                        <div className="min-h-6 flex items-center px-1 text-sm tabular-nums">
                           {displayModalValue(recordModal.salary)}
                         </div>
                       </div>
                       <div className="form-control w-full min-w-0">
-                        <span className="label-text mb-1">খোরাকি</span>
-                        <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                        <span className="label-text mb-0.5">খোরাকি</span>
+                        <div className="min-h-6 flex items-center px-1 text-sm tabular-nums">
                           {displayModalValue(recordModal.payment)}
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-3 border-t border-dashed border-base-300 opacity-50 [&_.label-text]:text-xs">
-                      <div className="grid grid-cols-3 gap-3">
+                    <div className="flex flex-col gap-2 border-t border-dashed border-base-300 opacity-50 [&_.label-text]:text-xs">
+                      <div className="grid grid-cols-3 gap-2">
                         <div className="form-control w-full min-w-0">
-                          <span className="label-text mb-1">বাড়তি কাজ</span>
-                          <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                          <span className="label-text mb-0.5">বাড়তি কাজ</span>
+                          <div className="min-h-6 flex items-center px-1 text-sm tabular-nums">
                             {displayModalValue(recordModal.extra)}
                           </div>
                         </div>
                         <div className="form-control w-full min-w-0">
-                          <span className="label-text mb-1">অ্যাডভান্স</span>
-                          <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                          <span className="label-text mb-0.5">অ্যাডভান্স</span>
+                          <div className="min-h-6 flex items-center px-1 text-sm tabular-nums">
                             {displayModalValue(recordModal.advance)}
                           </div>
                         </div>
                         <div className="form-control w-full min-w-0">
-                          <span className="label-text mb-1">রিটার্ন</span>
-                          <div className="min-h-8 flex items-center px-1 text-sm tabular-nums">
+                          <span className="label-text mb-0.5">রিটার্ন</span>
+                          <div className="min-h-6 flex items-center px-1 text-sm tabular-nums">
                             {displayModalValue(recordModal.return)}
                           </div>
                         </div>
                       </div>
                       <div className="form-control w-full">
-                        <span className="label-text mb-1">নোট</span>
-                        <div className="min-h-8 flex items-center px-1 text-sm">
+                        <span className="label-text mb-0.5">নোট</span>
+                        <div className="min-h-6 flex items-center px-1 text-sm">
                           {recordModal.note?.trim() ? recordModal.note : "—"}
                         </div>
                       </div>
                     </div>
                     {SHOW_BILLING ? (
                       <div className="form-control w-full">
-                        <span className="label-text mb-1">বিলিং</span>
-                        <div className="min-h-8 flex items-center px-1 text-sm">
+                        <span className="label-text mb-0.5">বিলিং</span>
+                        <div className="min-h-6 flex items-center px-1 text-sm">
                           {billingFullLabelForRow(recordModal)}
                         </div>
                       </div>
                     ) : null}
                   </>
                 )}
+                {sessionLink ? (
+                  <div className="border-t border-base-300 pt-2 flex items-center justify-between gap-3">
+                    <span className="label-text leading-snug">
+                      হিসাবে দেওয়া
+                      {sessionLink.period ? (
+                        <span className="block whitespace-nowrap">
+                          ({sessionLink.period})
+                        </span>
+                      ) : null}
+                    </span>
+                    <Link
+                      to={`${paths.labourDetail(sessionLink.labourId)}?session=${encodeURIComponent(sessionLink.sessionId)}`}
+                      className="link link-primary text-sm tabular-nums whitespace-nowrap"
+                    >
+                      {formatBnSigned(sessionLink.settlement)}
+                    </Link>
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -475,7 +534,7 @@ export function RecordDetailModal({
           ) ? (
             modalEditable ? (
               isCreateModal ? (
-                <div className="modal-action mt-3 shrink-0 justify-between gap-2">
+                <div className="modal-action mt-2 shrink-0 justify-between gap-2">
                   {createFormSelected ? (
                     <button
                       type="button"
@@ -511,7 +570,7 @@ export function RecordDetailModal({
                   </button>
                 </div>
               ) : (
-                <div className="modal-action mt-3 shrink-0 justify-stretch gap-2">
+                <div className="modal-action mt-2 shrink-0 justify-stretch gap-2">
                   <button
                     type="button"
                     className="btn btn-ghost flex-1"
@@ -541,7 +600,7 @@ export function RecordDetailModal({
                 </div>
               )
             ) : recordIdOf(recordModal) ? (
-              <div className="modal-action mt-3 shrink-0 justify-stretch gap-2">
+              <div className="modal-action mt-2 shrink-0 justify-stretch gap-2">
                 {modalDeleting ? (
                   <>
                     <button
@@ -617,7 +676,7 @@ export function RecordDetailModal({
                 recordModal,
                 recordModal.date || date,
               ) ? (
-              <div className="modal-action mt-3 shrink-0">
+              <div className="modal-action mt-2 shrink-0">
                 <p className="w-full text-sm text-center text-warning bg-warning/10 rounded-md px-3 py-2">
                   {lastSessionCreateBlockedMessage(recordModal)}
                 </p>

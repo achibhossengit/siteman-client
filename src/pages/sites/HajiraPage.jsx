@@ -693,21 +693,35 @@ export const HajiraPage = () => {
   };
 
   const openRangeDay = (rangeRow, day) => {
+    const sessionFields = {
+      sessions: rangeRow.sessions ?? [],
+      hasSession: Boolean(day?.hasSession),
+      settlement: day?.settlement ?? 0,
+      lastSessionDate:
+        rangeRow.lastSessionDate ?? rangeRow.labour?.last_session_date ?? null,
+    };
     if (day?.record) {
-      openRecordModal(
-        buildHajiraRowFromEntry({
+      openRecordModal({
+        ...buildHajiraRowFromEntry({
           labour: rangeRow.labour,
+          records: [],
+          sessions: rangeRow.sessions,
           record: day.record,
         }),
-      );
+        ...sessionFields,
+        date: day.date,
+      });
       return;
     }
-    if (!canAddDailyRecord || !day?.date) return;
+    if (!day?.date) return;
+    if (!canAddDailyRecord && !day.hasSession) return;
     const draft = buildHajiraRowFromEntry({
       labour: rangeRow.labour,
+      records: [],
+      sessions: rangeRow.sessions,
       record: null,
     });
-    openRecordModal({ ...draft, date: day.date });
+    openRecordModal({ ...draft, date: day.date, ...sessionFields });
   };
 
   const startModalEdit = () => {

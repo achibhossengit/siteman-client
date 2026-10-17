@@ -94,6 +94,18 @@ export const hasSessionMark = (sessions, date, lastSessionDate) => {
   return Boolean(day) && isoDay(lastSessionDate) === day
 }
 
+/** Session closed on `date`, if the roster included it. */
+export const sessionOnDate = (sessions, date) => {
+  const day = isoDay(date)
+  if (!day) return null
+  return (
+    (Array.isArray(sessions) ? sessions : []).find(
+      (session) =>
+        isoDay(session?.date) === day || isoDay(session?.end_date) === day,
+    ) ?? null
+  )
+}
+
 /** Normalize `{ labour, records, sessions, totals }` (or legacy `{ labour, record }`). */
 const asRosterEntries = (items = [], date) => {
   if (!Array.isArray(items) || !items.length) return []
@@ -517,6 +529,8 @@ export const buildHajiraRangeRows = (
         labourPhoto: labour.photo ?? null,
         labourCurrentSite,
         labourIsActive: labour.is_active !== false,
+        lastSessionDate: labour.last_session_date ?? null,
+        sessions: entry.sessions ?? [],
         days,
         totals,
       }

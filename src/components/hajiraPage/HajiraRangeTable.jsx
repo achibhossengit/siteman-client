@@ -468,7 +468,8 @@ function DayPair({
   lastBand = false,
 }) {
   const clickable =
-    Boolean(onOpen) && (Boolean(day.record) || Boolean(canCreateDay));
+    Boolean(onOpen) &&
+    (Boolean(day.record) || Boolean(canCreateDay) || Boolean(day.hasSession));
   const title = clickable
     ? day.record
       ? undefined

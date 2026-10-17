@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
+import {
+  useNavigate,
+  useOutletContext,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Lock, X } from 'lucide-react'
 import {
   fetchLabourDetail,
+  fetchLabourLatestSession,
   fetchLabourRunningSession,
   fetchLabourSession,
   fetchLabourSessions,
@@ -121,6 +127,8 @@ const pickInitialSessionKey = (sessions) => {
 
 export const LabourDetailPage = () => {
   const { labourId } = useParams()
+  const [searchParams] = useSearchParams()
+  const requestedSession = searchParams.get('session') || ''
   const navigate = useNavigate()
   const { setTitle, setHeaderMenu } = useOutletContext()
   const queryClient = useQueryClient()
@@ -226,7 +234,30 @@ export const LabourDetailPage = () => {
 
   const siteLabel = (id) => getSiteName(id)
 
+  const latestSessionQuery = useQuery({
+    queryKey: ['labours', labourId, 'latest-session'],
+    queryFn: async () => {
+      const { data } = await fetchLabourLatestSession(labourId)
+      return data
+    },
+    enabled: Boolean(
+      canViewSessions && labourId && requestedSession === 'latest',
+    ),
+  })
+
   useEffect(() => {
+    if (requestedSession === 'latest') {
+      const latestId = latestSessionQuery.data?.id
+      if (latestId != null) setOpenSessionKey(String(latestId))
+      return
+    }
+    if (requestedSession) {
+      setOpenSessionKey(requestedSession)
+    }
+  }, [labourId, requestedSession, latestSessionQuery.data])
+
+  useEffect(() => {
+    if (requestedSession) return
     const keys = sessions.map(sessionKeyOf)
     if (!keys.length) {
       setOpenSessionKey(null)
@@ -234,7 +265,7 @@ export const LabourDetailPage = () => {
     }
     if (openSessionKey && keys.includes(openSessionKey)) return
     setOpenSessionKey(pickInitialSessionKey(sessions))
-  }, [sessions, openSessionKey, page, labourId])
+  }, [sessions, openSessionKey, page, labourId, requestedSession])
 
   const openIsRunning = openSessionKey === 'running'
 
@@ -250,6 +281,24 @@ export const LabourDetailPage = () => {
     },
     enabled: Boolean(canViewSessions && labourId && openSessionKey),
   })
+
+  const sessionsForList = useMemo(() => {
+    if (!openSessionKey || openSessionKey === 'running') return sessions
+    if (sessions.some((session) => sessionKeyOf(session) === openSessionKey)) {
+      return sessions
+    }
+    const extra = sessionDetailQuery.data
+    if (extra && sessionKeyOf(extra) === openSessionKey) {
+      return [extra, ...sessions]
+    }
+    return sessions
+  }, [sessions, openSessionKey, sessionDetailQuery.data])
+
+  useEffect(() => {
+    if (!requestedSession || !openSessionKey) return
+    const el = document.getElementById(`labour-session-${openSessionKey}`)
+    el?.scrollIntoView({ block: 'nearest' })
+  }, [requestedSession, openSessionKey, sessionsForList])
 
   const updateMutation = useMutation({
     mutationFn: (values) => updateLabour(labourId, toLabourPayload(values)),
@@ -472,7 +521,7 @@ export const LabourDetailPage = () => {
             </div>
           ) : (
             <div className="space-y-2">
-              {sessions.map((listSession) => {
+              {sessionsForList.map((listSession) => {
                 const key = sessionKeyOf(listSession)
                 const isOpen = openSessionKey === key
                 const running = isRunningSession(listSession)
@@ -489,6 +538,7 @@ export const LabourDetailPage = () => {
                 return (
                   <div
                     key={key}
+                    id={`labour-session-${key}`}
                     className={[
                       'collapse collapse-arrow border border-base-300',
                       isOpen ? 'collapse-open' : 'collapse-close',
