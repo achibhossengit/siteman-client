@@ -6,7 +6,7 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { fetchAllActivities, reviewActivities } from "../../api/activities.js";
 import {
   closeLabourSession,
@@ -33,6 +33,7 @@ import {
 import { profileAllowedSiteIds } from "../../api/types/user.js";
 import { parseApiError } from "../../api/errors.js";
 import { ApiErrorAlert } from "../../components/ApiErrorAlert.jsx";
+import { DateSelector } from "../../components/DateSelector.jsx";
 import { PersonAvatar } from "../../components/PersonAvatar.jsx";
 import { SiteSelector } from "../../components/SiteSelector.jsx";
 import {
@@ -63,14 +64,13 @@ import { paths } from "../../router/paths.js";
 import { confirmAction, toastApiError, toastInfo, toastSuccess } from "../../utils/feedback.js";
 import { SHOW_BILLING } from "../../config/features.js";
 import { PERMS, hasPermissionSuffix } from "../../utils/permissions.js";
-import { todayIso } from "../../utils/dateRange.js";
+import { ALL_DATES, isAllDates, parseIsoDate, todayIso } from "../../utils/dateRange.js";
 import {
   readSessionShowSalary,
   writeSessionShowSalary,
 } from "../../utils/sessionSelection.js";
 
 const RECORD_MODAL_ID = "session_record_detail_modal";
-const DATE_FILTER_MODAL_ID = "session_record_date_filter_modal";
 const HAJIRA_FILTER_MODAL_ID = "session_record_hajira_filter_modal";
 const CLOSE_MODAL_ID = "session_close_modal";
 
@@ -292,8 +292,6 @@ export const LabourSessionRecordsPage = () => {
   const [dateEnd, setDateEnd] = useState(
     () => readDateRangeFromSearch(searchParams).end,
   );
-  const [draftDateStart, setDraftDateStart] = useState("");
-  const [draftDateEnd, setDraftDateEnd] = useState("");
   const [bulkSalary, setBulkSalary] = useState("");
   const [bulkSalaryBusy, setBulkSalaryBusy] = useState(false);
   const [recordModal, setRecordModal] = useState(null);
@@ -468,6 +466,43 @@ export const LabourSessionRecordsPage = () => {
     return { min: dates[0], max: dates[dates.length - 1] };
   }, [rows]);
 
+  const datePresets = useMemo(() => {
+    const byMonth = new Map();
+    for (const row of rows) {
+      const iso = toIsoDate(row.date);
+      if (!iso) continue;
+      const key = iso.slice(0, 7);
+      const rec = byMonth.get(key);
+      if (!rec) byMonth.set(key, { min: iso, max: iso });
+      else {
+        if (iso < rec.min) rec.min = iso;
+        if (iso > rec.max) rec.max = iso;
+      }
+    }
+    const keys = [...byMonth.keys()].sort();
+    const multiYear = new Set(keys.map((key) => key.slice(0, 4))).size > 1;
+    const months = keys.map((key) => {
+      const { min, max } = byMonth.get(key);
+      const d = parseIsoDate(min);
+      const label = d
+        ? new Intl.DateTimeFormat("bn-BD", {
+            month: "long",
+            ...(multiYear ? { year: "numeric" } : {}),
+          }).format(d)
+        : key;
+      return {
+        id: key,
+        label,
+        start: min,
+        end: min === max ? null : max,
+      };
+    });
+    return [
+      { id: "all", label: "সব হাজিরা", start: ALL_DATES, end: null },
+      ...months,
+    ];
+  }, [rows]);
+
   const selectedSiteId = siteFilter;
   const billingEnabled =
     SHOW_BILLING && selectedSiteId !== "all" && uniqueSites.length > 0;
@@ -623,14 +658,6 @@ export const LabourSessionRecordsPage = () => {
   }, [visibleRows, session?.settlement]);
 
   const dateFilterActive = Boolean(toIsoDate(dateStart) && toIsoDate(dateEnd));
-  const dateRangeLabel = (() => {
-    if (!dateFilterActive) return "সব হাজিরা";
-    const start = toIsoDate(dateStart);
-    const end = toIsoDate(dateEnd);
-    return start === end
-      ? formatDate(start)
-      : `${formatDate(start)} – ${formatDate(end)}`;
-  })();
 
   // ── Session close / delete ──────────────────────────────────────────
   const isRunning = isRunningRoute || Boolean(session?.is_running);
@@ -805,32 +832,14 @@ export const LabourSessionRecordsPage = () => {
     }
   };
 
-  const closeDateFilterModal = () => {
-    document.getElementById(DATE_FILTER_MODAL_ID)?.close();
-  };
-
-  const openDateFilter = () => {
-    if (!sessionDateBounds) return;
-    setDraftDateStart(dateStart || sessionDateBounds.min);
-    setDraftDateEnd(dateEnd || sessionDateBounds.max);
-    document.getElementById(DATE_FILTER_MODAL_ID)?.showModal();
-  };
-
-  const applyDateFilter = () => {
-    const start = toIsoDate(draftDateStart);
-    const end = toIsoDate(draftDateEnd);
-    if (!start || !end) return;
-    setDateStart(start <= end ? start : end);
-    setDateEnd(start <= end ? end : start);
-    closeDateFilterModal();
-  };
-
-  const resetDateFilter = () => {
-    setDateStart("");
-    setDateEnd("");
-    setDraftDateStart(sessionDateBounds?.min || "");
-    setDraftDateEnd(sessionDateBounds?.max || "");
-    closeDateFilterModal();
+  const onDateChange = ({ start, end }) => {
+    if (isAllDates(start) || !start) {
+      setDateStart("");
+      setDateEnd("");
+      return;
+    }
+    setDateStart(start);
+    setDateEnd(end || start);
   };
 
   const applyBulkSalary = async () => {
@@ -1181,20 +1190,16 @@ export const LabourSessionRecordsPage = () => {
       ) : null}
 
       <div className="flex items-stretch justify-between gap-2 shrink-0 px-3">
-        <button
-          type="button"
-          className="input input-bordered input-sm w-full max-w-xs flex items-center justify-between gap-1 cursor-pointer text-left font-normal"
-          onClick={openDateFilter}
-          disabled={!sessionDateBounds}
-          aria-haspopup="dialog"
-          aria-label="তারিখ নির্বাচন"
-        >
-          <span className="truncate tabular-nums">{dateRangeLabel}</span>
-          <ChevronDown
-            className="size-4 shrink-0 opacity-60"
-            strokeWidth={1.75}
-          />
-        </button>
+        <DateSelector
+          startDate={dateFilterActive ? dateStart : ALL_DATES}
+          endDate={dateFilterActive ? dateEnd : null}
+          onChange={onDateChange}
+          presets={datePresets}
+          allDatesLabel="সব হাজিরা"
+          resetPresetId="all"
+          minDate={sessionDateBounds?.min}
+          maxDate={sessionDateBounds?.max}
+        />
         <SiteSelector
           sites={[
             { id: "all", name: "সব সাইট" },
@@ -2062,79 +2067,6 @@ export const LabourSessionRecordsPage = () => {
                 )}
               </div>
             ) : null}
-          </div>
-        </div>
-        <div className="modal-backdrop">
-          <button type="button" tabIndex={-1} aria-hidden="true" />
-        </div>
-      </dialog>
-
-      <dialog id={DATE_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
-          <form method="dialog">
-            <button
-              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-              aria-label="বন্ধ"
-            >
-              ✕
-            </button>
-          </form>
-          <h3 className="font-bold text-lg pr-8 shrink-0">তারিখ</h3>
-          <div className="flex flex-col gap-3 pt-3 flex-1 min-h-0 overflow-y-auto">
-            <div className="grid grid-cols-2 gap-3">
-              <label className="form-control w-full min-w-0">
-                <span className="label-text mb-1">শুরু তারিখ</span>
-                <input
-                  type="date"
-                  className="input input-bordered input-sm w-full"
-                  value={draftDateStart}
-                  min={sessionDateBounds?.min}
-                  max={draftDateEnd || sessionDateBounds?.max}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setDraftDateStart(next);
-                    if (draftDateEnd && next && next > draftDateEnd) {
-                      setDraftDateEnd(next);
-                    }
-                  }}
-                />
-              </label>
-              <label className="form-control w-full min-w-0">
-                <span className="label-text mb-1">শেষ তারিখ</span>
-                <input
-                  type="date"
-                  className="input input-bordered input-sm w-full"
-                  value={draftDateEnd}
-                  min={draftDateStart || sessionDateBounds?.min}
-                  max={sessionDateBounds?.max}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setDraftDateEnd(next);
-                    if (draftDateStart && next && next < draftDateStart) {
-                      setDraftDateStart(next);
-                    }
-                  }}
-                />
-              </label>
-            </div>
-            <div className="modal-action pt-1 flex-wrap justify-between gap-2">
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={resetDateFilter}
-                disabled={!dateFilterActive}
-              >
-                রিসেট
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={applyDateFilter}
-                disabled={!draftDateStart || !draftDateEnd}
-              >
-                প্রয়োগ করুন
-              </button>
-            </div>
           </div>
         </div>
         <div className="modal-backdrop">

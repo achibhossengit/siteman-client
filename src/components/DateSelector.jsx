@@ -33,11 +33,23 @@ const formatChipDateBn = (iso) => {
   }).format(d)
 }
 
+const rangeOfPreset = (preset) => {
+  if (preset && Object.prototype.hasOwnProperty.call(preset, 'start')) {
+    return { start: preset.start, end: preset.end ?? null }
+  }
+  return presetRange(preset?.id)
+}
+
 export const DateSelector = ({
   startDate,
   endDate = null,
   onChange,
   className = '',
+  presets = DATE_PRESETS,
+  allDatesLabel = 'শুরু – আজ',
+  resetPresetId = 'today',
+  minDate = null,
+  maxDate = null,
 }) => {
   const today = todayIso()
   const committedStart = isAllDates(startDate)
@@ -53,14 +65,16 @@ export const DateSelector = ({
   const [pos, setPos] = useState({ top: 0, left: 0 })
   const [draftStart, setDraftStart] = useState(committedStart)
   const [draftEnd, setDraftEnd] = useState(committedEnd)
-  const startDateObj = parseIsoDate(committedStart) ?? new Date()
+  const startDateObj =
+    parseIsoDate(committedStart) ?? parseIsoDate(maxDate) ?? new Date()
   const [viewYear, setViewYear] = useState(startDateObj.getFullYear())
   const [viewMonth, setViewMonth] = useState(startDateObj.getMonth())
 
   const syncDraftFromCommitted = () => {
     setDraftStart(committedStart)
     setDraftEnd(committedEnd)
-    const d = parseIsoDate(committedStart) ?? new Date()
+    const d =
+      parseIsoDate(committedStart) ?? parseIsoDate(maxDate) ?? new Date()
     setViewYear(d.getFullYear())
     setViewMonth(d.getMonth())
   }
@@ -114,16 +128,37 @@ export const DateSelector = ({
     setOpen(true)
   }
 
-  const selectedPreset = matchPresetId(draftStart, draftEnd)
+  const selectedPreset = (() => {
+    if (isAllDates(draftStart)) {
+      return presets.some((preset) => preset.id === 'all') ? 'all' : null
+    }
+    const normalized = normalizeEndDate(draftStart, draftEnd)
+    for (const preset of presets) {
+      if (preset.id === 'all') continue
+      const range = rangeOfPreset(preset)
+      if (range.start === draftStart && range.end === normalized) {
+        return preset.id
+      }
+    }
+    return matchPresetId(draftStart, draftEnd)
+  })()
   const cells = useMemo(
     () => monthGrid(viewYear, viewMonth, today),
     [viewYear, viewMonth, today],
   )
 
   const todayDate = parseIsoDate(today) ?? new Date()
+  const maxView = parseIsoDate(maxDate)
+  const limitDate =
+    maxView && maxView.getTime() < todayDate.getTime() ? maxView : todayDate
+  const minView = parseIsoDate(minDate)
   const canGoNext =
-    viewYear < todayDate.getFullYear() ||
-    (viewYear === todayDate.getFullYear() && viewMonth < todayDate.getMonth())
+    viewYear < limitDate.getFullYear() ||
+    (viewYear === limitDate.getFullYear() && viewMonth < limitDate.getMonth())
+  const canGoPrev =
+    !minView ||
+    viewYear > minView.getFullYear() ||
+    (viewYear === minView.getFullYear() && viewMonth > minView.getMonth())
 
   const monthLabel = new Intl.DateTimeFormat('bn-BD', {
     month: 'long',
@@ -131,16 +166,22 @@ export const DateSelector = ({
   }).format(new Date(viewYear, viewMonth, 1))
 
   const applyPreset = (id) => {
-    const range = presetRange(id)
+    const preset = presets.find((item) => item.id === id)
+    const range = rangeOfPreset(preset)
     setDraftStart(range.start)
     setDraftEnd(range.end)
-    const d = parseIsoDate(range.start) ?? new Date()
+    const d =
+      parseIsoDate(isAllDates(range.start) ? maxDate : range.start) ??
+      new Date()
     setViewYear(d.getFullYear())
     setViewMonth(d.getMonth())
   }
 
   const onReset = () => {
-    applyPreset('today')
+    if (presets.some((preset) => preset.id === resetPresetId)) {
+      applyPreset(resetPresetId)
+    } else if (presets[0]) applyPreset(presets[0].id)
+    else applyPreset('today')
   }
 
   const onDayClick = (iso, disabled) => {
@@ -177,7 +218,8 @@ export const DateSelector = ({
   }
 
   const isAllDraft = isAllDates(draftStart)
-  const rangeEnd = isAllDraft ? null : draftEnd || draftStart
+  const markedStart = isAllDraft ? minDate : draftStart
+  const markedEnd = isAllDraft ? maxDate : draftEnd || draftStart
 
   return (
     <div className={`form-control w-full max-w-xs ${className}`}>
@@ -190,7 +232,9 @@ export const DateSelector = ({
         onClick={() => (open ? setOpen(false) : openPanel())}
       >
         <span className="truncate">
-          {formatDateRangeBn(committedStart, committedEnd)}
+          {isAllDates(committedStart)
+            ? allDatesLabel
+            : formatDateRangeBn(committedStart, committedEnd)}
         </span>
         <ChevronDown className="size-4 shrink-0 opacity-60" strokeWidth={1.75} />
       </button>
@@ -216,7 +260,9 @@ export const DateSelector = ({
                     type="button"
                     className="btn btn-ghost btn-xs btn-square"
                     aria-label="আগের মাস"
+                    disabled={!canGoPrev}
                     onClick={() => {
+                      if (!canGoPrev) return
                       const d = new Date(viewYear, viewMonth - 1, 1)
                       setViewYear(d.getFullYear())
                       setViewMonth(d.getMonth())
@@ -254,27 +300,33 @@ export const DateSelector = ({
 
                 <div className="grid grid-cols-7">
                   {cells.map((cell) => {
-                    const isStart = !isAllDraft && cell.iso === draftStart
-                    const isEnd = !isAllDraft && cell.iso === rangeEnd
-                    const inRange =
-                      !isAllDraft &&
-                      draftStart &&
-                      cell.iso >= draftStart &&
-                      cell.iso <= rangeEnd
-                    const single =
-                      isStart && (!draftEnd || draftStart === draftEnd)
+                    const outOfBounds =
+                      (minDate && cell.iso < minDate) ||
+                      (maxDate && cell.iso > maxDate)
+                    const disabled = cell.disabled || Boolean(outOfBounds)
+                    const isStart = Boolean(
+                      markedStart && cell.iso === markedStart,
+                    )
+                    const isEnd = Boolean(markedEnd && cell.iso === markedEnd)
+                    const inRange = Boolean(
+                      markedStart &&
+                        markedEnd &&
+                        cell.iso >= markedStart &&
+                        cell.iso <= markedEnd,
+                    )
+                    const single = isStart && (!markedEnd || markedStart === markedEnd)
                     const weekStart = weekdayIndexSaturday(cell.iso) === 0
                     const weekEnd = weekdayIndexSaturday(cell.iso) === 6
                     return (
                       <button
                         key={cell.iso}
                         type="button"
-                        disabled={cell.disabled}
-                        onClick={() => onDayClick(cell.iso, cell.disabled)}
+                        disabled={disabled}
+                        onClick={() => onDayClick(cell.iso, disabled)}
                         className={[
                           'h-8 text-sm tabular-nums',
-                          cell.disabled ? 'opacity-30 cursor-not-allowed' : '',
-                          !cell.inMonth && !cell.disabled
+                          disabled ? 'opacity-30 cursor-not-allowed' : '',
+                          !cell.inMonth && !disabled
                             ? 'text-base-content/35'
                             : '',
                           cell.iso === today && !inRange ? 'font-bold' : '',
@@ -301,7 +353,7 @@ export const DateSelector = ({
               <div className="px-3 pb-3 flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-1">
                   {selectedPreset ? (
-                    DATE_PRESETS.map((preset) => (
+                    presets.map((preset) => (
                       <button
                         key={preset.id}
                         type="button"
