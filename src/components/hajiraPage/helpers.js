@@ -199,6 +199,16 @@ export const hasAttendanceData = (row) =>
   Boolean(row.advanceNote?.trim()) ||
   Boolean(row.returnNote?.trim());
 
+/** Create-modal form has values (toggle Reset vs Default, enable Set). */
+export const isCreateFormSelected = (modal) => {
+  if (!modal) return false;
+  return (
+    hasMeaningfulDayValue(modal) ||
+    Boolean(String(modal.note ?? "").trim()) ||
+    hasBilling(modal)
+  );
+};
+
 export const recordIdOf = (row) =>
   row?.recordId ?? row?.attendanceId ?? row?.paymentId ?? null;
 

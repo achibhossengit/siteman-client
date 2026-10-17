@@ -74,6 +74,13 @@
   --noise: 1;
 }
 
+/* Native <dialog> scrolls itself on button focus, which flashes a
+   viewport scrollbar. Keep overflow on modal-box inner panes instead. */
+dialog.modal {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
 /* Full-screen image viewer — inside the open dialog when one exists. */
 .image-lightbox-overlay {
   position: absolute;

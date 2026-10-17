@@ -64,6 +64,7 @@ export function RecordDetailModal({
   saveRecordModal,
   recordModalCanSet,
   recordModalDirty,
+  createFormSelected,
   cancelModalEdit,
   modalSaving,
   confirmModalUpdate,
@@ -89,7 +90,7 @@ export function RecordDetailModal({
           resetModalEditState();
         }}
       >
-        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col overflow-hidden!">
           <form method="dialog">
             <button
               type="submit"
@@ -391,74 +392,6 @@ export function RecordDetailModal({
                         </select>
                       </label>
                     ) : null}
-
-                    {isCreateModal ? (
-                      <div className="modal-action pt-1 flex-wrap justify-between gap-2">
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          onClick={resetRecordModal}
-                        >
-                          রিসেট
-                        </button>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            className="btn btn-outline"
-                            onClick={applyRecordModalDefaults}
-                          >
-                            ডিফল্ট
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-primary"
-                            onClick={saveRecordModal}
-                            disabled={!recordModalCanSet || modalSaving}
-                            title={
-                              recordModalCanSet
-                                ? undefined
-                                : !recordModalDirty
-                                  ? "কোনো পরিবর্তন নেই।"
-                                  : MEANINGFUL_DAY_VALUE_MESSAGE
-                            }
-                          >
-                            {modalSaving ? (
-                              <span className="loading loading-spinner loading-sm" />
-                            ) : null}
-                            সেট করুন
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="modal-action mt-2 justify-stretch gap-2">
-                        <button
-                          type="button"
-                          className="btn btn-ghost flex-1"
-                          onClick={cancelModalEdit}
-                          disabled={modalSaving}
-                        >
-                          বাতিল
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-primary flex-1"
-                          onClick={confirmModalUpdate}
-                          disabled={!recordModalCanSet || modalSaving}
-                          title={
-                            recordModalCanSet
-                              ? undefined
-                              : !recordModalDirty
-                                ? "কোনো পরিবর্তন নেই।"
-                                : MEANINGFUL_DAY_VALUE_MESSAGE
-                          }
-                        >
-                          {modalSaving ? (
-                            <span className="loading loading-spinner loading-sm" />
-                          ) : null}
-                          আপডেট নিশ্চিত
-                        </button>
-                      </div>
-                    )}
                   </>
                 ) : (
                   <>
@@ -528,94 +461,169 @@ export function RecordDetailModal({
                         </div>
                       </div>
                     ) : null}
-                    {recordIdOf(recordModal) ? (
-                      <div className="modal-action mt-2 justify-stretch gap-2">
-                        {modalDeleting ? (
-                          <>
-                            <button
-                              type="button"
-                              className="btn btn-ghost flex-1"
-                              onClick={cancelModalDelete}
-                              disabled={modalSaving}
-                            >
-                              বাতিল
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-error flex-1"
-                              onClick={confirmModalDelete}
-                              disabled={modalSaving}
-                            >
-                              {modalSaving ? (
-                                <span className="loading loading-spinner loading-sm" />
-                              ) : null}
-                              ডিলিট নিশ্চিত
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            {canDeleteRecord ? (
-                              <button
-                                type="button"
-                                className="btn btn-outline btn-error flex-1"
-                                disabled={!canDeleteRecord}
-                                title={
-                                  recordSealedOf(recordModal)
-                                    ? "এই হাজিরার হিসাব দেওয়া হয়েছে"
-                                    : !canDeleteDailyRecord
-                                      ? "ডিলিট অনুমতি নেই"
-                                      : undefined
-                                }
-                                onClick={startModalDelete}
-                              >
-                                <Trash2 className="size-4" strokeWidth={1.75} />
-                                ডিলিট
-                              </button>
-                            ) : null}
-                            {canUpdateRecord ? (
-                              <button
-                                type="button"
-                                className="btn btn-outline btn-primary flex-1"
-                                disabled={!canUpdateRecord}
-                                title={
-                                  recordSealedOf(recordModal)
-                                    ? "এই হাজিরার হিসাব দেওয়া হয়েছে"
-                                    : !canChangeDailyRecord
-                                      ? "আপডেট অনুমতি নেই"
-                                      : undefined
-                                }
-                                onClick={startModalEdit}
-                              >
-                                <Pencil className="size-4" strokeWidth={1.75} />
-                                আপডেট
-                              </button>
-                            ) : null}
-                            {recordSealedOf(recordModal) &&
-                            !canDeleteRecord &&
-                            !canUpdateRecord ? (
-                              <p className="flex-1 text-sm text-center text-base-content/70 bg-base-200/80 rounded-md px-3 py-2">
-                                {messageForCode("record_sealed")}
-                              </p>
-                            ) : null}
-                          </>
-                        )}
-                      </div>
-                    ) : isCreateModal &&
-                      isCreateBlockedByLastSession(
-                        recordModal,
-                        recordModal.date || date,
-                      ) ? (
-                      <div className="modal-action mt-2">
-                        <p className="w-full text-sm text-center text-warning bg-warning/10 rounded-md px-3 py-2">
-                          {lastSessionCreateBlockedMessage(recordModal)}
-                        </p>
-                      </div>
-                    ) : null}
                   </>
                 )}
               </div>
             ) : null}
           </div>
+          {recordModal &&
+          !(
+            recordModalView === MODAL_VIEWS.history &&
+            canShowRecordHistory &&
+            !modalEditing &&
+            !modalDeleting
+          ) ? (
+            modalEditable ? (
+              isCreateModal ? (
+                <div className="modal-action mt-3 shrink-0 justify-between gap-2">
+                  {createFormSelected ? (
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={resetRecordModal}
+                    >
+                      রিসেট
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={applyRecordModalDefaults}
+                    >
+                      ডিফল্ট
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={saveRecordModal}
+                    disabled={!recordModalCanSet || modalSaving}
+                    title={
+                      recordModalCanSet
+                        ? undefined
+                        : MEANINGFUL_DAY_VALUE_MESSAGE
+                    }
+                  >
+                    {modalSaving ? (
+                      <span className="loading loading-spinner loading-sm" />
+                    ) : null}
+                    সেট করুন
+                  </button>
+                </div>
+              ) : (
+                <div className="modal-action mt-3 shrink-0 justify-stretch gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-ghost flex-1"
+                    onClick={cancelModalEdit}
+                    disabled={modalSaving}
+                  >
+                    বাতিল
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary flex-1"
+                    onClick={confirmModalUpdate}
+                    disabled={!recordModalCanSet || modalSaving}
+                    title={
+                      recordModalCanSet
+                        ? undefined
+                        : !recordModalDirty
+                          ? "কোনো পরিবর্তন নেই।"
+                          : MEANINGFUL_DAY_VALUE_MESSAGE
+                    }
+                  >
+                    {modalSaving ? (
+                      <span className="loading loading-spinner loading-sm" />
+                    ) : null}
+                    আপডেট নিশ্চিত
+                  </button>
+                </div>
+              )
+            ) : recordIdOf(recordModal) ? (
+              <div className="modal-action mt-3 shrink-0 justify-stretch gap-2">
+                {modalDeleting ? (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-ghost flex-1"
+                      onClick={cancelModalDelete}
+                      disabled={modalSaving}
+                    >
+                      বাতিল
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-error flex-1"
+                      onClick={confirmModalDelete}
+                      disabled={modalSaving}
+                    >
+                      {modalSaving ? (
+                        <span className="loading loading-spinner loading-sm" />
+                      ) : null}
+                      ডিলিট নিশ্চিত
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {canDeleteRecord ? (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-error flex-1"
+                        disabled={!canDeleteRecord}
+                        title={
+                          recordSealedOf(recordModal)
+                            ? "এই হাজিরার হিসাব দেওয়া হয়েছে"
+                            : !canDeleteDailyRecord
+                              ? "ডিলিট অনুমতি নেই"
+                              : undefined
+                        }
+                        onClick={startModalDelete}
+                      >
+                        <Trash2 className="size-4" strokeWidth={1.75} />
+                        ডিলিট
+                      </button>
+                    ) : null}
+                    {canUpdateRecord ? (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-primary flex-1"
+                        disabled={!canUpdateRecord}
+                        title={
+                          recordSealedOf(recordModal)
+                            ? "এই হাজিরার হিসাব দেওয়া হয়েছে"
+                            : !canChangeDailyRecord
+                              ? "আপডেট অনুমতি নেই"
+                              : undefined
+                        }
+                        onClick={startModalEdit}
+                      >
+                        <Pencil className="size-4" strokeWidth={1.75} />
+                        আপডেট
+                      </button>
+                    ) : null}
+                    {recordSealedOf(recordModal) &&
+                    !canDeleteRecord &&
+                    !canUpdateRecord ? (
+                      <p className="flex-1 text-sm text-center text-base-content/70 bg-base-200/80 rounded-md px-3 py-2">
+                        {messageForCode("record_sealed")}
+                      </p>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            ) : isCreateModal &&
+              isCreateBlockedByLastSession(
+                recordModal,
+                recordModal.date || date,
+              ) ? (
+              <div className="modal-action mt-3 shrink-0">
+                <p className="w-full text-sm text-center text-warning bg-warning/10 rounded-md px-3 py-2">
+                  {lastSessionCreateBlockedMessage(recordModal)}
+                </p>
+              </div>
+            ) : null
+          ) : null}
         </div>
         <div className="modal-backdrop">
           <button type="button" tabIndex={-1} aria-hidden="true" />

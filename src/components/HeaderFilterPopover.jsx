@@ -114,7 +114,7 @@ export function HeaderFilterPopover({
                 maxWidth: "calc(100vw - 16px)",
               }}
             >
-              <div className="p-3 max-h-[min(32rem,85vh)] overflow-y-auto">
+              <div className="p-3 max-h-[min(32rem,85vh)] overflow-x-hidden overflow-y-auto overscroll-contain">
                 {showTitle ? (
                   <p className="text-sm font-medium mb-2">{title}</p>
                 ) : null}

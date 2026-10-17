@@ -1677,7 +1677,7 @@ export const LabourSessionRecordsPage = () => {
           resetModalEditState();
         }}
       >
-        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col">
+        <div className="modal-box max-w-sm max-h-[min(32rem,85vh)] flex flex-col overflow-hidden!">
           <form method="dialog">
             <button
               className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
@@ -2096,7 +2096,7 @@ export const LabourSessionRecordsPage = () => {
           setCloseApiError(null);
         }}
       >
-        <div className="modal-box max-w-sm p-4 max-h-[min(36rem,90vh)] flex flex-col">
+        <div className="modal-box max-w-sm p-4 max-h-[min(36rem,90vh)] flex flex-col overflow-hidden!">
           <form method="dialog" className="flex justify-end shrink-0 -mt-1 -mr-1 mb-1">
             <button
               className="btn btn-xs btn-circle btn-ghost"

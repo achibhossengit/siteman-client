@@ -62,6 +62,7 @@ import {
   hasAttendanceData,
   hasMeaningfulDayValue,
   hasPresent,
+  isCreateFormSelected,
   isAttendanceDirty,
   isBulkAttendanceDirty,
   isBulkAttendanceZeroInvalid,
@@ -773,9 +774,6 @@ export const HajiraPage = () => {
       void persistRangeCreate();
       return;
     }
-    const currentRow =
-      rows.find((r) => r.labourId === recordModal.labourId) ?? modalBaseline;
-    if (!isRecordModalDirty(recordModal, currentRow)) return;
     const next = buildModalRowPatch();
     if (!next) return;
     updateRow(recordModal.labourId, next);
@@ -909,15 +907,12 @@ export const HajiraPage = () => {
     if (!row) return;
     setRecordModal((m) => {
       if (!m) return m;
-      const blank = (value) => value === "" || value == null;
-      const unsetPresent = blank(m.present) || Number(m.present) === 0;
-      const present = unsetPresent
-        ? row.defaultAttendance === "" || row.defaultAttendance == null
-          ? ""
-          : String(row.defaultAttendance)
-        : m.present;
-      const salary = blank(m.salary) ? row.defaultSalary : m.salary;
-      const payment = blank(m.payment) ? row.defaultFooding : m.payment;
+      const presentRaw = row.defaultAttendance;
+      const present =
+        presentRaw === "" || presentRaw == null ? "0" : String(presentRaw);
+      const salary =
+        Number(present) === 0 ? "" : numOrEmpty(row.defaultSalary);
+      const payment = numOrEmpty(row.defaultFooding);
       return { ...m, present, salary, payment };
     });
   };
@@ -1450,15 +1445,15 @@ export const HajiraPage = () => {
     recordModal,
     recordModalBaselineRow,
   );
+  const createFormSelected = isCreateFormSelected(recordModal);
   const recordModalCanSet =
     Boolean(recordModal) &&
     modalEditable &&
     !attendanceLocked(recordModal) &&
-    recordModalDirty &&
     Boolean(String(recordModal.date ?? "").trim()) &&
     (isCreateModal
-      ? !isRange || hasMeaningfulDayValue(recordModal)
-      : hasMeaningfulDayValue(recordModal));
+      ? createFormSelected && (!isRange || hasMeaningfulDayValue(recordModal))
+      : recordModalDirty && hasMeaningfulDayValue(recordModal));
   const modalRows = rows.length
     ? rows
     : modalBaseline
@@ -1643,6 +1638,7 @@ export const HajiraPage = () => {
         saveRecordModal={saveRecordModal}
         recordModalCanSet={recordModalCanSet}
         recordModalDirty={recordModalDirty}
+        createFormSelected={createFormSelected}
         cancelModalEdit={cancelModalEdit}
         modalSaving={modalSaving}
         confirmModalUpdate={confirmModalUpdate}
