@@ -21,6 +21,7 @@ import {
   toSiteCashPayload,
 } from "../../api/types/siteCash.js";
 import { FilePicker } from "../../components/FilePicker.jsx";
+import { HeaderFilterPopover } from "../../components/HeaderFilterPopover.jsx";
 import { useFilePicker } from "../../hooks/useFilePicker.js";
 import {
   parseApiError,
@@ -68,7 +69,6 @@ import {
 
 const MODAL_ID = "site_cash_modal";
 const BILLING_FILTER_MODAL_ID = "cash_billing_filter_modal";
-const TYPE_FILTER_MODAL_ID = "cash_type_filter_modal";
 const CASH_FOCUS_VIEWS = new Set(["deposit", "withdrawal", "cost"]);
 const cashMotRowId = (view) => `cash-mot-${view}-row`;
 const cashSorbomotId = (view) => `cash-sorbomot-${view}`;
@@ -434,6 +434,7 @@ export const CashPage = () => {
       : DEFAULT_LEDGER_VIEW;
   });
   const [billingFilter, setBillingFilter] = useState("all");
+  const [typeFilterOpen, setTypeFilterOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -1190,15 +1191,37 @@ export const CashPage = () => {
                 </th>
               ) : null}
               <th className={`text-right px-1 sm:px-3 ${CELL_GRID}`}>
-                <button
-                  type="button"
-                  className={`max-w-full truncate ${activeView.tone}`}
-                  onClick={() =>
-                    document.getElementById(TYPE_FILTER_MODAL_ID)?.showModal()
-                  }
+                <HeaderFilterPopover
+                  open={typeFilterOpen}
+                  onOpenChange={setTypeFilterOpen}
+                  title="পরিমাণ"
+                  label={activeView.label}
+                  triggerClassName={`inline-flex items-center justify-end gap-0.5 max-w-full ${activeView.tone}`}
+                  width={192}
                 >
-                  {activeView.label}
-                </button>
+                  <div className="flex flex-col gap-0.5">
+                    {LEDGER_VIEWS.map((view) => {
+                      const active = ledgerView === view.id;
+                      return (
+                        <button
+                          key={view.id}
+                          type="button"
+                          className={[
+                            "btn btn-ghost btn-sm justify-start font-normal h-auto min-h-8 py-1.5 whitespace-normal text-left w-full",
+                            view.tone,
+                            active ? "bg-base-300 hover:bg-base-300" : "",
+                          ].join(" ")}
+                          onClick={() => {
+                            setLedgerView(view.id);
+                            setTypeFilterOpen(false);
+                          }}
+                        >
+                          {view.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </HeaderFilterPopover>
               </th>
             </tr>
           </thead>
@@ -1921,41 +1944,6 @@ export const CashPage = () => {
                 ) : null}
               </form>
             )}
-          </div>
-        </div>
-        <div className="modal-backdrop">
-          <button type="button" tabIndex={-1} aria-hidden="true" />
-        </div>
-      </dialog>
-
-      <dialog id={TYPE_FILTER_MODAL_ID} className="modal">
-        <div className="modal-box max-w-xs max-h-[min(32rem,85vh)] overflow-y-auto">
-          <form method="dialog">
-            <button
-              type="submit"
-              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-              aria-label="বন্ধ"
-            >
-              <X className="size-4" strokeWidth={1.75} />
-            </button>
-          </form>
-          <h3 className="font-semibold text-base">পরিমাণ ফিল্টার</h3>
-          <div className="menu bg-base-100 w-full p-0 pt-3">
-            {LEDGER_VIEWS.map((view) => (
-              <button
-                key={view.id}
-                type="button"
-                className={`btn btn-ghost btn-sm justify-start ${
-                  view.tone
-                } ${ledgerView === view.id ? "btn-active" : ""}`}
-                onClick={() => {
-                  setLedgerView(view.id);
-                  document.getElementById(TYPE_FILTER_MODAL_ID)?.close();
-                }}
-              >
-                {view.label}
-              </button>
-            ))}
           </div>
         </div>
         <div className="modal-backdrop">
