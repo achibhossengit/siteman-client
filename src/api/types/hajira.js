@@ -71,6 +71,29 @@ export const settlementOfSessions = (sessions) =>
     return sum + (Number.isFinite(n) ? n : 0)
   }, 0)
 
+const isoDay = (value) => {
+  if (value == null || value === '') return ''
+  const match = String(value).trim().match(/^(\d{4}-\d{2}-\d{2})/)
+  return match ? match[1] : ''
+}
+
+/** True when a work session closed on `date`, even if settlement is 0. */
+export const hasSessionOnDate = (sessions, date) => {
+  const day = isoDay(date)
+  if (!day) return false
+  return (Array.isArray(sessions) ? sessions : []).some(
+    (session) =>
+      isoDay(session?.date) === day || isoDay(session?.end_date) === day,
+  )
+}
+
+/** Outline the 2×3 pair whenever a session exists for this date. */
+export const hasSessionMark = (sessions, date, lastSessionDate) => {
+  if (hasSessionOnDate(sessions, date)) return true
+  const day = isoDay(date)
+  return Boolean(day) && isoDay(lastSessionDate) === day
+}
+
 /** Normalize `{ labour, records, sessions, totals }` (or legacy `{ labour, record }`). */
 const asRosterEntries = (items = [], date) => {
   if (!Array.isArray(items) || !items.length) return []
@@ -247,10 +270,14 @@ export const buildHajiraRowsFromRoster = (
     const onSite =
       site == null || Number(entry.labour.current_site) === site
     const hasRecord = entry.record != null
-    // A session settlement booked on this site keeps the labour listed.
-    const hasSettlement = settlementOfSessions(entry.sessions) !== 0
+    // A session closed on this date keeps the labour listed (even if 0).
+    const hasSession = hasSessionMark(
+      entry.sessions,
+      date,
+      entry.labour?.last_session_date,
+    )
     if (includeLabour && includeRecord) {
-      return onSite || hasRecord || hasSettlement
+      return onSite || hasRecord || hasSession
     }
     if (includeLabour) return onSite
     return hasRecord
@@ -259,7 +286,16 @@ export const buildHajiraRowsFromRoster = (
   return entries
     .map((entry) => {
       const row = buildHajiraRowFromEntry(entry)
-      return { ...row, date: row.date || date || null }
+      const rowDate = row.date || date || null
+      return {
+        ...row,
+        date: rowDate,
+        hasSession: hasSessionMark(
+          row.sessions,
+          rowDate,
+          row.lastSessionDate,
+        ),
+      }
     })
     .sort((a, b) =>
       String(a.labourName).localeCompare(String(b.labourName), 'bn'),
@@ -425,7 +461,8 @@ export const buildHajiraRangeRows = (
       site == null || Number(entry.labour.current_site) === site
     const hasRecords = (entry.records ?? []).length > 0
     const hasTotals = isNonZeroTotals(totalsValuesOf(entry.totals))
-    const hasActivity = hasRecords || hasTotals
+    const hasSession = (entry.sessions ?? []).length > 0
+    const hasActivity = hasRecords || hasTotals || hasSession
     if (includeLabour && includeRecord) return onSite || hasActivity
     if (includeLabour) return onSite
     return hasActivity
@@ -440,11 +477,14 @@ export const buildHajiraRangeRows = (
         if (rec?.date) byDate.set(rec.date, rec)
       }
       const settleByDate = new Map()
+      const sessionDates = new Set()
       for (const session of entry.sessions ?? []) {
-        const key = session?.date
+        const key = isoDay(session?.date) || isoDay(session?.end_date)
         if (!key) continue
+        sessionDates.add(key)
         settleByDate.set(key, (settleByDate.get(key) ?? 0) + asNum(session.settlement))
       }
+      const lastSessionDay = isoDay(labour.last_session_date)
       const days = (dates ?? []).map((iso) => {
         const record = byDate.get(iso) ?? null
         return {
@@ -452,6 +492,7 @@ export const buildHajiraRangeRows = (
           record,
           ...dailyRecordDayValues(record),
           settlement: settleByDate.get(iso) ?? 0,
+          hasSession: sessionDates.has(iso) || lastSessionDay === iso,
         }
       })
       const fromApi = totalsValuesOf(entry.totals)

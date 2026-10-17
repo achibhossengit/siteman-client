@@ -257,7 +257,10 @@ export function HajiraRecordsTable({
                 activityTone: row.activityTone,
                 index,
               });
-              const hasSession = settlePaid !== 0 || settleBack !== 0;
+              const hasSession =
+                Boolean(row.hasSession) ||
+                settlePaid !== 0 ||
+                settleBack !== 0;
               const rowTitle = sealed
                 ? messageForCode("record_sealed")
                 : pendingCreate

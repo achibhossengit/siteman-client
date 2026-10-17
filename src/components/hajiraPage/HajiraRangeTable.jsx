@@ -476,7 +476,7 @@ function DayPair({
     : undefined;
   const open = clickable ? onOpen : undefined;
   const { paid, back } = splitSettlement(day.settlement);
-  const hasSession = !total && (paid !== 0 || back !== 0);
+  const hasSession = !total && Boolean(day.hasSession || paid || back);
   const cellClass = [
     VALUE_CELL,
     stripe,
