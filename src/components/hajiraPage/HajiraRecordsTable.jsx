@@ -579,7 +579,7 @@ export function HajiraRecordsTable({
                 colSpan={3}
                 className={`align-middle text-right whitespace-nowrap pr-1 ${CELL} ${SORBOMOT_BG}`}
               >
-                অবশিষ্ট
+                পাওনা
               </td>
               <td
                 colSpan={3}

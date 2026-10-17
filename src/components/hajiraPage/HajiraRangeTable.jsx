@@ -408,7 +408,7 @@ export function HajiraRangeTable({
                 </tr>
               <tr className="font-medium bg-transparent">
                 <FootTitle lastBand bg={SORBOMOT_BG}>
-                  অবশিষ্ট
+                  পাওনা
                 </FootTitle>
                 {showDayColumns
                   ? footer.byDate.map((day) => {
