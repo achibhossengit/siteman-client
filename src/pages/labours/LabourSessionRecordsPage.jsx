@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
+  Link,
   useNavigate,
   useOutletContext,
   useParams,
@@ -1124,14 +1125,17 @@ export const LabourSessionRecordsPage = () => {
             name={labourName}
             size="xs"
           />
-          <span className="text-sm font-medium text-base-content/80 truncate">
+          <Link
+            to={paths.labourDetail(labour.id ?? labourId)}
+            className="text-sm font-medium text-base-content/80 truncate underline underline-offset-2"
+          >
             {labourName}
-          </span>
+          </Link>
         </div>
       ) : null,
     );
     return () => setHeaderMenu?.(null);
-  }, [labourQuery.data, setHeaderMenu]);
+  }, [labourQuery.data, labourId, setHeaderMenu]);
 
   if (!canView) {
     return (
