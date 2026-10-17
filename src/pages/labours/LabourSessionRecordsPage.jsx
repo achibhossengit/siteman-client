@@ -44,15 +44,13 @@ import {
   summarizeDailyRecordLog,
 } from "../../components/DailyRecordHistoryPanel.jsx";
 import { HajiraActionBars } from "../../components/hajiraPage/HajiraActionBars.jsx";
-import { formatBulkReviewError, sessionPairClass } from "../../components/hajiraPage/helpers.js";
+import { formatBulkReviewError } from "../../components/hajiraPage/helpers.js";
 import {
   FitAmount as Amount,
-  JoinedAmounts,
   PresentLine,
   RETURN_TONE,
   remainTone,
   remainingOf,
-  splitSettlement,
 } from "../../components/hajiraPage/JoinedAmounts.jsx";
 import { useBillingLookups } from "../../hooks/useBillingLookup.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
@@ -370,38 +368,12 @@ export const LabourSessionRecordsPage = () => {
 
   const rows = useMemo(() => {
     const base = buildRows(dailyRecordsQuery.data ?? []);
-    const withActivity = canViewActivityLog
+    return canViewActivityLog
       ? applyPendingActivitiesToHajiraRows(
           applyActivitiesToSessionRows(base, activitiesQuery.data ?? []),
         )
       : base;
-    const settleAmt = num(session?.settlement);
-    const settleDates = [
-      toIsoDate(session?.date),
-      toIsoDate(session?.created_date),
-      toIsoDate(session?.end_date),
-    ].filter(Boolean);
-    const withSettle = withActivity.map((row) => ({ ...row, settlement: 0 }));
-    if (settleAmt) {
-      settleSearch: for (const settleDate of settleDates) {
-        for (let i = withSettle.length - 1; i >= 0; i -= 1) {
-          if (toIsoDate(withSettle[i].date) === settleDate) {
-            withSettle[i] = { ...withSettle[i], settlement: settleAmt };
-            break settleSearch;
-          }
-        }
-      }
-    }
-    return withSettle;
-  }, [
-    dailyRecordsQuery.data,
-    activitiesQuery.data,
-    canViewActivityLog,
-    session?.date,
-    session?.created_date,
-    session?.end_date,
-    session?.settlement,
-  ]);
+  }, [dailyRecordsQuery.data, activitiesQuery.data, canViewActivityLog]);
 
   const billingSiteIds = useMemo(() => {
     const ids = rows.map((row) => row.siteId).filter((id) => id != null && id !== "");
@@ -624,35 +596,32 @@ export const LabourSessionRecordsPage = () => {
     }
   };
 
-  const totals = useMemo(() => {
-    const result = visibleRows.reduce(
-      (acc, row) => {
-        acc.present += hasPresent(row) ? num(row.present) : 0;
-        acc.salary += num(row.salary);
-        acc.extra += hasExtra(row) ? num(row.extra) : 0;
-        acc.earnings += rowEarnings(row);
-        acc.payment += num(row.payment);
-        acc.advance += num(row.advance);
-        acc.return += num(row.return);
-        acc.settlement += num(row.settlement);
-        return acc;
-      },
-      {
-        present: 0,
-        salary: 0,
-        extra: 0,
-        earnings: 0,
-        payment: 0,
-        advance: 0,
-        return: 0,
-        settlement: 0,
-      },
-    );
-    if (!result.settlement) {
-      result.settlement = num(session?.settlement);
-    }
-    return result;
-  }, [visibleRows, session?.settlement]);
+  const totals = useMemo(
+    () =>
+      visibleRows.reduce(
+        (acc, row) => {
+          acc.present += hasPresent(row) ? num(row.present) : 0;
+          acc.salary += num(row.salary);
+          acc.extra += hasExtra(row) ? num(row.extra) : 0;
+          acc.earnings += rowEarnings(row);
+          acc.payment += num(row.payment);
+          acc.advance += num(row.advance);
+          acc.return += num(row.return);
+          return acc;
+        },
+        {
+          present: 0,
+          salary: 0,
+          extra: 0,
+          earnings: 0,
+          payment: 0,
+          advance: 0,
+          return: 0,
+          settlement: 0,
+        },
+      ),
+    [visibleRows],
+  );
 
   const dateFilterActive = Boolean(toIsoDate(dateStart) && toIsoDate(dateEnd));
 
@@ -1159,8 +1128,10 @@ export const LabourSessionRecordsPage = () => {
 
   const recordsError = dailyRecordsQuery.error || activitiesQuery.error;
   const remainTotal = remainingOf(totals);
-  // সর্বমোট পাওনা = বর্তমান পাওনা (table totals, settlement included) + আগের পাওনা.
+  // সর্বমোট পাওনা = বর্তমান পাওনা (table totals, without settlement) + আগের পাওনা.
   const currentPayable = remainTotal + num(session.previous_payable);
+  const settlementAmt = num(session.settlement);
+  const afterSettlePayable = currentPayable - settlementAmt;
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-2 py-3">
@@ -1336,10 +1307,6 @@ export const LabourSessionRecordsPage = () => {
             ) : (
               visibleRows.map((row, index) => {
                 const fill = cellFill(row, index);
-                const { paid: settlePaid, back: settleBack } = splitSettlement(
-                  row.settlement,
-                );
-                const hasSession = settlePaid !== 0 || settleBack !== 0;
                 const earn = rowEarnings(row);
                 const rowKey = `${row.date}-${row.siteId ?? ""}-${row.recordId ?? index}`;
                 const rowActivityIds = activityIdsForRow(row);
@@ -1347,11 +1314,6 @@ export const LabourSessionRecordsPage = () => {
                 const rowSelected =
                   selectable &&
                   rowActivityIds.every((id) => selectedIds.has(id));
-                const rowTitle = hasSession
-                  ? settlePaid
-                    ? "হিসাবের সময় দেওয়া হয়েছে"
-                    : "হিসাবের সময় ফেরত নেওয়া হয়েছে"
-                  : undefined;
 
                 return (
                   <Fragment key={rowKey}>
@@ -1385,7 +1347,7 @@ export const LabourSessionRecordsPage = () => {
                         {formatDate(row.date)}
                       </td>
                       <td
-                        className={`${VALUE_CELL} ${CELL_TOP_INNER} ${fill} ${sessionPairClass(hasSession, "top", "left")} cursor-pointer`}
+                        className={`${VALUE_CELL} ${CELL_TOP_INNER} ${fill} cursor-pointer`}
                         onClick={() => openRecordModal(row)}
                       >
                         <PresentLine
@@ -1395,7 +1357,7 @@ export const LabourSessionRecordsPage = () => {
                         />
                       </td>
                       <td
-                        className={`${VALUE_CELL} ${CELL_TOP} ${fill} ${sessionPairClass(hasSession, "top", "right")} cursor-pointer`}
+                        className={`${VALUE_CELL} ${CELL_TOP} ${fill} cursor-pointer`}
                         onClick={() => openRecordModal(row)}
                       >
                         <Amount value={row.extra} tone="text-success" />
@@ -1408,56 +1370,43 @@ export const LabourSessionRecordsPage = () => {
                     </tr>
                     <tr className="bg-transparent">
                       <td
-                        className={`${VALUE_CELL} ${ROW2_LEFT} ${fill} ${sessionPairClass(hasSession, "mid", "left")} cursor-pointer`}
+                        className={`${VALUE_CELL} ${ROW2_LEFT} ${fill} cursor-pointer`}
                         onClick={() => openRecordModal(row)}
                       >
                         <Amount value={row.payment} tone="text-error" />
                       </td>
                       <td
-                        className={`${VALUE_CELL} ${ROW2_RIGHT} ${fill} ${sessionPairClass(hasSession, "mid", "right")} cursor-pointer`}
+                        className={`${VALUE_CELL} ${ROW2_RIGHT} ${fill} cursor-pointer`}
                         onClick={() => openRecordModal(row)}
-                        title={settlePaid ? rowTitle : undefined}
                       >
-                        <JoinedAmounts
-                          tone="text-error"
-                          parts={[
-                            { value: row.advance },
-                            { value: settlePaid },
-                          ]}
-                        />
+                        <Amount value={row.advance} tone="text-error" />
                       </td>
                       <td
                         className={`${VALUE_CELL} ${ROW2_RIGHT} ${SORBOMOT_BG}`}
                       >
                         <Amount
-                          value={
-                            num(row.payment) + num(row.advance) + settlePaid
-                          }
+                          value={num(row.payment) + num(row.advance)}
                           tone="text-error"
                         />
                       </td>
                     </tr>
                     <tr className="bg-transparent">
                       <td
-                        className={`${VALUE_CELL} ${CELL_SUB_INNER} ${fill} ${sessionPairClass(hasSession, "bot", "left")} cursor-pointer`}
+                        className={`${VALUE_CELL} ${CELL_SUB_INNER} ${fill} cursor-pointer`}
                         onClick={() => openRecordModal(row)}
                       >
                         <Amount value={row.return} tone={RETURN_TONE} />
                       </td>
                       <td
-                        className={`${VALUE_CELL} ${CELL_SUB} ${fill} ${sessionPairClass(hasSession, "bot", "right")} cursor-pointer`}
+                        className={`${VALUE_CELL} ${CELL_SUB} ${fill} cursor-pointer`}
                         onClick={() => openRecordModal(row)}
-                        title={settleBack ? rowTitle : undefined}
                       >
-                        <Amount value={settleBack} tone={RETURN_TONE} />
+                        <Amount value={0} tone={RETURN_TONE} />
                       </td>
                       <td
                         className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}
                       >
-                        <Amount
-                          value={num(row.return) + settleBack}
-                          tone={RETURN_TONE}
-                        />
+                        <Amount value={num(row.return)} tone={RETURN_TONE} />
                       </td>
                     </tr>
                   </Fragment>
@@ -1501,21 +1450,11 @@ export const LabourSessionRecordsPage = () => {
                   <Amount value={totals.payment} tone="text-error" />
                 </td>
                 <td className={`${VALUE_CELL} ${ROW2_RIGHT} ${FOOT_BG}`}>
-                  <JoinedAmounts
-                    tone="text-error"
-                    parts={[
-                      { value: totals.advance },
-                      { value: splitSettlement(totals.settlement).paid },
-                    ]}
-                  />
+                  <Amount value={totals.advance} tone="text-error" />
                 </td>
                 <td className={`${VALUE_CELL} ${ROW2_RIGHT} ${SORBOMOT_BG}`}>
                   <Amount
-                    value={
-                      num(totals.payment) +
-                      num(totals.advance) +
-                      splitSettlement(totals.settlement).paid
-                    }
+                    value={num(totals.payment) + num(totals.advance)}
                     tone="text-error"
                   />
                 </td>
@@ -1531,19 +1470,10 @@ export const LabourSessionRecordsPage = () => {
                   <Amount value={totals.return} tone={RETURN_TONE} />
                 </td>
                 <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}>
-                  <Amount
-                    value={splitSettlement(totals.settlement).back}
-                    tone={RETURN_TONE}
-                  />
+                  <Amount value={0} tone={RETURN_TONE} />
                 </td>
                 <td className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}>
-                  <Amount
-                    value={
-                      num(totals.return) +
-                      splitSettlement(totals.settlement).back
-                    }
-                    tone={RETURN_TONE}
-                  />
+                  <Amount value={num(totals.return)} tone={RETURN_TONE} />
                 </td>
               </tr>
               <tr className="font-medium bg-transparent">
@@ -1597,6 +1527,41 @@ export const LabourSessionRecordsPage = () => {
                   />
                 </td>
               </tr>
+              {!isRunning ? (
+                <>
+                  <tr className="font-medium bg-transparent">
+                    <td
+                      colSpan={2}
+                      className={`align-middle whitespace-nowrap text-right pr-1 ${CELL} ${SORBOMOT_BG}`}
+                    >
+                      হিসাবের সময় দেওয়া
+                    </td>
+                    <td
+                      colSpan={3}
+                      className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}
+                    >
+                      {formatBnSigned(settlementAmt)}
+                    </td>
+                  </tr>
+                  <tr className="font-medium bg-transparent">
+                    <td
+                      colSpan={2}
+                      className={`align-middle whitespace-nowrap text-right pr-1 ${signedTone(afterSettlePayable)} ${CELL} ${SORBOMOT_BG}`}
+                    >
+                      হিসাব শেষে পাওনা
+                    </td>
+                    <td
+                      colSpan={3}
+                      className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}
+                    >
+                      <Amount
+                        value={afterSettlePayable}
+                        tone={signedTone(afterSettlePayable)}
+                      />
+                    </td>
+                  </tr>
+                </>
+              ) : null}
             </tfoot>
           ) : null}
         </table>
