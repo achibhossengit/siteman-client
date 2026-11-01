@@ -114,7 +114,6 @@ export const SiteSelector = ({
               }}
             >
               <div className="p-3">
-                <p className="text-sm font-medium mb-2">সাইট নির্বাচন</p>
                 <div className="flex flex-col gap-0.5 max-h-72 overflow-y-auto">
                   {sites.length > 0 ? (
                     sites.map((site) => {
