@@ -12,14 +12,14 @@ export const AuthLayout = () => (
     </main>
 
     <footer className="border-t border-base-300 bg-base-100 px-4 py-2.5 text-center text-[11px] sm:text-xs text-base-content/55">
-      © {new Date().getFullYear()} আছিব হোসেন ·{' '}
+      © {new Date().getFullYear()}{' '}
       <a
         href="https://achibhossen.me"
         target="_blank"
         rel="noreferrer"
-        className="link link-hover"
+        className="underline underline-offset-2 hover:text-base-content"
       >
-        achibhossen.me
+        আছিব হোসেন
       </a>
       {' · '}সকল অধিকার সংরক্ষিত
     </footer>
