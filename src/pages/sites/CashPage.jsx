@@ -75,6 +75,10 @@ const CELL_GRID =
   "border-b border-b-base-content/35 border-r border-r-base-content/35";
 const TABLE_GRID =
   "border-separate border-spacing-0 border-t border-l border-base-content/35";
+const HEAD_BG =
+  "!bg-[color-mix(in_oklab,var(--color-base-300),var(--color-base-content)_6%)]";
+const HEAD_TH =
+  "[&_th]:!bg-[color-mix(in_oklab,var(--color-base-300),var(--color-base-content)_6%)]";
 
 const CASH_LOG_FIELD_LABELS = {
   note: "নোট",
@@ -1127,10 +1131,10 @@ export const CashPage = () => {
   return (
     <section className="flex-1 min-h-0 flex flex-col relative overflow-x-hidden">
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-        <table className={`table table-fixed table-sm sm:table-md w-full max-w-full ${TABLE_GRID}`}>
+        <table className={`table table-fixed table-sm sm:table-md w-full max-w-full ${TABLE_GRID} [&_th]:!py-1 sm:[&_th]:!py-1.5`}>
           {colgroup(isRange)}
-          <thead className="sticky top-0 z-10 bg-base-300">
-            <tr className="[&_th]:!bg-base-300">
+          <thead className={`sticky top-0 z-10 ${HEAD_BG}`}>
+            <tr className={HEAD_TH}>
               <th className={`w-7 sm:w-8 px-0.5 sm:px-1 ${CELL_GRID}`}>
                 {selectMode && canChangeActivityLog ? (
                   <input
@@ -1514,7 +1518,7 @@ export const CashPage = () => {
                     কোনো অডিট হিস্ট্রি নেই।
                   </p>
                 ) : (
-                  <table className={`table table-sm w-full ${TABLE_GRID}`}>
+                  <table className={`table table-sm w-full ${TABLE_GRID} [&_th]:!py-1 sm:[&_th]:!py-1.5`}>
                     <thead>
                       <tr>
                         <th className={`w-28 sm:w-32 ${CELL_GRID}`}>তারিখ</th>

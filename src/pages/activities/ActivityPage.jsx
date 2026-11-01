@@ -41,6 +41,10 @@ const CELL_GRID =
   'border-b border-b-base-content/35 border-r border-r-base-content/35'
 const TABLE_GRID =
   'border-separate border-spacing-0 border-t border-l border-base-content/35'
+const HEAD_BG =
+  '!bg-[color-mix(in_oklab,var(--color-base-300),var(--color-base-content)_6%)]'
+const HEAD_TH =
+  '[&_th]:!bg-[color-mix(in_oklab,var(--color-base-300),var(--color-base-content)_6%)]'
 
 const localDayBoundIso = (dateStr, endOfDay = false) => {
   const d = new Date(`${dateStr}T${endOfDay ? '23:59:59.999' : '00:00:00'}`)
@@ -347,45 +351,6 @@ const summarizeHistoryLog = (log) => {
   }
   if (!bits.length && log.labour_name) bits.push(log.labour_name)
   return bits.join(' · ') || activityEntityLabel(log.entity_type)
-}
-
-/** List-row subtitle: site cash note (strikethrough when updated). */
-const cashNoteFromLog = (log) => {
-  if (
-    !log ||
-    (log.entity_type !== 'site_cash' &&
-      log.entity_type !== 'private_site_cash')
-  ) {
-    return null
-  }
-  const raw = log.changes?.note
-  if (
-    log.action === 'updated' &&
-    raw &&
-    typeof raw === 'object' &&
-    !Array.isArray(raw) &&
-    ('old' in raw || 'new' in raw)
-  ) {
-    const oldText =
-      raw.old == null || raw.old === '' ? null : String(raw.old)
-    const newText =
-      raw.new == null || raw.new === '' ? '—' : String(raw.new)
-    if (oldText == null && (raw.new == null || raw.new === '')) return null
-    return { isDiff: true, oldText, newText }
-  }
-  if (
-    log.action === 'updated' &&
-    Array.isArray(raw) &&
-    raw.length >= 2
-  ) {
-    const oldText = raw[0] == null || raw[0] === '' ? null : String(raw[0])
-    const newText = raw[1] == null || raw[1] === '' ? '—' : String(raw[1])
-    if (oldText == null && (raw[1] == null || raw[1] === '')) return null
-    return { isDiff: true, oldText, newText }
-  }
-  const note = snapshotFields(log.changes).note
-  if (note == null || note === '') return null
-  return { isDiff: false, text: String(note) }
 }
 
 /** One-line বিবরণ: update diffs with strikethrough, concatenated. */
@@ -850,9 +815,9 @@ export const ActivityPage = () => {
       ) : (
         <>
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-            <table className={`table table-fixed table-sm sm:table-md w-full ${TABLE_GRID}`}>
-              <thead className="sticky top-0 z-10 bg-base-300">
-                <tr className="[&_th]:!bg-base-300">
+            <table className={`table table-fixed table-sm sm:table-md w-full ${TABLE_GRID} [&_th]:!py-1 sm:[&_th]:!py-1.5`}>
+              <thead className={`sticky top-0 z-10 ${HEAD_BG}`}>
+                <tr className={HEAD_TH}>
                   <th className={`w-12 ${CELL_GRID}`}>
                     {selectMode && canChangeActivityLog ? (
                       <input
@@ -885,7 +850,9 @@ export const ActivityPage = () => {
                     )}
                   </th>
                   <th className={`min-w-0 ${CELL_GRID}`}>বিবরণ</th>
-                  <th className={`w-28 sm:w-40 text-right ${CELL_GRID}`}>তারিখ</th>
+                  <th className={`w-28 sm:w-40 text-right ${CELL_GRID}`}>
+                    এন্ট্রি তারিখ
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -902,8 +869,14 @@ export const ActivityPage = () => {
                   rows.map((row, index) => {
                     const biz = formatDateBn(row.business_date)
                     const entity = activityEntityLabel(row.entity_type)
-                    const title = [biz, entity].filter(Boolean).join(' - ')
-                    const cashNote = cashNoteFromLog(row)
+                    const isHajira =
+                      row.entity_type === 'daily_record' ||
+                      row.entity_type === 'labour_session'
+                    const labourName =
+                      isHajira && row.labour_name ? row.labour_name : ''
+                    const biboron = [biz, entity, labourName]
+                      .filter(Boolean)
+                      .join(' · ')
                     const reviewed = isRowReviewed(row)
                     const checked = selectedIds.has(row.id)
                     const offBusinessDate = isCreatedOffBusinessDate(row)
@@ -911,7 +884,7 @@ export const ActivityPage = () => {
                       <tr
                         key={row.id}
                         className={[
-                          'align-top cursor-pointer hover:bg-base-200/60',
+                          'cursor-pointer hover:bg-base-200/60',
                           activityToneClass(row.action),
                           reviewed ? 'opacity-50' : '',
                         ]
@@ -920,7 +893,7 @@ export const ActivityPage = () => {
                         onClick={() => openDetail(row)}
                       >
                         <td
-                          className={`tabular-nums text-base-content/60 ${CELL_GRID}`}
+                          className={`tabular-nums text-base-content/60 w-12 px-1 sm:px-3 align-middle ${CELL_GRID}`}
                           onClick={(e) => {
                             if (!selectMode) return
                             e.stopPropagation()
@@ -941,29 +914,19 @@ export const ActivityPage = () => {
                             formatBnNumber(slOffset + index + 1)
                           )}
                         </td>
-                        <td className={`text-sm leading-snug ${CELL_GRID}`}>
-                          <div>{title || '—'}</div>
-                          {cashNote ? (
-                            <div className="text-xs text-base-content/70 mt-0.5 truncate">
-                              {cashNote.isDiff ? (
-                                <ChangePair
-                                  oldText={cashNote.oldText}
-                                  newText={cashNote.newText}
-                                />
-                              ) : (
-                                cashNote.text
-                              )}
-                            </div>
-                          ) : null}
-                          {row.labour_name ? (
-                            <div className="text-xs text-base-content/70 mt-0.5">
-                              শ্রমিক : {row.labour_name}
-                            </div>
-                          ) : null}
+                        <td
+                          className={`min-w-0 max-w-0 px-1 sm:px-3 align-middle ${CELL_GRID}`}
+                        >
+                          <span
+                            className="block truncate"
+                            title={biboron || '—'}
+                          >
+                            {biboron || '—'}
+                          </span>
                         </td>
                         <td
                           className={[
-                            'text-right text-xs sm:text-sm tabular-nums',
+                            'text-right text-sm tabular-nums px-1 sm:px-3 align-middle whitespace-nowrap',
                             CELL_GRID,
                             offBusinessDate
                               ? 'text-error font-medium'
@@ -975,10 +938,7 @@ export const ActivityPage = () => {
                               : undefined
                           }
                         >
-                          <DateTimeStacked
-                            iso={row.created_at}
-                            className="items-end"
-                          />
+                          {formatDateTimeBn(row.created_at)}
                         </td>
                       </tr>
                     )
@@ -1115,7 +1075,7 @@ export const ActivityPage = () => {
                     কোনো অডিট হিস্ট্রি নেই।
                   </p>
                 ) : (
-                  <table className={`table table-sm w-full ${TABLE_GRID}`}>
+                  <table className={`table table-sm w-full ${TABLE_GRID} [&_th]:!py-1 sm:[&_th]:!py-1.5`}>
                     <thead>
                       <tr>
                         <th className={`w-28 sm:w-32 ${CELL_GRID}`}>তারিখ</th>

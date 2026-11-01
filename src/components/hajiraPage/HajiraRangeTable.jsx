@@ -33,16 +33,19 @@ const CELL_SUB_INNER = `${BORDER_Y} ${BORDER_X_INNER}`;
 const CELL_PIN = BORDER_Y;
 const STICKY_PIN = "sticky left-0 z-[2]";
 const STICKY_PIN_FOOT = "sticky left-0 z-[3]";
-const HEAD_BG = "!bg-base-300";
-const STICKY_PIN_HEAD = `sticky left-0 z-20 ${HEAD_BG}`;
 const ROW_EVEN = "!bg-base-100";
 const ROW_ODD = "!bg-base-200";
 const FOOT_GRAY_BG = "!bg-base-300";
 const MOT_COL_BG = FOOT_GRAY_BG;
 const SORBOMOT_BG =
   "!bg-[color-mix(in_oklab,var(--color-base-300),var(--color-base-content)_6%)]";
+const HEAD_BG = SORBOMOT_BG;
+const STICKY_PIN_HEAD = `sticky left-0 z-20 ${HEAD_BG}`;
+/** Full labour band ≈ one cash row; 3 subrows share it. */
+const BAND_H = "h-10 sm:h-12";
+const SUB_H = "!h-[calc(2.5rem/3)] sm:!h-4 !py-0";
 const VALUE_CELL =
-  "text-right align-middle tabular-nums whitespace-nowrap leading-none min-w-10 max-w-20 px-0.5 !py-px text-xs";
+  `text-right align-middle tabular-nums whitespace-nowrap leading-none min-w-10 max-w-20 px-0.5 text-xs ${SUB_H}`;
 
 const rowBg = (index) => (index % 2 === 0 ? ROW_EVEN : ROW_ODD);
 
@@ -67,6 +70,10 @@ export function HajiraRangeTable({
   const row2Left = CELL_TOP_INNER;
   const row2Right = CELL_TOP;
   const remainTotal = remainingOf(footer?.totals);
+  const nameColClass = showDayColumns
+    ? "w-20 max-w-20 sm:w-28 sm:max-w-28"
+    : "min-w-0";
+  const tableWidthClass = showDayColumns ? "w-max" : "table-auto w-full";
 
   // Per-date earnings = Σ (present × salary + extra). Payable = earnings − taken.
   return (
@@ -77,13 +84,25 @@ export function HajiraRangeTable({
         </p>
       ) : null}
       <div className="flex-1 min-h-0 overflow-auto pb-8">
-        <table className="table table-xs w-max bg-transparent text-xs border-separate border-spacing-0 border-t border-l border-base-content/35 [&_th]:!px-1 [&_th]:!py-2 sm:[&_th]:!py-3 [&_th]:bg-base-300 [&_td]:!px-0.5 [&_td]:!py-px [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
+        <table
+          className={`table table-xs ${tableWidthClass} bg-transparent text-xs border-separate border-spacing-0 border-t border-l border-base-content/35 [&_th]:!px-1 [&_th]:!py-1 sm:[&_th]:!py-1.5 [&_td]:!px-0.5 [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent`}
+        >
+          {!showDayColumns ? (
+            <colgroup>
+              <col className="w-7" />
+              <col className="w-7" />
+              <col />
+              <col className="w-[1%] min-w-14" />
+              <col className="w-[1%] min-w-14" />
+              <col className="w-[1%] min-w-14" />
+            </colgroup>
+          ) : null}
           <thead className={`sticky top-0 z-10 ${HEAD_BG}`}>
             <tr>
               <th className={`w-7 align-middle ${CELL} ${HEAD_BG}`}>নং</th>
               <th className={`w-7 px-0 ${CELL_PIN} ${HEAD_BG}`} />
               <th
-                className={`w-20 max-w-20 sm:w-28 sm:max-w-28 pl-1 align-middle ${CELL} ${STICKY_PIN_HEAD}`}
+                className={`${nameColClass} pl-1 align-middle ${CELL} ${STICKY_PIN_HEAD}`}
               >
                 {labourHeader}
               </th>
@@ -100,7 +119,7 @@ export function HajiraRangeTable({
                 : null}
               <th
                 colSpan={2}
-                className={`text-center align-middle font-medium ${CELL} ${MOT_COL_BG}`}
+                className={`text-center align-middle font-medium ${CELL} ${HEAD_BG}`}
               >
                 মোট
               </th>
@@ -132,13 +151,13 @@ export function HajiraRangeTable({
                     <tr className="bg-transparent">
                       <td
                         rowSpan={pairRows}
-                        className={`align-middle tabular-nums text-base-content/60 w-7 ${CELL} ${stripe}`}
+                        className={`align-middle tabular-nums text-base-content/60 w-7 ${BAND_H} ${CELL} ${stripe}`}
                       >
                         {formatBnNumber(index + 1)}
                       </td>
                       <td
                         rowSpan={pairRows}
-                        className={`align-middle w-7 px-0 ${CELL_PIN} ${stripe}`}
+                        className={`align-middle w-7 px-0 ${BAND_H} ${CELL_PIN} ${stripe}`}
                       >
                         <LabourIdentity
                           row={row}
@@ -151,13 +170,13 @@ export function HajiraRangeTable({
                             name={row.labourName}
                             size="xs"
                             shape="square"
-                            className="[&>div]:w-6 [&>div]:h-6"
+                            className="[&>div]:w-5 [&>div]:h-5"
                           />
                         </LabourIdentity>
                       </td>
                       <td
                         rowSpan={pairRows}
-                        className={`align-middle font-medium pl-1 w-20 max-w-20 sm:w-28 sm:max-w-28 ${CELL} ${STICKY_PIN} ${stripe}`}
+                        className={`align-middle font-medium pl-1 ${nameColClass} ${BAND_H} ${CELL} ${STICKY_PIN} ${stripe}`}
                       >
                         <LabourIdentity
                           row={row}

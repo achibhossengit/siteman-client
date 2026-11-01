@@ -1442,8 +1442,12 @@ export const HajiraPage = () => {
         setLabourFilterOpen(next);
         if (next) setHajiraFilterOpen(false);
       }}
-      title="নাম"
-      label={filterHeaderTitle("নাম", labourFilter, LABOUR_DEFAULT_FIELDS)}
+      title="শ্রমিকের নাম"
+      label={filterHeaderTitle(
+        "শ্রমিকের নাম",
+        labourFilter,
+        LABOUR_DEFAULT_FIELDS,
+      )}
       triggerClassName="inline-flex items-center gap-0.5"
       width={256}
     >

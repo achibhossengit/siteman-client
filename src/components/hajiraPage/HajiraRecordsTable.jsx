@@ -44,14 +44,17 @@ const CELL_TOP = `${BORDER_Y_SOFT} ${BORDER_X}`;
 const CELL_TOP_INNER = `${BORDER_Y_SOFT} ${BORDER_X_INNER}`;
 const CELL_SUB = `${BORDER_Y} ${BORDER_X}`;
 const CELL_SUB_INNER = `${BORDER_Y} ${BORDER_X_INNER}`;
-const HEAD_BG = "!bg-base-300";
 const ROW_EVEN = "!bg-base-100";
 const ROW_ODD = "!bg-base-200";
 const FOOT_BG = "!bg-base-300";
 const SORBOMOT_BG =
   "!bg-[color-mix(in_oklab,var(--color-base-300),var(--color-base-content)_6%)]";
+const HEAD_BG = SORBOMOT_BG;
+/** Full labour band ≈ one cash `table-sm` / `sm:table-md` row; 3 subrows share it. */
+const BAND_H = "h-10 sm:h-12";
+const SUB_H = "!h-[calc(2.5rem/3)] sm:!h-4 !py-0";
 const VALUE_CELL =
-  "text-right align-middle tabular-nums whitespace-nowrap leading-none px-1 !py-px text-xs w-[1%] min-w-14 max-w-24";
+  `text-right align-middle tabular-nums whitespace-nowrap leading-none px-0.5 text-xs w-[1%] min-w-14 max-w-24 ${SUB_H}`;
 const PAIR_COL = "w-[1%] min-w-14";
 
 const num = (v) => Number(v) || 0;
@@ -113,7 +116,7 @@ export function HajiraRecordsTable({
   const footRows = pairRows + 1;
   return (
     <div className="flex-1 min-h-0 overflow-auto pb-24">
-      <table className="table table-xs table-auto w-full bg-transparent text-xs border-separate border-spacing-0 border-t border-l border-base-content/35 [&_th]:!px-1 [&_th]:!py-2 sm:[&_th]:!py-3 [&_th]:bg-base-300 [&_td]:!px-0.5 [&_td]:!py-px [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
+      <table className="table table-xs table-auto w-full bg-transparent text-xs border-separate border-spacing-0 border-t border-l border-base-content/35 [&_th]:!px-1 [&_th]:!py-1 sm:[&_th]:!py-1.5 [&_td]:!px-0.5 [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
         <colgroup>
           <col className="w-10" />
           <col className="w-8" />
@@ -267,7 +270,7 @@ export function HajiraRecordsTable({
                   <tr className="bg-transparent">
                     <td
                       rowSpan={pairRows}
-                      className={`align-middle text-center tabular-nums text-base-content/60 w-10 ${CELL} ${fill}`}
+                      className={`align-middle text-center tabular-nums text-base-content/60 w-10 ${BAND_H} ${CELL} ${fill}`}
                       title={rowTitle}
                     >
                       <span
@@ -292,7 +295,7 @@ export function HajiraRecordsTable({
                     </td>
                     <td
                       rowSpan={pairRows}
-                      className={`align-middle w-8 px-0 ${CELL_PHOTO} ${fill}`}
+                      className={`align-middle w-8 px-0 ${BAND_H} ${CELL_PHOTO} ${fill}`}
                     >
                       <LabourIdentity
                         row={row}
@@ -305,13 +308,13 @@ export function HajiraRecordsTable({
                           name={row.labourName}
                           size="xs"
                           shape="square"
-                          className="[&>div]:w-6 [&>div]:h-6"
+                          className="[&>div]:w-5 [&>div]:h-5"
                         />
                       </LabourIdentity>
                     </td>
                     <td
                       rowSpan={pairRows}
-                      className={`align-middle font-medium pl-1 min-w-0 ${CELL} ${fill} ${nameMutedClass}`}
+                      className={`align-middle font-medium pl-1 min-w-0 ${BAND_H} ${CELL} ${fill} ${nameMutedClass}`}
                     >
                       <LabourIdentity
                         row={row}
@@ -354,7 +357,7 @@ export function HajiraRecordsTable({
                     {SHOW_BILLING ? (
                       <td
                         rowSpan={pairRows}
-                        className={`text-right align-middle text-xs whitespace-nowrap ${CELL} ${fill} cursor-pointer`}
+                        className={`text-right align-middle text-xs whitespace-nowrap ${BAND_H} ${CELL} ${fill} cursor-pointer`}
                         title={
                           hasBilling(row) || recordIdOf(row)
                             ? billingFullLabelForRow(row)
