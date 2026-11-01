@@ -64,7 +64,12 @@ const HEAD_BG =
 const BAND_H = "h-12 sm:h-14";
 const SUB_H = "!h-[calc(3rem/3)] sm:!h-[calc(3.5rem/3)] !py-0";
 const VALUE_CELL =
-  `text-right align-middle tabular-nums whitespace-nowrap leading-none px-0.5 text-xs w-[1%] min-w-14 max-w-24 ${SUB_H}`;
+  `text-right align-middle tabular-nums whitespace-nowrap leading-none px-0.5 text-sm w-[1%] min-w-14 max-w-24 ${SUB_H}`;
+/** Compact footer band — shorter than body subrows. */
+const FOOT_CELL =
+  "text-right align-middle tabular-nums whitespace-nowrap leading-none px-0.5 text-sm w-[1%] min-w-14 max-w-24 !py-0.5 !h-7";
+const FOOT_LABEL =
+  "align-middle text-right whitespace-nowrap pr-1 !py-0.5 !h-7";
 const PAIR_COL = "w-[1%] min-w-14";
 
 const num = (v) => Number(v) || 0;
@@ -123,7 +128,7 @@ export function HajiraRecordsTable({
   const footRows = pairRows + 1;
   return (
     <div className="flex-1 min-h-0 overflow-auto pb-24">
-      <table className="table table-xs table-auto w-full bg-transparent text-xs border-separate border-spacing-0 [&_th]:!px-1 [&_th]:!py-1 sm:[&_th]:!py-1.5 [&_th]:font-semibold [&_td]:!px-0.5 [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
+      <table className="table table-sm table-auto w-full bg-transparent text-sm border-separate border-spacing-0 [&_th]:!px-1 [&_th]:!py-1.5 sm:[&_th]:!py-2 [&_th]:text-sm [&_th]:font-semibold [&_th]:leading-tight [&_th]:align-middle [&_td]:!px-0.5 [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
         <colgroup>
           <col className="w-10" />
           <col />
@@ -170,13 +175,11 @@ export function HajiraRecordsTable({
             </th>
             <th
               colSpan={2}
-              className={`text-center align-middle font-medium ${CELL} ${HEAD_BG}`}
+              className={`text-center align-middle ${CELL} ${HEAD_BG}`}
             >
               {hajiraHeader}
             </th>
-            <th
-              className={`text-center align-middle font-medium ${CELL} ${HEAD_BG}`}
-            >
+            <th className={`text-center align-middle ${CELL} ${HEAD_BG}`}>
               সর্বমোট
             </th>
             {SHOW_BILLING ? (
@@ -301,7 +304,6 @@ export function HajiraRecordsTable({
                           photo={row.labourPhoto}
                           name={row.labourName}
                           size="sm"
-                          shape="square"
                           className="shrink-0"
                         />
                         <LabourIdentity
@@ -344,7 +346,7 @@ export function HajiraRecordsTable({
                     {SHOW_BILLING ? (
                       <td
                         rowSpan={pairRows}
-                        className={`text-right align-middle text-xs whitespace-nowrap ${BAND_H} ${CELL} ${fill} cursor-pointer`}
+                        className={`text-right align-middle text-sm whitespace-nowrap ${BAND_H} ${CELL} ${fill} cursor-pointer`}
                         title={
                           hasBilling(row) || recordIdOf(row)
                             ? billingFullLabelForRow(row)
@@ -450,22 +452,22 @@ export function HajiraRecordsTable({
             <tr className="font-medium bg-transparent">
               <td className={`w-10 ${BORDER_Y_SOFT} ${FOOT_MOT_BG}`} />
               <td
-                className={`align-middle text-right whitespace-nowrap pr-1 ${FOOT_TOP} ${FOOT_MOT_BG}`}
+                className={`${FOOT_LABEL} ${FOOT_TOP} ${FOOT_MOT_BG}`}
               >
                 মোট উপার্জন
               </td>
               <td
-                className={`${VALUE_CELL} ${FOOT_TOP_INNER} ${FOOT_MOT_BG}`}
+                className={`${FOOT_CELL} ${FOOT_TOP_INNER} ${FOOT_MOT_BG}`}
               >
                 <Amount value={totals.present} />
               </td>
               <td
-                className={`${VALUE_CELL} ${FOOT_TOP} ${FOOT_MOT_BG}`}
+                className={`${FOOT_CELL} ${FOOT_TOP} ${FOOT_MOT_BG}`}
               >
                 <Amount value={totals.extra} tone="text-success" />
               </td>
               <td
-                className={`${VALUE_CELL} ${FOOT_TOP} ${FOOT_MOT_BG}`}
+                className={`${FOOT_CELL} ${FOOT_TOP} ${FOOT_MOT_BG}`}
               >
                 <Amount value={totals.earnings} tone="text-success" />
               </td>
@@ -481,14 +483,14 @@ export function HajiraRecordsTable({
             <tr id={HAJIRA_MOT_DOYA_ROW_ID} className="font-medium bg-transparent">
               <td className={`w-10 ${BORDER_Y_SOFT} ${FOOT_MOT_BG}`} />
               <td
-                className={`align-middle text-right whitespace-nowrap pr-1 ${FOOT_MID} ${FOOT_MOT_BG}`}
+                className={`${FOOT_LABEL} ${FOOT_MID} ${FOOT_MOT_BG}`}
               >
                 মোট দেওয়া
               </td>
-              <td className={`${VALUE_CELL} ${FOOT_MID_INNER} ${FOOT_MOT_BG}`}>
+              <td className={`${FOOT_CELL} ${FOOT_MID_INNER} ${FOOT_MOT_BG}`}>
                 <Amount value={totals.payment} tone="text-error" />
               </td>
-              <td className={`${VALUE_CELL} ${FOOT_MID} ${FOOT_MOT_BG}`}>
+              <td className={`${FOOT_CELL} ${FOOT_MID} ${FOOT_MOT_BG}`}>
                 <JoinedAmounts
                   tone="text-error"
                   parts={[
@@ -499,7 +501,7 @@ export function HajiraRecordsTable({
               </td>
               <td
                 id={HAJIRA_SORBOMOT_DOYA_ID}
-                className={`${VALUE_CELL} ${FOOT_MID} ${FOOT_MOT_BG}`}
+                className={`${FOOT_CELL} ${FOOT_MID} ${FOOT_MOT_BG}`}
               >
                 <Amount
                   value={
@@ -514,14 +516,14 @@ export function HajiraRecordsTable({
             <tr id={HAJIRA_MOT_FEROT_ROW_ID} className="font-medium bg-transparent">
                 <td className={`w-10 ${BORDER_Y} ${FOOT_MOT_BG}`} />
                 <td
-                  className={`align-middle text-right whitespace-nowrap pr-1 ${FOOT_BOT} ${FOOT_MOT_BG}`}
+                  className={`${FOOT_LABEL} ${FOOT_BOT} ${FOOT_MOT_BG}`}
                 >
                   মোট ফেরত
                 </td>
-                <td className={`${VALUE_CELL} ${FOOT_BOT_INNER} ${FOOT_MOT_BG}`}>
+                <td className={`${FOOT_CELL} ${FOOT_BOT_INNER} ${FOOT_MOT_BG}`}>
                   <Amount value={totals.return} tone={RETURN_TONE} />
                 </td>
-                <td className={`${VALUE_CELL} ${FOOT_BOT} ${FOOT_MOT_BG}`}>
+                <td className={`${FOOT_CELL} ${FOOT_BOT} ${FOOT_MOT_BG}`}>
                   <Amount
                     value={settlementSides(totals).back}
                     tone={RETURN_TONE}
@@ -529,7 +531,7 @@ export function HajiraRecordsTable({
                 </td>
                 <td
                   id={HAJIRA_SORBOMOT_FEROT_ID}
-                  className={`${VALUE_CELL} ${FOOT_BOT} ${FOOT_MOT_BG}`}
+                  className={`${FOOT_CELL} ${FOOT_BOT} ${FOOT_MOT_BG}`}
                 >
                   <Amount
                     value={
@@ -543,13 +545,13 @@ export function HajiraRecordsTable({
             <tr className="font-medium bg-transparent">
               <td className={`w-10 ${BORDER_Y} ${FOOT_PAONA_BG}`} />
               <td
-                className={`align-middle text-right whitespace-nowrap pr-1 ${BORDER_Y} ${BORDER_X} ${FOOT_PAONA_BG}`}
+                className={`${FOOT_LABEL} ${BORDER_Y} ${BORDER_X} ${FOOT_PAONA_BG}`}
               >
                 পাওনা
               </td>
               <td
                 colSpan={3}
-                className={`${VALUE_CELL} ${BORDER_Y} ${BORDER_X} ${FOOT_PAONA_BG}`}
+                className={`${FOOT_CELL} ${BORDER_Y} ${BORDER_X} ${FOOT_PAONA_BG}`}
               >
                 <Amount
                   value={remainTotal}

@@ -102,7 +102,11 @@ const HEAD_BG =
 const BAND_H = "h-12 sm:h-14";
 const SUB_H = "!h-[calc(3rem/3)] sm:!h-[calc(3.5rem/3)] !py-0";
 const VALUE_CELL =
-  `text-right align-middle tabular-nums whitespace-nowrap leading-none px-0.5 text-xs w-[1%] min-w-14 max-w-24 ${SUB_H}`;
+  `text-right align-middle tabular-nums whitespace-nowrap leading-none px-0.5 text-sm w-[1%] min-w-14 max-w-24 ${SUB_H}`;
+const FOOT_CELL =
+  "text-right align-middle tabular-nums whitespace-nowrap leading-none px-0.5 text-sm w-[1%] min-w-14 max-w-24 !py-0.5 !h-7";
+const FOOT_LABEL =
+  "align-middle text-right whitespace-nowrap pr-1 !py-0.5 !h-7";
 const PAIR_COL = "w-[1%] min-w-14";
 const PAIR_ROWS = 3;
 const ROW2_LEFT = CELL_TOP_INNER;
@@ -1240,7 +1244,7 @@ export const LabourSessionRecordsPage = () => {
       ) : null}
 
       <div className="flex-1 min-h-0 overflow-auto pb-24">
-        <table className="table table-xs table-auto w-full bg-transparent text-xs border-separate border-spacing-0 [&_th]:!px-1 [&_th]:!py-1 sm:[&_th]:!py-1.5 [&_th]:font-semibold [&_td]:!px-0.5 [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
+        <table className="table table-sm table-auto w-full bg-transparent text-sm border-separate border-spacing-0 [&_th]:!px-1 [&_th]:!py-1.5 sm:[&_th]:!py-2 [&_th]:text-sm [&_th]:font-semibold [&_th]:leading-tight [&_th]:align-middle [&_td]:!px-0.5 [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
           <colgroup>
             <col className="w-10" />
             <col />
@@ -1468,22 +1472,22 @@ export const LabourSessionRecordsPage = () => {
               <tr className="font-medium bg-transparent">
                 <td className={`w-10 ${BORDER_Y_SOFT} ${FOOT_MOT_BG}`} />
                 <td
-                  className={`align-middle text-right whitespace-nowrap pr-1 ${FOOT_TOP} ${FOOT_MOT_BG}`}
+                  className={`${FOOT_LABEL} ${FOOT_TOP} ${FOOT_MOT_BG}`}
                 >
                   মোট উপার্জন
                 </td>
                 <td
-                  className={`${VALUE_CELL} ${FOOT_TOP_INNER} ${FOOT_MOT_BG}`}
+                  className={`${FOOT_CELL} ${FOOT_TOP_INNER} ${FOOT_MOT_BG}`}
                 >
                   <Amount value={totals.present} />
                 </td>
                 <td
-                  className={`${VALUE_CELL} ${FOOT_TOP} ${FOOT_MOT_BG}`}
+                  className={`${FOOT_CELL} ${FOOT_TOP} ${FOOT_MOT_BG}`}
                 >
                   <Amount value={totals.extra} tone="text-success" />
                 </td>
                 <td
-                  className={`${VALUE_CELL} ${FOOT_TOP} ${FOOT_MOT_BG}`}
+                  className={`${FOOT_CELL} ${FOOT_TOP} ${FOOT_MOT_BG}`}
                 >
                   <Amount value={totals.earnings} tone="text-success" />
                 </td>
@@ -1491,17 +1495,17 @@ export const LabourSessionRecordsPage = () => {
               <tr className="font-medium bg-transparent">
                 <td className={`w-10 ${BORDER_Y_SOFT} ${FOOT_MOT_BG}`} />
                 <td
-                  className={`align-middle text-right whitespace-nowrap pr-1 ${FOOT_MID} ${FOOT_MOT_BG}`}
+                  className={`${FOOT_LABEL} ${FOOT_MID} ${FOOT_MOT_BG}`}
                 >
                   মোট দেওয়া
                 </td>
-                <td className={`${VALUE_CELL} ${FOOT_MID_INNER} ${FOOT_MOT_BG}`}>
+                <td className={`${FOOT_CELL} ${FOOT_MID_INNER} ${FOOT_MOT_BG}`}>
                   <Amount value={totals.payment} tone="text-error" />
                 </td>
-                <td className={`${VALUE_CELL} ${FOOT_MID} ${FOOT_MOT_BG}`}>
+                <td className={`${FOOT_CELL} ${FOOT_MID} ${FOOT_MOT_BG}`}>
                   <Amount value={totals.advance} tone="text-error" />
                 </td>
-                <td className={`${VALUE_CELL} ${FOOT_MID} ${FOOT_MOT_BG}`}>
+                <td className={`${FOOT_CELL} ${FOOT_MID} ${FOOT_MOT_BG}`}>
                   <Amount
                     value={num(totals.payment) + num(totals.advance)}
                     tone="text-error"
@@ -1511,30 +1515,30 @@ export const LabourSessionRecordsPage = () => {
               <tr className="font-medium bg-transparent">
                 <td className={`w-10 ${BORDER_Y} ${FOOT_MOT_BG}`} />
                 <td
-                  className={`align-middle text-right whitespace-nowrap pr-1 ${FOOT_BOT} ${FOOT_MOT_BG}`}
+                  className={`${FOOT_LABEL} ${FOOT_BOT} ${FOOT_MOT_BG}`}
                 >
                   মোট ফেরত
                 </td>
-                <td className={`${VALUE_CELL} ${FOOT_BOT_INNER} ${FOOT_MOT_BG}`}>
+                <td className={`${FOOT_CELL} ${FOOT_BOT_INNER} ${FOOT_MOT_BG}`}>
                   <Amount value={totals.return} tone={RETURN_TONE} />
                 </td>
-                <td className={`${VALUE_CELL} ${FOOT_BOT} ${FOOT_MOT_BG}`}>
+                <td className={`${FOOT_CELL} ${FOOT_BOT} ${FOOT_MOT_BG}`}>
                   <Amount value={0} tone={RETURN_TONE} />
                 </td>
-                <td className={`${VALUE_CELL} ${FOOT_BOT} ${FOOT_MOT_BG}`}>
+                <td className={`${FOOT_CELL} ${FOOT_BOT} ${FOOT_MOT_BG}`}>
                   <Amount value={num(totals.return)} tone={RETURN_TONE} />
                 </td>
               </tr>
               <tr className="font-medium bg-transparent">
                 <td className={`w-10 ${BORDER_Y_SOFT} ${FOOT_PAONA_BG}`} />
                 <td
-                  className={`align-middle text-right whitespace-nowrap pr-1 ${BORDER_Y_SOFT} ${BORDER_X} ${FOOT_PAONA_BG}`}
+                  className={`${FOOT_LABEL} ${BORDER_Y_SOFT} ${BORDER_X} ${FOOT_PAONA_BG}`}
                 >
                   বর্তমান পাওনা
                 </td>
                 <td
                   colSpan={3}
-                  className={`${VALUE_CELL} ${BORDER_Y_SOFT} ${BORDER_X} ${FOOT_PAONA_BG}`}
+                  className={`${FOOT_CELL} ${BORDER_Y_SOFT} ${BORDER_X} ${FOOT_PAONA_BG}`}
                 >
                   <Amount
                     value={remainTotal}
@@ -1545,13 +1549,13 @@ export const LabourSessionRecordsPage = () => {
               <tr className="font-medium bg-transparent">
                 <td className={`w-10 ${BORDER_Y_SOFT} ${FOOT_PAONA_BG}`} />
                 <td
-                  className={`align-middle whitespace-nowrap text-right pr-1 ${BORDER_Y_SOFT} ${BORDER_X} ${FOOT_PAONA_BG}`}
+                  className={`${FOOT_LABEL} ${BORDER_Y_SOFT} ${BORDER_X} ${FOOT_PAONA_BG}`}
                 >
                   আগের পাওনা
                 </td>
                 <td
                   colSpan={3}
-                  className={`${VALUE_CELL} ${BORDER_Y_SOFT} ${BORDER_X} ${FOOT_PAONA_BG}`}
+                  className={`${FOOT_CELL} ${BORDER_Y_SOFT} ${BORDER_X} ${FOOT_PAONA_BG}`}
                 >
                   <Amount
                     value={num(session.previous_payable)}
@@ -1564,13 +1568,13 @@ export const LabourSessionRecordsPage = () => {
                   className={`w-10 ${isRunning ? BORDER_Y : BORDER_Y_SOFT} ${FOOT_PAONA_BG}`}
                 />
                 <td
-                  className={`align-middle whitespace-nowrap text-right pr-1 ${signedTone(currentPayable)} ${isRunning ? BORDER_Y : BORDER_Y_SOFT} ${BORDER_X} ${FOOT_PAONA_BG}`}
+                  className={`${FOOT_LABEL} ${signedTone(currentPayable)} ${isRunning ? BORDER_Y : BORDER_Y_SOFT} ${BORDER_X} ${FOOT_PAONA_BG}`}
                 >
                   সর্বমোট পাওনা
                 </td>
                 <td
                   colSpan={3}
-                  className={`${VALUE_CELL} ${isRunning ? BORDER_Y : BORDER_Y_SOFT} ${BORDER_X} ${FOOT_PAONA_BG}`}
+                  className={`${FOOT_CELL} ${isRunning ? BORDER_Y : BORDER_Y_SOFT} ${BORDER_X} ${FOOT_PAONA_BG}`}
                 >
                   <Amount
                     value={currentPayable}
@@ -1583,13 +1587,13 @@ export const LabourSessionRecordsPage = () => {
                   <tr className="font-medium bg-transparent">
                     <td className={`w-10 ${BORDER_Y_SOFT} ${FOOT_PAONA_BG}`} />
                     <td
-                      className={`align-middle whitespace-nowrap text-right pr-1 ${BORDER_Y_SOFT} ${BORDER_X} ${FOOT_PAONA_BG}`}
+                      className={`${FOOT_LABEL} ${BORDER_Y_SOFT} ${BORDER_X} ${FOOT_PAONA_BG}`}
                     >
                       হিসাবের সময় দেওয়া
                     </td>
                     <td
                       colSpan={3}
-                      className={`${VALUE_CELL} ${BORDER_Y_SOFT} ${BORDER_X} ${FOOT_PAONA_BG}`}
+                      className={`${FOOT_CELL} ${BORDER_Y_SOFT} ${BORDER_X} ${FOOT_PAONA_BG}`}
                     >
                       {formatBnSigned(settlementAmt)}
                     </td>
@@ -1597,13 +1601,13 @@ export const LabourSessionRecordsPage = () => {
                   <tr className="font-medium bg-transparent">
                     <td className={`w-10 ${BORDER_Y} ${FOOT_PAONA_BG}`} />
                     <td
-                      className={`align-middle whitespace-nowrap text-right pr-1 ${signedTone(afterSettlePayable)} ${BORDER_Y} ${BORDER_X} ${FOOT_PAONA_BG}`}
+                      className={`${FOOT_LABEL} ${signedTone(afterSettlePayable)} ${BORDER_Y} ${BORDER_X} ${FOOT_PAONA_BG}`}
                     >
                       হিসাব শেষে পাওনা
                     </td>
                     <td
                       colSpan={3}
-                      className={`${VALUE_CELL} ${BORDER_Y} ${BORDER_X} ${FOOT_PAONA_BG}`}
+                      className={`${FOOT_CELL} ${BORDER_Y} ${BORDER_X} ${FOOT_PAONA_BG}`}
                     >
                       <Amount
                         value={afterSettlePayable}

@@ -467,7 +467,6 @@ export const LabourDetailPage = () => {
             photo={labour.photo}
             name={labour.name}
             size="lg"
-            shape="square"
             alt={labour.name || 'শ্রমিকের ছবি'}
           />
           <div className="min-w-0 flex-1 space-y-0.5">

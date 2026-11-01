@@ -55,7 +55,10 @@ const STICKY_PIN_HEAD = `sticky left-0 z-20 ${HEAD_BG}`;
 const BAND_H = "h-12 sm:h-14";
 const SUB_H = "!h-[calc(3rem/3)] sm:!h-[calc(3.5rem/3)] !py-0";
 const VALUE_CELL =
-  `text-right align-middle tabular-nums whitespace-nowrap leading-none min-w-10 max-w-20 px-0.5 text-xs ${SUB_H}`;
+  `text-right align-middle tabular-nums whitespace-nowrap leading-none min-w-10 max-w-20 px-0.5 text-sm ${SUB_H}`;
+const FOOT_CELL =
+  "text-right align-middle tabular-nums whitespace-nowrap leading-none min-w-10 max-w-20 px-0.5 text-sm !py-0.5 !h-7";
+const FOOT_LABEL_H = "!py-0.5 !h-7";
 
 const rowBg = (index) => (index % 2 === 0 ? ROW_EVEN : ROW_ODD);
 
@@ -90,7 +93,7 @@ export function HajiraRangeTable({
     <div className="flex-1 min-h-0 flex flex-col">
       <div className="flex-1 min-h-0 overflow-auto pb-8">
         <table
-          className={`table table-xs ${tableWidthClass} bg-transparent text-xs border-separate border-spacing-0 [&_th]:!px-1 [&_th]:!py-1 sm:[&_th]:!py-1.5 [&_th]:font-semibold [&_td]:!px-0.5 [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent`}
+          className={`table table-sm ${tableWidthClass} bg-transparent text-sm border-separate border-spacing-0 [&_th]:!px-1 [&_th]:!py-1.5 sm:[&_th]:!py-2 [&_th]:text-sm [&_th]:font-semibold [&_th]:leading-tight [&_th]:align-middle [&_td]:!px-0.5 [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent`}
         >
           {!showDayColumns ? (
             <colgroup>
@@ -116,7 +119,7 @@ export function HajiraRangeTable({
                     <th
                       key={iso}
                       colSpan={2}
-                      className={`text-center align-middle font-medium whitespace-nowrap px-0.5 ${CELL} ${HEAD_BG}`}
+                      className={`text-center align-middle whitespace-nowrap px-0.5 ${CELL} ${HEAD_BG}`}
                     >
                       {formatDateColBn(iso)}
                     </th>
@@ -124,12 +127,12 @@ export function HajiraRangeTable({
                 : null}
               <th
                 colSpan={2}
-                className={`text-center align-middle font-medium ${CELL} ${HEAD_BG}`}
+                className={`text-center align-middle ${CELL} ${HEAD_BG}`}
               >
                 মোট
               </th>
               <th
-                className={`text-center align-middle font-medium ${CELL} ${HEAD_BG}`}
+                className={`text-center align-middle ${CELL} ${HEAD_BG}`}
               >
                 সর্বমোট
               </th>
@@ -169,7 +172,6 @@ export function HajiraRangeTable({
                             photo={row.labourPhoto}
                             name={row.labourName}
                             size="sm"
-                            shape="square"
                             className="shrink-0"
                           />
                           <LabourIdentity
@@ -319,17 +321,17 @@ export function HajiraRangeTable({
                     ))
                   : null}
                 <td
-                  className={`${VALUE_CELL} ${FOOT_TOP_INNER} ${FOOT_MOT_BG}`}
+                  className={`${FOOT_CELL} ${FOOT_TOP_INNER} ${FOOT_MOT_BG}`}
                 >
                   <Amount value={footer.totals.present} />
                 </td>
                 <td
-                  className={`${VALUE_CELL} ${FOOT_TOP} ${FOOT_MOT_BG}`}
+                  className={`${FOOT_CELL} ${FOOT_TOP} ${FOOT_MOT_BG}`}
                 >
                   <Amount value={footer.totals.extra} tone="text-success" />
                 </td>
                 <td
-                  className={`${VALUE_CELL} ${FOOT_TOP} ${FOOT_MOT_BG}`}
+                  className={`${FOOT_CELL} ${FOOT_TOP} ${FOOT_MOT_BG}`}
                 >
                   <Amount
                     value={num(footer.totals.earnings)}
@@ -353,10 +355,10 @@ export function HajiraRangeTable({
                       />
                     ))
                   : null}
-                <td className={`${VALUE_CELL} ${FOOT_MID_INNER} ${FOOT_MOT_BG}`}>
+                <td className={`${FOOT_CELL} ${FOOT_MID_INNER} ${FOOT_MOT_BG}`}>
                   <Amount value={footer.totals.khoraki} tone="text-error" />
                 </td>
-                <td className={`${VALUE_CELL} ${FOOT_MID} ${FOOT_MOT_BG}`}>
+                <td className={`${FOOT_CELL} ${FOOT_MID} ${FOOT_MOT_BG}`}>
                   <Amount
                     value={
                       num(footer.totals.advance) +
@@ -367,7 +369,7 @@ export function HajiraRangeTable({
                 </td>
                 <td
                   id={HAJIRA_SORBOMOT_DOYA_ID}
-                  className={`${VALUE_CELL} ${FOOT_MID} ${FOOT_MOT_BG}`}
+                  className={`${FOOT_CELL} ${FOOT_MID} ${FOOT_MOT_BG}`}
                 >
                   <Amount
                     value={
@@ -396,7 +398,7 @@ export function HajiraRangeTable({
                       ))
                     : null}
                   <td
-                    className={`${VALUE_CELL} ${FOOT_BOT_INNER} ${FOOT_MOT_BG}`}
+                    className={`${FOOT_CELL} ${FOOT_BOT_INNER} ${FOOT_MOT_BG}`}
                   >
                     <Amount
                       value={footer.totals.returned}
@@ -404,7 +406,7 @@ export function HajiraRangeTable({
                     />
                   </td>
                   <td
-                    className={`${VALUE_CELL} ${FOOT_BOT} ${FOOT_MOT_BG}`}
+                    className={`${FOOT_CELL} ${FOOT_BOT} ${FOOT_MOT_BG}`}
                   >
                     <Amount
                       value={settlementSides(footer.totals).back}
@@ -413,7 +415,7 @@ export function HajiraRangeTable({
                   </td>
                   <td
                     id={HAJIRA_SORBOMOT_FEROT_ID}
-                    className={`${VALUE_CELL} ${FOOT_BOT} ${FOOT_MOT_BG}`}
+                    className={`${FOOT_CELL} ${FOOT_BOT} ${FOOT_MOT_BG}`}
                   >
                     <Amount
                       value={
@@ -435,7 +437,7 @@ export function HajiraRangeTable({
                         <td
                           key={`foot-${day.date}-remain`}
                           colSpan={2}
-                          className={`${VALUE_CELL} ${BORDER_Y} ${BORDER_X} ${FOOT_PAONA_BG}`}
+                          className={`${FOOT_CELL} ${BORDER_Y} ${BORDER_X} ${FOOT_PAONA_BG}`}
                         >
                           <Amount value={remain} tone={remainTone(remain)} />
                         </td>
@@ -444,7 +446,7 @@ export function HajiraRangeTable({
                   : null}
                 <td
                   colSpan={3}
-                  className={`${VALUE_CELL} ${BORDER_Y} ${BORDER_X} ${FOOT_PAONA_BG}`}
+                  className={`${FOOT_CELL} ${BORDER_Y} ${BORDER_X} ${FOOT_PAONA_BG}`}
                 >
                   <Amount
                     value={remainTotal}
@@ -485,7 +487,7 @@ function FootTitle({
     <>
       <td className={`w-7 ${y} ${bg}`} />
       <td
-        className={`align-middle text-right whitespace-nowrap pr-1 ${y} ${BORDER_X} ${STICKY_PIN_FOOT} ${bg}`}
+        className={`align-middle text-right whitespace-nowrap pr-1 ${FOOT_LABEL_H} ${y} ${BORDER_X} ${STICKY_PIN_FOOT} ${bg}`}
       >
         {children}
       </td>
@@ -515,7 +517,7 @@ function DayPair({
   const { paid, back } = settlementSides(day);
   const hasSession = !total && Boolean(day.hasSession || paid || back);
   const cellClass = [
-    VALUE_CELL,
+    total ? FOOT_CELL : VALUE_CELL,
     stripe,
     clickable ? "cursor-pointer" : "",
   ]

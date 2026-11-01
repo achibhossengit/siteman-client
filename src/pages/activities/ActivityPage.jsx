@@ -767,46 +767,7 @@ export const ActivityPage = () => {
   const somePendingSelected = pendingIds.some((id) => selectedIds.has(id))
 
   return (
-    <section className="flex-1 min-h-0 flex flex-col bg-base-100">
-      <div className="shrink-0 p-2 flex items-center gap-1.5">
-        <select
-          className="select select-xs min-h-7 h-7 min-w-0 flex-1 rounded-full border border-base-300/70 bg-base-200 font-normal focus:outline-none focus:border-primary"
-          aria-label="ধরন"
-          value={entityFilter}
-          onChange={(e) => setEntityFilter(e.target.value)}
-        >
-          {ACTIVITY_ENTITY_FILTER_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <select
-          className="select select-xs min-h-7 h-7 min-w-0 flex-1 rounded-full border border-base-300/70 bg-base-200 font-normal focus:outline-none focus:border-primary"
-          aria-label="অ্যাকশন"
-          value={actionFilter}
-          onChange={(e) => setActionFilter(e.target.value)}
-        >
-          {ACTIVITY_ACTION_FILTER_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <select
-          className="select select-xs min-h-7 h-7 min-w-0 flex-1 rounded-full border border-base-300/70 bg-base-200 font-normal focus:outline-none focus:border-primary"
-          aria-label="অডিট"
-          value={reviewedFilter}
-          onChange={(e) => setReviewedFilter(e.target.value)}
-        >
-          {ACTIVITY_REVIEWED_FILTER_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
+    <section className="flex-1 min-h-0 flex flex-col bg-base-100 relative">
       {isLoading ? (
         <div className="flex-1 flex justify-center items-center">
           <span className="loading loading-spinner loading-lg text-primary" />
@@ -818,39 +779,41 @@ export const ActivityPage = () => {
       ) : (
         <>
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-            <table className={`table table-fixed table-sm sm:table-md w-full ${TABLE_GRID} [&_th]:!py-1 sm:[&_th]:!py-1.5 [&_th]:font-semibold`}>
+            <table className={`table table-fixed table-sm sm:table-md w-full ${TABLE_GRID} [&_th]:!px-1 [&_th]:!py-1.5 sm:[&_th]:!py-2 [&_th]:text-sm [&_th]:font-semibold [&_th]:leading-tight [&_th]:align-middle`}>
               <thead className={`sticky top-0 z-10 ${HEAD_BG}`}>
                 <tr className={HEAD_TH}>
                   <th className={`w-12 ${CELL_GRID}`}>
-                    {selectMode && canChangeActivityLog ? (
-                      <input
-                        type="checkbox"
-                        className="checkbox checkbox-sm"
-                        checked={allPendingSelected}
-                        ref={(el) => {
-                          if (el) {
-                            el.indeterminate =
-                              somePendingSelected && !allPendingSelected
+                    <span className="inline-flex w-full items-center justify-center">
+                      {selectMode && canChangeActivityLog ? (
+                        <input
+                          type="checkbox"
+                          className="checkbox checkbox-sm"
+                          checked={allPendingSelected}
+                          ref={(el) => {
+                            if (el) {
+                              el.indeterminate =
+                                somePendingSelected && !allPendingSelected
+                            }
+                          }}
+                          disabled={pendingIds.length === 0}
+                          aria-label="সব নির্বাচন"
+                          onChange={(e) =>
+                            toggleSelectAll(e.target.checked, pendingIds)
                           }
-                        }}
-                        disabled={pendingIds.length === 0}
-                        aria-label="সব নির্বাচন"
-                        onChange={(e) =>
-                          toggleSelectAll(e.target.checked, pendingIds)
-                        }
-                      />
-                    ) : canChangeActivityLog ? (
-                      <button
-                        type="button"
-                        className="font-bold"
-                        onClick={() => setSelectMode(true)}
-                        title="নির্বাচন মোড"
-                      >
-                        নং
-                      </button>
-                    ) : (
-                      'নং'
-                    )}
+                        />
+                      ) : canChangeActivityLog ? (
+                        <button
+                          type="button"
+                          className="font-bold"
+                          onClick={() => setSelectMode(true)}
+                          title="নির্বাচন মোড"
+                        >
+                          নং
+                        </button>
+                      ) : (
+                        'নং'
+                      )}
+                    </span>
                   </th>
                   <th className={`min-w-0 ${CELL_GRID}`}>বিবরণ</th>
                   <th
@@ -899,26 +862,28 @@ export const ActivityPage = () => {
                         onClick={() => openDetail(row)}
                       >
                         <td
-                          className={`tabular-nums text-base-content/60 w-12 px-1 sm:px-3 align-middle ${CELL_GRID}`}
+                          className={`tabular-nums text-base-content/60 text-center w-12 px-1 sm:px-3 align-middle ${CELL_GRID}`}
                           onClick={(e) => {
                             if (!selectMode) return
                             e.stopPropagation()
                           }}
                         >
-                          {selectMode && canChangeActivityLog ? (
-                            <input
-                              type="checkbox"
-                              className="checkbox checkbox-sm"
-                              checked={checked}
-                              disabled={reviewed}
-                              aria-label={`নির্বাচন ${formatBnNumber(slOffset + index + 1)}`}
-                              onChange={(e) =>
-                                toggleRowSelected(row.id, e.target.checked)
-                              }
-                            />
-                          ) : (
-                            formatBnNumber(slOffset + index + 1)
-                          )}
+                          <span className="inline-flex w-full items-center justify-center">
+                            {selectMode && canChangeActivityLog ? (
+                              <input
+                                type="checkbox"
+                                className="checkbox checkbox-sm"
+                                checked={checked}
+                                disabled={reviewed}
+                                aria-label={`নির্বাচন ${formatBnNumber(slOffset + index + 1)}`}
+                                onChange={(e) =>
+                                  toggleRowSelected(row.id, e.target.checked)
+                                }
+                              />
+                            ) : (
+                              formatBnNumber(slOffset + index + 1)
+                            )}
+                          </span>
                         </td>
                         <td
                           className={`min-w-0 max-w-0 px-1 sm:px-2 align-middle ${CELL_GRID}`}
@@ -946,7 +911,7 @@ export const ActivityPage = () => {
                         >
                           <DateTimeStacked
                             iso={row.created_at}
-                            className="items-end text-[0.65rem] leading-[1.05] sm:text-[0.7rem]"
+                            className="items-end text-xs leading-[1.1]"
                           />
                         </td>
                       </tr>
@@ -980,6 +945,7 @@ export const ActivityPage = () => {
                 </button>
               </div>
             ) : null}
+            <div className="h-14" aria-hidden />
           </div>
         </>
       )}
@@ -989,7 +955,7 @@ export const ActivityPage = () => {
           <div className="w-full flex justify-end gap-2 pointer-events-auto">
             <button
               type="button"
-              className="btn btn-error btn-outline "
+              className="btn btn-error btn-outline"
               disabled={reviewing}
               onClick={exitSelectMode}
             >
@@ -1017,7 +983,48 @@ export const ActivityPage = () => {
             </button>
           </div>
         </div>
-      ) : null}
+      ) : (
+        <div className="fixed bottom-16 inset-x-0 z-40 px-3 pointer-events-none">
+          <div className="w-full flex items-center gap-1.5 pointer-events-auto">
+            <select
+              className="select select-xs min-h-8 h-8 min-w-0 flex-1 rounded-full border border-base-300/70 bg-base-200 font-normal focus:outline-none focus:border-primary"
+              aria-label="ধরন"
+              value={entityFilter}
+              onChange={(e) => setEntityFilter(e.target.value)}
+            >
+              {ACTIVITY_ENTITY_FILTER_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <select
+              className="select select-xs min-h-8 h-8 min-w-0 flex-1 rounded-full border border-base-300/70 bg-base-200 font-normal focus:outline-none focus:border-primary"
+              aria-label="অ্যাকশন"
+              value={actionFilter}
+              onChange={(e) => setActionFilter(e.target.value)}
+            >
+              {ACTIVITY_ACTION_FILTER_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <select
+              className="select select-xs min-h-8 h-8 min-w-0 flex-1 rounded-full border border-base-300/70 bg-base-200 font-normal focus:outline-none focus:border-primary"
+              aria-label="অডিট"
+              value={reviewedFilter}
+              onChange={(e) => setReviewedFilter(e.target.value)}
+            >
+              {ACTIVITY_REVIEWED_FILTER_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       <dialog
         ref={dialogRef}

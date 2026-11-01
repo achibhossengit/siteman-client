@@ -1141,38 +1141,40 @@ export const CashPage = () => {
   return (
     <section className="flex-1 min-h-0 flex flex-col relative overflow-x-hidden">
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-        <table className={`table table-fixed table-sm sm:table-md w-full max-w-full ${TABLE_GRID} [&_th]:!py-1 sm:[&_th]:!py-1.5 [&_th]:font-semibold`}>
+        <table className={`table table-fixed table-sm sm:table-md w-full max-w-full ${TABLE_GRID} [&_th]:!px-1 [&_th]:!py-1.5 sm:[&_th]:!py-2 [&_th]:text-sm [&_th]:font-semibold [&_th]:leading-tight [&_th]:align-middle`}>
           {colgroup(isRange)}
           <thead className={`sticky top-0 z-10 ${HEAD_BG}`}>
             <tr className={HEAD_TH}>
               <th className={`w-7 sm:w-8 px-0.5 sm:px-1 ${CELL_GRID}`}>
-                {selectMode && canChangeActivityLog ? (
-                  <input
-                    type="checkbox"
-                    className="checkbox checkbox-sm"
-                    checked={allPendingSelected}
-                    ref={(el) => {
-                      if (el) {
-                        el.indeterminate =
-                          somePendingSelected && !allPendingSelected;
-                      }
-                    }}
-                    disabled={pendingIds.length === 0}
-                    aria-label="সব নির্বাচন"
-                    onChange={(e) => toggleSelectAll(e.target.checked)}
-                  />
-                ) : canChangeActivityLog ? (
-                  <button
-                    type="button"
-                    className="font-bold"
-                    onClick={() => setSelectMode(true)}
-                    title="নির্বাচন মোড"
-                  >
-                    নং
-                  </button>
-                ) : (
-                  "নং"
-                )}
+                <span className="inline-flex w-full items-center justify-center">
+                  {selectMode && canChangeActivityLog ? (
+                    <input
+                      type="checkbox"
+                      className="checkbox checkbox-sm"
+                      checked={allPendingSelected}
+                      ref={(el) => {
+                        if (el) {
+                          el.indeterminate =
+                            somePendingSelected && !allPendingSelected;
+                        }
+                      }}
+                      disabled={pendingIds.length === 0}
+                      aria-label="সব নির্বাচন"
+                      onChange={(e) => toggleSelectAll(e.target.checked)}
+                    />
+                  ) : canChangeActivityLog ? (
+                    <button
+                      type="button"
+                      className="font-bold"
+                      onClick={() => setSelectMode(true)}
+                      title="নির্বাচন মোড"
+                    >
+                      নং
+                    </button>
+                  ) : (
+                    "নং"
+                  )}
+                </span>
               </th>
               {isRange ? (
                 <th className={`px-1 sm:px-3 whitespace-nowrap ${CELL_GRID}`}>
@@ -1266,26 +1268,28 @@ export const CashPage = () => {
                     onClick={() => openDetail(row)}
                   >
                     <td
-                      className={`tabular-nums text-base-content/60 w-7 sm:w-8 px-0.5 sm:px-1 ${CELL_GRID}`}
+                      className={`tabular-nums text-base-content/60 text-center align-middle w-7 sm:w-8 px-0.5 sm:px-1 ${CELL_GRID}`}
                       onClick={(e) => {
                         if (!selectMode) return;
                         e.stopPropagation();
                       }}
                     >
-                      {selectMode && canChangeActivityLog ? (
-                        <input
-                          type="checkbox"
-                          className="checkbox checkbox-sm"
-                          checked={checked}
-                          disabled={!selectable}
-                          aria-label={`নির্বাচন ${formatBnNumber(slOffset + index + 1)}`}
-                          onChange={(e) =>
-                            toggleRowSelected(row, e.target.checked)
-                          }
-                        />
-                      ) : (
-                        formatBnNumber(slOffset + index + 1)
-                      )}
+                      <span className="inline-flex w-full items-center justify-center">
+                        {selectMode && canChangeActivityLog ? (
+                          <input
+                            type="checkbox"
+                            className="checkbox checkbox-sm"
+                            checked={checked}
+                            disabled={!selectable}
+                            aria-label={`নির্বাচন ${formatBnNumber(slOffset + index + 1)}`}
+                            onChange={(e) =>
+                              toggleRowSelected(row, e.target.checked)
+                            }
+                          />
+                        ) : (
+                          formatBnNumber(slOffset + index + 1)
+                        )}
+                      </span>
                     </td>
                     {isRange ? (
                       <td className={`tabular-nums text-base-content/70 px-1 sm:px-3 truncate ${CELL_GRID}`}>
