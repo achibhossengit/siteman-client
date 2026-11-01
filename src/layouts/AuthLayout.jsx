@@ -5,8 +5,8 @@ export const AuthLayout = () => (
   <div className="min-h-dvh bg-base-200 flex flex-col">
     <AppHeader />
 
-    <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-md">
+    <main className="flex-1 flex items-start sm:items-center justify-center overflow-y-auto p-4 sm:p-6">
+      <div className="w-full max-w-md my-auto">
         <Outlet />
       </div>
     </main>

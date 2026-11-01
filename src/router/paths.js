@@ -16,6 +16,7 @@ export const paths = {
   companySettings: '/company-settings',
   activities: '/activities',
   login: '/login',
+  help: '/help',
   register: '/register',
   passwordReset: '/password/reset',
   passwordResetConfirm: '/password/reset/confirm',

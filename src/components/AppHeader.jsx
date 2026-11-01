@@ -48,9 +48,14 @@ export const AppHeader = () => {
                 <UserMenu />
               </>
             ) : (
-              <NavLink to={paths.login} className="btn btn-primary btn-sm">
-                লগইন করুন
-              </NavLink>
+              <>
+                <NavLink to={paths.help} className="btn btn-outline btn-sm">
+                  সাহায্য
+                </NavLink>
+                <NavLink to={paths.login} className="btn btn-primary btn-sm">
+                  লগইন করুন
+                </NavLink>
+              </>
             )}
           </div>
         )}

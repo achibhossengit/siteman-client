@@ -19,6 +19,7 @@ import { LabourSessionRecordsPage } from "../pages/labours/LabourSessionRecordsP
 import { AppInfoPage } from "../pages/AppInfoPage.jsx";
 import { ActivityPage } from "../pages/activities/ActivityPage.jsx";
 import { LoginPage } from "../pages/auth/LoginPage.jsx";
+import { HelpPage } from "../pages/auth/HelpPage.jsx";
 import { RegisterPage } from "../pages/auth/RegisterPage.jsx";
 import { PasswordResetPage } from "../pages/auth/PasswordResetPage.jsx";
 import { PasswordResetConfirmPage } from "../pages/auth/PasswordResetConfirmPage.jsx";
@@ -41,6 +42,7 @@ export const AppRouter = () => (
       <Route element={<GuestOnly />}>
         <Route element={<AuthLayout />}>
           <Route path={paths.login} element={<LoginPage />} />
+          <Route path={paths.help} element={<HelpPage />} />
           <Route path={paths.register} element={<RegisterPage />} />
           <Route
             path="/register/confirm"
