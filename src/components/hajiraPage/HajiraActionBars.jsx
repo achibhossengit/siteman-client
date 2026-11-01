@@ -39,7 +39,7 @@ export function HajiraActionBars({
         </div>
       ) : selectMode && canChangeActivityLog ? (
         <div className="fixed bottom-16 inset-x-0 z-40 px-3 pointer-events-none">
-          <div className="max-w-5xl mx-auto flex flex-wrap justify-end gap-2 pointer-events-auto">
+          <div className="w-full flex flex-wrap justify-end gap-2 pointer-events-auto">
             <button
               type="button"
               className="btn shadow-lg border border-base-300 bg-base-100"

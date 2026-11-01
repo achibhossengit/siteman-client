@@ -1391,7 +1391,7 @@ export const CashPage = () => {
       </div>
 
       <div className="fixed bottom-16 inset-x-0 z-40 px-3 pointer-events-none">
-        <div className="max-w-5xl mx-auto flex items-end justify-between gap-2 pointer-events-auto">
+        <div className="w-full flex items-end justify-between gap-2 pointer-events-auto">
           {selectMode && canChangeActivityLog ? (
             <>
               <button

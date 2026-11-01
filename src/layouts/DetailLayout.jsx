@@ -17,9 +17,9 @@ export const DetailLayout = () => {
   }
 
   return (
-    <div className="h-dvh bg-base-200 flex flex-col overflow-hidden">
+    <div className="h-full min-h-0 bg-base-200 flex flex-col overflow-hidden">
       <header className="bg-base-100 border-b border-base-300 shrink-0 h-14">
-        <div className="max-w-5xl mx-auto w-full h-full flex items-center gap-1 px-1">
+        <div className="w-full h-full flex items-center gap-1 px-1">
           <button
             type="button"
             className="btn btn-ghost btn-square btn-sm"
@@ -39,7 +39,7 @@ export const DetailLayout = () => {
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 w-full max-w-5xl mx-auto flex flex-col overflow-hidden">
+      <main className="flex-1 min-h-0 w-full flex flex-col overflow-hidden">
         <Outlet context={{ setTitle, setHeaderMenu }} />
       </main>
     </div>

@@ -1017,7 +1017,7 @@ export const ActivityPage = () => {
 
       {selectMode && canChangeActivityLog ? (
         <div className="fixed bottom-16 inset-x-0 z-40 px-3 pointer-events-none">
-          <div className="max-w-5xl mx-auto flex justify-end gap-2 pointer-events-auto">
+          <div className="w-full flex justify-end gap-2 pointer-events-auto">
             <button
               type="button"
               className="btn btn-error btn-outline "

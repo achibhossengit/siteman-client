@@ -25,7 +25,7 @@ export const AppBottomNav = () => {
 
   return (
     <nav className="bg-base-100 border-t border-base-300 fixed bottom-0 inset-x-0 z-30 h-14">
-      <div className="max-w-5xl mx-auto w-full flex justify-between items-stretch py-1.5 px-0.5 sm:px-1">
+      <div className="w-full flex justify-between items-stretch py-1.5 px-0.5 sm:px-1">
         {items.map(({ to, label, icon: Icon, end }) => (
           <NavLink key={label} to={to} end={end} className={navItemClass}>
             <Icon className="size-5 shrink-0" strokeWidth={1.75} />

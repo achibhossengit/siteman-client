@@ -6,6 +6,7 @@ import 'sweetalert2/dist/sweetalert2.min.css'
 import { ThemeProvider } from './providers/ThemeProvider.jsx'
 import { AuthProvider } from './providers/AuthProvider.jsx'
 import ToastLayer from './components/ToastLayer.jsx'
+import { MobileAppShell } from './layouts/MobileAppShell.jsx'
 import './index.css'
 import App from './App.jsx'
 
@@ -24,8 +25,10 @@ createRoot(document.getElementById('root')).render(
       <ThemeProvider>
         <BrowserRouter>
           <AuthProvider>
-            <App />
-            <ToastLayer />
+            <MobileAppShell>
+              <App />
+              <ToastLayer />
+            </MobileAppShell>
           </AuthProvider>
         </BrowserRouter>
       </ThemeProvider>

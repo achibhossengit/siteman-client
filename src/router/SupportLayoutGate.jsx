@@ -8,7 +8,7 @@ export const SupportLayoutGate = () => {
 
   if (bootstrapping) {
     return (
-      <div className="min-h-dvh flex items-center justify-center bg-base-200">
+      <div className="h-full min-h-0 flex items-center justify-center bg-base-200">
         <span className="loading loading-spinner loading-lg text-primary" />
       </div>
     )
