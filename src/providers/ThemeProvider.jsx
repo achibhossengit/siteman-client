@@ -10,6 +10,9 @@ import {
 
 const ThemeContext = createContext(null)
 
+/** Flip to true to restore preference storage + system/dark switching. */
+export const THEME_TOGGLE_ENABLED = false
+
 const readStoredPreference = () => {
   try {
     const stored = localStorage.getItem(THEME_STORAGE_KEY)
@@ -23,19 +26,25 @@ const readStoredPreference = () => {
 }
 
 export const ThemeProvider = ({ children }) => {
-  const [preference, setPreference] = useState(readStoredPreference)
+  const [preference, setPreference] = useState(() =>
+    THEME_TOGGLE_ENABLED ? readStoredPreference() : THEME_LIGHT,
+  )
 
   useEffect(() => {
-    applyTheme(resolveTheme(preference))
+    const next = THEME_TOGGLE_ENABLED ? resolveTheme(preference) : THEME_LIGHT
+    applyTheme(next)
     try {
-      localStorage.setItem(THEME_STORAGE_KEY, preference)
+      localStorage.setItem(
+        THEME_STORAGE_KEY,
+        THEME_TOGGLE_ENABLED ? preference : THEME_LIGHT,
+      )
     } catch {
       // ignore
     }
   }, [preference])
 
   useEffect(() => {
-    if (preference !== THEME_SYSTEM) return undefined
+    if (!THEME_TOGGLE_ENABLED || preference !== THEME_SYSTEM) return undefined
 
     const media = window.matchMedia('(prefers-color-scheme: dark)')
     const onChange = () => applyTheme(resolveTheme(THEME_SYSTEM))
@@ -43,17 +52,24 @@ export const ThemeProvider = ({ children }) => {
     return () => media.removeEventListener('change', onChange)
   }, [preference])
 
+  const setPreferenceSafe = (next) => {
+    if (!THEME_TOGGLE_ENABLED) return
+    setPreference(next)
+  }
+
   const value = {
-    preference,
-    resolved: resolveTheme(preference),
-    setPreference,
-    setLight: () => setPreference(THEME_LIGHT),
-    setDark: () => setPreference(THEME_DARK),
-    setSystem: () => setPreference(THEME_SYSTEM),
-    toggle: () =>
+    preference: THEME_TOGGLE_ENABLED ? preference : THEME_LIGHT,
+    resolved: THEME_TOGGLE_ENABLED ? resolveTheme(preference) : THEME_LIGHT,
+    setPreference: setPreferenceSafe,
+    setLight: () => setPreferenceSafe(THEME_LIGHT),
+    setDark: () => setPreferenceSafe(THEME_DARK),
+    setSystem: () => setPreferenceSafe(THEME_SYSTEM),
+    toggle: () => {
+      if (!THEME_TOGGLE_ENABLED) return
       setPreference((prev) =>
         resolveTheme(prev) === THEME_DARK ? THEME_LIGHT : THEME_DARK,
-      ),
+      )
+    },
   }
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>

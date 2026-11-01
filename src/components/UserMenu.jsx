@@ -6,19 +6,14 @@ import {
   Info,
   LandPlot,
   LogOut,
-  Moon,
-  Sun,
   UserRoundCog,
   Users,
 } from 'lucide-react'
 import { PersonAvatar } from './PersonAvatar.jsx'
-import { ThemeToggle } from './ThemeToggle.jsx'
 import { useAuth } from '../providers/AuthProvider.jsx'
 import { usePermissions } from '../hooks/usePermissions.js'
-import { useTheme } from '../providers/ThemeProvider.jsx'
 import { confirmAction } from '../utils/feedback.js'
 import { hasPermissionSuffix, PERMS } from '../utils/permissions.js'
-import { THEME_DARK } from '../utils/theme.js'
 import { paths } from '../router/paths.js'
 
 const SITE_PERMS = [
@@ -90,8 +85,6 @@ export const UserMenu = () => {
   const navigate = useNavigate()
   const { profile, logout } = useAuth()
   const { canAny, isCompanyAdmin } = usePermissions()
-  const { resolved } = useTheme()
-  const isDark = resolved === THEME_DARK
   const [open, setOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const menuRef = useRef(null)
@@ -219,15 +212,6 @@ export const UserMenu = () => {
               to={paths.help}
               onClose={close}
             />
-            <div className="flex w-full items-center gap-3 px-4 py-2.5">
-              {isDark ? (
-                <Moon className="shrink-0 text-base-content/60" strokeWidth={1.75} />
-              ) : (
-                <Sun className="shrink-0 text-base-content/60" strokeWidth={1.75} />
-              )}
-              <span className="flex-1 text-sm text-left">থিম</span>
-              <ThemeToggle />
-            </div>
           </div>
 
           {/* Logout */}

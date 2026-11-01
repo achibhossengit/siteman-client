@@ -10,19 +10,14 @@
     <title>সাইট ম্যানেজার</title>
     <script>
       (function () {
+        // Theme toggle is disabled — always boot in light. Restore the
+        // preference/system branch when THEME_TOGGLE_ENABLED is turned back on.
         try {
-          var key = 'siteman-theme'
-          var preference = localStorage.getItem(key) || 'siteman'
-          var dark =
-            preference === 'siteman-dark' ||
-            (preference === 'system' &&
-              window.matchMedia('(prefers-color-scheme: dark)').matches)
-          var theme = dark ? 'siteman-dark' : 'siteman'
+          var theme = 'siteman'
+          localStorage.setItem('siteman-theme', theme)
           document.documentElement.setAttribute('data-theme', theme)
           var meta = document.querySelector('meta[name="theme-color"]')
-          if (meta) {
-            meta.setAttribute('content', dark ? '#1c1b20' : '#fafafa')
-          }
+          if (meta) meta.setAttribute('content', '#fafafa')
         } catch (e) {
           document.documentElement.setAttribute('data-theme', 'siteman')
         }
