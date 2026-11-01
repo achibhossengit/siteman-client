@@ -216,7 +216,7 @@ export const UserMenu = () => {
             <MenuItem
               icon={Info}
               title="সাপোর্ট"
-              to={paths.appInfo}
+              to={paths.help}
               onClose={close}
             />
             <div className="flex w-full items-center gap-3 px-4 py-2.5">

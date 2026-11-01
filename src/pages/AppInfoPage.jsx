@@ -1,153 +1,126 @@
-import { useEffect, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
-import { SHOW_BILLING } from '../config/features.js'
+import { useEffect } from 'react'
+import { Link, useOutletContext } from 'react-router-dom'
 import {
-  Activity,
-  CalendarCheck,
+  BookOpen,
   ExternalLink,
   MessageCircle,
-  Scale,
-  Users,
-  Wallet,
-  X,
+  PlayCircle,
 } from 'lucide-react'
-
-const APP_FULL_NAME = 'সাইট ম্যানেজার'
-
-const FEATURES = [
-  {
-    icon: CalendarCheck,
-    title: 'হাজিরা',
-    description: 'শ্রমিকদের দৈনিক হাজিরা, বেতন, খোরাকি ও অগ্রিম হিসাব।',
-  },
-  {
-    icon: Wallet,
-    title: 'ক্যাশ',
-    description: SHOW_BILLING
-      ? 'সাইটের দৈনিক ক্যাশ এন্ট্রি, বিলিং ও খরচের হিসাব।'
-      : 'সাইটের দৈনিক ক্যাশ এন্ট্রি ও খরচের হিসাব।',
-  },
-  {
-    icon: Scale,
-    title: 'ব্যালেন্স',
-    description: 'সাইটভিত্তিক আয়-ব্যয়ের সারসংক্ষেপ এক নজরে।',
-  },
-  {
-    icon: Users,
-    title: 'ম্যানেজমেন্ট',
-    description: 'সাইট, শ্রমিক ও ইউজার — সব এক জায়গা থেকে পরিচালনা।',
-  },
-  {
-    icon: Activity,
-    title: 'অডিট',
-    description: 'কে কখন কী পরিবর্তন করেছে তার পূর্ণ অডিট।',
-  },
-]
+import { SHOW_BILLING } from '../config/features.js'
+import { useAuth } from '../providers/AuthProvider.jsx'
+import { paths } from '../router/paths.js'
 
 const LINKS = {
+  youtube: 'https://youtube.com/playlist?list=PLB6H2J30mWdg',
   whatsapp: 'https://chat.whatsapp.com/KwhvUROanr1GpdjL2ydBGS',
-  portfolio: 'https://achibhossen.me',
 }
 
-const DEVELOPER_NAME = 'আছিব হোসেন'
+const MANUAL_STEPS = [
+  'ঠিকাদার হলে আগে রেজিস্ট্রেশন করুন, তারপর ফোন নম্বর ও পাসওয়ার্ড দিয়ে লগইন করুন।',
+  'উপরের তারিখ ও সাইট সিলেক্টর থেকে কাজের দিন ও সাইট বেছে নিন।',
+  'হাজিরা পেজে শ্রমিকদের উপস্থিতি, বেতন, খোরাকি, অ্যাডভান্স ও রিটার্ন সেট করুন।',
+  SHOW_BILLING
+    ? 'ক্যাশ পেজে জমা, উত্তোলন ও সাইট খরচ এন্ট্রি করুন; প্রয়োজনে বিলিং যোগ করুন।'
+    : 'ক্যাশ পেজে জমা, উত্তোলন ও সাইট খরচ এন্ট্রি করুন।',
+  'ব্যালেন্স পেজে সাইটের আয়-ব্যয় ও বর্তমান ব্যালেন্স এক নজরে দেখুন।',
+  'প্রয়োজনে সাইট, শ্রমিক ও ইউজার ম্যানেজমেন্ট থেকে তথ্য আপডেট করুন।',
+  'অডিট পেজে কে কখন কী পরিবর্তন করেছে তা যাচাই করুন।',
+]
+
+const SupportContent = ({ showLoginLink = false }) => (
+  <>
+    <section className="flex flex-col gap-2">
+      <h2 className="font-semibold text-sm flex items-center gap-2">
+        <BookOpen className="size-4 text-primary" strokeWidth={1.75} />
+        উদ্দেশ্য
+      </h2>
+      <p className="text-sm text-base-content/75 leading-relaxed">
+        সাইট ম্যানেজার নির্মাণ সাইটের দৈনিক হাজিরা, ক্যাশ ও ব্যালেন্স হিসাব এক
+        জায়গায় পরিচালনা করতে সাহায্য করে। ঠিকাদার ও সাইট দল সহজে শ্রমিকের
+        উপস্থিতি, খরচ ও আয়-ব্যয় ট্র্যাক করে স্বচ্ছ হিসাব রাখতে পারেন।
+      </p>
+    </section>
+
+    <section className="flex flex-col gap-2">
+      <h2 className="font-semibold text-sm">ব্যবহারবিধি</h2>
+      <ol className="list-decimal list-outside pl-5 flex flex-col gap-2 text-sm text-base-content/75 leading-relaxed">
+        {MANUAL_STEPS.map((step) => (
+          <li key={step}>{step}</li>
+        ))}
+      </ol>
+    </section>
+
+    <section className="flex flex-col gap-2">
+      <h2 className="font-semibold text-sm">ভিডিও ও সাপোর্ট</h2>
+      <p className="text-sm text-base-content/70">
+        বিস্তারিত দেখতে ইউটিউব প্লেলিস্ট দেখুন, অথবা প্রশ্ন ও সমস্যার জন্য
+        হোয়াটসঅ্যাপ গ্রুপে যোগ দিন।
+      </p>
+      <div className="flex flex-col gap-2">
+        <a
+          href={LINKS.youtube}
+          target="_blank"
+          rel="noreferrer"
+          className="btn btn-outline btn-primary w-full gap-2"
+        >
+          <PlayCircle className="size-4" strokeWidth={1.75} />
+          ইউটিউব প্লেলিস্ট
+          <ExternalLink className="size-3.5 opacity-60" strokeWidth={1.75} />
+        </a>
+        <a
+          href={LINKS.whatsapp}
+          target="_blank"
+          rel="noreferrer"
+          className="btn btn-outline btn-success w-full gap-2"
+        >
+          <MessageCircle className="size-4" strokeWidth={1.75} />
+          হোয়াটসঅ্যাপ গ্রুপ
+          <ExternalLink className="size-3.5 opacity-60" strokeWidth={1.75} />
+        </a>
+      </div>
+    </section>
+
+    {showLoginLink ? (
+      <Link to={paths.login} className="btn btn-ghost btn-sm self-center">
+        লগইনে ফিরে যান
+      </Link>
+    ) : null}
+  </>
+)
 
 export const AppInfoPage = () => {
-  const { setTitle } = useOutletContext()
-  const [showPortfolio, setShowPortfolio] = useState(false)
+  const { isAuthenticated } = useAuth()
+  const { setTitle } = useOutletContext() ?? {}
 
   useEffect(() => {
-    setTitle?.(showPortfolio ? DEVELOPER_NAME : 'অ্যাপ তথ্য')
-    return () => setTitle?.('')
-  }, [setTitle, showPortfolio])
+    if (!setTitle) return
+    setTitle('সাহায্য')
+    return () => setTitle('')
+  }, [setTitle])
 
-  if (showPortfolio) {
+  if (isAuthenticated) {
     return (
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-3 py-3">
-        <div className="shrink-0 flex items-center justify-end gap-1 pb-2">
-          <a
-            href={LINKS.portfolio}
-            target="_blank"
-            rel="noreferrer"
-            className="btn btn-ghost btn-square btn-sm"
-            aria-label="নতুন ট্যাবে খুলুন"
-          >
-            <ExternalLink className="size-4" strokeWidth={1.75} />
-          </a>
-          <button
-            type="button"
-            className="btn btn-ghost btn-square btn-sm"
-            aria-label="বন্ধ"
-            onClick={() => setShowPortfolio(false)}
-          >
-            <X className="size-4" strokeWidth={1.75} />
-          </button>
+      <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 px-3 py-3">
+        <div className="card bg-base-100 shadow-sm border border-base-300">
+          <div className="card-body gap-4">
+            <SupportContent />
+          </div>
         </div>
-        <iframe
-          src={LINKS.portfolio}
-          title={DEVELOPER_NAME}
-          className="flex-1 min-h-0 w-full rounded-box border border-base-300 bg-base-100"
-        />
       </div>
     )
   }
 
   return (
-    <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 px-3 py-3">
-      <section className="card bg-transparent border border-base-300">
-        <div className="card-body gap-3">
-          <ul className="flex flex-col divide-y divide-base-300/70">
-            {FEATURES.map(({ icon: Icon, title, description }) => (
-              <li
-                key={title}
-                className="flex items-start gap-3 py-3 first:pt-1 last:pb-1"
-              >
-                <span className="shrink-0 size-9 rounded-box bg-primary/10 text-primary flex items-center justify-center">
-                  <Icon className="size-4.5" strokeWidth={1.75} />
-                </span>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium">{title}</div>
-                  <p className="text-xs text-base-content/60 mt-0.5">
-                    {description}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      <section className="card bg-transparent border border-base-300">
-        <div className="card-body gap-3">
-          <h3 className="font-semibold text-sm text-base-content/70">
-            সাপোর্ট ও কমিউনিটি
-          </h3>
-          <p className="text-sm text-base-content/70">
-            কোনো সমস্যা, প্রশ্ন বা নতুন ফিচারের পরামর্শ থাকলে হোয়াটসঅ্যাপ
-            গ্রুপে জানান।
+    <div className="card bg-base-100 shadow-sm border border-base-300">
+      <div className="card-body gap-4">
+        <div className="text-center">
+          <h1 className="card-title justify-center text-2xl">সাহায্য</h1>
+          <p className="text-sm text-base-content/70 mt-1">
+            সাইট ম্যানেজার কীভাবে ব্যবহার করবেন
           </p>
-          <a
-            href={LINKS.whatsapp}
-            target="_blank"
-            rel="noreferrer"
-            className="btn btn-success btn-outline w-full sm:w-auto sm:self-start gap-2"
-          >
-            <MessageCircle className="size-4" strokeWidth={1.75} />
-            গ্রুপে যোগ দিন
-            <ExternalLink className="size-3.5 opacity-60" strokeWidth={1.75} />
-          </a>
         </div>
-      </section>
-
-      <p className="text-center text-xs text-base-content/50">
-        © {new Date().getFullYear()} {APP_FULL_NAME} -{' '}
-        <button
-          type="button"
-          className="link link-hover text-xs text-base-content/50"
-          onClick={() => setShowPortfolio(true)}
-        >
-          {DEVELOPER_NAME}
-        </button>
-      </p>
+        <SupportContent showLoginLink />
+      </div>
     </div>
   )
 }

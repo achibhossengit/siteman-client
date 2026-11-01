@@ -5,6 +5,7 @@ import { ActivityLayout } from "../layouts/ActivityLayout.jsx";
 import { SiteScopedLayout } from "../layouts/SiteScopedLayout.jsx";
 import { DetailLayout } from "../layouts/DetailLayout.jsx";
 import { GuestOnly, RequireAuth, RequireCompanyAdmin } from "./guards.jsx";
+import { SupportLayoutGate } from "./SupportLayoutGate.jsx";
 import { paths } from "./paths.js";
 import { BalancePage } from "../pages/sites/BalancePage.jsx";
 import { HajiraPage } from "../pages/sites/HajiraPage.jsx";
@@ -19,7 +20,6 @@ import { LabourSessionRecordsPage } from "../pages/labours/LabourSessionRecordsP
 import { AppInfoPage } from "../pages/AppInfoPage.jsx";
 import { ActivityPage } from "../pages/activities/ActivityPage.jsx";
 import { LoginPage } from "../pages/auth/LoginPage.jsx";
-import { HelpPage } from "../pages/auth/HelpPage.jsx";
 import { RegisterPage } from "../pages/auth/RegisterPage.jsx";
 import { PasswordResetPage } from "../pages/auth/PasswordResetPage.jsx";
 import { PasswordResetConfirmPage } from "../pages/auth/PasswordResetConfirmPage.jsx";
@@ -39,10 +39,18 @@ export const AppRouter = () => (
         />
       </Route>
 
+      {/* Shared help/support page — layout depends on auth */}
+      <Route element={<SupportLayoutGate />}>
+        <Route path={paths.help} element={<AppInfoPage />} />
+        <Route
+          path={paths.appInfo}
+          element={<Navigate to={paths.help} replace />}
+        />
+      </Route>
+
       <Route element={<GuestOnly />}>
         <Route element={<AuthLayout />}>
           <Route path={paths.login} element={<LoginPage />} />
-          <Route path={paths.help} element={<HelpPage />} />
           <Route path={paths.register} element={<RegisterPage />} />
           <Route
             path="/register/confirm"
@@ -98,7 +106,6 @@ export const AppRouter = () => (
             element={<Navigate to=".." relative="path" replace />}
           />
           <Route path="/labours/:labourId" element={<LabourDetailPage />} />
-          <Route path={paths.appInfo} element={<AppInfoPage />} />
         </Route>
       </Route>
 
