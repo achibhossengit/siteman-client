@@ -1007,28 +1007,6 @@ export const HajiraPage = () => {
   /** Extra defaults to 0 on rows — treat 0 as unset for bulk fill. */
   const isUnsetExtra = (value) => isBlank(value) || Number(value) === 0;
 
-  const applyAttendanceDefaults = () => {
-    setRows((prev) =>
-      prev.map((row) => {
-        if (!isBulkTargetRow(row)) return row;
-        const present = isBlank(row.present)
-          ? row.defaultAttendance
-          : row.present;
-        const salary =
-          Number(present) === 0
-            ? ""
-            : isBlank(row.salary)
-              ? row.defaultSalary
-              : row.salary;
-        return {
-          ...row,
-          present,
-          salary,
-        };
-      }),
-    );
-  };
-
   const applyPaymentDefaults = () => {
     setRows((prev) =>
       prev.map((row) => {
@@ -1042,15 +1020,33 @@ export const HajiraPage = () => {
   };
 
   const onHajiraBulkDefault = () => {
-    const target = rows.find(isBulkTargetRow);
-    if (!target) return;
-    const presentRaw = target.defaultAttendance;
-    const present =
-      presentRaw === "" || presentRaw == null ? "0" : String(presentRaw);
-    const salary =
-      Number(present) === 0 ? "" : numOrEmpty(target.defaultSalary);
-    setBulkAttendance({ present, salary });
-    setBulkPayment({ payment: numOrEmpty(target.defaultFooding) });
+    if (!rows.some(isBulkTargetRow)) return;
+    setRows((prev) =>
+      prev.map((row) => {
+        if (!isBulkTargetRow(row)) return row;
+        const present = isBlank(row.present)
+          ? row.defaultAttendance
+          : row.present;
+        const salary =
+          Number(present) === 0
+            ? ""
+            : isBlank(row.salary)
+              ? row.defaultSalary
+              : row.salary;
+        const payment = isBlank(row.payment)
+          ? row.defaultFooding
+          : row.payment;
+        return {
+          ...row,
+          present,
+          salary,
+          payment,
+        };
+      }),
+    );
+    setBulkAttendance(emptyBulkAttendance());
+    setBulkPayment(emptyBulkPayment());
+    setHajiraFilterOpen(false);
   };
 
   const onHajiraBulkCustom = () => {
