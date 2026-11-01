@@ -800,7 +800,7 @@ export const ActivityPage = () => {
 
   return (
     <section className="flex-1 min-h-0 flex flex-col bg-base-100">
-      <div className="shrink-0 px-2 pt-1.5 pb-1 flex items-center gap-1.5">
+      <div className="shrink-0 p-2 flex items-center gap-1.5">
         <select
           className="select select-xs min-h-7 h-7 min-w-0 flex-1 rounded-full border border-base-300/70 bg-base-200 font-normal focus:outline-none focus:border-primary"
           aria-label="ধরন"
@@ -893,7 +893,7 @@ export const ActivityPage = () => {
                   <tr>
                     <td
                       colSpan={3}
-                      className={`text-center text-sm text-base-content/60 py-10 ${CELL_GRID}`}
+                      className="text-center text-sm text-base-content/60 py-10 border-r border-r-base-content/35"
                     >
                       কোনো অডিট হিস্ট্রি নেই।
                     </td>

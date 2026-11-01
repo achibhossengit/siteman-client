@@ -1221,7 +1221,7 @@ export const CashPage = () => {
               <tr>
                 <td
                   colSpan={tableCols}
-                  className={`text-center text-base-content/60 py-10 ${CELL_GRID}`}
+                  className="text-center text-base-content/60 py-10 border-r border-r-base-content/35"
                 >
                   {`${isRange ? "এই সময়ে" : "এই তারিখে"} ${activeView.empty}`}
                 </td>
