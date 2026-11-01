@@ -227,6 +227,17 @@ export const formatDateColBn = (iso) => {
   }).format(d)
 }
 
+/** Same style as audit এন্ট্রি তারিখ date line, e.g. ১ নভে ২৬ */
+export const formatDateEntryBn = (iso) => {
+  const d = parseIsoDate(iso)
+  if (!d) return '—'
+  return new Intl.DateTimeFormat('bn-BD', {
+    day: 'numeric',
+    month: 'short',
+    year: '2-digit',
+  }).format(d)
+}
+
 export const WEEKDAY_LABELS_BN = [
   'শনি',
   'রবি',

@@ -42,7 +42,7 @@ import {
 import {
   dateFilterParams,
   formatDateBn,
-  formatDateColBn,
+  formatDateEntryBn,
   isIsoDate,
   isMultiDaySelection,
   normalizeEndDate,
@@ -421,10 +421,10 @@ const toFormValues = (cash) => ({
 const colgroup = (showDateCol) => (
   <colgroup>
     <col className="w-7 sm:w-8" />
-    {showDateCol ? <col className="w-16 sm:w-24" /> : null}
+    {showDateCol ? <col className="w-24 sm:w-28" /> : null}
     <col />
     {SHOW_BILLING ? <col className="w-20 sm:w-28" /> : null}
-    <col className="w-24 sm:w-32" />
+    <col className="w-[6.75rem] sm:w-28" />
   </colgroup>
 );
 
@@ -1177,7 +1177,9 @@ export const CashPage = () => {
                 </span>
               </th>
               {isRange ? (
-                <th className={`px-1 sm:px-3 whitespace-nowrap ${CELL_GRID}`}>
+                <th
+                  className={`px-1 sm:px-3 whitespace-nowrap text-center align-middle ${CELL_GRID}`}
+                >
                   তারিখ
                 </th>
               ) : null}
@@ -1197,13 +1199,13 @@ export const CashPage = () => {
                   </button>
                 </th>
               ) : null}
-              <th className={`text-right px-1 sm:px-3 ${CELL_GRID}`}>
+              <th className="text-right px-1 sm:px-2 !border-r-0 whitespace-nowrap">
                 <HeaderFilterPopover
                   open={typeFilterOpen}
                   onOpenChange={setTypeFilterOpen}
                   title="পরিমাণ"
                   label={activeView.label}
-                  triggerClassName="inline-flex items-center justify-end gap-0.5 max-w-full"
+                  triggerClassName="inline-flex items-center justify-end gap-0.5 whitespace-nowrap"
                   width={192}
                 >
                   <div className="flex flex-col gap-0.5">
@@ -1292,8 +1294,10 @@ export const CashPage = () => {
                       </span>
                     </td>
                     {isRange ? (
-                      <td className={`tabular-nums text-base-content/70 px-1 sm:px-3 truncate ${CELL_GRID}`}>
-                        {formatDateColBn(row.date)}
+                      <td
+                        className={`tabular-nums text-base-content/70 px-1 sm:px-2 whitespace-nowrap text-center align-middle ${CELL_GRID}`}
+                      >
+                        {formatDateEntryBn(row.date)}
                       </td>
                     ) : null}
                     <td className={`min-w-0 max-w-0 px-1 sm:px-3 ${CELL_GRID}`}>
@@ -1312,7 +1316,7 @@ export const CashPage = () => {
                       </td>
                     ) : null}
                     <td
-                      className={`text-right tabular-nums font-medium px-1 sm:px-3 whitespace-nowrap ${CELL_GRID} ${className}`}
+                      className={`text-right tabular-nums font-medium px-1 sm:px-2 whitespace-nowrap ${className}`}
                     >
                       {text}
                     </td>
