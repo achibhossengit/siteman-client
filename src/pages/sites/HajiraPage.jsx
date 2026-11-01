@@ -65,7 +65,6 @@ import {
   isCreateFormSelected,
   isAttendanceDirty,
   isBulkAttendanceDirty,
-  isBulkAttendanceZeroInvalid,
   isBulkBillingDirty,
   isBulkPaymentDirty,
   isCreateBlockedByLastSession,
@@ -993,7 +992,7 @@ export const HajiraPage = () => {
     }
   };
 
-  /** Bulk set only fills uncreated rows, and only blank fields on those rows. */
+  /** Bulk set targets uncreated, unlocked rows. */
   const isBulkTargetRow = (row) =>
     !recordIdOf(row) && !attendanceLocked(row);
 
@@ -1022,23 +1021,14 @@ export const HajiraPage = () => {
     setRows((prev) =>
       prev.map((row) => {
         if (!isBulkTargetRow(row)) return row;
-        const present = isBlank(row.present)
-          ? row.defaultAttendance
-          : row.present;
+        const present = row.defaultAttendance;
         const salary =
-          Number(present) === 0
-            ? ""
-            : isBlank(row.salary)
-              ? row.defaultSalary
-              : row.salary;
-        const payment = isBlank(row.payment)
-          ? row.defaultFooding
-          : row.payment;
+          Number(present) === 0 ? "" : row.defaultSalary;
         return {
           ...row,
           present,
           salary,
-          payment,
+          payment: row.defaultFooding,
         };
       }),
     );
@@ -1048,86 +1038,55 @@ export const HajiraPage = () => {
   };
 
   const onHajiraBulkCustom = () => {
-    const attDirty =
-      isBulkAttendanceDirty(bulkAttendance) &&
-      !isBulkAttendanceZeroInvalid(bulkAttendance);
-    const payDirty = isBulkPaymentDirty(bulkPayment);
-    if (!attDirty && !payDirty) return;
+    const presentProvided =
+      bulkAttendance.present !== "" &&
+      bulkAttendance.present != null &&
+      Number(bulkAttendance.present) !== 0;
+    const salaryProvided =
+      bulkAttendance.salary !== "" && bulkAttendance.salary != null;
+    const paymentProvided =
+      bulkPayment.payment !== "" && bulkPayment.payment != null;
+    if (!presentProvided && !salaryProvided && !paymentProvided) return;
 
-    if (attDirty) {
-      const customWouldBeInvalid = rows.some((row) => {
-        if (!isBulkTargetRow(row)) return false;
-        const next = {
-          present:
-            bulkAttendance.present !== "" && isBlank(row.present)
-              ? Number(bulkAttendance.present)
-              : row.present,
-          extra: row.extra,
-          payment: payDirty
-            ? bulkPayment.payment !== "" &&
-              bulkPayment.payment != null &&
-              isBlank(row.payment)
-              ? Number(bulkPayment.payment)
-              : row.payment
-            : row.payment,
-          advance: row.advance,
-          return: row.return,
-        };
-        return lacksMeaningfulDayValue(next);
-      });
-      if (customWouldBeInvalid) {
-        toastInfo(MEANINGFUL_DAY_VALUE_MESSAGE);
-        return;
-      }
+    const previewCustomRow = (row) => {
+      const nextPresent = presentProvided
+        ? Number(bulkAttendance.present)
+        : row.present;
+      const nextSalary = salaryProvided
+        ? Number(bulkAttendance.salary)
+        : row.salary;
+      const nextPayment = paymentProvided
+        ? Number(bulkPayment.payment)
+        : row.payment;
+      return {
+        present: nextPresent,
+        salary: nextSalary,
+        payment: nextPayment,
+        extra: row.extra,
+        advance: row.advance,
+        return: row.return,
+      };
+    };
+
+    const customWouldBeInvalid = rows.some((row) => {
+      if (!isBulkTargetRow(row)) return false;
+      return lacksMeaningfulDayValue(previewCustomRow(row));
+    });
+    if (customWouldBeInvalid) {
+      toastInfo(MEANINGFUL_DAY_VALUE_MESSAGE);
+      return;
     }
 
     setRows((prev) =>
       prev.map((row) => {
         if (!isBulkTargetRow(row)) return row;
-        let next = row;
-
-        if (attDirty) {
-          const applyingPresent =
-            bulkAttendance.present !== "" && isBlank(row.present);
-          const nextPresent = applyingPresent
-            ? Number(bulkAttendance.present)
-            : row.present;
-
-          let nextSalary = row.salary;
-          if (Number(nextPresent) === 0) {
-            nextSalary = "";
-          } else if (
-            bulkAttendance.salary !== "" &&
-            bulkAttendance.salary != null &&
-            isBlank(row.salary)
-          ) {
-            nextSalary = Number(bulkAttendance.salary);
-          } else if (
-            applyingPresent &&
-            isBlank(row.salary) &&
-            (bulkAttendance.salary === "" || bulkAttendance.salary == null) &&
-            !isBlank(row.defaultSalary)
-          ) {
-            nextSalary = Number(row.defaultSalary);
-          }
-
-          next = {
-            ...next,
-            present: nextPresent,
-            salary: nextSalary,
-          };
-        }
-
-        if (
-          payDirty &&
-          bulkPayment.payment !== "" &&
-          bulkPayment.payment != null &&
-          isBlank(next.payment)
-        ) {
-          next = { ...next, payment: Number(bulkPayment.payment) };
-        }
-
-        return next;
+        const preview = previewCustomRow(row);
+        return {
+          ...row,
+          present: preview.present,
+          salary: preview.salary,
+          payment: preview.payment,
+        };
       }),
     );
     setBulkAttendance(emptyBulkAttendance());
