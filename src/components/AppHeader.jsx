@@ -16,12 +16,9 @@ export const AppHeader = () => {
 
   return (
     <header className="bg-base-100 border-b border-base-300 w-full sticky top-0 z-30 h-14">
-      <div className="w-full flex justify-between items-center gap-2 px-2 py-1.5">
-        <div className="flex items-end gap-2 min-w-0">
+      <div className="w-full h-full flex justify-between items-center gap-2 px-2 py-1.5">
+        <div className="flex items-center gap-2 min-w-0">
           <BrandLogo />
-          <p className="text-md sm:text-lg font-medium text-base-content leading-normal">
-            সাইটম্যান
-          </p>
         </div>
 
         {MAINTENANCE ? null : (

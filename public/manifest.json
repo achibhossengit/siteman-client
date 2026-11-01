@@ -1,20 +1,22 @@
 {
-  "name": "সাইট ম্যানেজার",
-  "short_name": "সাইট ম্যান",
+  "name": "সাইটম্যান",
+  "short_name": "সাইটম্যান",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#fafafa",
   "theme_color": "#fafafa",
   "icons": [
     {
-      "src": "/logo.png",
+      "src": "/logo-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/logo.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
