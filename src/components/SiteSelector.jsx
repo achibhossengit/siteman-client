@@ -83,7 +83,10 @@ export const SiteSelector = ({
       <button
         ref={triggerRef}
         type="button"
-        className="input input-bordered input-sm w-full flex items-center justify-between gap-1 cursor-pointer text-left font-normal"
+        className={[
+          'input input-bordered input-sm w-full flex items-center justify-between gap-1 cursor-pointer text-left font-normal focus:outline-none focus:border-primary',
+          open ? 'border-primary' : '',
+        ].join(' ')}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label="সাইট নির্বাচন"
@@ -91,9 +94,10 @@ export const SiteSelector = ({
       >
         <span className="truncate">{label}</span>
         <ChevronDown
-          className={`size-4 shrink-0 opacity-60 transition-transform duration-200 ${
-            open ? 'rotate-180' : ''
-          }`}
+          className={[
+            'size-4 shrink-0 transition-transform duration-200',
+            open ? 'rotate-180 text-primary opacity-100' : 'opacity-60',
+          ].join(' ')}
           strokeWidth={1.75}
         />
       </button>
@@ -124,7 +128,9 @@ export const SiteSelector = ({
                           type="button"
                           className={[
                             'btn btn-ghost btn-sm justify-start font-normal h-8 min-h-8',
-                            active ? 'bg-base-300 hover:bg-base-300' : '',
+                            active
+                              ? 'bg-primary text-primary-content hover:bg-primary hover:text-primary-content'
+                              : '',
                           ].join(' ')}
                           onClick={() => pick(site.id)}
                         >

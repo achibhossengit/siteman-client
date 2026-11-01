@@ -26,7 +26,8 @@ const panelClass =
   'bg-base-100 rounded-box shadow-lg border border-base-300 overflow-hidden flex flex-col w-80 max-w-[calc(100vw-16px)] origin-top-left'
 
 const chipClass = 'btn btn-ghost btn-xs font-normal h-7 min-h-7'
-const chipSelectedClass = `${chipClass} bg-base-300 hover:bg-base-300 pointer-events-none`
+const chipSelectedClass =
+  `${chipClass} bg-primary text-primary-content hover:bg-primary hover:text-primary-content pointer-events-none`
 
 const formatChipDateBn = (iso) => {
   const d = parseIsoDate(iso)
@@ -231,7 +232,10 @@ export const DateSelector = ({
       <button
         ref={triggerRef}
         type="button"
-        className="input input-bordered input-sm w-full flex items-center justify-between gap-1 cursor-pointer text-left font-normal"
+        className={[
+          'input input-bordered input-sm w-full flex items-center justify-between gap-1 cursor-pointer text-left font-normal focus:outline-none focus:border-primary',
+          open ? 'border-primary' : '',
+        ].join(' ')}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => (open ? setOpen(false) : openPanel())}
@@ -242,9 +246,10 @@ export const DateSelector = ({
             : formatDateRangeBn(committedStart, committedEnd)}
         </span>
         <ChevronDown
-          className={`size-4 shrink-0 opacity-60 transition-transform duration-200 ${
-            open ? 'rotate-180' : ''
-          }`}
+          className={[
+            'size-4 shrink-0 transition-transform duration-200',
+            open ? 'rotate-180 text-primary opacity-100' : 'opacity-60',
+          ].join(' ')}
           strokeWidth={1.75}
         />
       </button>
@@ -339,9 +344,14 @@ export const DateSelector = ({
                           !cell.inMonth && !disabled
                             ? 'text-base-content/35'
                             : '',
-                          cell.iso === today && !inRange ? 'font-bold' : '',
-                          inRange
-                            ? 'bg-base-300 text-base-content font-medium'
+                          cell.iso === today && !inRange
+                            ? 'font-bold text-primary'
+                            : '',
+                          inRange && !(single || isStart || isEnd)
+                            ? 'bg-primary/15 text-base-content font-medium'
+                            : '',
+                          single || isStart || isEnd
+                            ? 'bg-primary text-primary-content font-medium'
                             : '',
                           inRange && (single || isStart || weekStart)
                             ? 'rounded-l-full'
@@ -370,7 +380,7 @@ export const DateSelector = ({
                         className={[
                           chipClass,
                           selectedPreset === preset.id
-                            ? 'bg-base-300 hover:bg-base-300'
+                            ? 'bg-primary text-primary-content hover:bg-primary hover:text-primary-content'
                             : '',
                         ].join(' ')}
                         onClick={() => applyPreset(preset.id)}
@@ -406,7 +416,7 @@ export const DateSelector = ({
                   </button>
                   <button
                     type="button"
-                    className="btn btn-neutral btn-sm flex-1"
+                    className="btn btn-primary btn-sm flex-1"
                     onClick={onApply}
                   >
                     সেট
