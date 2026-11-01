@@ -36,7 +36,6 @@ import {
   BILLING_FILTER_MODAL_ID,
   BULK_ROW_FIX_TOAST,
   EARNINGS_DEFAULT_FIELDS,
-  EARNINGS_FILTER_MODAL_ID,
   HAJIRA_MOT_DOYA_ROW_ID,
   HAJIRA_MOT_FEROT_ROW_ID,
   HAJIRA_SORBOMOT_DOYA_ID,
@@ -194,9 +193,6 @@ export const HajiraPage = () => {
   const [labourFilter, setLabourFilter] = useState(() => [
     ...LABOUR_DEFAULT_FIELDS,
   ]);
-  const [earningsFilter, setEarningsFilter] = useState(() => [
-    ...EARNINGS_DEFAULT_FIELDS,
-  ]);
   const [paymentFilter, setPaymentFilter] = useState(["return"]);
   const [billingFilter, setBillingFilter] = useState(["all"]);
   const [hajiraFilter, setHajiraFilter] = useState([
@@ -348,10 +344,6 @@ export const HajiraPage = () => {
     document.getElementById(BILLING_FILTER_MODAL_ID)?.showModal();
   };
 
-  const openEarningsFilterModal = () => {
-    document.getElementById(EARNINGS_FILTER_MODAL_ID)?.showModal();
-  };
-
   const withSiteLabourCurrentSite = (list) =>
     list.map((row) => ({
       ...row,
@@ -436,7 +428,6 @@ export const HajiraPage = () => {
     setRecordModalView(MODAL_VIEWS.detail);
     setModalEditing(false);
     setExpandedHistoryId(null);
-    setEarningsFilter([...EARNINGS_DEFAULT_FIELDS]);
     setPaymentFilter(["payment", "advance", "return"]);
     setBillingFilter(["all"]);
     setHajiraFilter(["present", "extra"]);
@@ -445,7 +436,7 @@ export const HajiraPage = () => {
   useEffect(() => {
     setSelectedIds(new Set());
     setSaveRowErrors({});
-  }, [earningsFilter, paymentFilter, billingFilter, hajiraFilter, labourFilter]);
+  }, [paymentFilter, billingFilter, hajiraFilter, labourFilter]);
 
   useEffect(() => {
     const focus =
@@ -561,7 +552,7 @@ export const HajiraPage = () => {
     [rows, initialRows, date],
   );
 
-  const viewEarningsFilter = earningsFilter;
+  const viewEarningsFilter = EARNINGS_DEFAULT_FIELDS;
   const viewPaymentFilter = paymentFilter;
   const viewBillingFilter = SHOW_BILLING ? billingFilter : ["all"];
   const viewHajiraFields = hajiraFilter.filter((field) => field !== "billing");
@@ -1433,7 +1424,7 @@ export const HajiraPage = () => {
       ? [modalBaseline]
       : [];
 
-  const tableColCount = 6 + (SHOW_BILLING ? 1 : 0);
+  const tableColCount = 5 + (SHOW_BILLING ? 1 : 0);
 
   const labourHeader = (
     <HeaderFilterPopover
@@ -1537,8 +1528,6 @@ export const HajiraPage = () => {
         setSelectMode={setSelectMode}
         labourHeader={labourHeader}
         hajiraHeader={hajiraHeader}
-        openEarningsFilterModal={openEarningsFilterModal}
-        earningsFilter={earningsFilter}
         paymentFilter={paymentFilter}
         showSalary={showSalary}
         openBillingModal={openBillingModal}
@@ -1549,7 +1538,6 @@ export const HajiraPage = () => {
         initialByLabour={initialByLabour}
         activityIdsForRow={activityIdsForRow}
         selectedIds={selectedIds}
-        viewEarningsFilter={viewEarningsFilter}
         viewPaymentFilter={viewPaymentFilter}
         showReturnAmount={showReturnAmount}
         viewHajiraFields={viewHajiraFields}
@@ -1630,8 +1618,6 @@ export const HajiraPage = () => {
       />
 
       <HajiraFilterModals
-        earningsFilter={earningsFilter}
-        setEarningsFilter={setEarningsFilter}
         showBulkSection={showBulkSection}
         billingFilterOptions={billingFilterOptions}
         billingFilter={billingFilter}

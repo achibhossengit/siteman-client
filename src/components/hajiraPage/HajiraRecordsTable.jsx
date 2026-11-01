@@ -5,7 +5,7 @@ import { messageForCode } from "../../api/errors.js";
 import { PersonAvatar } from "../PersonAvatar.jsx";
 import { SHOW_BILLING } from "../../config/features.js";
 import { paths } from "../../router/paths.js";
-import { formatBnNumber } from "../../utils/format.js";
+import { formatBnNumber, splitLabourNameLines } from "../../utils/format.js";
 import {
   FitAmount as Amount,
   JoinedAmounts,
@@ -25,7 +25,6 @@ import {
 import {
   dayEarnings,
   fieldTone,
-  filterHeaderTitle,
   hasBilling,
   isPendingCreateRow,
   paymentLineTone,
@@ -34,25 +33,36 @@ import {
   sessionPairClass,
 } from "./helpers.js";
 
-const BORDER_Y = "border-b border-b-base-content/35";
+/* Zebra rows + vertical column borders; footer মোট rows also get soft subrow borders. */
+const BORDER_X = "border-r border-r-base-content/20";
+const BORDER_X_SOFT = "border-r border-r-base-content/10";
+const BORDER_X_ON_DARK = "!border-r-neutral-content/25";
 const BORDER_Y_SOFT = "border-b border-b-base-content/15";
-const BORDER_X = "border-r border-r-base-content/35";
-const BORDER_X_INNER = "border-r border-r-base-content/15";
-const CELL = `${BORDER_Y} ${BORDER_X}`;
-const CELL_PHOTO = BORDER_Y;
-const CELL_TOP = `${BORDER_Y_SOFT} ${BORDER_X}`;
-const CELL_TOP_INNER = `${BORDER_Y_SOFT} ${BORDER_X_INNER}`;
-const CELL_SUB = `${BORDER_Y} ${BORDER_X}`;
-const CELL_SUB_INNER = `${BORDER_Y} ${BORDER_X_INNER}`;
+const BORDER_Y = "border-b border-b-base-content/25";
+const CELL = BORDER_X;
+const CELL_TOP = BORDER_X;
+const CELL_TOP_INNER = BORDER_X_SOFT;
+const CELL_SUB = BORDER_X;
+const CELL_SUB_INNER = BORDER_X_SOFT;
+const FOOT_TOP = `${BORDER_Y_SOFT} ${BORDER_X}`;
+const FOOT_TOP_INNER = `${BORDER_Y_SOFT} ${BORDER_X_SOFT}`;
+const FOOT_MID = `${BORDER_Y_SOFT} ${BORDER_X}`;
+const FOOT_MID_INNER = `${BORDER_Y_SOFT} ${BORDER_X_SOFT}`;
+const FOOT_BOT = `${BORDER_Y} ${BORDER_X}`;
+const FOOT_BOT_INNER = `${BORDER_Y} ${BORDER_X_SOFT}`;
 const ROW_EVEN = "!bg-base-100";
 const ROW_ODD = "!bg-base-200";
-const FOOT_BG = "!bg-base-300";
-const SORBOMOT_BG =
-  "!bg-[color-mix(in_oklab,var(--color-base-300),var(--color-base-content)_6%)]";
-const HEAD_BG = SORBOMOT_BG;
+const FOOT_BG = "!bg-base-200";
+/** Slightly darker for মোট উপার্জন / দেওয়া / ফেরত footer. */
+const FOOT_MOT_BG = "!bg-base-300";
+/** পাওনা: a step darker than মোট footer rows. */
+const FOOT_PAONA_BG =
+  "!bg-[color-mix(in_oklab,var(--color-base-300),var(--color-base-content)_10%)]";
+const HEAD_BG =
+  `!bg-[color-mix(in_oklab,var(--color-neutral),var(--color-base-300)_35%)] !text-neutral-content [&_button]:!text-neutral-content ${BORDER_X} ${BORDER_X_ON_DARK}`;
 /** Full labour band ≈ one cash `table-sm` / `sm:table-md` row; 3 subrows share it. */
-const BAND_H = "h-10 sm:h-12";
-const SUB_H = "!h-[calc(2.5rem/3)] sm:!h-4 !py-0";
+const BAND_H = "h-12 sm:h-14";
+const SUB_H = "!h-[calc(3rem/3)] sm:!h-[calc(3.5rem/3)] !py-0";
 const VALUE_CELL =
   `text-right align-middle tabular-nums whitespace-nowrap leading-none px-0.5 text-xs w-[1%] min-w-14 max-w-24 ${SUB_H}`;
 const PAIR_COL = "w-[1%] min-w-14";
@@ -77,8 +87,6 @@ export function HajiraRecordsTable({
   setSelectMode,
   labourHeader,
   hajiraHeader,
-  openEarningsFilterModal,
-  earningsFilter,
   paymentFilter,
   showSalary,
   openBillingModal,
@@ -89,7 +97,6 @@ export function HajiraRecordsTable({
   initialByLabour,
   activityIdsForRow,
   selectedIds,
-  viewEarningsFilter,
   viewPaymentFilter,
   showReturnAmount,
   viewHajiraFields,
@@ -116,10 +123,9 @@ export function HajiraRecordsTable({
   const footRows = pairRows + 1;
   return (
     <div className="flex-1 min-h-0 overflow-auto pb-24">
-      <table className="table table-xs table-auto w-full bg-transparent text-xs border-separate border-spacing-0 border-t border-l border-base-content/35 [&_th]:!px-1 [&_th]:!py-1 sm:[&_th]:!py-1.5 [&_td]:!px-0.5 [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
+      <table className="table table-xs table-auto w-full bg-transparent text-xs border-separate border-spacing-0 [&_th]:!px-1 [&_th]:!py-1 sm:[&_th]:!py-1.5 [&_th]:font-semibold [&_td]:!px-0.5 [&_tbody_tr]:bg-transparent [&_tbody_td]:bg-transparent [&_tbody_tr:hover]:bg-transparent [&_tfoot_tr]:bg-transparent [&_tfoot_td]:bg-transparent">
         <colgroup>
           <col className="w-10" />
-          <col className="w-8" />
           <col />
           <col className={PAIR_COL} />
           <col className={PAIR_COL} />
@@ -159,7 +165,6 @@ export function HajiraRecordsTable({
                 )}
               </span>
             </th>
-            <th className={`w-8 px-0 ${CELL_PHOTO} ${HEAD_BG}`} />
             <th className={`min-w-0 pl-1 align-middle ${CELL} ${HEAD_BG}`}>
               {labourHeader}
             </th>
@@ -170,15 +175,9 @@ export function HajiraRecordsTable({
               {hajiraHeader}
             </th>
             <th
-              className={`text-center align-middle font-medium ${CELL} ${SORBOMOT_BG}`}
+              className={`text-center align-middle font-medium ${CELL} ${HEAD_BG}`}
             >
-              <button type="button" onClick={openEarningsFilterModal}>
-                {filterHeaderTitle(
-                  "সর্বমোট",
-                  earningsFilter,
-                  EARNINGS_DEFAULT_FIELDS,
-                )}
-              </button>
+              সর্বমোট
             </th>
             {SHOW_BILLING ? (
               <th className={`text-right align-middle ${CELL} ${HEAD_BG}`}>
@@ -217,7 +216,7 @@ export function HajiraRecordsTable({
                 hajiraDirtyTone === "text-amber-500"
                   ? "text-amber-500"
                   : "";
-              const earn = dayEarnings(row, viewEarningsFilter);
+              const earn = dayEarnings(row, EARNINGS_DEFAULT_FIELDS);
               const pendingCreate = isPendingCreateRow(row, initial, date);
               const { paid: settlePaid, back: settleBack } = settlementSides(
                 row,
@@ -295,37 +294,25 @@ export function HajiraRecordsTable({
                     </td>
                     <td
                       rowSpan={pairRows}
-                      className={`align-middle w-8 px-0 ${BAND_H} ${CELL_PHOTO} ${fill}`}
+                      className={`align-middle font-medium pl-1 min-w-0 ${BAND_H} ${CELL} ${fill} ${nameMutedClass}`}
                     >
-                      <LabourIdentity
-                        row={row}
-                        offSite={offSite}
-                        canOpen={canOpenLabourDetail(row)}
-                        onDenied={showLabourDetailDenied}
-                      >
+                      <span className="inline-flex items-center gap-2 min-w-0 max-w-full">
                         <PersonAvatar
                           photo={row.labourPhoto}
                           name={row.labourName}
-                          size="xs"
+                          size="sm"
                           shape="square"
-                          className="[&>div]:w-5 [&>div]:h-5"
+                          className="shrink-0"
                         />
-                      </LabourIdentity>
-                    </td>
-                    <td
-                      rowSpan={pairRows}
-                      className={`align-middle font-medium pl-1 min-w-0 ${BAND_H} ${CELL} ${fill} ${nameMutedClass}`}
-                    >
-                      <LabourIdentity
-                        row={row}
-                        offSite={offSite}
-                        canOpen={canOpenLabourDetail(row)}
-                        onDenied={showLabourDetailDenied}
-                      >
-                        <span className="link link-hover block min-w-0 leading-tight whitespace-normal wrap-break-word">
-                          {row.labourName}
-                        </span>
-                      </LabourIdentity>
+                        <LabourIdentity
+                          row={row}
+                          offSite={offSite}
+                          canOpen={canOpenLabourDetail(row)}
+                          onDenied={showLabourDetailDenied}
+                        >
+                          <LabourNameLines name={row.labourName} />
+                        </LabourIdentity>
+                      </span>
                     </td>
                     <td
                       className={`${VALUE_CELL} ${CELL_TOP_INNER} ${fill} ${sessionPairClass(hasSession, "top", "left")} ${hajiraGroupTone} ${sealedContentClass} cursor-pointer`}
@@ -349,7 +336,7 @@ export function HajiraRecordsTable({
                       />
                     </td>
                     <td
-                      className={`${VALUE_CELL} ${CELL_TOP} ${SORBOMOT_BG} ${sealedContentClass}`}
+                      className={`${VALUE_CELL} ${CELL_TOP} ${fill} ${sealedContentClass}`}
                       title={rowTitle}
                     >
                       <Amount value={earn} tone="text-success" />
@@ -403,7 +390,7 @@ export function HajiraRecordsTable({
                       />
                     </td>
                     <td
-                      className={`${VALUE_CELL} ${row2Right} ${SORBOMOT_BG} ${sealedContentClass}`}
+                      className={`${VALUE_CELL} ${row2Right} ${fill} ${sealedContentClass}`}
                       title={rowTitle}
                     >
                       <Amount
@@ -434,7 +421,7 @@ export function HajiraRecordsTable({
                         <Amount value={settleBack} tone={RETURN_TONE} />
                       </td>
                       <td
-                        className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG} ${sealedContentClass}`}
+                        className={`${VALUE_CELL} ${CELL_SUB} ${fill} ${sealedContentClass}`}
                         title={rowTitle}
                       >
                         <Amount
@@ -461,24 +448,24 @@ export function HajiraRecordsTable({
         {visibleRows.length > 0 ? (
           <tfoot>
             <tr className="font-medium bg-transparent">
+              <td className={`w-10 ${BORDER_Y_SOFT} ${FOOT_MOT_BG}`} />
               <td
-                colSpan={3}
-                className={`align-middle text-right whitespace-nowrap pr-1 ${CELL} ${FOOT_BG}`}
+                className={`align-middle text-right whitespace-nowrap pr-1 ${FOOT_TOP} ${FOOT_MOT_BG}`}
               >
                 মোট উপার্জন
               </td>
               <td
-                className={`${VALUE_CELL} ${CELL_TOP_INNER} ${FOOT_BG} !align-baseline`}
+                className={`${VALUE_CELL} ${FOOT_TOP_INNER} ${FOOT_MOT_BG}`}
               >
                 <Amount value={totals.present} />
               </td>
               <td
-                className={`${VALUE_CELL} ${CELL_TOP} ${FOOT_BG} !align-baseline`}
+                className={`${VALUE_CELL} ${FOOT_TOP} ${FOOT_MOT_BG}`}
               >
                 <Amount value={totals.extra} tone="text-success" />
               </td>
               <td
-                className={`${VALUE_CELL} ${CELL_TOP} ${SORBOMOT_BG} !align-baseline`}
+                className={`${VALUE_CELL} ${FOOT_TOP} ${FOOT_MOT_BG}`}
               >
                 <Amount value={totals.earnings} tone="text-success" />
               </td>
@@ -492,16 +479,16 @@ export function HajiraRecordsTable({
               ) : null}
             </tr>
             <tr id={HAJIRA_MOT_DOYA_ROW_ID} className="font-medium bg-transparent">
+              <td className={`w-10 ${BORDER_Y_SOFT} ${FOOT_MOT_BG}`} />
               <td
-                colSpan={3}
-                className={`align-middle text-right whitespace-nowrap pr-1 ${CELL} ${FOOT_BG}`}
+                className={`align-middle text-right whitespace-nowrap pr-1 ${FOOT_MID} ${FOOT_MOT_BG}`}
               >
                 মোট দেওয়া
               </td>
-              <td className={`${VALUE_CELL} ${row2Left} ${FOOT_BG}`}>
+              <td className={`${VALUE_CELL} ${FOOT_MID_INNER} ${FOOT_MOT_BG}`}>
                 <Amount value={totals.payment} tone="text-error" />
               </td>
-              <td className={`${VALUE_CELL} ${row2Right} ${FOOT_BG}`}>
+              <td className={`${VALUE_CELL} ${FOOT_MID} ${FOOT_MOT_BG}`}>
                 <JoinedAmounts
                   tone="text-error"
                   parts={[
@@ -512,7 +499,7 @@ export function HajiraRecordsTable({
               </td>
               <td
                 id={HAJIRA_SORBOMOT_DOYA_ID}
-                className={`${VALUE_CELL} ${row2Right} ${SORBOMOT_BG}`}
+                className={`${VALUE_CELL} ${FOOT_MID} ${FOOT_MOT_BG}`}
               >
                 <Amount
                   value={
@@ -525,16 +512,16 @@ export function HajiraRecordsTable({
               </td>
             </tr>
             <tr id={HAJIRA_MOT_FEROT_ROW_ID} className="font-medium bg-transparent">
+                <td className={`w-10 ${BORDER_Y} ${FOOT_MOT_BG}`} />
                 <td
-                  colSpan={3}
-                  className={`align-middle text-right whitespace-nowrap pr-1 ${CELL} ${FOOT_BG}`}
+                  className={`align-middle text-right whitespace-nowrap pr-1 ${FOOT_BOT} ${FOOT_MOT_BG}`}
                 >
                   মোট ফেরত
                 </td>
-                <td className={`${VALUE_CELL} ${CELL_SUB_INNER} ${FOOT_BG}`}>
+                <td className={`${VALUE_CELL} ${FOOT_BOT_INNER} ${FOOT_MOT_BG}`}>
                   <Amount value={totals.return} tone={RETURN_TONE} />
                 </td>
-                <td className={`${VALUE_CELL} ${CELL_SUB} ${FOOT_BG}`}>
+                <td className={`${VALUE_CELL} ${FOOT_BOT} ${FOOT_MOT_BG}`}>
                   <Amount
                     value={settlementSides(totals).back}
                     tone={RETURN_TONE}
@@ -542,7 +529,7 @@ export function HajiraRecordsTable({
                 </td>
                 <td
                   id={HAJIRA_SORBOMOT_FEROT_ID}
-                  className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}
+                  className={`${VALUE_CELL} ${FOOT_BOT} ${FOOT_MOT_BG}`}
                 >
                   <Amount
                     value={
@@ -554,15 +541,15 @@ export function HajiraRecordsTable({
                 </td>
               </tr>
             <tr className="font-medium bg-transparent">
+              <td className={`w-10 ${BORDER_Y} ${FOOT_PAONA_BG}`} />
               <td
-                colSpan={3}
-                className={`align-middle text-right whitespace-nowrap pr-1 ${CELL} ${SORBOMOT_BG}`}
+                className={`align-middle text-right whitespace-nowrap pr-1 ${BORDER_Y} ${BORDER_X} ${FOOT_PAONA_BG}`}
               >
                 পাওনা
               </td>
               <td
                 colSpan={3}
-                className={`${VALUE_CELL} ${CELL_SUB} ${SORBOMOT_BG}`}
+                className={`${VALUE_CELL} ${BORDER_Y} ${BORDER_X} ${FOOT_PAONA_BG}`}
               >
                 <Amount
                   value={remainTotal}
@@ -577,13 +564,23 @@ export function HajiraRecordsTable({
   );
 }
 
+function LabourNameLines({ name }) {
+  const { first, last } = splitLabourNameLines(name);
+  return (
+    <span className="link link-hover min-w-0 leading-tight flex flex-col">
+      <span className="truncate">{first}</span>
+      {last ? <span className="truncate">{last}</span> : null}
+    </span>
+  );
+}
+
 function LabourIdentity({ row, offSite, canOpen, onDenied, children }) {
   const muted = offSite ? "text-base-content/45" : "";
   if (row.labourId != null && canOpen) {
     return (
       <Link
         to={paths.labourDetail(row.labourId)}
-        className={["inline-flex items-center max-w-full", muted]
+        className={["inline-flex min-w-0 max-w-full", muted]
           .filter(Boolean)
           .join(" ")}
         title={offSite ? "এই শ্রমিক আর এই সাইটে নেই" : row.labourName}
@@ -597,7 +594,7 @@ function LabourIdentity({ row, offSite, canOpen, onDenied, children }) {
       <button
         type="button"
         className={[
-          "inline-flex items-center max-w-full text-left cursor-pointer",
+          "inline-flex min-w-0 max-w-full text-left cursor-pointer",
           "text-base-content/60",
           muted,
         ]
@@ -611,11 +608,7 @@ function LabourIdentity({ row, offSite, canOpen, onDenied, children }) {
     );
   }
   return (
-    <span
-      className={["inline-flex items-center max-w-full", muted]
-        .filter(Boolean)
-        .join(" ")}
-    >
+    <span className={["inline-flex min-w-0 max-w-full", muted].filter(Boolean).join(" ")}>
       {children}
     </span>
   );

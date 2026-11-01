@@ -71,14 +71,24 @@ const CASH_FOCUS_VIEWS = new Set(["deposit", "withdrawal", "cost"]);
 const cashMotRowId = (view) => `cash-mot-${view}-row`;
 const cashSorbomotId = (view) => `cash-sorbomot-${view}`;
 const PAGE_SIZE = 100;
-const CELL_GRID =
-  "border-b border-b-base-content/35 border-r border-r-base-content/35";
-const TABLE_GRID =
-  "border-separate border-spacing-0 border-t border-l border-base-content/35";
+/* Match hajira: vertical column borders only (no row grid). */
+const CELL_GRID = "border-r border-r-base-content/20";
+const TABLE_GRID = "border-separate border-spacing-0";
 const HEAD_BG =
-  "!bg-[color-mix(in_oklab,var(--color-base-300),var(--color-base-content)_6%)]";
+  "!bg-[color-mix(in_oklab,var(--color-neutral),var(--color-base-300)_35%)] !text-neutral-content [&_button]:!text-neutral-content";
 const HEAD_TH =
-  "[&_th]:!bg-[color-mix(in_oklab,var(--color-base-300),var(--color-base-content)_6%)]";
+  "[&_th]:!bg-[color-mix(in_oklab,var(--color-neutral),var(--color-base-300)_35%)] [&_th]:!text-neutral-content [&_button]:!text-neutral-content [&_th]:border-r [&_th]:!border-r-neutral-content/25";
+const ROW_ZEBRA_EVEN = "[&>td]:!bg-base-100";
+const ROW_ZEBRA_ODD = "[&>td]:!bg-base-200";
+const BORDER_Y_SOFT = "border-b border-b-base-content/15";
+const BORDER_Y = "border-b border-b-base-content/25";
+/** Match hajira মোট footer band. */
+const FOOT_MOT_BG = "!bg-base-300";
+const FOOT_TR = "font-medium bg-transparent";
+const FOOT_LABEL =
+  "px-1 sm:px-3 !py-0.5 leading-tight text-right text-base-content/70 align-middle";
+const FOOT_VALUE =
+  "text-right tabular-nums leading-tight px-1 sm:px-3 !py-0.5 whitespace-nowrap align-middle";
 
 const CASH_LOG_FIELD_LABELS = {
   note: "নোট",
@@ -1131,7 +1141,7 @@ export const CashPage = () => {
   return (
     <section className="flex-1 min-h-0 flex flex-col relative overflow-x-hidden">
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-        <table className={`table table-fixed table-sm sm:table-md w-full max-w-full ${TABLE_GRID} [&_th]:!py-1 sm:[&_th]:!py-1.5`}>
+        <table className={`table table-fixed table-sm sm:table-md w-full max-w-full ${TABLE_GRID} [&_th]:!py-1 sm:[&_th]:!py-1.5 [&_th]:font-semibold`}>
           {colgroup(isRange)}
           <thead className={`sticky top-0 z-10 ${HEAD_BG}`}>
             <tr className={HEAD_TH}>
@@ -1191,7 +1201,7 @@ export const CashPage = () => {
                   onOpenChange={setTypeFilterOpen}
                   title="পরিমাণ"
                   label={activeView.label}
-                  triggerClassName={`inline-flex items-center justify-end gap-0.5 max-w-full ${activeView.tone}`}
+                  triggerClassName="inline-flex items-center justify-end gap-0.5 max-w-full"
                   width={192}
                 >
                   <div className="flex flex-col gap-0.5">
@@ -1203,7 +1213,6 @@ export const CashPage = () => {
                           type="button"
                           className={[
                             "btn btn-ghost btn-sm justify-start font-normal h-auto min-h-8 py-1.5 whitespace-normal text-left w-full",
-                            view.tone,
                             active ? "bg-base-300 hover:bg-base-300" : "",
                           ].join(" ")}
                           onClick={() => {
@@ -1225,7 +1234,7 @@ export const CashPage = () => {
               <tr>
                 <td
                   colSpan={tableCols}
-                  className="text-center text-base-content/60 py-10 border-r border-r-base-content/35"
+                  className="text-center text-base-content/60 py-10"
                 >
                   {`${isRange ? "এই সময়ে" : "এই তারিখে"} ${activeView.empty}`}
                 </td>
@@ -1247,9 +1256,10 @@ export const CashPage = () => {
                   <tr
                     key={isGhost ? `activity-${row.id}` : row.id}
                     className={[
-                      "cursor-pointer hover:bg-base-200/60",
+                      "cursor-pointer hover:[&>td]:!bg-base-300/50",
                       isGhost ? "opacity-90" : "",
-                      activityToneClass(row.activityTone),
+                      activityToneClass(row.activityTone) ||
+                        (index % 2 === 0 ? ROW_ZEBRA_EVEN : ROW_ZEBRA_ODD),
                     ]
                       .filter(Boolean)
                       .join(" ")}
@@ -1309,53 +1319,47 @@ export const CashPage = () => {
           </tbody>
           {showSummary && isAllRecords ? (
             <tfoot>
-              <tr
-                id={cashMotRowId("deposit")}
-                className="font-medium [&_td]:bg-base-300"
-              >
+              <tr id={cashMotRowId("deposit")} className={FOOT_TR}>
+                <td className={`w-7 sm:w-8 ${BORDER_Y_SOFT} ${FOOT_MOT_BG}`} />
                 <td
-                  colSpan={tableCols - 1}
-                  className={`px-1 sm:px-3 !py-0.5 sm:!py-0.5 leading-tight text-right text-base-content/60 !bg-base-300 ${CELL_GRID}`}
+                  colSpan={tableCols - 2}
+                  className={`${FOOT_LABEL} ${BORDER_Y_SOFT} ${CELL_GRID} ${FOOT_MOT_BG}`}
                 >
                   মোট জমা
                 </td>
                 <td
                   id={cashSorbomotId("deposit")}
-                  className={`text-right tabular-nums leading-tight px-1 sm:px-3 !py-0.5 sm:!py-0.5 whitespace-nowrap !bg-base-300 ${CELL_GRID} text-success`}
+                  className={`${FOOT_VALUE} ${BORDER_Y_SOFT} ${FOOT_MOT_BG} text-success`}
                 >
                   {formatBnNumber(summaryTotals.deposit)}
                 </td>
               </tr>
-              <tr
-                id={cashMotRowId("withdrawal")}
-                className="font-medium [&_td]:bg-base-300"
-              >
+              <tr id={cashMotRowId("withdrawal")} className={FOOT_TR}>
+                <td className={`w-7 sm:w-8 ${BORDER_Y_SOFT} ${FOOT_MOT_BG}`} />
                 <td
-                  colSpan={tableCols - 1}
-                  className={`px-1 sm:px-3 !py-0.5 sm:!py-0.5 leading-tight text-right text-base-content/60 !bg-base-300 ${CELL_GRID}`}
+                  colSpan={tableCols - 2}
+                  className={`${FOOT_LABEL} ${BORDER_Y_SOFT} ${CELL_GRID} ${FOOT_MOT_BG}`}
                 >
                   মোট উত্তোলন
                 </td>
                 <td
                   id={cashSorbomotId("withdrawal")}
-                  className={`text-right tabular-nums leading-tight px-1 sm:px-3 !py-0.5 sm:!py-0.5 whitespace-nowrap !bg-base-300 ${CELL_GRID} text-warning`}
+                  className={`${FOOT_VALUE} ${BORDER_Y_SOFT} ${FOOT_MOT_BG} text-warning`}
                 >
                   {formatBnNumber(summaryTotals.withdrawal)}
                 </td>
               </tr>
-              <tr
-                id={cashMotRowId("cost")}
-                className="font-medium [&_td]:bg-base-300"
-              >
+              <tr id={cashMotRowId("cost")} className={FOOT_TR}>
+                <td className={`w-7 sm:w-8 ${BORDER_Y} ${FOOT_MOT_BG}`} />
                 <td
-                  colSpan={tableCols - 1}
-                  className={`px-1 sm:px-3 !py-0.5 sm:!py-0.5 leading-tight text-right text-base-content/60 !bg-base-300 ${CELL_GRID}`}
+                  colSpan={tableCols - 2}
+                  className={`${FOOT_LABEL} ${BORDER_Y} ${CELL_GRID} ${FOOT_MOT_BG}`}
                 >
                   মোট খরচ
                 </td>
                 <td
                   id={cashSorbomotId("cost")}
-                  className={`text-right tabular-nums leading-tight px-1 sm:px-3 !py-0.5 sm:!py-0.5 whitespace-nowrap !bg-base-300 ${CELL_GRID} text-error`}
+                  className={`${FOOT_VALUE} ${BORDER_Y} ${FOOT_MOT_BG} text-error`}
                 >
                   {formatBnNumber(summaryTotals.cost)}
                 </td>
@@ -1363,19 +1367,17 @@ export const CashPage = () => {
             </tfoot>
           ) : showSummary ? (
             <tfoot>
-              <tr
-                id={cashMotRowId(activeView.id)}
-                className="font-medium [&_td]:bg-base-300"
-              >
+              <tr id={cashMotRowId(activeView.id)} className={FOOT_TR}>
+                <td className={`w-7 sm:w-8 ${BORDER_Y} ${FOOT_MOT_BG}`} />
                 <td
-                  colSpan={tableCols - 1}
-                  className={`px-1 sm:px-3 text-right text-base-content/60 !bg-base-300 ${CELL_GRID}`}
+                  colSpan={tableCols - 2}
+                  className={`${FOOT_LABEL} ${BORDER_Y} ${CELL_GRID} ${FOOT_MOT_BG}`}
                 >
                   মোট
                 </td>
                 <td
                   id={cashSorbomotId(activeView.id)}
-                  className={`text-right tabular-nums px-1 sm:px-3 whitespace-nowrap !bg-base-300 ${CELL_GRID} ${summaryDisplay.className}`}
+                  className={`${FOOT_VALUE} ${BORDER_Y} ${FOOT_MOT_BG} ${summaryDisplay.className}`}
                 >
                   {summaryDisplay.text}
                 </td>
@@ -1394,52 +1396,50 @@ export const CashPage = () => {
         <div className="h-14" aria-hidden />
       </div>
 
-      <div className="fixed bottom-16 inset-x-0 z-40 px-3 pointer-events-none">
-        <div className="w-full flex items-end justify-between gap-2 pointer-events-auto">
-          {selectMode && canChangeActivityLog ? (
-            <>
-              <button
-                type="button"
-                className="btn btn-ghost shadow-lg bg-base-100 border border-base-300"
-                disabled={reviewing}
-                onClick={exitSelectMode}
-              >
-                বাতিল
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary shadow-lg"
-                disabled={reviewing || selectedIds.size === 0}
-                onClick={onAcceptChanges}
-              >
-                {reviewing ? (
-                  <span className="loading loading-spinner loading-sm" />
-                ) : null}
-                অডিট করুন
-                {selectedIds.size > 0 ? (
-                  <span className="badge badge-sm badge-ghost">
-                    {formatBnNumber(selectedIds.size)}
-                  </span>
-                ) : null}
-              </button>
-            </>
-          ) : (
-            <>
-              {canCreateCash ? (
-                <button
-                  type="button"
-                  className="btn btn-primary btn-circle btn-lg shadow-lg shrink-0 ml-auto"
-                  onClick={openCreate}
-                  disabled={siteInactive}
-                  aria-label="নতুন ক্যাশ"
-                >
-                  <Plus className="size-7" strokeWidth={2} />
-                </button>
+      {selectMode && canChangeActivityLog ? (
+        <div className="fixed bottom-16 inset-x-0 z-40 px-3 pointer-events-none">
+          <div className="w-full flex justify-end gap-2 pointer-events-auto">
+            <button
+              type="button"
+              className="btn btn-error btn-outline"
+              disabled={reviewing}
+              onClick={exitSelectMode}
+            >
+              বাতিল
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={reviewing || selectedIds.size === 0}
+              onClick={onAcceptChanges}
+            >
+              {reviewing ? (
+                <span className="loading loading-spinner loading-sm" />
               ) : null}
-            </>
-          )}
+              অডিট করুন
+              {selectedIds.size > 0 ? (
+                <span className="badge badge-sm badge-ghost">
+                  {formatBnNumber(selectedIds.size)}
+                </span>
+              ) : null}
+            </button>
+          </div>
         </div>
-      </div>
+      ) : canCreateCash ? (
+        <div className="fixed bottom-16 inset-x-0 z-40 px-3 pointer-events-none">
+          <div className="w-full flex justify-end pointer-events-auto">
+            <button
+              type="button"
+              className="btn btn-primary btn-circle btn-lg shadow-lg shrink-0"
+              onClick={openCreate}
+              disabled={siteInactive}
+              aria-label="নতুন ক্যাশ"
+            >
+              <Plus className="size-7" strokeWidth={2} />
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <dialog
         ref={dialogRef}

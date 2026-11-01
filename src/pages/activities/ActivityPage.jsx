@@ -37,14 +37,15 @@ import { isAllDates } from '../../utils/dateRange.js'
 
 const PAGE_SIZE = 100
 const DETAIL_MODAL_ID = 'activity_detail_modal'
-const CELL_GRID =
-  'border-b border-b-base-content/35 border-r border-r-base-content/35'
-const TABLE_GRID =
-  'border-separate border-spacing-0 border-t border-l border-base-content/35'
+/* Match hajira: vertical column borders only (no row grid). */
+const CELL_GRID = 'border-r border-r-base-content/20'
+const TABLE_GRID = 'border-separate border-spacing-0'
 const HEAD_BG =
-  '!bg-[color-mix(in_oklab,var(--color-base-300),var(--color-base-content)_6%)]'
+  '!bg-[color-mix(in_oklab,var(--color-neutral),var(--color-base-300)_35%)] !text-neutral-content [&_button]:!text-neutral-content'
 const HEAD_TH =
-  '[&_th]:!bg-[color-mix(in_oklab,var(--color-base-300),var(--color-base-content)_6%)]'
+  '[&_th]:!bg-[color-mix(in_oklab,var(--color-neutral),var(--color-base-300)_35%)] [&_th]:!text-neutral-content [&_button]:!text-neutral-content [&_th]:border-r [&_th]:!border-r-neutral-content/25'
+const ROW_ZEBRA_EVEN = '[&>td]:!bg-base-100'
+const ROW_ZEBRA_ODD = '[&>td]:!bg-base-200'
 
 const localDayBoundIso = (dateStr, endOfDay = false) => {
   const d = new Date(`${dateStr}T${endOfDay ? '23:59:59.999' : '00:00:00'}`)
@@ -124,12 +125,14 @@ const DateTimeStacked = ({ iso, className = '' }) => {
   const { date, time } = formatDateTimePartsBn(iso)
   return (
     <span
-      className={['inline-flex flex-col leading-tight', className]
+      className={['inline-flex flex-col leading-none', className]
         .filter(Boolean)
         .join(' ')}
     >
       <span>{date}</span>
-      {time ? <span>{time}</span> : null}
+      {time ? (
+        <span className="text-base-content/55">{time}</span>
+      ) : null}
     </span>
   )
 }
@@ -815,7 +818,7 @@ export const ActivityPage = () => {
       ) : (
         <>
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-            <table className={`table table-fixed table-sm sm:table-md w-full ${TABLE_GRID} [&_th]:!py-1 sm:[&_th]:!py-1.5`}>
+            <table className={`table table-fixed table-sm sm:table-md w-full ${TABLE_GRID} [&_th]:!py-1 sm:[&_th]:!py-1.5 [&_th]:font-semibold`}>
               <thead className={`sticky top-0 z-10 ${HEAD_BG}`}>
                 <tr className={HEAD_TH}>
                   <th className={`w-12 ${CELL_GRID}`}>
@@ -850,7 +853,9 @@ export const ActivityPage = () => {
                     )}
                   </th>
                   <th className={`min-w-0 ${CELL_GRID}`}>বিবরণ</th>
-                  <th className={`w-28 sm:w-40 text-right ${CELL_GRID}`}>
+                  <th
+                    className={`w-[6.75rem] sm:w-28 text-right px-1 whitespace-nowrap ${CELL_GRID}`}
+                  >
                     এন্ট্রি তারিখ
                   </th>
                 </tr>
@@ -860,7 +865,7 @@ export const ActivityPage = () => {
                   <tr>
                     <td
                       colSpan={3}
-                      className="text-center text-sm text-base-content/60 py-10 border-r border-r-base-content/35"
+                      className="text-center text-sm text-base-content/60 py-10"
                     >
                       কোনো অডিট হিস্ট্রি নেই।
                     </td>
@@ -884,8 +889,9 @@ export const ActivityPage = () => {
                       <tr
                         key={row.id}
                         className={[
-                          'cursor-pointer hover:bg-base-200/60',
-                          activityToneClass(row.action),
+                          'cursor-pointer hover:[&>td]:!bg-base-300/50',
+                          activityToneClass(row.action) ||
+                            (index % 2 === 0 ? ROW_ZEBRA_EVEN : ROW_ZEBRA_ODD),
                           reviewed ? 'opacity-50' : '',
                         ]
                           .filter(Boolean)
@@ -915,7 +921,7 @@ export const ActivityPage = () => {
                           )}
                         </td>
                         <td
-                          className={`min-w-0 max-w-0 px-1 sm:px-3 align-middle ${CELL_GRID}`}
+                          className={`min-w-0 max-w-0 px-1 sm:px-2 align-middle ${CELL_GRID}`}
                         >
                           <span
                             className="block truncate"
@@ -926,7 +932,7 @@ export const ActivityPage = () => {
                         </td>
                         <td
                           className={[
-                            'text-right text-sm tabular-nums px-1 sm:px-3 align-middle whitespace-nowrap',
+                            'text-right tabular-nums px-1 align-middle w-[6.75rem] sm:w-28',
                             CELL_GRID,
                             offBusinessDate
                               ? 'text-error font-medium'
@@ -938,7 +944,10 @@ export const ActivityPage = () => {
                               : undefined
                           }
                         >
-                          {formatDateTimeBn(row.created_at)}
+                          <DateTimeStacked
+                            iso={row.created_at}
+                            className="items-end text-[0.65rem] leading-[1.05] sm:text-[0.7rem]"
+                          />
                         </td>
                       </tr>
                     )

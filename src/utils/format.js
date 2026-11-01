@@ -45,3 +45,15 @@ export const concatBillingName = concatName
 
 /** Labour names: first + last usually fit at 14 (e.g. "আরিফ উদ্দিন"). */
 export const concatLabourName = (name) => concatName(name, 14)
+
+/** First line = all but last word; second line = last name. */
+export const splitLabourNameLines = (name) => {
+  const text = String(name ?? '').trim()
+  if (!text) return { first: '—', last: '' }
+  const parts = text.split(/\s+/).filter(Boolean)
+  if (parts.length === 1) return { first: parts[0], last: '' }
+  return {
+    first: parts.slice(0, -1).join(' '),
+    last: parts[parts.length - 1],
+  }
+}
