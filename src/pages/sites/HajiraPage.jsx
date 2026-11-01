@@ -124,7 +124,7 @@ export const HajiraPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const focusedCellRef = useRef(null);
-  const { can, profile, isCompanyAdmin } = usePermissions();
+  const { can, profile } = usePermissions();
   const { getSiteName } = useSitesLookup();
   const queryClient = useQueryClient();
 
@@ -210,8 +210,6 @@ export const HajiraPage = () => {
   const [showSalary, setShowSalary] = useState(() => readHajiraShowSalary());
   const [labourFilterOpen, setLabourFilterOpen] = useState(false);
   const [hajiraFilterOpen, setHajiraFilterOpen] = useState(false);
-
-  const showAyColumn = Boolean(isCompanyAdmin);
 
   const dailyRecordsQuery = useQuery({
     queryKey: ["sites", siteId, "daily-records", dateParams],
@@ -1476,8 +1474,7 @@ export const HajiraPage = () => {
       ? [modalBaseline]
       : [];
 
-  const tableColCount =
-    6 + (showAyColumn ? 1 : 0) + (SHOW_BILLING ? 1 : 0);
+  const tableColCount = 6 + (SHOW_BILLING ? 1 : 0);
 
   const labourHeader = (
     <HeaderFilterPopover
@@ -1577,7 +1574,6 @@ export const HajiraPage = () => {
         setSelectMode={setSelectMode}
         labourHeader={labourHeader}
         hajiraHeader={hajiraHeader}
-        showAyColumn={showAyColumn}
         openEarningsFilterModal={openEarningsFilterModal}
         earningsFilter={earningsFilter}
         paymentFilter={paymentFilter}
