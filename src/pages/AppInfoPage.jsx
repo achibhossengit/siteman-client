@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import {
-  BookOpen,
   ExternalLink,
   MessageCircle,
   PlayCircle,
@@ -29,17 +28,21 @@ const MANUAL_STEPS = [
 
 const SupportContent = ({ showLoginLink = false }) => (
   <>
-    <section className="flex flex-col gap-2">
-      <h2 className="font-semibold text-sm flex items-center gap-2">
-        <BookOpen className="size-4 text-primary" strokeWidth={1.75} />
-        উদ্দেশ্য
-      </h2>
-      <p className="text-sm text-base-content/75 leading-relaxed">
-        সাইট ম্যানেজার নির্মাণ সাইটের দৈনিক হাজিরা, ক্যাশ ও ব্যালেন্স হিসাব এক
-        জায়গায় পরিচালনা করতে সাহায্য করে। ঠিকাদার ও সাইট দল সহজে শ্রমিকের
-        উপস্থিতি, খরচ ও আয়-ব্যয় ট্র্যাক করে স্বচ্ছ হিসাব রাখতে পারেন।
-      </p>
-    </section>
+    <figure className="mx-auto w-full max-w-[13.5rem] sm:max-w-[15rem]">
+      <img
+        src="/support-purpose.jpg"
+        alt="সাইট ম্যানেজার — হাজিরা, ক্যাশ ও ব্যালেন্স একসাথে"
+        className="w-full h-auto rounded-box motion-safe:animate-[support-float_4.5s_ease-in-out_infinite]"
+        width={480}
+        height={480}
+        decoding="async"
+      />
+    </figure>
+    <p className="text-base text-base-content/80 leading-relaxed">
+      সাইট ম্যানেজার নির্মাণ সাইটের দৈনিক হাজিরা, ক্যাশ ও ব্যালেন্স হিসাব এক
+      জায়গায় পরিচালনা করতে সাহায্য করে। ঠিকাদার ও সাইট দল সহজে শ্রমিকের
+      উপস্থিতি, খরচ ও আয়-ব্যয় ট্র্যাক করে স্বচ্ছ হিসাব রাখতে পারেন।
+    </p>
 
     <section className="flex flex-col gap-2">
       <h2 className="font-semibold text-sm">ব্যবহারবিধি</h2>
@@ -94,7 +97,7 @@ export const AppInfoPage = () => {
 
   useEffect(() => {
     if (!setTitle) return
-    setTitle('সাহায্য')
+    setTitle('সাপোর্ট')
     return () => setTitle('')
   }, [setTitle])
 
@@ -113,12 +116,6 @@ export const AppInfoPage = () => {
   return (
     <div className="card bg-base-100 shadow-sm border border-base-300">
       <div className="card-body gap-4">
-        <div className="text-center">
-          <h1 className="card-title justify-center text-2xl">সাহায্য</h1>
-          <p className="text-sm text-base-content/70 mt-1">
-            সাইট ম্যানেজার কীভাবে ব্যবহার করবেন
-          </p>
-        </div>
         <SupportContent showLoginLink />
       </div>
     </div>

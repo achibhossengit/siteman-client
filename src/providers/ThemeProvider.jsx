@@ -19,7 +19,7 @@ const readStoredPreference = () => {
   } catch {
     // ignore
   }
-  return THEME_SYSTEM
+  return THEME_LIGHT
 }
 
 export const ThemeProvider = ({ children }) => {

@@ -50,7 +50,7 @@ export const AppHeader = () => {
             ) : (
               <>
                 <NavLink to={paths.help} className="btn btn-outline btn-sm">
-                  সাহায্য
+                  সাপোর্ট
                 </NavLink>
                 <NavLink to={paths.login} className="btn btn-primary btn-sm">
                   লগইন করুন
