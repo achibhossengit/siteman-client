@@ -28,13 +28,13 @@ const MANUAL_STEPS = [
 
 const SupportContent = ({ showLoginLink = false }) => (
   <>
-    <figure className="mx-auto w-full max-w-[13.5rem] sm:max-w-[15rem]">
+    <figure className="w-full">
       <img
         src="/support-purpose.jpg"
         alt="সাইট ম্যানেজার — হাজিরা, ক্যাশ ও ব্যালেন্স একসাথে"
-        className="w-full h-auto rounded-box motion-safe:animate-[support-float_4.5s_ease-in-out_infinite]"
+        className="w-full h-40 sm:h-44 object-cover object-center rounded-box"
         width={480}
-        height={480}
+        height={176}
         decoding="async"
       />
     </figure>
@@ -101,23 +101,9 @@ export const AppInfoPage = () => {
     return () => setTitle('')
   }, [setTitle])
 
-  if (isAuthenticated) {
-    return (
-      <div className="max-w-lg mx-auto w-full flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 px-3 py-3">
-        <div className="card bg-base-100 shadow-sm border border-base-300">
-          <div className="card-body gap-4">
-            <SupportContent />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="card bg-base-100 shadow-sm border border-base-300">
-      <div className="card-body gap-4">
-        <SupportContent showLoginLink />
-      </div>
+    <div className="w-full flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 px-3 py-3">
+      <SupportContent showLoginLink={!isAuthenticated} />
     </div>
   )
 }
