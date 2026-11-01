@@ -3,8 +3,8 @@
   "short_name": "সাইটম্যান",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fafafa",
-  "theme_color": "#fafafa",
+  "background_color": "#faf7f2",
+  "theme_color": "#faf7f2",
   "icons": [
     {
       "src": "/logo-192.png",

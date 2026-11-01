@@ -35,3 +35,13 @@ createRoot(document.getElementById('root')).render(
     </QueryClientProvider>
   </StrictMode>,
 )
+
+const hideAppSplash = () => {
+  const splash = document.getElementById('app-splash')
+  if (!splash) return
+  splash.classList.add('app-splash--hide')
+  window.setTimeout(() => splash.remove(), 400)
+}
+
+// Keep splash visible briefly so the boot animation can play.
+window.setTimeout(hideAppSplash, 900)

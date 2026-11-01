@@ -6,7 +6,7 @@
     <link rel="apple-touch-icon" href="/logo.png" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#fafafa" />
+    <meta name="theme-color" content="#faf7f2" />
     <title>সাইটম্যান</title>
     <script>
       (function () {
@@ -17,14 +17,61 @@
           localStorage.setItem('siteman-theme', theme)
           document.documentElement.setAttribute('data-theme', theme)
           var meta = document.querySelector('meta[name="theme-color"]')
-          if (meta) meta.setAttribute('content', '#fafafa')
+          if (meta) meta.setAttribute('content', '#faf7f2')
         } catch (e) {
           document.documentElement.setAttribute('data-theme', 'siteman')
         }
       })()
     </script>
+    <style>
+      #app-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0;
+        background: #faf7f2;
+        transition: opacity 0.35s ease, visibility 0.35s ease;
+      }
+      #app-splash.app-splash--hide {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      #app-splash img {
+        width: 5.5rem;
+        height: 5.5rem;
+        object-fit: contain;
+        margin-bottom: -0.15rem;
+        animation: app-splash-bob 1.1s ease-in-out infinite;
+      }
+      #app-splash .app-splash-title {
+        font-family: system-ui, 'Noto Sans Bengali', sans-serif;
+        font-size: 2.35rem;
+        font-weight: 700;
+        line-height: 1.15;
+        color: #1c1b1a;
+        letter-spacing: -0.02em;
+      }
+      @keyframes app-splash-bob {
+        0%,
+        100% {
+          transform: translateY(0) rotate(-4deg);
+        }
+        50% {
+          transform: translateY(-10px) rotate(4deg);
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="app-splash" aria-hidden="true">
+      <img src="/logo.png" alt="" width="88" height="88" />
+      <div class="app-splash-title">সাইটম্যান</div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
