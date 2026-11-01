@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { PRESENT_OPTIONS } from "../../api/types/hajira.js";
 import { SHOW_BILLING } from "../../config/features.js";
 import { NULL_BILLING_LABEL } from "../../utils/format.js";
@@ -18,6 +19,21 @@ import {
   numOrEmpty,
   toggleRequiredFilter,
 } from "./helpers.js";
+
+const HAJIRA_PANEL_TABS = [
+  { id: "default", label: "ডিফল্ট" },
+  { id: "custom", label: "কাস্টম" },
+  { id: "legend", label: "পরিচিতি" },
+];
+
+const HAJIRA_CELL_MAP = [
+  { label: "উপস্থিতি × বেতন", tone: "" },
+  { label: "বাড়তি কাজ", tone: "text-success" },
+  { label: "খোরাকি", tone: "text-error" },
+  { label: "অ্যাডভান্স + হিসাবের সময় নেওয়া", tone: "text-error" },
+  { label: "রিটার্ন", tone: "text-info" },
+  { label: "হিসাবের সময় ফেরত", tone: "text-info" },
+];
 
 export function LabourFilterPanel({ labourFilter, setLabourFilter, onClose }) {
   const selectedId = labourFilter.includes("labour") ? "labour" : "record";
@@ -50,6 +66,33 @@ export function LabourFilterPanel({ labourFilter, setLabourFilter, onClose }) {
   );
 }
 
+function HajiraCellMap() {
+  return (
+    <div
+      className="grid grid-cols-2 overflow-hidden rounded-box border border-base-content/20 text-center text-xs leading-tight"
+      aria-label="হাজিরা সেল মানচিত্র"
+    >
+      {HAJIRA_CELL_MAP.map((cell, index) => (
+        <div
+          key={cell.label}
+          className={[
+            "flex min-h-12 items-center justify-center px-2 py-2",
+            index % 2 === 0
+              ? "border-r border-base-content/15"
+              : "",
+            index < 4 ? "border-b border-base-content/15" : "",
+            cell.tone,
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          {cell.label}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function HajiraColumnFilterPanel({
   hajiraFilter,
   setHajiraFilter,
@@ -64,8 +107,17 @@ export function HajiraColumnFilterPanel({
   bulkPayment,
   setBulkPayment,
 }) {
+  const [activeTab, setActiveTab] = useState(
+    showBulkSection ? "default" : "legend",
+  );
   const formSelected =
     isBulkAttendanceDirty(bulkAttendance) || isBulkPaymentDirty(bulkPayment);
+  const customCanSet =
+    bulkSetEnabled &&
+    ((isBulkAttendanceDirty(bulkAttendance) &&
+      !isBulkAttendanceZeroInvalid(bulkAttendance)) ||
+      isBulkPaymentDirty(bulkPayment));
+
   return (
     <div className="flex flex-col gap-3">
       {HAJIRA_FILTER_OPTIONS.length > 0 ? (
@@ -109,74 +161,116 @@ export function HajiraColumnFilterPanel({
         />
         <span>বেতন দেখান</span>
       </label>
-      {showBulkSection ? (
-        <div className="flex flex-col gap-2">
-          <div className="grid grid-cols-3 gap-2">
-            <label className="form-control w-full min-w-0">
-              <span className="label-text text-sm">হাজিরা</span>
-              <select
-                className="select select-bordered select-sm w-full"
-                value={
-                  bulkAttendance.present === "" ||
-                  bulkAttendance.present == null
-                    ? "0"
-                    : String(bulkAttendance.present)
-                }
-                disabled={!bulkSetEnabled}
-                onChange={(e) => {
-                  const present = e.target.value;
-                  setBulkAttendance((m) => ({
-                    ...m,
-                    present,
-                    ...(Number(present) === 0 ? { salary: "" } : {}),
-                  }));
-                }}
-              >
-                {PRESENT_OPTIONS.map((v) => (
-                  <option key={v} value={String(v)}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="form-control w-full min-w-0">
-              <span className="label-text text-sm">বেতন</span>
-              <input
-                type="number"
-                min={0}
-                inputMode="numeric"
-                className="input input-bordered input-sm w-full tabular-nums"
-                value={bulkAttendance.salary}
-                disabled={
-                  !bulkSetEnabled || Number(bulkAttendance.present) === 0
-                }
-                onChange={(e) =>
-                  setBulkAttendance((m) => ({
-                    ...m,
-                    salary: numOrEmpty(e.target.value),
-                  }))
-                }
-              />
-            </label>
-            <label className="form-control w-full min-w-0">
-              <span className="label-text text-sm">খোরাকি</span>
-              <input
-                type="number"
-                min={0}
-                className="input input-bordered input-sm w-full tabular-nums"
-                value={bulkPayment.payment}
-                disabled={!bulkSetEnabled}
-                onChange={(e) =>
-                  setBulkPayment((m) => ({
-                    ...m,
-                    payment: numOrEmpty(e.target.value),
-                  }))
-                }
-              />
-            </label>
-          </div>
-          <div className="flex items-center justify-between gap-2 pt-1">
-            {formSelected ? (
+
+      <div role="tablist" className="tabs tabs-box tabs-xs w-full">
+        {HAJIRA_PANEL_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            className={[
+              "tab flex-1 !px-1 leading-tight whitespace-normal",
+              activeTab === tab.id ? "tab-active" : "",
+            ].join(" ")}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "default" ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm leading-relaxed text-base-content/80">
+            প্রত্যেক শ্রমিকের জন্য তার ডিফল্ট উপস্থিতি, বেতন ও খোরাকি বসানো
+            হবে। ডিফল্ট মান বদলাতে শ্রমিকের প্রোফাইলে যান।
+          </p>
+          {showBulkSection ? (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm self-end"
+              onClick={onHajiraBulkDefault}
+              disabled={!bulkSetEnabled}
+            >
+              সেট করুন
+            </button>
+          ) : (
+            <p className="text-sm text-base-content/60">
+              এই তারিখে বাল্ক ডিফল্ট সেট করা যাবে না।
+            </p>
+          )}
+        </div>
+      ) : null}
+
+      {activeTab === "custom" ? (
+        showBulkSection ? (
+          <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-3 gap-2">
+              <label className="form-control w-full min-w-0">
+                <span className="label-text text-sm">হাজিরা</span>
+                <select
+                  className="select select-bordered select-sm w-full"
+                  value={
+                    bulkAttendance.present === "" ||
+                    bulkAttendance.present == null
+                      ? "0"
+                      : String(bulkAttendance.present)
+                  }
+                  disabled={!bulkSetEnabled}
+                  onChange={(e) => {
+                    const present = e.target.value;
+                    setBulkAttendance((m) => ({
+                      ...m,
+                      present,
+                      ...(Number(present) === 0 ? { salary: "" } : {}),
+                    }));
+                  }}
+                >
+                  {PRESENT_OPTIONS.map((v) => (
+                    <option key={v} value={String(v)}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="form-control w-full min-w-0">
+                <span className="label-text text-sm">বেতন</span>
+                <input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  className="input input-bordered input-sm w-full tabular-nums"
+                  value={bulkAttendance.salary}
+                  disabled={
+                    !bulkSetEnabled || Number(bulkAttendance.present) === 0
+                  }
+                  onChange={(e) =>
+                    setBulkAttendance((m) => ({
+                      ...m,
+                      salary: numOrEmpty(e.target.value),
+                    }))
+                  }
+                />
+              </label>
+              <label className="form-control w-full min-w-0">
+                <span className="label-text text-sm">খোরাকি</span>
+                <input
+                  type="number"
+                  min={0}
+                  className="input input-bordered input-sm w-full tabular-nums"
+                  value={bulkPayment.payment}
+                  disabled={!bulkSetEnabled}
+                  onChange={(e) =>
+                    setBulkPayment((m) => ({
+                      ...m,
+                      payment: numOrEmpty(e.target.value),
+                    }))
+                  }
+                />
+              </label>
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-1">
               <button
                 type="button"
                 className="btn btn-ghost btn-sm"
@@ -184,37 +278,28 @@ export function HajiraColumnFilterPanel({
                   setBulkAttendance(emptyBulkAttendance());
                   setBulkPayment(emptyBulkPayment());
                 }}
+                disabled={!formSelected}
               >
                 রিসেট
               </button>
-            ) : (
               <button
                 type="button"
-                className="btn btn-outline btn-sm"
-                onClick={onHajiraBulkDefault}
-                disabled={!bulkSetEnabled}
+                className="btn btn-primary btn-sm"
+                onClick={onHajiraBulkCustom}
+                disabled={!customCanSet}
               >
-                ডিফল্ট সেট
+                সেট করুন
               </button>
-            )}
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={onHajiraBulkCustom}
-              disabled={
-                !bulkSetEnabled ||
-                (!(
-                  isBulkAttendanceDirty(bulkAttendance) &&
-                  !isBulkAttendanceZeroInvalid(bulkAttendance)
-                ) &&
-                  !isBulkPaymentDirty(bulkPayment))
-              }
-            >
-              সেট করুন
-            </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <p className="text-sm text-base-content/60">
+            এই তারিখে বাল্ক কাস্টম সেট করা যাবে না।
+          </p>
+        )
       ) : null}
+
+      {activeTab === "legend" ? <HajiraCellMap /> : null}
     </div>
   );
 }
