@@ -95,8 +95,11 @@ export const PasswordResetConfirmPage = () => {
   };
 
   return (
-    <div className="card bg-base-100 shadow-sm border border-base-300">
-      <div className="card-body gap-3">
+    <div
+      className="card shadow-sm border border-base-300 overflow-hidden bg-cover bg-center"
+      style={{ backgroundImage: 'url(/login-purpose.jpg)' }}
+    >
+      <div className="card-body gap-3 bg-base-100/55 backdrop-blur-[1px]">
         <h1 className="card-title justify-center text-2xl">নতুন পাসওয়ার্ড</h1>
         <p className="text-center text-sm text-base-content/70 -mt-1">
           OTP ও নতুন পাসওয়ার্ড দিন

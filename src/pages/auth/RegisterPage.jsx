@@ -81,8 +81,15 @@ export const RegisterPage = () => {
   })
 
   return (
-    <div className="card bg-base-100 shadow-sm border border-base-300">
-      <form className="card-body gap-3" onSubmit={onSubmit} noValidate>
+    <div
+      className="card shadow-sm border border-base-300 overflow-hidden bg-cover bg-center"
+      style={{ backgroundImage: 'url(/login-purpose.jpg)' }}
+    >
+      <form
+        className="card-body gap-3 bg-base-100/55 backdrop-blur-[1px]"
+        onSubmit={onSubmit}
+        noValidate
+      >
         <h1 className="card-title justify-center text-xl">রেজিস্ট্রেশন করুন</h1>
         {REGISTRATION_DISABLED ? (
           <div role="status" className="alert alert-warning">

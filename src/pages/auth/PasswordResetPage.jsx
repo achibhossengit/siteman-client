@@ -51,8 +51,15 @@ export const PasswordResetPage = () => {
   })
 
   return (
-    <div className="card bg-base-100 shadow-sm border border-base-300">
-      <form className="card-body gap-3" onSubmit={onSubmit} noValidate>
+    <div
+      className="card shadow-sm border border-base-300 overflow-hidden bg-cover bg-center"
+      style={{ backgroundImage: 'url(/login-purpose.jpg)' }}
+    >
+      <form
+        className="card-body gap-3 bg-base-100/55 backdrop-blur-[1px]"
+        onSubmit={onSubmit}
+        noValidate
+      >
         <h1 className="card-title justify-center text-2xl">পাসওয়ার্ড রিসেট</h1>
         <p className="text-center text-sm text-base-content/70 -mt-1">
         আপনার ইমেইল এ OTP যাবে। ইমেইল সেট করা না থাকলে পাসওয়ার্ড রিসেট করা সম্ভব নয়। 

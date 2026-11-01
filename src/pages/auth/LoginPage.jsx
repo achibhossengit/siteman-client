@@ -67,8 +67,15 @@ export const LoginPage = () => {
   });
 
   return (
-    <div className="card bg-base-100 shadow-sm border border-base-300">
-      <form className="card-body gap-3" onSubmit={onSubmit} noValidate>
+    <div
+      className="card shadow-sm border border-base-300 overflow-hidden bg-cover bg-center"
+      style={{ backgroundImage: 'url(/login-purpose.jpg)' }}
+    >
+      <form
+        className="card-body gap-3 bg-base-100/55 backdrop-blur-[1px]"
+        onSubmit={onSubmit}
+        noValidate
+      >
         <h1 className="card-title justify-center text-2xl">লগইন</h1>
         <p className="text-center text-sm text-base-content/70 -mt-1">
           ফোন নম্বর ও পাসওয়ার্ড দিয়ে প্রবেশ করুন
