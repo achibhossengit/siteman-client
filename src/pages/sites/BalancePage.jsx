@@ -49,16 +49,8 @@ const COLUMNS = [
   { key: 'deposit', label: 'জমা', tone: 'text-success' },
   { key: 'withdrawal', label: 'উত্তোলন', tone: 'text-warning' },
   { key: 'site_cost', label: 'সাইট খরচ', tone: 'text-error' },
-  {
-    key: 'labour_payment',
-    label: ['শ্রমিকদের', 'দেওয়া'],
-    tone: 'text-error',
-  },
-  {
-    key: 'labour_return',
-    label: ['শ্রমিকদের', 'ফেরত'],
-    tone: 'text-success',
-  },
+  { key: 'labour_payment', label: 'শ্রমিকদের দেওয়া', tone: 'text-error' },
+  { key: 'labour_return', label: 'শ্রমিকদের ফেরত', tone: 'text-success' },
   { key: 'balance', label: 'ব্যালেন্স', tone: 'balance' },
 ]
 
@@ -104,7 +96,7 @@ const SubtotalRow = ({ value, valueClassName }) => (
   </div>
 )
 
-const DetailTable = ({ days, total, withYear }) => (
+const DetailTable = ({ days, total, withYear, onBack }) => (
   <table className="table table-sm w-max min-w-full border-separate border-spacing-0 text-sm [&_th]:px-2 [&_th]:py-1.5 [&_th]:text-sm [&_th]:font-semibold [&_th]:leading-tight sm:[&_th]:py-2 [&_td]:px-2 [&_td]:py-1.5">
     <thead>
       <tr>
@@ -118,15 +110,7 @@ const DetailTable = ({ days, total, withYear }) => (
             key={col.key}
             className={`sticky top-0 z-20 text-right whitespace-nowrap ${HEAD_BG}`}
           >
-            {Array.isArray(col.label) ? (
-              <>
-                {col.label[0]}
-                <br />
-                {col.label[1]}
-              </>
-            ) : (
-              col.label
-            )}
+            {col.label}
           </th>
         ))}
       </tr>
@@ -154,8 +138,19 @@ const DetailTable = ({ days, total, withYear }) => (
       })}
     </tbody>
     <tfoot>
-      <tr className="font-semibold">
-        <td className="sticky bottom-0 left-0 z-30 whitespace-nowrap !bg-base-300">
+      <tr
+        role="button"
+        tabIndex={0}
+        aria-label="সর্বমোট"
+        className="cursor-pointer font-semibold"
+        onClick={onBack}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return
+          event.preventDefault()
+          onBack()
+        }}
+      >
+        <td className="sticky bottom-0 left-0 z-30 whitespace-nowrap !bg-base-300 underline underline-offset-2">
           সর্বমোট
         </td>
         {COLUMNS.map((col) => (
@@ -291,47 +286,54 @@ export const BalancePage = () => {
     <section
       className={`flex-1 min-h-0 flex flex-col px-2 pb-2 ${showDetail ? 'overflow-hidden' : 'overflow-y-auto'}`}
     >
-      <div
-        role="tablist"
-        aria-label="হিসাবের ধরন"
-        className={`-mx-2 mb-2 flex shrink-0 items-center justify-between ${HEAD_BAR}`}
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={!showDetail}
-          className={!showDetail ? 'text-neutral-content' : 'text-neutral-content/55'}
-          onClick={() => setView('total')}
-        >
-          সর্বমোট
-        </button>
-        {isCalendarRange ? (
-          <button
-            type="button"
-            role="tab"
-            aria-selected={showDetail}
-            className={showDetail ? 'text-neutral-content' : 'text-neutral-content/55'}
-            onClick={() => setView('detail')}
-          >
-            বিস্তারিত
-          </button>
-        ) : null}
-      </div>
-
       {showDetail ? (
         detailQuery.isLoading ? (
           <div className="flex justify-center py-10">
             <span className="loading loading-spinner loading-lg text-primary" />
           </div>
         ) : detailQuery.isError ? (
-          <ApiErrorAlert error={parseApiError(detailQuery.error)} />
+          <div className="flex flex-col gap-2">
+            <ApiErrorAlert error={parseApiError(detailQuery.error)} />
+            <button
+              type="button"
+              className="self-start text-sm font-semibold underline underline-offset-2"
+              onClick={() => setView('total')}
+            >
+              সর্বমোট
+            </button>
+          </div>
         ) : (
           <div className="-mx-2 min-h-0 flex-1 overflow-auto">
-            <DetailTable days={days} total={report} withYear={spansYears} />
+            <DetailTable
+              days={days}
+              total={report}
+              withYear={spansYears}
+              onBack={() => setView('total')}
+            />
           </div>
         )
       ) : (
         <>
+          <div
+            role="tablist"
+            aria-label="হিসাবের ধরন"
+            className={`-mx-2 mb-2 flex shrink-0 items-center justify-between ${HEAD_BAR}`}
+          >
+            <span role="tab" aria-selected="true" className="text-neutral-content">
+              সর্বমোট
+            </span>
+            {isCalendarRange ? (
+              <button
+                type="button"
+                role="tab"
+                aria-selected="false"
+                className="text-neutral-content/55"
+                onClick={() => setView('detail')}
+              >
+                বিস্তারিত
+              </button>
+            ) : null}
+          </div>
           <Row
             icon={Banknote}
             label="আগের ব্যালেন্স"
