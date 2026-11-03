@@ -172,6 +172,7 @@ export function HajiraRangeTable({
                             photo={row.labourPhoto}
                             name={row.labourName}
                             size="sm"
+                            shape="square"
                             className="shrink-0"
                           />
                           <LabourIdentity

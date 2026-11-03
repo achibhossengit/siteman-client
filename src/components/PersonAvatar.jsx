@@ -12,7 +12,7 @@ const SIZE_CLASS = {
 
 const SHAPE_CLASS = {
   circle: 'rounded-full',
-  square: 'rounded-sm',
+  square: 'rounded-md',
 }
 
 export const PersonAvatar = ({

@@ -1127,6 +1127,7 @@ export const LabourSessionRecordsPage = () => {
             photo={labour.photo}
             name={labourName}
             size="xs"
+            shape="square"
           />
           <Link
             to={paths.labourDetail(labour.id ?? labourId)}
