@@ -22,6 +22,7 @@ export const endpoints = {
     list: '/api/v1/sites',
     detail: (id) => `/api/v1/sites/${id}`,
     dailyReports: (id) => `/api/v1/sites/${id}/daily-reports`,
+    dailyReportDetails: (id) => `/api/v1/sites/${id}/daily-reports/details`,
     cash: (id) => `/api/v1/sites/${id}/cash`,
     cashDetail: (siteId, cashId) => `/api/v1/sites/${siteId}/cash/${cashId}`,
     privateCash: (id) => `/api/v1/sites/${id}/private-cash`,

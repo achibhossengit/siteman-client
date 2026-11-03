@@ -41,38 +41,48 @@ export const deleteSite = (siteId, { password } = {}) =>
     data: { password },
   })
 
-/** Server cap for a daily-report range page. */
+/** Server cap for a daily-report details page. */
 const DAILY_REPORT_MAX_PAGE_SIZE = 100
 
-const isSummary = (value) =>
-  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-
 /**
- * GET /sites/{id}/daily-reports
- * The summary is always `total`: site, present_count, labour_payment,
- * labour_return, deposit, withdrawal, site_cost, total_cost, remaining,
- * previous_balance, balance (plus total_salary / extra_earnings when permitted).
+ * GET /sites/{id}/daily-reports — summary only, not paginated.
+ * Omit dates for the all-time site summary, `date` for one day, or
+ * `date__gte` + `date__lte` for the inclusive range aggregate.
+ * Do not send `date` together with the range params.
  *
- * No date params, or `date`: `{ total }`.
- *
- * `date__gte` + `date__lte`: `{ count, next, previous, results, total }`.
- * `results` lists every calendar day in the inclusive range, oldest first
- * (empty days are zeros). Each row is the same fields plus `date`.
- * `total` has no `date`; it is the full-range aggregate and is the same on
- * every page. `page` defaults to 1; `page_size` defaults to 50, max 100.
+ * Flat object: site, present_count, labour_payment, labour_return, deposit,
+ * withdrawal, site_cost, total_cost, remaining, previous_balance, balance
+ * (plus total_salary / extra_earnings when permitted).
  */
 export const fetchDailyReport = (
   siteId,
-  { date, date__gte, date__lte, page, page_size } = {},
+  { date, date__gte, date__lte } = {},
 ) => {
   const range = Boolean(date__gte && date__lte)
+  const params = range
+    ? { date__gte, date__lte }
+    : date
+      ? { date }
+      : {}
+  return api.get(endpoints.sites.dailyReports(siteId), { params })
+}
+
+/**
+ * GET /sites/{id}/daily-reports/details — one row per calendar day in the
+ * inclusive range, oldest first. Empty days are zeros. No aggregate `total`.
+ * Requires `date__gte` and `date__lte`. Do not send `date`.
+ * `page` defaults to 1; `page_size` defaults to 50, max 100.
+ */
+export const fetchDailyReportDetails = (
+  siteId,
+  { date__gte, date__lte, page, page_size } = {},
+) => {
   const size = Number(page_size)
   const params = {
-    ...(date ? { date } : {}),
     ...(date__gte ? { date__gte } : {}),
     ...(date__lte ? { date__lte } : {}),
-    ...(range && page != null ? { page } : {}),
-    ...(range && Number.isFinite(size)
+    ...(page != null ? { page } : {}),
+    ...(Number.isFinite(size)
       ? {
           page_size: Math.min(
             Math.max(1, Math.trunc(size)),
@@ -81,21 +91,13 @@ export const fetchDailyReport = (
         }
       : {}),
   }
-  return api.get(endpoints.sites.dailyReports(siteId), { params }).then((res) => ({
-    ...res,
-    data: range ? asPage(res.data) : asDayReport(res.data),
-  }))
+  return api
+    .get(endpoints.sites.dailyReportDetails(siteId), { params })
+    .then((res) => ({
+      ...res,
+      data: asPage(res.data),
+    }))
 }
-
-/** Day or undated body is `{ total }`. A leftover flat summary is wrapped. */
-const asDayReport = (data) => {
-  if (isSummary(data?.total)) return { total: data.total }
-  return { total: isSummary(data) ? data : null }
-}
-
-/** Summary fields. Both response shapes keep them on `total`. */
-export const dailyReportSummary = (data) =>
-  isSummary(data?.total) ? data.total : null
 
 /**
  * Site cash ledger list (paginated).
