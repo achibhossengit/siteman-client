@@ -117,33 +117,31 @@ export const SiteSelector = ({
                 maxWidth: 'calc(100vw - 16px)',
               }}
             >
-              <div className="p-3">
-                <div className="flex flex-col gap-0.5 max-h-72 overflow-y-auto">
-                  {sites.length > 0 ? (
-                    sites.map((site) => {
-                      const active = String(site.id) === String(value)
-                      return (
-                        <button
-                          key={site.id}
-                          type="button"
-                          className={[
-                            'btn btn-ghost btn-sm justify-start font-normal h-8 min-h-8',
-                            active
-                              ? 'bg-primary text-primary-content hover:bg-primary hover:text-primary-content'
-                              : '',
-                          ].join(' ')}
-                          onClick={() => pick(site.id)}
-                        >
-                          {site.name}
-                        </button>
-                      )
-                    })
-                  ) : (
-                    <p className="text-sm text-base-content/60 py-2">
-                      কোনো সাইট নেই।
-                    </p>
-                  )}
-                </div>
+              <div className="flex flex-col max-h-72 overflow-y-auto">
+                {sites.length > 0 ? (
+                  sites.map((site) => {
+                    const active = String(site.id) === String(value)
+                    return (
+                      <button
+                        key={site.id}
+                        type="button"
+                        className={[
+                          'btn btn-ghost btn-sm justify-start font-normal h-8 min-h-8 rounded-none',
+                          active
+                            ? 'bg-primary text-primary-content hover:bg-primary hover:text-primary-content'
+                            : '',
+                        ].join(' ')}
+                        onClick={() => pick(site.id)}
+                      >
+                        {site.name}
+                      </button>
+                    )
+                  })
+                ) : (
+                  <p className="text-sm text-base-content/60 px-3 py-2">
+                    কোনো সাইট নেই।
+                  </p>
+                )}
               </div>
             </div>,
             document.body,
