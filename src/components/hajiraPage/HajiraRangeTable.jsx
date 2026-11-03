@@ -107,7 +107,7 @@ export function HajiraRangeTable({
           <thead className={`sticky top-0 z-10 ${HEAD_BG}`}>
             <tr>
               <th className={`w-10 text-center align-middle ${CELL} ${HEAD_BG}`}>
-                নং
+                ক্রম
               </th>
               <th
                 className={`${nameColClass} pl-1 align-middle ${CELL} ${STICKY_PIN_HEAD}`}

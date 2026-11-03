@@ -808,10 +808,10 @@ export const ActivityPage = () => {
                           onClick={() => setSelectMode(true)}
                           title="নির্বাচন মোড"
                         >
-                          নং
+                          ক্রম
                         </button>
                       ) : (
-                        'নং'
+                        'ক্রম'
                       )}
                     </span>
                   </th>

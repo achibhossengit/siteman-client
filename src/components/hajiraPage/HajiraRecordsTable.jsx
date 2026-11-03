@@ -163,10 +163,10 @@ export function HajiraRecordsTable({
                     onClick={() => setSelectMode(true)}
                     title="নির্বাচন মোড"
                   >
-                    নং
+                    ক্রম
                   </button>
                 ) : (
-                  "নং"
+                  "ক্রম"
                 )}
               </span>
             </th>

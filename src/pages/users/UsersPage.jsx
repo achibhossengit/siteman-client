@@ -173,7 +173,7 @@ export const UsersPage = () => {
           <thead className="sticky top-0 z-10 bg-base-200">
             <tr className="border-b-2 border-base-300">
               <th className="w-12">
-                <span className="inline-flex h-8 items-center">নং</span>
+                <span className="inline-flex h-8 items-center">ক্রম</span>
               </th>
               <th className="min-w-0">
                 <div className="grid h-8 w-full min-w-0 items-center overflow-hidden">

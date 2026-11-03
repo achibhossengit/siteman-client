@@ -363,7 +363,7 @@ export const SitePrivateCashPanel = ({
         <table className="table table-sm sm:table-md w-full">
           <thead>
             <tr className="border-b border-base-300">
-              <th className="w-12">নং</th>
+              <th className="w-12">ক্রম</th>
               <th className="w-20">তারিখ</th>
               {SHOW_BILLING ? (
                 <th>
