@@ -6,7 +6,7 @@ import {
   CalendarCheck,
   Wallet,
 } from 'lucide-react'
-import { fetchDailyReport } from '../../api/sites.js'
+import { dailyReportSummary, fetchDailyReport } from '../../api/sites.js'
 import { cashTypeLabel } from '../../api/types/siteCash.js'
 import { parseApiError } from '../../api/errors.js'
 import { ApiErrorAlert } from '../../components/ApiErrorAlert.jsx'
@@ -102,7 +102,7 @@ export const BalancePage = () => {
     )
   }
 
-  const report = query.data
+  const report = dailyReportSummary(query.data)
   if (!report) {
     return (
       <div className="flex-1 min-h-0 overflow-y-auto">

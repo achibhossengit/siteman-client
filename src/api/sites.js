@@ -41,23 +41,61 @@ export const deleteSite = (siteId, { password } = {}) =>
     data: { password },
   })
 
+/** Server cap for a daily-report range page. */
+const DAILY_REPORT_MAX_PAGE_SIZE = 100
+
+const isSummary = (value) =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
 /**
- * Day or range summary for a site.
  * GET /sites/{id}/daily-reports
- * Single day: `date` (required). Range: `date__gte` + `date__lte`.
- * OpenAPI documents 200 as `Site` (incorrect) — live shape is aggregates.
+ * The summary is always `total`: site, present_count, labour_payment,
+ * labour_return, deposit, withdrawal, site_cost, total_cost, remaining,
+ * previous_balance, balance (plus total_salary / extra_earnings when permitted).
+ *
+ * No date params, or `date`: `{ total }`.
+ *
+ * `date__gte` + `date__lte`: `{ count, next, previous, results, total }`.
+ * `results` lists every calendar day in the inclusive range, oldest first
+ * (empty days are zeros). Each row is the same fields plus `date`.
+ * `total` has no `date`; it is the full-range aggregate and is the same on
+ * every page. `page` defaults to 1; `page_size` defaults to 50, max 100.
  */
 export const fetchDailyReport = (
   siteId,
-  { date, date__gte, date__lte } = {},
+  { date, date__gte, date__lte, page, page_size } = {},
 ) => {
+  const range = Boolean(date__gte && date__lte)
+  const size = Number(page_size)
   const params = {
     ...(date ? { date } : {}),
     ...(date__gte ? { date__gte } : {}),
     ...(date__lte ? { date__lte } : {}),
+    ...(range && page != null ? { page } : {}),
+    ...(range && Number.isFinite(size)
+      ? {
+          page_size: Math.min(
+            Math.max(1, Math.trunc(size)),
+            DAILY_REPORT_MAX_PAGE_SIZE,
+          ),
+        }
+      : {}),
   }
-  return api.get(endpoints.sites.dailyReports(siteId), { params })
+  return api.get(endpoints.sites.dailyReports(siteId), { params }).then((res) => ({
+    ...res,
+    data: range ? asPage(res.data) : asDayReport(res.data),
+  }))
 }
+
+/** Day or undated body is `{ total }`. A leftover flat summary is wrapped. */
+const asDayReport = (data) => {
+  if (isSummary(data?.total)) return { total: data.total }
+  return { total: isSummary(data) ? data : null }
+}
+
+/** Summary fields. Both response shapes keep them on `total`. */
+export const dailyReportSummary = (data) =>
+  isSummary(data?.total) ? data.total : null
 
 /**
  * Site cash ledger list (paginated).
