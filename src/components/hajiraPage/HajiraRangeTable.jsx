@@ -97,7 +97,7 @@ export function HajiraRangeTable({
         >
           {!showDayColumns ? (
             <colgroup>
-              <col className="w-7" />
+              <col className="w-10" />
               <col />
               <col className="w-[1%] min-w-14" />
               <col className="w-[1%] min-w-14" />
@@ -106,7 +106,7 @@ export function HajiraRangeTable({
           ) : null}
           <thead className={`sticky top-0 z-10 ${HEAD_BG}`}>
             <tr>
-              <th className={`w-7 text-center align-middle ${CELL} ${HEAD_BG}`}>
+              <th className={`w-10 text-center align-middle ${CELL} ${HEAD_BG}`}>
                 নং
               </th>
               <th
@@ -159,7 +159,7 @@ export function HajiraRangeTable({
                     <tr className="bg-transparent">
                       <td
                         rowSpan={pairRows}
-                        className={`text-center align-middle tabular-nums text-base-content/60 w-7 ${BAND_H} ${CELL} ${stripe}`}
+                        className={`text-center align-middle tabular-nums text-base-content/60 w-10 ${BAND_H} ${CELL} ${stripe}`}
                       >
                         {formatBnNumber(index + 1)}
                       </td>
@@ -485,7 +485,7 @@ function FootTitle({
 }) {
   return (
     <>
-      <td className={`w-7 ${y} ${bg}`} />
+      <td className={`w-10 ${y} ${bg}`} />
       <td
         className={`align-middle text-right whitespace-nowrap pr-1 ${FOOT_LABEL_H} ${y} ${BORDER_X} ${STICKY_PIN_FOOT} ${bg}`}
       >

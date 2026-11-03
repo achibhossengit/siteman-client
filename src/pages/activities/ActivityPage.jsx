@@ -782,7 +782,7 @@ export const ActivityPage = () => {
             <table className={`table table-fixed table-sm sm:table-md w-full ${TABLE_GRID} [&_th]:!px-1 [&_th]:!py-1.5 sm:[&_th]:!py-2 [&_th]:text-sm [&_th]:font-semibold [&_th]:leading-tight [&_th]:align-middle`}>
               <thead className={`sticky top-0 z-10 ${HEAD_BG}`}>
                 <tr className={HEAD_TH}>
-                  <th className={`w-12 ${CELL_GRID}`}>
+                  <th className={`w-10 ${CELL_GRID}`}>
                     <span className="inline-flex w-full items-center justify-center">
                       {selectMode && canChangeActivityLog ? (
                         <input
@@ -862,7 +862,7 @@ export const ActivityPage = () => {
                         onClick={() => openDetail(row)}
                       >
                         <td
-                          className={`tabular-nums text-base-content/60 text-center w-12 px-1 sm:px-3 align-middle ${CELL_GRID}`}
+                          className={`tabular-nums text-base-content/60 text-center w-10 px-0.5 sm:px-1 align-middle ${CELL_GRID}`}
                           onClick={(e) => {
                             if (!selectMode) return
                             e.stopPropagation()

@@ -420,7 +420,7 @@ const toFormValues = (cash) => ({
 
 const colgroup = (showDateCol) => (
   <colgroup>
-    <col className="w-7 sm:w-8" />
+    <col className="w-10" />
     {showDateCol ? <col className="w-24 sm:w-28" /> : null}
     <col />
     {SHOW_BILLING ? <col className="w-20 sm:w-28" /> : null}
@@ -1145,7 +1145,7 @@ export const CashPage = () => {
           {colgroup(isRange)}
           <thead className={`sticky top-0 z-10 ${HEAD_BG}`}>
             <tr className={HEAD_TH}>
-              <th className={`w-7 sm:w-8 px-0.5 sm:px-1 ${CELL_GRID}`}>
+              <th className={`w-10 px-0.5 sm:px-1 ${CELL_GRID}`}>
                 <span className="inline-flex w-full items-center justify-center">
                   {selectMode && canChangeActivityLog ? (
                     <input
@@ -1270,7 +1270,7 @@ export const CashPage = () => {
                     onClick={() => openDetail(row)}
                   >
                     <td
-                      className={`tabular-nums text-base-content/60 text-center align-middle w-7 sm:w-8 px-0.5 sm:px-1 ${CELL_GRID}`}
+                      className={`tabular-nums text-base-content/60 text-center align-middle w-10 px-0.5 sm:px-1 ${CELL_GRID}`}
                       onClick={(e) => {
                         if (!selectMode) return;
                         e.stopPropagation();
@@ -1328,7 +1328,7 @@ export const CashPage = () => {
           {showSummary && isAllRecords ? (
             <tfoot>
               <tr id={cashMotRowId("deposit")} className={FOOT_TR}>
-                <td className={`w-7 sm:w-8 ${BORDER_Y_SOFT} ${FOOT_MOT_BG}`} />
+                <td className={`w-10 ${BORDER_Y_SOFT} ${FOOT_MOT_BG}`} />
                 <td
                   colSpan={tableCols - 2}
                   className={`${FOOT_LABEL} ${BORDER_Y_SOFT} ${CELL_GRID} ${FOOT_MOT_BG}`}
@@ -1343,7 +1343,7 @@ export const CashPage = () => {
                 </td>
               </tr>
               <tr id={cashMotRowId("withdrawal")} className={FOOT_TR}>
-                <td className={`w-7 sm:w-8 ${BORDER_Y_SOFT} ${FOOT_MOT_BG}`} />
+                <td className={`w-10 ${BORDER_Y_SOFT} ${FOOT_MOT_BG}`} />
                 <td
                   colSpan={tableCols - 2}
                   className={`${FOOT_LABEL} ${BORDER_Y_SOFT} ${CELL_GRID} ${FOOT_MOT_BG}`}
@@ -1358,7 +1358,7 @@ export const CashPage = () => {
                 </td>
               </tr>
               <tr id={cashMotRowId("cost")} className={FOOT_TR}>
-                <td className={`w-7 sm:w-8 ${BORDER_Y} ${FOOT_MOT_BG}`} />
+                <td className={`w-10 ${BORDER_Y} ${FOOT_MOT_BG}`} />
                 <td
                   colSpan={tableCols - 2}
                   className={`${FOOT_LABEL} ${BORDER_Y} ${CELL_GRID} ${FOOT_MOT_BG}`}
@@ -1376,7 +1376,7 @@ export const CashPage = () => {
           ) : showSummary ? (
             <tfoot>
               <tr id={cashMotRowId(activeView.id)} className={FOOT_TR}>
-                <td className={`w-7 sm:w-8 ${BORDER_Y} ${FOOT_MOT_BG}`} />
+                <td className={`w-10 ${BORDER_Y} ${FOOT_MOT_BG}`} />
                 <td
                   colSpan={tableCols - 2}
                   className={`${FOOT_LABEL} ${BORDER_Y} ${CELL_GRID} ${FOOT_MOT_BG}`}
