@@ -175,11 +175,12 @@ export const BalancePage = () => {
     [date, dateEnd],
   )
   const isCalendarRange = Boolean(reportParams.date__gte && reportParams.date__lte)
+  const isSingleDay = Boolean(reportParams.date)
   const [view, setView] = useState('total')
 
   useEffect(() => {
-    if (!isCalendarRange) setView('total')
-  }, [isCalendarRange])
+    if (isSingleDay) setView('total')
+  }, [isSingleDay])
 
   const query = useQuery({
     queryKey: ['sites', siteId, 'daily-reports', 'summary', reportParams],
@@ -200,14 +201,18 @@ export const BalancePage = () => {
       fetchAllPages(
         ({ page, page_size }) =>
           fetchDailyReportDetails(siteId, {
-            date__gte: reportParams.date__gte,
-            date__lte: reportParams.date__lte,
+            ...(isCalendarRange
+              ? {
+                  date__gte: reportParams.date__gte,
+                  date__lte: reportParams.date__lte,
+                }
+              : {}),
             page,
             page_size,
           }),
         { page_size: DAY_PAGE_SIZE },
       ),
-    enabled: Boolean(siteId && date && isCalendarRange && view === 'detail'),
+    enabled: Boolean(siteId && date && !isSingleDay && view === 'detail'),
   })
 
   if (!siteId) {
@@ -265,9 +270,12 @@ export const BalancePage = () => {
         String(a.date).localeCompare(String(b.date)),
       )
     : []
-  const spansYears =
-    reportParams.date__gte?.slice(0, 4) !== reportParams.date__lte?.slice(0, 4)
-  const showDetail = isCalendarRange && view === 'detail'
+  const firstDay = days[0]?.date
+  const lastDay = days.at(-1)?.date
+  const spansYears = isCalendarRange
+    ? reportParams.date__gte.slice(0, 4) !== reportParams.date__lte.slice(0, 4)
+    : Boolean(firstDay && lastDay && firstDay.slice(0, 4) !== lastDay.slice(0, 4))
+  const showDetail = !isSingleDay && view === 'detail'
 
   const openCashFocus = (cashFocus) => () => {
     writeCashFocus(cashFocus)
@@ -322,7 +330,7 @@ export const BalancePage = () => {
             <span role="tab" aria-selected="true" className="text-neutral-content">
               সর্বমোট
             </span>
-            {isCalendarRange ? (
+            {!isSingleDay ? (
               <button
                 type="button"
                 role="tab"

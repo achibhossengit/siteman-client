@@ -68,19 +68,28 @@ export const fetchDailyReport = (
 }
 
 /**
- * GET /sites/{id}/daily-reports/details — one row per calendar day in the
- * inclusive range, oldest first. Empty days are zeros. No aggregate `total`.
- * Requires `date__gte` and `date__lte`. Do not send `date`.
+ * GET /sites/{id}/daily-reports/details — one row per calendar day, oldest
+ * first. Empty days are zeros. No aggregate `total`.
+ * `date__gte` and `date__lte` together select an inclusive range. Omit both
+ * for every day from the site's first activity through its last. Never send
+ * `date`, and never send only one bound.
  * `page` defaults to 1; `page_size` defaults to 50, max 100.
+ * A site with no activity and no dates returns `{ count: 0, results: [] }`.
  */
 export const fetchDailyReportDetails = (
   siteId,
   { date__gte, date__lte, page, page_size } = {},
 ) => {
+  const hasGte = Boolean(date__gte)
+  const hasLte = Boolean(date__lte)
+  if (hasGte !== hasLte) {
+    return Promise.reject(
+      new Error('date__gte and date__lte must both be set, or both omitted'),
+    )
+  }
   const size = Number(page_size)
   const params = {
-    ...(date__gte ? { date__gte } : {}),
-    ...(date__lte ? { date__lte } : {}),
+    ...(hasGte ? { date__gte, date__lte } : {}),
     ...(page != null ? { page } : {}),
     ...(Number.isFinite(size)
       ? {
